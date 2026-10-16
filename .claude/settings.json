@@ -1,13 +1,16 @@
 {
-  "extraKnownMarketplaces": {
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/install-ponytail.sh"
+          }
+        ]
       }
-    }
+    ]
   },
-  "enabledPlugins": {
-    "ponytail@ponytail": true
-  }
+  "enabledPlugins": {},
+  "extraKnownMarketplaces": {}
 }
