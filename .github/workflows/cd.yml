@@ -1,19 +1,15 @@
 name: CD
 
+# Triggered manually (Actions tab -> CD -> Run workflow), independently of the CI.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: cd
   cancel-in-progress: false
 
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
   deploy:
-    needs: ci
     # Self-hosted runner installed on the Raspberry Pi
     runs-on: [self-hosted, raspberry]
     steps:
