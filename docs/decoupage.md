@@ -1,0 +1,130 @@
+# Cockpit v2 — Découpage en tranches
+
+> Une tranche = une pull request = quelque chose que Dorian peut **tester lui-même** à la fin.
+> Chaque tranche traverse toute la stack (base → noyau → API → écran → tests), en petit.
+> On ne commence une tranche que quand la précédente est mergée.
+
+## Règles du découpage
+
+- **Vertical, pas horizontal** : pas de « toute la base », puis « toute l'API », puis « toute l'interface ».
+- **Petit** : si une tranche ne se relit pas en une séance, on la coupe.
+- **Démontrable** : chaque tranche finit par une démo concrète (« je clique ici, je vois ça »).
+- **Les règles non négociables sont là dès le début** : propriétaire sur chaque donnée, historique inaltérable, aucun secret en clair, erreurs visibles.
+- **Chaque PR** contient une section « Notions TS utilisées ici ».
+
+## Décisions déjà prises
+
+| Sujet | Décision |
+|---|---|
+| Langage | TypeScript (Dorian l'apprend) |
+| Hébergement | Une instance partagée sur le Raspberry Pi ; chaque développeur s'y connecte |
+| Utilisateurs | Propriétaire sur chaque donnée et connexion GitHub dès le début ; invitations, admin et partage plus tard |
+| Données v1 | Aucune reprise, aucun code de la v1 |
+| Périmètre de départ | La boucle cœur, en local seulement |
+| Lancement local | Claude Desktop installé sur le PC ; Cockpit ouvre la session via `claude://code/new` |
+| Relecture | Dorian relit toutes les PR |
+| Stack | Node + Hono + React/Vite + SQLite/Drizzle + Zod + SSE, voir [`decisions/001-stack.md`](decisions/001-stack.md) |
+
+---
+
+## Étape 0 — Concevoir (sans code)
+
+Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
+
+| # | Sujet | Résultat |
+|---|---|---|
+| 0.1 | Stack technique | `001-stack.md` validé |
+| 0.2 | Modèle de données (projets, tickets, US, runs, historique, utilisateurs) | `002-modele-donnees.md` + schéma |
+| 0.3 | Interface : carte de navigation et maquettes des écrans de la boucle | `003-interface.md` + maquettes |
+| 0.4 | Liste des outils MCP et ce que chacun a le droit de faire | `004-outils-mcp.md` |
+| 0.5 | Lancement local via Claude Desktop (modèle, mode, chemin du clone) | `005-lancement-local.md` |
+
+---
+
+## Phase 1 — Fondations
+
+| # | Tranche | Démo |
+|---|---|---|
+| 1.1 | **Squelette** : serveur, page React vide servie par le serveur, base SQLite avec sa première migration, tests, lint, CI remplie | `npm test` passe, la CI est verte, une page « Cockpit » s'affiche en local |
+| 1.2 | **Déploiement sur le Pi** : `deploy.sh` réel, Docker, volume pour la base | La page s'affiche à l'adresse publique du Pi après un lancement du CD |
+| 1.3 | **Connexion GitHub** : connexion via la GitHub App, liste des comptes autorisés en configuration, déconnexion | Je me connecte avec GitHub et je vois mon nom ; un compte non autorisé est refusé avec un message clair |
+| 1.4 | **Historique inaltérable** : table du journal protégée par la base, fonction « action métier » (vérifie le droit → applique → journalise, dans une seule transaction), connexion et déconnexion journalisées, page Journal simple | Ma connexion apparaît dans le journal ; un test prouve qu'une entrée ne peut être ni modifiée ni supprimée |
+
+## Phase 2 — Projets
+
+| # | Tranche | Démo |
+|---|---|---|
+| 2.1 | **Importer un projet** : l'utilisateur choisit ses repos sur GitHub (installation de la GitHub App), Cockpit les liste, j'en importe un ; liste de mes projets ; archiver | J'importe un repo, il apparaît ; un autre utilisateur ne le voit pas (test d'isolation) |
+| 2.2 | **Bilan de santé (lecture)** : `CLAUDE.md`, CI, serveur MCP déclaré sans secret, agents et skill présents — vert ou rouge | La page du projet affiche chaque ligne avec son état réel |
+
+## Phase 3 — Tickets
+
+| # | Tranche | Démo |
+|---|---|---|
+| 3.1 | **Ticket** : créer (titre + projet suffisent), description markdown, modifier, supprimer ; liste par projet ; étape « Nouveau » calculée | Je crée un ticket, je le modifie, il s'affiche « Nouveau » ; chaque action est dans le journal |
+
+## Phase 4 — Serveur MCP et user stories
+
+| # | Tranche | Démo |
+|---|---|---|
+| 4.1 | **Jetons MCP** : créer (affiché une seule fois, stocké haché), nommer, révoquer | Je crée un jeton, je ne peux plus le revoir, je le révoque |
+| 4.2 | **Serveur MCP minimal** : authentification par jeton, enrobage qui journalise **chaque** appel (réussite, erreur, refus), outils `list_projects` et `get_project` | Dans Claude Code, « liste mes projets » fonctionne ; l'appel est dans le journal ; un faux jeton est refusé et journalisé |
+| 4.3 | **Claude écrit les US** : outils `list_tickets_needing_us` et `create_user_stories` (tout ou rien, refus si un champ ou un critère manque), page d'une US, étape du ticket calculée, skill `/write-us` dans le catalogue de Cockpit | Je demande à Claude d'écrire les US d'un ticket : elles apparaissent « à valider », le ticket passe « À valider » |
+| 4.4 | **Décisions humaines sur une US** : valider, modifier, renvoyer avec commentaire obligatoire, abandonner ; outil `update_user_story` pour la réécriture ; **table des droits** (qui peut faire quelle transition) testée ligne par ligne ; historique de l'US (Claude et humain distingués) | Je renvoie une US, Claude la réécrit, je la valide ; Claude ne peut ni valider ni abandonner (refus journalisé) |
+| 4.5 | **Kanban par projet** : colonnes à valider, prêtes, en cours, en revue, terminées ; sans glisser-déposer | Le tableau reflète l'état réel des US |
+| 4.6 | **Publication en issue GitHub** : à la validation, l'US devient une issue (gabarit unique, label de statut), tenue à jour | Je valide une US, l'issue apparaît sur GitHub ; je modifie l'US, l'issue suit |
+
+## Phase 5 — Webhooks GitHub
+
+| # | Tranche | Démo |
+|---|---|---|
+| 5.1 | **Recevoir les webhooks** : vérification de la signature, journalisation, ligne « webhook installé et dernière livraison réussie » du bilan de santé | Un événement GitHub apparaît dans le journal ; le bilan passe au vert |
+| 5.2 | **Issue modifiée sur GitHub** : Cockpit le signale avec le diff ; l'humain choisit la version à garder | Je modifie l'issue sur GitHub, Cockpit me montre le diff et me laisse choisir |
+
+## Phase 6 — Préparer les repos pour Claude
+
+Doit précéder le développement : le skill `/dev-us` et ses agents doivent être dans le repo.
+
+| # | Tranche | Démo |
+|---|---|---|
+| 6.1 | **Écrire dans un repo sans rien écraser** : diff montré avant, un commit, refus si le fichier a changé sur GitHub entre-temps | Mécanisme testé contre un faux GitHub |
+| 6.2 | **Catalogue + « Préparer pour Claude en un clic »** : skill `/dev-us`, agents test-writer, developer, reviewer, `.mcp.json` sans secret ; un seul commit montré fichier par fichier | Sur un repo rouge, un clic → je vois les fichiers → je valide → le bilan passe au vert |
+
+## Phase 7 — Développer une US en local
+
+| # | Tranche | Démo |
+|---|---|---|
+| 7.1 | **Run minimal** : outils `start_run` (US → « en cours », un seul run actif par US), `report_step`, `finish_run` ; page du run mise à jour en direct (SSE) | Depuis une session Claude Code, un run démarre et ses étapes s'affichent en direct dans Cockpit |
+| 7.2 | **Fenêtre « Développer avec Claude »** : branche (nouvelle, nommée selon la convention et créée sur GitHub, ou existante), prompt complémentaire, rappel des dépendances ; chemin du clone local mémorisé par utilisateur et par projet ; le bouton ouvre Claude Desktop sur le clone avec `/dev-us` prérempli | Un clic dans Cockpit → Desktop s'ouvre dans le bon dossier avec le prompt prêt |
+| 7.3 | **Critères et PR** : `report_criterion` (résultat + preuve), `link_pull_request` (US → « en revue ») | À la fin du run, chaque critère a son résultat et la PR est liée |
+| 7.4 | **Questions de Claude** : `ask_user` / `get_answer`, champ de réponse sur la page du run | Claude pose une question, je réponds dans Cockpit, il reprend |
+| 7.5 | **Arrêter, relancer, fermer** : arrêt demandé (lu à la prochaine étape), relance avec commentaire sur la même branche, fermeture à la main d'un run muet ; run échoué → US « prête » | Je demande l'arrêt, Claude s'arrête à l'étape suivante |
+| 7.6 | **Suivi de la PR** : par webhooks — ouverte, mergée → US terminée, fermée → US prête ; CI et revue ; bloc GitHub sur la page de l'US ; bouton « Actualiser » | Je merge sur GitHub, l'US passe « terminée » toute seule |
+| 7.7 | **Aide à la décision** : critères + CI → verdict « acceptable » ou « à vérifier » avec les raisons | La fin d'un run affiche le verdict |
+
+## Phase 8 — Accueil
+
+| # | Tranche | Démo |
+|---|---|---|
+| 8.1 | **« Qu'est-ce qui m'attend ? »** : À toi de jouer, Claude travaille, Projets ; pastille par projet dans la barre latérale | L'accueil liste exactement ce qui attend mon action, chaque élément mène où agir |
+
+**→ Fin du MVP : la boucle complète idée → US → validation → développement → PR → merge fonctionne en local.**
+
+---
+
+## Après le MVP (ordre à rediscuter le moment venu)
+
+- **Projets** : créer depuis un repo modèle, gérer le repo modèle.
+- **Configuration Claude** : éditer `CLAUDE.md`, règles, agents, skills et `.mcp.json` depuis Cockpit ; configuration globale (repo de plugins).
+- **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
+- **GitHub** : supprimer la branche d'une US mergée, changelog par projet.
+- **Plusieurs utilisateurs** : invitations, administration, partage de projet.
+- **Cloud** : sessions cloud, routines.
+- **Automatisations** : file d'attente ; la relance automatique est peut-être remplacée par l'Auto-fix natif de Claude Code (à étudier).
+- **Coût et budget** (télémétrie OpenTelemetry), **notifications** sur le téléphone, **CI/CD proposée par Claude**, **brancher un PC en une commande**.
+- **Ergonomie** : raccourcis clavier, recherche globale, thème clair/sombre, version mobile (PWA).
+
+## Points ouverts
+
+- **Modèle et mode de permission au lancement** : le lien `claude://code/new` ne les transmet pas (seulement `folder` et `q`). Options à discuter en 0.5 : les choisir dans Desktop, ou les fixer par projet dans `.claude/settings.json` (`model`, `permissions.defaultMode`) — ce qui touche au périmètre exclu §9 du brief.
+- **Prompt non envoyé automatiquement** : Desktop préremplit, l'humain appuie sur Entrée, et confirme le dossier.
