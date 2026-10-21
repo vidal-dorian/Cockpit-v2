@@ -4,9 +4,11 @@ services:
   cockpit:
     build: .
     restart: unless-stopped
+    # Run as the Pi user that owns the data folder, so the database stays writable without sudo.
+    user: "${COCKPIT_UID:?run through scripts/deploy.sh}:${COCKPIT_GID:?run through scripts/deploy.sh}"
     volumes:
       # The database lives on the Pi, outside the container, so it survives every rebuild.
-      - /srv/cockpit/data:/data
+      - ${COCKPIT_DATA_DIR:?run through scripts/deploy.sh}:/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 30s

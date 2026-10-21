@@ -1,32 +1,29 @@
 # Déploiement sur le Raspberry Pi
 
+> Pour faire cette mise en place avec Claude Code sur le Pi, lui donner [`deploy-with-claude-code.md`](deploy-with-claude-code.md) : le même déroulé, écrit pour lui.
+
 Cockpit tourne sur le Pi dans Docker. Il est joignable depuis Internet par un **tunnel Cloudflare** : aucun port n'est ouvert sur le Pi ni sur la box.
 
 ```
 Internet ──HTTPS──► Cloudflare ◄──tunnel sortant── cloudflared (conteneur) ──► cockpit:3000 (conteneur)
                                                                                     │
-                                                                       /srv/cockpit/data (la base, sur le Pi)
+                                                                       ~/cockpit/data (la base, sur le Pi)
 ```
 
 | Fichier | Rôle |
 |---|---|
 | `Dockerfile` | Construit l'image : la page (Vite), le serveur et ses dépendances de production |
-| `docker-compose.yml` | Deux conteneurs : `cockpit` et `cloudflared`. La base est montée depuis `/srv/cockpit/data` |
-| `scripts/deploy.sh` | Reconstruit et redémarre ; échoue si Cockpit ne répond pas sur `/api/health` |
+| `docker-compose.yml` | Deux conteneurs : `cockpit` et `cloudflared`. La base est montée depuis `~/cockpit/data` |
+| `scripts/deploy.sh` | Crée `~/cockpit/data` si besoin, reconstruit et redémarre ; échoue si Cockpit ne répond pas sur `/api/health` |
 | `.github/workflows/cd.yml` | Lancé à la main ; exécute `deploy.sh` sur le Pi |
 
 ## Mise en place (une seule fois)
 
 ### 1. Le dossier de la base
 
-Sur le Pi :
+Rien à faire : `deploy.sh` crée `~/cockpit/data` dans le dossier personnel de l'utilisateur du runner, à côté de `~/actions-runner-cockpit`. Le conteneur tourne avec l'identifiant de cet utilisateur : la base lui appartient, sans `sudo`.
 
-```sh
-sudo mkdir -p /srv/cockpit/data
-sudo chown 1000:1000 /srv/cockpit/data
-```
-
-Le conteneur tourne avec l'utilisateur `node` (identifiant 1000), pas en administrateur : il doit pouvoir écrire dans ce dossier. Sinon, le déploiement échoue avec `unable to open database file`.
+Pourquoi pas dans le dossier du code ? Avant chaque déploiement, le runner nettoie son dossier de travail (`git clean`) : une base rangée là serait effacée.
 
 ### 2. Le tunnel Cloudflare
 
@@ -91,8 +88,8 @@ docker compose -p cockpit logs cloudflared   # journal du tunnel
 
 ## Sauvegarder la base
 
-La base est le dossier `/srv/cockpit/data`. Pour une copie sûre pendant que Cockpit tourne, utiliser la sauvegarde de SQLite plutôt qu'un simple `cp` (la base écrit aussi dans des fichiers `-wal` et `-shm`) :
+La base est le dossier `~/cockpit/data` de l'utilisateur du runner. Pour une copie sûre pendant que Cockpit tourne, utiliser la sauvegarde de SQLite plutôt qu'un simple `cp` (la base écrit aussi dans des fichiers `-wal` et `-shm`) :
 
 ```sh
-sqlite3 /srv/cockpit/data/cockpit.db ".backup '/chemin/vers/cockpit-$(date +%F).db'"
+sqlite3 ~/cockpit/data/cockpit.db ".backup '/chemin/vers/cockpit-$(date +%F).db'"
 ```
