@@ -71,9 +71,9 @@ Cockpit v2 est réécrit de zéro (aucun code de la v1). Il tourne sur un Raspbe
 
 - **Composants UI et CSS** : en 0.3 (interface) : Tailwind + shadcn/ui.
 - **Connexion et session** (flux GitHub App + cookie de session stocké en base) : en 1.3.
-- **Exposition sur Internet** (Caddy en HTTPS ou Cloudflare Tunnel) : en 1.2.
+- **Exposition sur Internet** : en 1.2 : **Cloudflare Tunnel** (aucun port ouvert ; le domaine de Dorian est déjà chez Cloudflare), voir [`deploiement.md`](../deploiement.md).
 
 ## À vérifier au moment de la tranche concernée
 
 - **4.2** : le branchement du transport HTTP du SDK MCP sur Hono.
-- **1.1** : que better-sqlite3 s'installe sur l'image Docker ARM64 du Pi sans compilation.
+- ~~**1.1** : que better-sqlite3 s'installe sur l'image Docker ARM64 du Pi sans compilation.~~ Vérifié en 1.2 : il embarque ses binaires précompilés (dont `linux-arm64`) ; l'image installe avec `npm ci --ignore-scripts` pour que npm n'essaie pas de le recompiler.

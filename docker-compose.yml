@@ -1,0 +1,27 @@
+name: cockpit
+
+services:
+  cockpit:
+    build: .
+    restart: unless-stopped
+    volumes:
+      # The database lives on the Pi, outside the container, so it survives every rebuild.
+      - /srv/cockpit/data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Outbound tunnel to Cloudflare: no port is opened on the Pi or the router.
+  # The public hostname is routed to http://cockpit:3000 in the Cloudflare dashboard.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is not set}
+    depends_on:
+      cockpit:
+        condition: service_healthy

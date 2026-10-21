@@ -23,3 +23,7 @@ npm test
 npm run lint
 npm run typecheck
 ```
+
+## Déployer
+
+Voir [`docs/deploiement.md`](docs/deploiement.md).

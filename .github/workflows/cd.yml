@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deploy
         run: ./scripts/deploy.sh
+        env:
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
 
   # Runs after every successful deploy: updates the release PR, or tags and
   # publishes the release once that PR has been merged.

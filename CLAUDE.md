@@ -17,6 +17,8 @@ Self-hosted control center for the GitHub repos developed with Claude Code. Read
 
 CI runs lint, typecheck, test and build. All four must pass before a PR.
 
+Deployment: Docker on the Raspberry Pi, reached through a Cloudflare Tunnel. The CD workflow (manual) runs `scripts/deploy.sh` on the Pi. See `docs/deploiement.md`.
+
 ## Layout
 
 - `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`).
