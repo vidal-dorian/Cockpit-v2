@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* Design tokens of decision 003. Names follow the shadcn/ui conventions
+   (background, foreground, primary…) so its components use them as is. */
+@theme {
+  --font-sans: "Figtree Variable", sans-serif;
+  --font-heading: "Bricolage Grotesque Variable", sans-serif;
+
+  --color-background: #f4f3f8;
+  --color-foreground: #1e1b2e;
+  --color-card: #ffffff;
+  --color-border: #e9e6f2;
+  --color-muted-foreground: #5f5a73;
+
+  /* Coral: waiting for you. Dark text on it, as decided in 003. */
+  --color-primary: #ff6a3d;
+  --color-primary-foreground: #1e1b2e;
+  --color-you-soft: #ffe9e0;
+  --color-you-text: #c2410c;
+
+  /* Violet: Claude is working. */
+  --color-claude: #7c6cf0;
+  --color-claude-soft: #ece8ff;
+  --color-claude-text: #4a3ab0;
+
+  /* Green: done or validated. */
+  --color-done: #2fb57b;
+  --color-done-soft: #ddf5ea;
+  --color-done-text: #16603f;
+
+  --color-destructive: #b4232a;
+  --color-destructive-soft: #fde4e4;
+}
+
+body {
+  @apply bg-background font-sans text-[15px] text-foreground;
+}

@@ -19,4 +19,13 @@ jobs:
           jq empty release-please-config.json .release-please-manifest.json
           test "$(jq -r '."."' .release-please-manifest.json)" = "$(tr -d '[:space:]' < version.txt)"
 
-      # TODO: add the project's lint / test / build steps once the stack is chosen.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
