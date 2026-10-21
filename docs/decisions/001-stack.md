@@ -69,7 +69,7 @@ Cockpit v2 est réécrit de zéro (aucun code de la v1). Il tourne sur un Raspbe
 
 ## Décidé ailleurs
 
-- **Composants UI et CSS** : en 0.3 (interface).
+- **Composants UI et CSS** : en 0.3 (interface) : Tailwind + shadcn/ui.
 - **Connexion et session** (flux GitHub App + cookie de session stocké en base) : en 1.3.
 - **Exposition sur Internet** (Caddy en HTTPS ou Cloudflare Tunnel) : en 1.2.
 
