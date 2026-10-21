@@ -133,6 +133,7 @@ erDiagram
         int id PK
         int run_id FK
         text question
+        text suggested_answers
         text answer
         text asked_at
         text answered_at
@@ -181,7 +182,7 @@ Sur `user_stories` :
 |---|---|---|
 | `runs` | Un développement d'une US par Claude Code | `status` ∈ `running`, `succeeded`, `failed`, `stopped`, `closed_manually` (`CHECK`). **Index unique sur `story_id` où `status = 'running'`** : un seul run actif par US, garanti par la base. Arrêt demandé = `stop_requested_at` rempli |
 | `run_steps` | Une étape d'un run, faite par un agent | `status` ∈ `running`, `succeeded`, `failed` |
-| `questions` | Une question de Claude pendant un run | En attente tant que `answer` est vide |
+| `questions` | Une question de Claude pendant un run | En attente tant que `answer` est vide. `suggested_answers` : au plus deux réponses proposées par Claude, en JSON, facultatives ([004](004-outils-mcp.md)) |
 
 Le **verdict** de fin de run (« acceptable » ou « à vérifier ») n'est pas stocké : il se calcule à partir des critères et de `pr_ci_state` (7.7).
 
