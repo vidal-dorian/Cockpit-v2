@@ -112,7 +112,6 @@ erDiagram
         int story_id FK
         int user_id FK
         text status
-        text model_requested
         text model_actual
         text stop_requested_at
         text comment
@@ -254,7 +253,8 @@ Un ticket n'est écrit qu'une fois : il n'est proposé à Claude que s'il n'a **
 
 | Sujet | Où il vivra |
 |---|---|
-| Chemin du clone local | Décision 005 (lancement local) |
+| Chemin du clone local | Dans le navigateur, par projet ([005](005-lancement-local.md)) |
+| Modèle demandé pour un run | Dans la fiche de chaque agent, dans le repo ([005](005-lancement-local.md)) ; seul `runs.model_actual` est en base |
 | Accès GitHub de Cockpit (jeton de l'utilisateur chiffré ou jeton de l'App) | Tranche 1.3 ; au plus deux colonnes sur `users` |
 | Catalogue d'agents et de skills | Des fichiers livrés avec Cockpit, pas des données |
 | Pièces jointes, priorité, tags, routines, cloud, coût, notifications, invitations, partage | Après le MVP, par de nouvelles tables ou colonnes |

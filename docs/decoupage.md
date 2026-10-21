@@ -21,7 +21,7 @@
 | Utilisateurs | Propriétaire sur chaque donnée et connexion GitHub dès le début ; invitations, admin et partage plus tard |
 | Données v1 | Aucune reprise, aucun code de la v1 |
 | Périmètre de départ | La boucle cœur, en local seulement |
-| Lancement local | Claude Desktop installé sur le PC ; Cockpit ouvre la session via `claude://code/new` |
+| Lancement local | Claude Desktop installé sur le PC ; Cockpit ouvre la session via `claude://code/new`, voir [`decisions/005-lancement-local.md`](decisions/005-lancement-local.md) |
 | Relecture | Dorian relit toutes les PR |
 | Stack | Node + Hono + React/Vite + SQLite/Drizzle + Zod + SSE, voir [`decisions/001-stack.md`](decisions/001-stack.md) |
 
@@ -95,7 +95,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 | # | Tranche | Démo |
 |---|---|---|
 | 7.1 | **Run minimal** : outils `start_run` (US → « en cours », un seul run actif par US), `report_step`, `finish_run` ; page du run mise à jour en direct (SSE) | Depuis une session Claude Code, un run démarre et ses étapes s'affichent en direct dans Cockpit |
-| 7.2 | **Fenêtre « Développer avec Claude »** : branche (nouvelle, nommée selon la convention et créée sur GitHub, ou existante), prompt complémentaire, rappel des dépendances ; chemin du clone local mémorisé par utilisateur et par projet ; le bouton ouvre Claude Desktop sur le clone avec `/dev-us` prérempli | Un clic dans Cockpit → Desktop s'ouvre dans le bon dossier avec le prompt prêt |
+| 7.2 | **Fenêtre « Développer avec Claude »** : branche (nouvelle, au nom proposé selon la convention, ou existante ; créée et poussée par `/dev-us`), prompt complémentaire, rappel des dépendances ; chemin du clone retenu par le navigateur, par projet ; le bouton ouvre Claude Desktop sur le clone avec `/dev-us` prérempli, et « Copier le prompt » en secours (voir [`decisions/005-lancement-local.md`](decisions/005-lancement-local.md)) | Un clic dans Cockpit → Desktop s'ouvre dans le bon dossier avec le prompt prêt |
 | 7.3 | **Critères et PR** : `report_criterion` (résultat + preuve), `link_pull_request` (US → « en revue ») | À la fin du run, chaque critère a son résultat et la PR est liée |
 | 7.4 | **Questions de Claude** : `ask_user` / `get_answer`, champ de réponse sur la page du run | Claude pose une question, je réponds dans Cockpit, il reprend |
 | 7.5 | **Arrêter, relancer, fermer** : arrêt demandé (lu à la prochaine étape), relance avec commentaire sur la même branche, fermeture à la main d'un run muet ; run échoué → US « prête » | Je demande l'arrêt, Claude s'arrête à l'étape suivante |
@@ -126,5 +126,4 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 
 ## Points ouverts
 
-- **Modèle et mode de permission au lancement** : le lien `claude://code/new` ne les transmet pas (seulement `folder` et `q`). Options à discuter en 0.5 : les choisir dans Desktop, ou les fixer par projet dans `.claude/settings.json` (`model`, `permissions.defaultMode`) — ce qui touche au périmètre exclu §9 du brief.
-- **Prompt non envoyé automatiquement** : Desktop préremplit, l'humain appuie sur Entrée, et confirme le dossier.
+- **Relancer une US en revue** (CI rouge après l'ouverture de la PR) : à trancher en 7.5, voir [`decisions/004-outils-mcp.md`](decisions/004-outils-mcp.md).
