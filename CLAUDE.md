@@ -23,6 +23,16 @@ CI runs lint, typecheck, test and build. All four must pass before a PR.
 - `src/web`: React page built by Vite. `api.ts` is the typed client of the server routes.
 - `drizzle/`: generated SQL migrations, applied at startup. Never edit an applied migration; add a new one.
 
+## Developing a user story
+
+Test-driven, always with the agents of `.claude/agents/`, in this order. Never start a step before the previous one is done.
+
+1. **test-writer** writes the acceptance tests from the Given/When/Then criteria. They must fail, for the right reason.
+2. **developer** implements until those tests pass, without touching them.
+3. **reviewer** reviews the diff with a fresh context. Blocking findings go back to the developer, then to a new review, until the verdict is **ready**.
+
+Only then open the pull request.
+
 ## Conventions
 
 - Node runs the TypeScript directly (type stripping): only erasable syntax (no `enum`, `namespace` or constructor parameter properties) and relative imports end in `.ts` / `.tsx`.
