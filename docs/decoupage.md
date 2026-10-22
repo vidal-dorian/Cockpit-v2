@@ -115,6 +115,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 
 ## Après le MVP (ordre à rediscuter le moment venu)
 
+- **Reprendre une app existante** (fonctionnalité phare) : Claude tire les règles métier d'un repo construit sans Cockpit, en citant le code ; je valide chaque règle en regard du code lu, puis un test fige chaque règle validée ; démo : je reprends une fonctionnalité de la v1, je vois le code à gauche et la règle à droite, je la valide et son test passe. Trois tranches, voir [`decisions/007-reprise-app-existante.md`](decisions/007-reprise-app-existante.md).
 - **Projets** : créer depuis un repo modèle, gérer le repo modèle.
 - **Configuration Claude** : éditer `CLAUDE.md`, règles, agents, skills et `.mcp.json` depuis Cockpit ; configuration globale (repo de plugins).
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
