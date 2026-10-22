@@ -11,7 +11,7 @@ if [ ! -f "$env_file" ]; then
   exit 1
 fi
 # grep instead of sourcing the file, so a crafted file cannot run code.
-for var in POSTGRES_PASSWORD TUNNEL_TOKEN; do
+for var in POSTGRES_PASSWORD TUNNEL_TOKEN GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET PUBLIC_URL ALLOWED_GITHUB_LOGINS; do
   if ! grep -Eq "^$var=([^\"']|[\"'][^\"'])" "$env_file"; then
     echo "$var is missing or empty in $env_file." >&2
     exit 1

@@ -5,7 +5,12 @@ import { openTestDatabase } from "./db/test-db.ts";
 let app: ReturnType<typeof createApp>;
 
 beforeAll(async () => {
-  app = createApp(await openTestDatabase(), "1.2.3");
+  app = createApp(await openTestDatabase(), "1.2.3", {
+    githubClientId: "client-id",
+    githubClientSecret: "client-secret",
+    publicUrl: "http://localhost:3000",
+    allowedLogins: ["octocat"],
+  });
 });
 
 describe("GET /api/health", () => {

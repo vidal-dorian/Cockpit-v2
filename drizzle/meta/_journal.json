@@ -8,6 +8,13 @@
       "when": 1792676806074,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792695921326,
+      "tag": "0001_glossy_cyclops",
+      "breakpoints": true
     }
   ]
 }

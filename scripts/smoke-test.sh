@@ -8,7 +8,14 @@ export COMPOSE_PROJECT_NAME=cockpit-smoke
 
 TMP=$(mktemp -d)
 ENV="$TMP/cockpit.env"
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" > "$ENV"
+# The app refuses to start without the GitHub login settings (slice 1.3); the values are dummies.
+cat > "$ENV" <<ENVFILE
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+GITHUB_CLIENT_ID=smoke-client-id
+GITHUB_CLIENT_SECRET=smoke-client-secret
+PUBLIC_URL=http://127.0.0.1:3000
+ALLOWED_GITHUB_LOGINS=smoke
+ENVFILE
 URL=http://127.0.0.1:3000
 VERSION=$(tr -d '[:space:]' < version.txt)
 FAILED=0
