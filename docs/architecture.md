@@ -87,10 +87,10 @@ Conventions : dates en `timestamptz`, JSON en `jsonb`, identifiants entiers `ide
 | Quand | Dorian et des proches | Dès les premiers clients payants |
 | Cockpit | Image Docker (Node, serveur, page construite) | La même image |
 | PostgreSQL | Conteneur, données dans un volume | Service géré : sauvegarde continue, restauration à une date |
-| Sauvegarde | `pg_dump` quotidien | Fournie par l'hébergeur |
+| Sauvegarde | `scripts/backup.sh` lancé chaque jour par cron : `pg_dump` compressé, 14 jours gardés | Fournie par l'hébergeur |
 | Exposition | Cloudflare Tunnel (`cloudflared`), aucun port ouvert | Selon l'hébergeur |
-| Mise en production | Workflow CD lancé à la main, runner sur le Pi, `scripts/deploy.sh` | À définir |
-| Secrets | Fichier d'environnement sur le Pi, hors du repo | Gestion des secrets de l'hébergeur |
+| Mise en production | Workflow CD lancé à la main, runner sur le Pi, `scripts/deploy.sh` (refuse de partir sans ses secrets, vérifie la version servie) | À définir |
+| Secrets | `/etc/cockpit/cockpit.env` sur le Pi (`POSTGRES_PASSWORD`, `TUNNEL_TOKEN`), hors du repo : le checkout du CD efface les fichiers non suivis | Gestion des secrets de l'hébergeur |
 
 Le code ne contient rien de propre au Pi : tout passe par des variables d'environnement (`DATABASE_URL`, `PORT`, puis les secrets GitHub). Passer de la phase 1 à la phase 2, c'est déplacer l'image et la base.
 
@@ -108,7 +108,8 @@ Le code ne contient rien de propre au Pi : tout passe par des variables d'enviro
 | Serveur Hono, route `/api/health`, page React servie par le serveur | Fait (1.1) |
 | Table `users`, migrations appliquées au démarrage | Fait (1.1), passée à PostgreSQL en 1.1 bis |
 | Tests serveur sur PGlite, tests d'écran, lint, typecheck, CI | Fait |
-| Workflow CD et `scripts/deploy.sh` | Squelette ; le vrai déploiement vient en 1.2 |
+| Déploiement : `Dockerfile`, `compose.yaml` (app, PostgreSQL, tunnel), `scripts/deploy.sh`, `scripts/backup.sh` | Écrit et testé (1.2) ; premier déploiement réel sur le Pi à faire ; procédure dans le README, « Déployer sur le Pi » |
+| Test de bout en bout du déploiement (`scripts/smoke-test.sh`, job `docker` de la CI) | Fait (1.2) |
 | Tout le reste (connexion GitHub, historique, projets, MCP…) | À faire, dans l'ordre du [découpage](decoupage.md) |
 
 ## Index des décisions

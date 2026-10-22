@@ -1,0 +1,59 @@
+name: cockpit
+
+services:
+  db:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set (see the env file)}
+      POSTGRES_DB: cockpit
+    # From PostgreSQL 18 the data lives under /var/lib/postgresql/18/docker, so the volume is one level up.
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      # Over TCP: on first start the image runs a temporary socket-only server that must not count as ready.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "cockpit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set (see the env file)}@db:5432/cockpit
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      # The slim image has no curl.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # In the Cloudflare dashboard, the public hostname points at http://app:3000 (service name on the Compose network).
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.0
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
+    environment:
+      # Not required here: deploy.sh checks it, and `up` without the tunnel profile must work without it.
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    profiles: [tunnel]
+    # Without it `up --wait` would report a tunnel with a bad token as healthy while it restart-loops.
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "localhost:2000", "ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
