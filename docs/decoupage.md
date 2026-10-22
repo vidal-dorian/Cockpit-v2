@@ -17,8 +17,9 @@
 - **Fait** : étape 0 (décisions 001 à 006 validées ; 007 et 008 proposées, à valider), tranches 1.1 et 1.1 bis.
 - **En cours** : tranche 1.2 (déploiement sur le Pi) : écrite et testée, le premier déploiement réel sur le Pi reste à faire.
 - **Fait** : tranche 1.3 (connexion GitHub, [décision 009](decisions/009-connexion-github.md)).
-- **En cours** : tranche 1.4 (historique inaltérable, [décision 010](decisions/010-historique.md)).
-- **Ensuite** : tranche 2.1.
+- **Fait** : tranche 1.4 (historique inaltérable, [décision 010](decisions/010-historique.md)).
+- **En cours** : tranche 2.1 (importer et archiver un projet, [décision 011](decisions/011-import-projets.md)).
+- **Ensuite** : tranche 2.2.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -54,6 +55,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.8 | Cockpit service en ligne : PostgreSQL, membres d'un projet, hébergement | `008-service-en-ligne.md` |
 | 0.9 | Connexion avec GitHub (tranche 1.3) | `009-connexion-github.md` |
 | 0.10 | Historique inaltérable (tranche 1.4) | `010-historique.md` |
+| 0.11 | Importer et archiver un projet (tranche 2.1) | `011-import-projets.md` |
 
 ---
 

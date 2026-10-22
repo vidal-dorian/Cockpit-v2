@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { githubAppConfig } from "./test-github.ts";
 
 type App = ReturnType<typeof createApp>;
 
@@ -12,6 +13,7 @@ const baseConfig = {
   githubClientSecret: "secret",
   publicUrl: "https://cockpit.example.com",
   allowedLogins: ["octocat"],
+  ...githubAppConfig,
 };
 const octocat = {
   id: 1,

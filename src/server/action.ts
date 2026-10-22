@@ -7,7 +7,8 @@ export type Entry = Required<
     typeof history.$inferInsert,
     "userId" | "actor" | "origin" | "action" | "args"
   >
->;
+> &
+  Pick<typeof history.$inferInsert, "projectId">;
 
 /** The work was not allowed; `act` records a `refused` entry. The message goes to the history, so it must be a fixed code: no free text, nothing personal. */
 export class Refused extends Error {}

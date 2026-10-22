@@ -59,4 +59,57 @@ describe("server entry point", () => {
     expect(result.status).toBeGreaterThan(0);
     expect(result.stderr).toContain("PUBLIC_URL");
   }, 15_000);
+
+  it("given GITHUB_APP_PRIVATE_KEY is missing, when it starts, then it exits with an error that names GITHUB_APP_PRIVATE_KEY before connecting to the database", () => {
+    const { GITHUB_APP_PRIVATE_KEY: _removed, ...env } = process.env;
+
+    const result = spawnSync("node", ["src/server/index.ts"], {
+      cwd: join(import.meta.dirname, "../.."),
+      env: {
+        ...env,
+        PORT: "0",
+        // Unreachable on purpose: the check must fail before any connection.
+        DATABASE_URL: "postgres://nobody:nothing@127.0.0.1:1/none",
+        GITHUB_CLIENT_ID: "client-id",
+        GITHUB_CLIENT_SECRET: "secret",
+        PUBLIC_URL: "http://localhost:3000",
+        ALLOWED_GITHUB_LOGINS: "octocat",
+        GITHUB_APP_ID: "123456",
+        GITHUB_APP_SLUG: "cockpit-test",
+      },
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+
+    expect(result.status).toBeGreaterThan(0);
+    expect(result.stderr).toContain("GITHUB_APP_PRIVATE_KEY");
+  }, 15_000);
+
+  it("given GITHUB_APP_PRIVATE_KEY is not a valid key, when it starts, then it exits with an error that names GITHUB_APP_PRIVATE_KEY before connecting to the database", () => {
+    const notAKey = Buffer.from(
+      "-----BEGIN PRIVATE KEY-----\nnot a key\n-----END PRIVATE KEY-----",
+    ).toString("base64");
+
+    const result = spawnSync("node", ["src/server/index.ts"], {
+      cwd: join(import.meta.dirname, "../.."),
+      env: {
+        ...process.env,
+        PORT: "0",
+        // Unreachable on purpose: the check must fail before any connection.
+        DATABASE_URL: "postgres://nobody:nothing@127.0.0.1:1/none",
+        GITHUB_CLIENT_ID: "client-id",
+        GITHUB_CLIENT_SECRET: "secret",
+        PUBLIC_URL: "http://localhost:3000",
+        ALLOWED_GITHUB_LOGINS: "octocat",
+        GITHUB_APP_ID: "123456",
+        GITHUB_APP_SLUG: "cockpit-test",
+        GITHUB_APP_PRIVATE_KEY: notAKey,
+      },
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+
+    expect(result.status).toBeGreaterThan(0);
+    expect(result.stderr).toContain("GITHUB_APP_PRIVATE_KEY");
+  }, 15_000);
 });

@@ -4,12 +4,14 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { githubAppConfig } from "./test-github.ts";
 
 const config = {
   githubClientId: "Iv1.client",
   githubClientSecret: "secret",
   publicUrl: "https://cockpit.example.com",
   allowedLogins: ["octocat"],
+  ...githubAppConfig,
 };
 
 async function setup() {

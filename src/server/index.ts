@@ -1,3 +1,4 @@
+import { createPrivateKey } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.ts";
@@ -41,6 +42,21 @@ const allowedLogins = required("ALLOWED_GITHUB_LOGINS")
   .split(",")
   .map((login) => login.trim())
   .filter(Boolean);
+const githubAppId = required("GITHUB_APP_ID");
+const githubAppSlug = required("GITHUB_APP_SLUG");
+// Base64 on one line, because an env file cannot hold a multi-line text (decision 011 H).
+const githubAppPrivateKey = Buffer.from(
+  required("GITHUB_APP_PRIVATE_KEY"),
+  "base64",
+).toString("utf8");
+try {
+  createPrivateKey(githubAppPrivateKey);
+} catch {
+  console.error(
+    'GITHUB_APP_PRIVATE_KEY is not the base64 of a PEM private key (see the README, "Créer la GitHub App").',
+  );
+  process.exit(1);
+}
 
 const port = Number(process.env.PORT ?? 3000);
 const version = readFileSync("version.txt", "utf8").trim();
@@ -50,6 +66,9 @@ const app = createApp(await openDatabase(databaseUrl), version, {
   githubClientSecret,
   publicUrl,
   allowedLogins,
+  githubAppId,
+  githubAppSlug,
+  githubAppPrivateKey,
 });
 
 serve({ fetch: app.fetch, port }, (info) => {
