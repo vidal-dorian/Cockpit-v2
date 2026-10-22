@@ -3,6 +3,7 @@
 - **Statut** : validée
 - **Date** : 2026-10-18
 - **Décidé par** : Dorian, avec Claude
+- **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : `project_members` remplace `projects.owner_id` ; dates en `timestamptz`, JSON en `jsonb`, transactions asynchrones
 - **Dépend de** : [001 — Stack technique](001-stack.md) (SQLite, Drizzle)
 
 ## Contexte

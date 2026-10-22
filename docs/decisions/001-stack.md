@@ -3,6 +3,7 @@
 - **Statut** : validée
 - **Date** : 2026-10-18
 - **Décidé par** : Dorian, avec Claude
+- **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : PostgreSQL remplace SQLite et better-sqlite3 ; l'exposition sur Internet est décidée (Cloudflare Tunnel)
 
 ## Contexte
 
