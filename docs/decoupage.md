@@ -14,9 +14,9 @@
 
 ## Avancement
 
-- **Fait** : étape 0 (décisions 001 à 006 validées ; 007 et 008 proposées, à valider), tranche 1.1.
-- **En cours** : tranche 1.1 bis (PostgreSQL).
-- **Ensuite** : tranche 1.2 (déploiement sur le Pi).
+- **Fait** : étape 0 (décisions 001 à 006 validées ; 007 et 008 proposées, à valider), tranches 1.1 et 1.1 bis.
+- **En cours** : tranche 1.2 (déploiement sur le Pi) : écrite et testée, le premier déploiement réel sur le Pi reste à faire.
+- **Ensuite** : tranche 1.3 (connexion GitHub).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
