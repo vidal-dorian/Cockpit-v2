@@ -38,6 +38,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.3 | Interface : carte de navigation et maquettes des écrans de la boucle | `003-interface.md` + maquettes |
 | 0.4 | Liste des outils MCP et ce que chacun a le droit de faire | `004-outils-mcp.md` |
 | 0.5 | Lancement local via Claude Desktop (modèle, mode, chemin du clone) | `005-lancement-local.md` |
+| 0.6 | Connexion de Claude à Cockpit par OAuth (connecteur claude.ai), après le MVP | `006-connexion-oauth.md` |
 
 ---
 
@@ -119,9 +120,10 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
 - **GitHub** : supprimer la branche d'une US mergée, changelog par projet.
 - **Plusieurs utilisateurs** : invitations, administration, partage de projet.
+- **Connexion OAuth** : Cockpit devient un connecteur claude.ai, disponible en local, dans le cloud et sur le téléphone sans jeton à copier ; démo : j'ajoute Cockpit sur claude.ai, je me connecte, « liste mes projets » marche depuis le téléphone. Voir [`decisions/006-connexion-oauth.md`](decisions/006-connexion-oauth.md). À faire avant ou avec le cloud.
 - **Cloud** : sessions cloud, routines.
 - **Automatisations** : file d'attente ; la relance automatique est peut-être remplacée par l'Auto-fix natif de Claude Code (à étudier).
-- **Coût et budget** (télémétrie OpenTelemetry), **notifications** sur le téléphone, **CI/CD proposée par Claude**, **brancher un PC en une commande**.
+- **Coût et budget** (télémétrie OpenTelemetry), **notifications** sur le téléphone, **CI/CD proposée par Claude** (« brancher un PC en une commande » est couvert par la connexion OAuth).
 - **Ergonomie** : raccourcis clavier, recherche globale, thème clair/sombre, version mobile (PWA).
 
 ## Points ouverts
