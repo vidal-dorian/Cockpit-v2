@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
+import { act, type Entry, Refused } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import { sessions, users } from "./db/schema.ts";
 
@@ -30,8 +32,40 @@ const githubUser = z.object({
   avatar_url: z.string().nullish(),
 });
 
+/** Errors thrown here become log lines and history reasons: fixed codes only, never GitHub's content. */
+function parseAnswer<T extends z.ZodType>(schema: T, answer: unknown) {
+  const parsed = schema.safeParse(answer);
+  if (!parsed.success) throw new Error("invalid_github_answer");
+  return parsed.data as z.output<T>;
+}
+
 const sha256 = (value: string) =>
   createHash("sha256").update(value).digest("hex");
+
+/** The account behind the session cookie, or null; an expired session is deleted on the way. */
+export async function currentUser(db: Db, c: Context) {
+  const value = getCookie(c, SESSION_COOKIE);
+  const [row] = value
+    ? await db
+        .select({
+          id: sessions.id,
+          expiresAt: sessions.expiresAt,
+          userId: users.id,
+          login: users.login,
+          name: users.name,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(sessions)
+        .innerJoin(users, eq(users.id, sessions.userId))
+        .where(eq(sessions.id, sha256(value)))
+    : [];
+  if (!row) return null;
+  if (row.expiresAt.getTime() <= Date.now()) {
+    await db.delete(sessions).where(eq(sessions.id, row.id));
+    return null;
+  }
+  return row;
+}
 
 export function authRoutes(db: Db, config: AuthConfig) {
   const secure = config.publicUrl.startsWith("https:");
@@ -56,9 +90,8 @@ export function authRoutes(db: Db, config: AuthConfig) {
         }),
       },
     );
-    if (!tokenRes.ok)
-      throw new Error(`token exchange: HTTP ${tokenRes.status}`);
-    const token = tokenAnswer.parse(await tokenRes.json());
+    if (!tokenRes.ok) throw new Error(`token_http_${tokenRes.status}`);
+    const token = parseAnswer(tokenAnswer, await tokenRes.json());
 
     const userRes = await fetch("https://api.github.com/user", {
       headers: {
@@ -68,8 +101,8 @@ export function authRoutes(db: Db, config: AuthConfig) {
       },
       signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
     });
-    if (!userRes.ok) throw new Error(`user fetch: HTTP ${userRes.status}`);
-    return githubUser.parse(await userRes.json());
+    if (!userRes.ok) throw new Error(`user_http_${userRes.status}`);
+    return parseAnswer(githubUser, await userRes.json());
   }
 
   return new Hono()
@@ -94,41 +127,66 @@ export function authRoutes(db: Db, config: AuthConfig) {
       const expectedState = getCookie(c, STATE_COOKIE);
       // The state is single-use: whatever happens next, it is gone.
       deleteCookie(c, STATE_COOKIE, { path: "/api/auth" });
+      const { code, state, error } = c.req.query();
+      // Not a login started from Cockpit: no history row, so strangers cannot grow the table.
+      if (!expectedState || state !== expectedState) {
+        console.error("GitHub login failed: state_mismatch");
+        return c.redirect(FAILED);
+      }
+      // Nothing identifying in the entry: an account that is refused has no users row to anonymize (decision 010 E).
+      const entry: Entry = {
+        userId: null,
+        actor: "human",
+        origin: "ui",
+        action: "login",
+        args: {},
+      };
+      let profile: Awaited<ReturnType<typeof fetchGitHubUser>>;
       try {
-        const { code, state, error } = c.req.query();
-        if (error)
-          throw new Error(`GitHub answered error=${JSON.stringify(error)}`);
-        if (!expectedState || state !== expectedState)
-          throw new Error("state does not match the cookie");
-        if (!code) throw new Error("no code in the callback");
-
-        const profile = await fetchGitHubUser(code);
-        if (!allowed.includes(profile.login.toLowerCase())) {
-          const query = new URLSearchParams({
-            erreur: "compte-non-autorise",
-            login: profile.login,
-          });
-          return c.redirect(`/?${query}`);
+        if (error) {
+          // The value is the visitor's to write: log only, never the history.
+          console.error("GitHub answered error=", JSON.stringify(error));
+          throw new Error("github_error");
         }
+        if (!code) throw new Error("no_code");
+        profile = await fetchGitHubUser(code);
+      } catch (failure) {
+        console.error(
+          "GitHub login failed:",
+          failure instanceof Error ? failure.message : failure,
+        );
+        // act records the failure as an error entry, then rethrows it.
+        await act(db, entry, () => Promise.reject(failure)).catch((error) => {
+          // act rethrows `failure` (already logged); anything else means the entry itself was not written.
+          if (error !== failure) console.error("History write failed:", error);
+        });
+        return c.redirect(FAILED);
+      }
 
-        const values = {
-          githubId: profile.id,
-          login: profile.login,
-          name: profile.name ?? null,
-          avatarUrl: profile.avatar_url ?? null,
-        };
-        const [user] = await db
-          .insert(users)
-          .values(values)
-          .onConflictDoUpdate({ target: users.githubId, set: values })
-          .returning({ id: users.id });
-        if (!user) throw new Error("user upsert returned no row");
-
+      try {
         const value = randomBytes(32).toString("hex");
-        await db.insert(sessions).values({
-          id: sha256(value),
-          userId: user.id,
-          expiresAt: new Date(Date.now() + SESSION_SECONDS * 1000),
+        await act(db, entry, async (tx) => {
+          if (!allowed.includes(profile.login.toLowerCase()))
+            throw new Refused("account not allowed");
+          const values = {
+            githubId: profile.id,
+            login: profile.login,
+            name: profile.name ?? null,
+            avatarUrl: profile.avatar_url ?? null,
+          };
+          const [user] = await tx
+            .insert(users)
+            .values(values)
+            .onConflictDoUpdate({ target: users.githubId, set: values })
+            .returning({ id: users.id });
+          if (!user) throw new Error("user upsert returned no row");
+          await tx.insert(sessions).values({
+            id: sha256(value),
+            userId: user.id,
+            expiresAt: new Date(Date.now() + SESSION_SECONDS * 1000),
+          });
+          // The user is only known here; act reads the entry once the work is done.
+          entry.userId = user.id;
         });
         setCookie(c, SESSION_COOKIE, value, {
           httpOnly: true,
@@ -139,6 +197,13 @@ export function authRoutes(db: Db, config: AuthConfig) {
         });
         return c.redirect("/");
       } catch (error) {
+        if (error instanceof Refused) {
+          const query = new URLSearchParams({
+            erreur: "compte-non-autorise",
+            login: profile.login,
+          });
+          return c.redirect(`/?${query}`);
+        }
         console.error(
           "GitHub login failed:",
           error instanceof Error ? error.message : error,
@@ -150,32 +215,40 @@ export function authRoutes(db: Db, config: AuthConfig) {
       const value = getCookie(c, SESSION_COOKIE);
       // No cookie sent: nothing to end, and a cross-site POST must not clear the victim's cookie.
       if (value) {
-        await db.delete(sessions).where(eq(sessions.id, sha256(value)));
+        // An unknown or expired session ends nothing, so it leaves no entry.
+        const user = await currentUser(db, c);
+        if (user) {
+          try {
+            await act(
+              db,
+              {
+                userId: user.userId,
+                actor: "human",
+                origin: "ui",
+                action: "logout",
+                args: {},
+              },
+              async (tx) => {
+                const ended = await tx
+                  .delete(sessions)
+                  .where(eq(sessions.id, user.id))
+                  .returning({ id: sessions.id });
+                // A parallel logout got there first: it already logged.
+                if (ended.length === 0) throw new Refused("no_session");
+              },
+            );
+          } catch (error) {
+            if (!(error instanceof Refused)) throw error;
+          }
+        }
         deleteCookie(c, SESSION_COOKIE, { path: "/" });
       }
       return c.json({ ok: true });
     })
     .get("/api/me", async (c) => {
-      const value = getCookie(c, SESSION_COOKIE);
-      const [row] = value
-        ? await db
-            .select({
-              id: sessions.id,
-              expiresAt: sessions.expiresAt,
-              login: users.login,
-              name: users.name,
-              avatarUrl: users.avatarUrl,
-            })
-            .from(sessions)
-            .innerJoin(users, eq(users.id, sessions.userId))
-            .where(eq(sessions.id, sha256(value)))
-        : [];
-      if (!row) return c.json({ error: "Unauthorized" }, 401);
-      if (row.expiresAt.getTime() <= Date.now()) {
-        await db.delete(sessions).where(eq(sessions.id, row.id));
-        return c.json({ error: "Unauthorized" }, 401);
-      }
-      const { login, name, avatarUrl } = row;
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const { login, name, avatarUrl } = user;
       return c.json({ login, name, avatarUrl });
     });
 }

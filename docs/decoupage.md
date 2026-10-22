@@ -16,8 +16,9 @@
 
 - **Fait** : étape 0 (décisions 001 à 006 validées ; 007 et 008 proposées, à valider), tranches 1.1 et 1.1 bis.
 - **En cours** : tranche 1.2 (déploiement sur le Pi) : écrite et testée, le premier déploiement réel sur le Pi reste à faire.
-- **En cours** : tranche 1.3 (connexion GitHub, [décision 009](decisions/009-connexion-github.md)).
-- **Ensuite** : tranche 1.4 (historique inaltérable).
+- **Fait** : tranche 1.3 (connexion GitHub, [décision 009](decisions/009-connexion-github.md)).
+- **En cours** : tranche 1.4 (historique inaltérable, [décision 010](decisions/010-historique.md)).
+- **Ensuite** : tranche 2.1.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -52,6 +53,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.7 | Reprendre une app existante (fonctionnalité phare), après le MVP | `007-reprise-app-existante.md` |
 | 0.8 | Cockpit service en ligne : PostgreSQL, membres d'un projet, hébergement | `008-service-en-ligne.md` |
 | 0.9 | Connexion avec GitHub (tranche 1.3) | `009-connexion-github.md` |
+| 0.10 | Historique inaltérable (tranche 1.4) | `010-historique.md` |
 
 ---
 
