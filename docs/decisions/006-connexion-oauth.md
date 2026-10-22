@@ -79,12 +79,12 @@ Au rafraîchissement, les deux empreintes sont remplacées **sur la même ligne*
 - **Moins de détail sur la machine** : toutes les sessions d'un compte (cloud, local, mobile) partagent la même connexion. Le journal ne dit plus de quelle machine vient un appel. Si l'origine « session locale ou cloud » (§6.12) devient nécessaire, la session la déclarera dans `start_run`.
 - **Cockpit est joignable depuis n'importe quel chat claude.ai** : un courriel ou une page lus par Claude pourraient l'inciter à appeler un outil. Les outils dangereux n'existent pas (004), et claude.ai permet de demander une approbation par outil.
 - **Seuls les clients Claude** sont acceptés (choix C). Un autre client MCP (Cursor, etc.) demandera d'ajouter DCR.
-- **Un redémarrage du Pi** perd les codes d'autorisation en cours : la connexion est à refaire, rien d'autre n'est perdu.
+- **Un redémarrage du serveur** perd les codes d'autorisation en cours : la connexion est à refaire, rien d'autre n'est perdu.
 
 ## Points ouverts
 
 1. **Routines** : une routine déclenchée par API reçoit-elle les connecteurs claude.ai ? À vérifier avant la tranche des routines.
-2. **Exposition du Pi (1.2)** : vérifier que Caddy ou Cloudflare Tunnel laisse passer `160.79.104.0/21` et sert `/.well-known/*`.
+2. **Exposition (1.2)** : Cloudflare Tunnel est retenu (008). Vérifier qu'aucune protection de Cloudflare (anti-bots, pare-feu) ne bloque `160.79.104.0/21`, ni les webhooks GitHub, et que `/.well-known/*` est servi.
 3. **SDK MCP** : regarder ce que `@modelcontextprotocol/sdk` fournit côté serveur d'autorisation, en sachant que ses aides visent Express et non Hono.
 
 ## Pistes écartées

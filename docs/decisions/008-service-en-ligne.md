@@ -4,7 +4,7 @@
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [006 — Connexion OAuth](006-connexion-oauth.md)
-- **Modifie** : la base de données de la [001](001-stack.md) (SQLite → PostgreSQL) ; le propriétaire et les types de colonnes de la [002](002-modele-donnees.md) ; l'accès d'un jeton dans la [004](004-outils-mcp.md) ; le brief §3 (hébergement) et §9 (plusieurs personnes sur un projet)
+- **Modifie** : la base de données de la [001](001-stack.md) (SQLite → PostgreSQL) ; le propriétaire, l'unicité de `github_repo_id` et les types de colonnes de la [002](002-modele-donnees.md) ; l'accès d'un jeton dans la [004](004-outils-mcp.md) ; le brief §3 (hébergement) et §9 (plusieurs personnes sur un projet)
 
 ## Contexte
 
@@ -49,6 +49,7 @@ La charge n'est pas le problème principal : Cockpit n'appelle jamais Claude, c'
 | `role` | `owner` seulement pour l'instant (`CHECK`) ; d'autres rôles viendront avec le partage |
 | `created_at` | Date d'ajout |
 
+- **Un repo GitHub = un projet Cockpit** (`github_repo_id` unique) : un webhook va sans ambiguïté à un seul projet. Une deuxième personne sur le même repo y sera ajoutée comme membre. **Au MVP**, comme un projet n'a qu'un membre, une deuxième personne qui ajoute un repo déjà suivi est refusée avec un message neutre (« Ce repo est déjà suivi dans Cockpit »), sans dire par qui. Avant, chacun pouvait suivre le même repo de son côté (unique sur `owner_id` + `github_repo_id`).
 - **Un seul membre par projet** au MVP, garanti par un **index unique sur `project_id`**. Le partage n'aura qu'à supprimer cet index et à élargir `role`.
 - **La fonction unique d'accès** (002, décision 1) vérifie que l'utilisateur est **membre** du projet, et non plus qu'il en est le propriétaire. C'est le seul endroit à changer le jour du partage.
 - **004** : un jeton donne accès aux projets dont son utilisateur est **membre**.
@@ -95,7 +96,8 @@ Un client peut demander l'effacement de ses données (RGPD), alors que l'histori
 
 ## Limites connues
 
-- **PGlite n'est pas exactement le PostgreSQL de production** : sa version peut avoir un léger retard, et certaines extensions manquent. Les tests couvrent la logique ; les différences se verraient au déploiement. À vérifier en 1.1 bis.
+- **PGlite n'est pas exactement le PostgreSQL de production** : certaines extensions manquent, et il démarre en quelques secondes par instance (d'où des délais de test de 30 s). **Vérifié en 1.1 bis** : PGlite 0.5.11 fait tourner PostgreSQL 18.6, la même version majeure que la production.
+- **PGlite reste dans l'image de production** sans être chargé : Drizzle le déclare comme dépendance facultative, et npm le garde avec `--omit=dev` (environ 26 Mo). Aucun code de production ne l'importe.
 - **Sur le Pi, PostgreSQL consomme plus de mémoire que SQLite** (quelques centaines de Mo), ce qui reste raisonnable pour un Pi récent.
 - **Des identifiants entiers communs à toute l'instance** laissent deviner le volume d'activité (« US 4210 »). C'est accepté pour la lisibilité ; un identifiant public opaque pourra s'ajouter si des clients le demandent.
 - **Un trigger peut être supprimé** par le propriétaire des tables. Chez l'hébergeur, l'application se connectera avec un rôle qui n'a ni `UPDATE` ni `DELETE` sur l'historique, et les migrations avec un autre rôle.
@@ -103,8 +105,9 @@ Un client peut demander l'effacement de ses données (RGPD), alors que l'histori
 ## Points ouverts
 
 1. **Hébergeur** : à choisir au premier client payant, de préférence en Europe (RGPD), avec PostgreSQL géré.
-2. **Facturation** : par utilisateur ou par organisation ? À décider avec les offres.
-3. **Contenu des `args` de l'historique** : un titre de ticket peut contenir une donnée personnelle. À trancher en 1.4 (masquage, ou acceptation documentée).
+2. **Facturation** : par utilisateur ou par organisation ? À décider avec les offres, dont les premières idées sont dans [`offres.md`](../offres.md).
+3. **Repo déjà suivi par un autre compte** : le refus révèle qu'un projet existe sur ce repo, alors que la 004 répond « introuvable » pour l'objet d'un autre utilisateur. Le risque est faible, puisque la personne a déjà accès au repo sur GitHub pour l'ajouter. À confirmer en 2.1.
+4. **Contenu des `args` de l'historique** : un titre de ticket peut contenir une donnée personnelle. À trancher en 1.4 (masquage, ou acceptation documentée).
 
 ## Pistes écartées
 

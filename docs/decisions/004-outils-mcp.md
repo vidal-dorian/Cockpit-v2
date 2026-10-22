@@ -18,7 +18,7 @@ Ce document fixe, pour le MVP, la liste des outils, ce que chacun demande, ce qu
 | A | Un outil par action, ou quelques outils génériques ? | **Un outil par action métier.** Chaque outil porte ses propres règles : la table des droits se lit et se teste ligne par ligne. Pas d'outil du type `update_status(id, statut)` |
 | B | Comment Claude retrouve « le truc de connexion sur GestionProjet » ? | **Un outil `search`** : recherche simple de mots, sans gestion des fautes de frappe ni des synonymes |
 | C | Que répond un outil à une demande interdite ? | Un **refus** distinct d'une **erreur**, avec un message qui dit **pourquoi et quoi faire**, en anglais (seul Claude le lit) |
-| D | À quoi donne accès un jeton ? | **Un seul type de jeton** : tous les projets de son propriétaire, tous les outils. Un jeton par machine, révocable un par un. Les types de jetons (routines, développement) viendront avec les routines |
+| D | À quoi donne accès un jeton ? | **Un seul type de jeton** : tous les projets dont son utilisateur est membre (008), tous les outils. Un jeton par machine, révocable un par un. Les types de jetons (routines, développement) viendront avec les routines |
 | E | `create_ticket` et `add_note` (brief §6.11) ? | **`create_ticket` : oui.** **`add_note` : plus tard** (il faudrait une table de notes ; l'historique suffit pour l'instant) |
 
 ## Règles communes à tous les outils
@@ -29,9 +29,9 @@ Ce document fixe, pour le MVP, la liste des outils, ce que chacun demande, ce qu
 - Le jeton voyage dans l'en-tête `Authorization: Bearer …`, **jamais dans les arguments** : il ne peut donc pas finir dans l'historique. Le `.mcp.json` d'un repo n'y met qu'une référence à une variable d'environnement (`${COCKPIT_MCP_TOKEN}`), jamais le jeton lui-même.
 - Jeton inconnu ou révoqué : refus, journalisé avec `user_id` vide (002). Jeton valide : `last_used_at` mis à jour.
 
-### Propriétaire
+### Accès
 
-- Chaque objet demandé (projet, ticket, US, critère, run, question) passe par **la fonction unique** qui vérifie que son projet appartient au propriétaire du jeton (002, décision 1).
+- Chaque objet demandé (projet, ticket, US, critère, run, question) passe par **la fonction unique** qui vérifie que l'utilisateur du jeton est **membre** de son projet (002, décision 1 ; 008).
 - Un objet d'un autre utilisateur est refusé **comme s'il n'existait pas** (« not found ») : on ne révèle pas son existence.
 - **Projet archivé** : les lectures restent possibles, les écritures sont refusées. `list_projects` et `search` ne montrent pas les projets archivés.
 
@@ -142,7 +142,7 @@ Valider, renvoyer, terminer ou abandonner une US ; modifier une US qui n'est pas
 
 ## Limites connues
 
-- **Un jeton volé** donne accès à tous les projets de son propriétaire, mais jamais à valider, merger ou effacer quoi que ce soit, puisque ces outils n'existent pas. On le révoque dans les réglages.
+- **Un jeton volé** donne accès à tous les projets dont son utilisateur est membre, mais jamais à valider, merger ou effacer quoi que ce soit, puisque ces outils n'existent pas. On le révoque dans les réglages.
 - **Un secret écrit par Claude dans un résumé ou une preuve** serait journalisé tel quel. Les arguments ne sont pas censés en contenir ; un masquage par motifs pourra s'ajouter si le cas se présente.
 - **`search` est simple** : « connexion » ne trouve pas « login ». Les descriptions des outils invitent Claude à essayer d'autres mots ou à lister les tickets du projet.
 
