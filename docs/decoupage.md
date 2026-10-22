@@ -17,13 +17,14 @@
 | Sujet | Décision |
 |---|---|
 | Langage | TypeScript (Dorian l'apprend) |
-| Hébergement | Une instance partagée sur le Raspberry Pi ; chaque développeur s'y connecte |
-| Utilisateurs | Propriétaire sur chaque donnée et connexion GitHub dès le début ; invitations, admin et partage plus tard |
+| Distribution | Un service en ligne : les clients se connectent, ils n'installent rien, voir [`decisions/008-service-en-ligne.md`](decisions/008-service-en-ligne.md) |
+| Hébergement | Sur le Raspberry Pi (Cloudflare Tunnel) tant que seuls Dorian et des proches l'utilisent ; chez un hébergeur dès les premiers clients payants (008) |
+| Utilisateurs | Membres d'un projet et connexion GitHub dès le début, avec un seul membre par projet au MVP ; invitations, admin et partage plus tard (008) |
 | Données v1 | Aucune reprise, aucun code de la v1 |
 | Périmètre de départ | La boucle cœur, en local seulement |
 | Lancement local | Claude Desktop installé sur le PC ; Cockpit ouvre la session via `claude://code/new`, voir [`decisions/005-lancement-local.md`](decisions/005-lancement-local.md) |
 | Relecture | Dorian relit toutes les PR |
-| Stack | Node + Hono + React/Vite + SQLite/Drizzle + Zod + SSE, voir [`decisions/001-stack.md`](decisions/001-stack.md) |
+| Stack | Node + Hono + React/Vite + PostgreSQL/Drizzle + Zod + SSE, voir [`decisions/001-stack.md`](decisions/001-stack.md) et [`decisions/008-service-en-ligne.md`](decisions/008-service-en-ligne.md) |
 
 ---
 
@@ -39,6 +40,8 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.4 | Liste des outils MCP et ce que chacun a le droit de faire | `004-outils-mcp.md` |
 | 0.5 | Lancement local via Claude Desktop (modèle, mode, chemin du clone) | `005-lancement-local.md` |
 | 0.6 | Connexion de Claude à Cockpit par OAuth (connecteur claude.ai), après le MVP | `006-connexion-oauth.md` |
+| 0.7 | Reprendre une app existante (fonctionnalité phare), après le MVP | `007-reprise-app-existante.md` |
+| 0.8 | Cockpit service en ligne : PostgreSQL, membres d'un projet, hébergement | `008-service-en-ligne.md` |
 
 ---
 
@@ -47,7 +50,8 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | # | Tranche | Démo |
 |---|---|---|
 | 1.1 | **Squelette** : serveur, page React vide servie par le serveur, base SQLite avec sa première migration, tests, lint, CI remplie | `npm test` passe, la CI est verte, une page « Cockpit » s'affiche en local |
-| 1.2 | **Déploiement sur le Pi** : `deploy.sh` réel, Docker, volume pour la base | La page s'affiche à l'adresse publique du Pi après un lancement du CD |
+| 1.1 bis | **Passer à PostgreSQL** : pilote `pg`, PGlite dans les tests, migration de départ régénérée, conventions de `CLAUDE.md` mises à jour (008) | `npm test` passe sans serveur de base ; `npm start` fonctionne avec un PostgreSQL local |
+| 1.2 | **Déploiement sur le Pi** : `deploy.sh` réel, Docker Compose (Cockpit, PostgreSQL dans un volume, `cloudflared`), sauvegarde quotidienne de la base | La page s'affiche à l'adresse publique du Pi après un lancement du CD |
 | 1.3 | **Connexion GitHub** : connexion via la GitHub App, liste des comptes autorisés en configuration, déconnexion | Je me connecte avec GitHub et je vois mon nom ; un compte non autorisé est refusé avec un message clair |
 | 1.4 | **Historique inaltérable** : table du journal protégée par la base, fonction « action métier » (vérifie le droit → applique → journalise, dans une seule transaction), connexion et déconnexion journalisées, page Journal simple | Ma connexion apparaît dans le journal ; un test prouve qu'une entrée ne peut être ni modifiée ni supprimée |
 
@@ -79,7 +83,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 
 | # | Tranche | Démo |
 |---|---|---|
-| 5.1 | **Recevoir les webhooks** : vérification de la signature, journalisation, ligne « webhook installé et dernière livraison réussie » du bilan de santé | Un événement GitHub apparaît dans le journal ; le bilan passe au vert |
+| 5.1 | **Recevoir les webhooks** : vérification de la signature, livraison enregistrée avant d'être traitée (008), journalisation, ligne « webhook installé et dernière livraison réussie » du bilan de santé | Un événement GitHub apparaît dans le journal ; le bilan passe au vert |
 | 5.2 | **Issue modifiée sur GitHub** : Cockpit le signale avec le diff ; l'humain choisit la version à garder | Je modifie l'issue sur GitHub, Cockpit me montre le diff et me laisse choisir |
 
 ## Phase 6 — Préparer les repos pour Claude
@@ -120,7 +124,8 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 - **Configuration Claude** : éditer `CLAUDE.md`, règles, agents, skills et `.mcp.json` depuis Cockpit ; configuration globale (repo de plugins).
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
 - **GitHub** : supprimer la branche d'une US mergée, changelog par projet.
-- **Plusieurs utilisateurs** : invitations, administration, partage de projet.
+- **Plusieurs utilisateurs** : invitations, administration, plusieurs membres par projet (008).
+- **Service payant** : passage chez un hébergeur ; facturation, offre gratuite et offre payante, fonctions payantes bloquées côté serveur (008).
 - **Connexion OAuth** : Cockpit devient un connecteur claude.ai, disponible en local, dans le cloud et sur le téléphone sans jeton à copier ; démo : j'ajoute Cockpit sur claude.ai, je me connecte, « liste mes projets » marche depuis le téléphone. Voir [`decisions/006-connexion-oauth.md`](decisions/006-connexion-oauth.md). À faire avant ou avec le cloud.
 - **Cloud** : sessions cloud, routines.
 - **Automatisations** : file d'attente ; la relance automatique est peut-être remplacée par l'Auto-fix natif de Claude Code (à étudier).
