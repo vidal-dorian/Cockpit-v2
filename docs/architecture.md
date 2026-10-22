@@ -45,7 +45,8 @@ flowchart LR
 | Validation | Zod, sur toutes les entrées | [001](decisions/001-stack.md) |
 | Temps réel | SSE minimal : « tel objet a changé », puis rechargement par l'API | [001](decisions/001-stack.md) |
 | Interface | React, Vite, React Router, TanStack Query, Tailwind v4, shadcn/ui | [001](decisions/001-stack.md), [003](decisions/003-interface.md) |
-| GitHub | Une seule GitHub App, installée par chaque utilisateur ; Octokit | [001](decisions/001-stack.md), [002](decisions/002-modele-donnees.md) |
+| GitHub | Une seule GitHub App, installée par chaque utilisateur ; connexion par son flux web, en `fetch` ; Octokit pour l'API des repos (2.1) | [001](decisions/001-stack.md), [002](decisions/002-modele-donnees.md), [009](decisions/009-connexion-github.md) |
+| Sessions | Cookie aléatoire de 30 jours, seule son empreinte SHA-256 en base ; aucun jeton GitHub de l'utilisateur gardé | [009](decisions/009-connexion-github.md) |
 | MCP | SDK officiel, transport HTTP, à l'adresse `/mcp` | [004](decisions/004-outils-mcp.md) |
 | Tests | Vitest, Testing Library, **PGlite** (PostgreSQL en mémoire), faux GitHub | [001](decisions/001-stack.md), [008](decisions/008-service-en-ligne.md) |
 | Qualité | Biome (lint et format), `tsc` ; la CI lance lint, typecheck, tests et build | [001](decisions/001-stack.md) |
@@ -110,7 +111,8 @@ Le code ne contient rien de propre au Pi : tout passe par des variables d'enviro
 | Tests serveur sur PGlite, tests d'écran, lint, typecheck, CI | Fait |
 | Déploiement : `Dockerfile`, `compose.yaml` (app, PostgreSQL, tunnel), `scripts/deploy.sh`, `scripts/backup.sh` | Écrit et testé (1.2) ; premier déploiement réel sur le Pi à faire ; procédure dans le README, « Déployer sur le Pi » |
 | Test de bout en bout du déploiement (`scripts/smoke-test.sh`, job `docker` de la CI) | Fait (1.2) |
-| Tout le reste (connexion GitHub, historique, projets, MCP…) | À faire, dans l'ordre du [découpage](decoupage.md) |
+| Connexion avec GitHub : `/api/auth/login`, `/callback`, `/logout`, `/api/me`, table `sessions`, liste des comptes autorisés | Fait (1.3) |
+| Tout le reste (historique, projets, MCP…) | À faire, dans l'ordre du [découpage](decoupage.md) |
 
 ## Index des décisions
 
@@ -124,6 +126,7 @@ Le code ne contient rien de propre au Pi : tout passe par des variables d'enviro
 | [006](decisions/006-connexion-oauth.md) | Connexion OAuth | Validée | Cockpit comme connecteur claude.ai, après le MVP |
 | [007](decisions/007-reprise-app-existante.md) | Reprendre une app existante | Proposée | La fonctionnalité phare : règles extraites du code, validées en regard du code |
 | [008](decisions/008-service-en-ligne.md) | Service en ligne | Proposée | PostgreSQL, membres d'un projet, le Pi puis un hébergeur |
+| [009](decisions/009-connexion-github.md) | Connexion avec GitHub | Proposée | Flux web de la GitHub App, cookie de session, comptes autorisés en configuration |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts

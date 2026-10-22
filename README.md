@@ -2,23 +2,51 @@
 
 Service en ligne de pilotage des repos GitHub développés avec Claude Code. Le produit est décrit dans [`cockpit-v2-brief.md`](cockpit-v2-brief.md), l'ordre de construction dans [`docs/decoupage.md`](docs/decoupage.md), les choix dans [`docs/decisions/`](docs/decisions/) et leur résumé dans [`docs/architecture.md`](docs/architecture.md).
 
+## Créer la GitHub App
+
+Une seule fois, sur le compte de Dorian : la connexion à Cockpit passe par une GitHub App ([décision 009](docs/decisions/009-connexion-github.md)).
+
+1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App.
+2. Donner un nom (par exemple « Cockpit ») ; **Homepage URL** : l'adresse publique de Cockpit.
+3. **Callback URL** : `<PUBLIC_URL>/api/auth/callback`.
+4. Laisser « Expire user authorization tokens » tel quel (coché).
+5. Laisser décoché « Request user authorization (OAuth) during installation ».
+6. **Webhook** : décocher « Active » (les webhooks arrivent avec la tranche 5.1).
+7. Aucune permission sur les repos pour l'instant (elles arrivent avec la tranche 2.1).
+8. « Where can this GitHub App be installed? » : « Only on this account ». Créer l'App.
+9. Copier le **Client ID**, puis « Generate a new client secret » et copier le secret (il ne s'affiche qu'une fois).
+
+Une App privée (« Only on this account ») peut refuser la connexion des autres comptes GitHub : si un proche de la liste des comptes autorisés tombe sur une page d'erreur de GitHub, passer l'App en « Any account » dans ses réglages. La liste `ALLOWED_GITHUB_LOGINS` de Cockpit décide toujours qui entre.
+
+Pour développer en local, créer une seconde App du même genre, avec pour Callback URL `http://localhost:5173/api/auth/callback` (avec `npm run dev:web`) ou `http://localhost:3000/api/auth/callback` (avec `npm start`).
+
 ## Lancer en local
 
-Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour en avoir une en local :
+Il faut Node.js 24 ou plus récent, une base PostgreSQL 18 et une GitHub App (voir ci-dessus). Pour avoir une base en local :
 
 ```sh
 docker run --name cockpit-db -e POSTGRES_PASSWORD=cockpit -p 5432:5432 -d postgres:18
 ```
 
+Le serveur refuse de démarrer sans ces variables :
+
+```sh
+export DATABASE_URL=postgres://postgres:cockpit@localhost:5432/postgres
+export GITHUB_CLIENT_ID=<Client ID de l'App>
+export GITHUB_CLIENT_SECRET=<secret de l'App>
+export PUBLIC_URL=http://localhost:3000        # http://localhost:5173 avec npm run dev:web
+export ALLOWED_GITHUB_LOGINS=<ton-login>       # plusieurs : login1,login2
+```
+
 ```sh
 npm install
 npm run build
-DATABASE_URL=postgres://postgres:cockpit@localhost:5432/postgres npm start
+npm start
 ```
 
 Puis ouvrir http://localhost:3000. Les migrations sont appliquées au démarrage.
 
-Pour développer, lancer `DATABASE_URL=postgres://postgres:cockpit@localhost:5432/postgres npm run dev:server` et `npm run dev:web` dans deux terminaux, puis ouvrir http://localhost:5173 : la page se recharge à chaque modification.
+Pour développer, lancer `npm run dev:server` et `npm run dev:web` dans deux terminaux (avec `PUBLIC_URL=http://localhost:5173`), puis ouvrir http://localhost:5173 : la page se recharge à chaque modification.
 
 ## Vérifier
 
@@ -37,13 +65,18 @@ Cockpit tourne sur le Raspberry Pi avec Docker Compose (Cockpit, PostgreSQL, `cl
 1. Installer Docker et le plugin Compose sur le Pi.
 2. Installer le runner GitHub auto-hébergé avec les labels `self-hosted, raspberry`, et ajouter son utilisateur au groupe `docker`.
 3. Dans le tableau de bord Cloudflare, créer un tunnel géré à distance, avec un nom d'hôte public qui pointe vers `http://app:3000`. Garder son jeton.
-4. Créer les dossiers et le fichier d'environnement, au nom de l'utilisateur du runner (`<runner-user>`), lisible par lui seul :
+4. Créer la GitHub App (voir « Créer la GitHub App ») et garder son Client ID et son secret.
+5. Créer les dossiers et le fichier d'environnement, au nom de l'utilisateur du runner (`<runner-user>`), lisible par lui seul :
 
    ```sh
    sudo install -d -o <runner-user> -m 700 /etc/cockpit /var/backups/cockpit
    sudo tee /etc/cockpit/cockpit.env > /dev/null <<EOF
    POSTGRES_PASSWORD=$(openssl rand -hex 24)
    TUNNEL_TOKEN=<jeton du tunnel>
+   GITHUB_CLIENT_ID=<Client ID de la GitHub App>
+   GITHUB_CLIENT_SECRET=<secret de la GitHub App>
+   PUBLIC_URL=https://<domaine>
+   ALLOWED_GITHUB_LOGINS=<login1,login2>
    EOF
    sudo chown <runner-user> /etc/cockpit/cockpit.env && sudo chmod 600 /etc/cockpit/cockpit.env
    ```
