@@ -112,7 +112,8 @@ Le code ne contient rien de propre au Pi : tout passe par des variables d'enviro
 | Déploiement : `Dockerfile`, `compose.yaml` (app, PostgreSQL, tunnel), `scripts/deploy.sh`, `scripts/backup.sh` | Écrit et testé (1.2) ; premier déploiement réel sur le Pi à faire ; procédure dans le README, « Déployer sur le Pi » |
 | Test de bout en bout du déploiement (`scripts/smoke-test.sh`, job `docker` de la CI) | Fait (1.2) |
 | Connexion avec GitHub : `/api/auth/login`, `/callback`, `/logout`, `/api/me`, table `sessions`, liste des comptes autorisés | Fait (1.3) |
-| Tout le reste (historique, projets, MCP…) | À faire, dans l'ordre du [découpage](decoupage.md) |
+| Historique inaltérable : table `history` (triggers qui refusent `UPDATE`, `DELETE`, `TRUNCATE`), fonction `act` (action + entrée dans une transaction), `/api/history`, page Journal | Fait (1.4) |
+| Tout le reste (projets, MCP…) | À faire, dans l'ordre du [découpage](decoupage.md) |
 
 ## Index des décisions
 
@@ -127,6 +128,7 @@ Le code ne contient rien de propre au Pi : tout passe par des variables d'enviro
 | [007](decisions/007-reprise-app-existante.md) | Reprendre une app existante | Proposée | La fonctionnalité phare : règles extraites du code, validées en regard du code |
 | [008](decisions/008-service-en-ligne.md) | Service en ligne | Proposée | PostgreSQL, membres d'un projet, le Pi puis un hébergeur |
 | [009](decisions/009-connexion-github.md) | Connexion avec GitHub | Proposée | Flux web de la GitHub App, cookie de session, comptes autorisés en configuration |
+| [010](decisions/010-historique.md) | Historique inaltérable | Proposée | Triggers, `act` (une action = une transaction), pas de donnée personnelle dans les `args`, page Journal |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts
@@ -137,6 +139,5 @@ Le code ne contient rien de propre au Pi : tout passe par des variables d'enviro
 | Cloudflare ne doit bloquer ni les adresses d'Anthropic ni les webhooks | [006](decisions/006-connexion-oauth.md), tranche 1.2 |
 | Repo déjà suivi par un autre compte : refus qui révèle l'existence du projet | [008](decisions/008-service-en-ligne.md), tranche 2.1 |
 | Choix de l'hébergeur ; facturation par personne ou par organisation | [008](decisions/008-service-en-ligne.md), [offres](offres.md) |
-| Données personnelles possibles dans les `args` de l'historique | [008](decisions/008-service-en-ligne.md), tranche 1.4 |
 | Écrans restants et version téléphone | [003](decisions/003-interface.md) |
 | Granularité des règles et contrôle du mode « figer l'existant » | [007](decisions/007-reprise-app-existante.md) |

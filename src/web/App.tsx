@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BrowserRouter, NavLink, Route, Routes } from "react-router";
 import { client } from "./api.ts";
+import { Journal } from "./Journal.tsx";
+import { focusRing } from "./ui.ts";
 
 async function fetchHealth() {
   const res = await client.api.health.$get();
@@ -14,9 +17,6 @@ async function fetchMe() {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
-
-const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
 
 // GitHub's login format; anything else in the URL is not shown, so a crafted link cannot write its own sentence.
 const GITHUB_LOGIN = /^[a-z\d](?:[a-z\d-]{0,38})$/i;
@@ -125,7 +125,7 @@ function Account() {
   );
 }
 
-export function App() {
+function Home() {
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
 
   return (
@@ -167,5 +167,27 @@ export function App() {
         )}
       </div>
     </main>
+  );
+}
+
+const navLink = ({ isActive }: { isActive: boolean }) =>
+  `inline-flex min-h-10 items-center rounded-lg px-4 font-semibold ${focusRing} ${isActive ? "bg-card" : "text-muted-foreground"}`;
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <nav aria-label="Navigation principale" className="flex gap-2 px-4 pt-4">
+        <NavLink to="/" end className={navLink}>
+          Accueil
+        </NavLink>
+        <NavLink to="/journal" className={navLink}>
+          Journal
+        </NavLink>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/journal" element={<Journal />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

@@ -107,7 +107,7 @@ Un client peut demander l'effacement de ses données (RGPD), alors que l'histori
 1. **Hébergeur** : à choisir au premier client payant, de préférence en Europe (RGPD), avec PostgreSQL géré.
 2. **Facturation** : par utilisateur ou par organisation ? À décider avec les offres, dont les premières idées sont dans [`offres.md`](../offres.md).
 3. **Repo déjà suivi par un autre compte** : le refus révèle qu'un projet existe sur ce repo, alors que la 004 répond « introuvable » pour l'objet d'un autre utilisateur. Le risque est faible, puisque la personne a déjà accès au repo sur GitHub pour l'ajouter. À confirmer en 2.1.
-4. **Contenu des `args` de l'historique** : un titre de ticket peut contenir une donnée personnelle. À trancher en 1.4 (masquage, ou acceptation documentée).
+4. **Contenu des `args` de l'historique** : un titre de ticket peut contenir une donnée personnelle. Tranché par la [010](010-historique.md) (règle D) : jamais de texte libre ni de donnée personnelle dans les `args`.
 
 ## Pistes écartées
 

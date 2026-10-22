@@ -1,0 +1,3 @@
+/** Visible keyboard focus on every link and button (decision 003). */
+export const focusRing =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
-import { sessions, users } from "./db/schema.ts";
+import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
 
 type App = ReturnType<typeof createApp>;
@@ -431,5 +431,155 @@ describe("POST /api/auth/logout", () => {
 
     expect(res.ok).toBe(true);
     expect(sessionSetCookie(res)).toBeUndefined();
+  });
+});
+
+describe("history of login and logout", () => {
+  it("given an allowed account, when it logs in, then one login entry is written as ok for that user", async () => {
+    const { app, db } = await setup();
+    stubGitHub();
+
+    await logIn(app);
+
+    const [user] = await db.select().from(users);
+    assert(user);
+    const rows = await db.select().from(history);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: "login",
+      actor: "human",
+      origin: "ui",
+      result: "ok",
+      userId: user.id,
+    });
+  });
+
+  it("given an account that is not allowed, when it logs in, then one refused login entry is written with no user and nothing that identifies the account", async () => {
+    const { app, db } = await setup();
+    stubGitHub({
+      user: {
+        id: 424242,
+        login: "mallory-bot",
+        name: "Mallory Secret",
+        avatar_url: "https://avatars/424242",
+      },
+    });
+
+    await logIn(app);
+
+    const rows = await db.select().from(history);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: "login",
+      result: "refused",
+      userId: null,
+    });
+    const serialized = JSON.stringify(rows[0]).toLowerCase();
+    for (const secret of ["mallory", "424242", "secret", "avatars"]) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it("given GitHub fails during the exchange, when the callback is called, then one error login entry is written with no user", async () => {
+    const { app, db } = await setup();
+    stubGitHub({ tokenStatus: 500, tokenBody: {} });
+
+    await logIn(app);
+
+    const rows = await db.select().from(history);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: "login",
+      result: "error",
+      userId: null,
+    });
+    expect(JSON.stringify(rows[0])).not.toContain(TOKEN);
+  });
+
+  it("given a logged-in user, when they log out, then one logout entry is written as ok for that user", async () => {
+    const { app, db } = await setup();
+    const { cookie } = await loggedInCookie(app);
+    const [user] = await db.select().from(users);
+    assert(user);
+
+    await app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { cookie },
+    });
+
+    const logouts = (await db.select().from(history)).filter(
+      (row) => row.action === "logout",
+    );
+    expect(logouts).toHaveLength(1);
+    expect(logouts[0]).toMatchObject({
+      actor: "human",
+      origin: "ui",
+      result: "ok",
+      userId: user.id,
+    });
+  });
+
+  it("given no session cookie, when POST /api/auth/logout arrives, then no entry is written", async () => {
+    const { app, db } = await setup();
+
+    await app.request("/api/auth/logout", { method: "POST" });
+
+    expect(await db.select().from(history)).toHaveLength(0);
+  });
+
+  it("given GitHub comes back with a long free-text error full of personal data, when the callback is called, then a login error row exists and none of that text is in it", async () => {
+    const { app, db } = await setup();
+    stubGitHub();
+    const { state, cookies } = await beginLogin(app);
+    const text = "Jean Dupont, jean.dupont@example.com ".repeat(20);
+
+    await callback(
+      app,
+      `error=${encodeURIComponent(text)}&state=${encodeURIComponent(state)}`,
+      cookies,
+    );
+
+    const rows = await db.select().from(history);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: "login",
+      result: "error",
+      userId: null,
+    });
+    const serialized = JSON.stringify(rows[0]).toLowerCase();
+    for (const part of ["jean", "dupont", "example.com", "@"]) {
+      expect(serialized).not.toContain(part);
+    }
+  });
+
+  it.each([
+    ["there is no state cookie", false, "any-state"],
+    ["the state does not match the cookie", true, "wrong-state"],
+  ])(
+    "given a callback where %s, when it arrives, then no history row is written",
+    async (_name, withCookie, queryState) => {
+      const { app, db } = await setup();
+      stubGitHub();
+      const { cookies } = await beginLogin(app);
+
+      await callback(
+        app,
+        `code=gh-code&state=${queryState}`,
+        withCookie ? cookies : "",
+      );
+
+      expect(await db.select().from(history)).toHaveLength(0);
+    },
+  );
+
+  it("given a cookie with no session behind it, when POST /api/auth/logout arrives, then no history row is written", async () => {
+    const { app, db } = await setup();
+
+    await app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { cookie: "cockpit_session=unknown-value" },
+    });
+
+    expect(await db.select().from(history)).toHaveLength(0);
   });
 });
