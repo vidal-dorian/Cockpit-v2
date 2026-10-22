@@ -3,8 +3,8 @@
 - **Statut** : validée
 - **Date** : 2026-10-18
 - **Décidé par** : Dorian, avec Claude
-- **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : `project_members` remplace `projects.owner_id` ; dates en `timestamptz`, JSON en `jsonb`, transactions asynchrones
-- **Dépend de** : [001 — Stack technique](001-stack.md) (SQLite, Drizzle)
+- **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : `project_members` remplace `projects.owner_id` ; `github_repo_id` devient unique pour toute l'instance (un repo = un projet) ; dates en `timestamptz`, JSON en `jsonb`, transactions asynchrones
+- **Dépend de** : [001 — Stack technique](001-stack.md) (PostgreSQL, Drizzle)
 
 ## Contexte
 
@@ -22,7 +22,8 @@ Ce modèle couvre le **MVP** : la boucle cœur en local (phases 1 à 8 du [déco
 erDiagram
     users ||--o{ sessions : "se connecte"
     users ||--o{ mcp_tokens : possède
-    users ||--o{ projects : possède
+    users ||--o{ project_members : "est membre"
+    projects ||--o{ project_members : a
     users ||--o{ runs : lance
     projects ||--o{ tickets : contient
     tickets ||--o{ user_stories : "se découpe en"
@@ -34,16 +35,16 @@ erDiagram
 
     users {
         int id PK
-        int github_id UK
+        bigint github_id UK
         text login
         text name
         text avatar_url
-        text created_at
+        timestamptz created_at
     }
     sessions {
         text id PK "empreinte du cookie"
         int user_id FK
-        text expires_at
+        timestamptz expires_at
     }
     mcp_tokens {
         int id PK
@@ -51,28 +52,33 @@ erDiagram
         text name
         text token_hash UK
         text last_four
-        text created_at
-        text last_used_at
-        text revoked_at
+        timestamptz created_at
+        timestamptz last_used_at
+        timestamptz revoked_at
+    }
+    project_members {
+        int project_id PK, FK
+        int user_id PK, FK
+        text role
+        timestamptz created_at
     }
     projects {
         int id PK
-        int owner_id FK
-        int github_repo_id
+        bigint github_repo_id UK
         text full_name
         text default_branch
         int installation_id
-        text archived_at
-        text created_at
+        timestamptz archived_at
+        timestamptz created_at
     }
     tickets {
         int id PK
         int project_id FK
         text title
         text description_md
-        text abandoned_at
-        text created_at
-        text updated_at
+        timestamptz abandoned_at
+        timestamptz created_at
+        timestamptz updated_at
     }
     user_stories {
         int id PK
@@ -90,8 +96,8 @@ erDiagram
         text pr_review_state
         int issue_number
         text issue_body_hash
-        text created_at
-        text updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
     acceptance_criteria {
         int id PK
@@ -114,11 +120,11 @@ erDiagram
         int user_id FK
         text status
         text model_actual
-        text stop_requested_at
+        timestamptz stop_requested_at
         text comment
         text summary
-        text started_at
-        text finished_at
+        timestamptz started_at
+        timestamptz finished_at
     }
     run_steps {
         int id PK
@@ -126,17 +132,17 @@ erDiagram
         text agent
         text status
         text summary
-        text started_at
-        text finished_at
+        timestamptz started_at
+        timestamptz finished_at
     }
     questions {
         int id PK
         int run_id FK
         text question
-        text suggested_answers
+        jsonb suggested_answers
         text answer
-        text asked_at
-        text answered_at
+        timestamptz asked_at
+        timestamptz answered_at
     }
 ```
 
@@ -156,7 +162,8 @@ La table `history` n'apparaît pas dans le schéma : elle n'a **volontairement a
 
 | Table | Rôle | Règles |
 |---|---|---|
-| `projects` | Un repo GitHub suivi par Cockpit | Unique sur (`owner_id`, `github_repo_id`). Le repo est identifié par `github_repo_id`, qui survit aux renommages ; `full_name` n'est qu'un affichage. Archivé = `archived_at` rempli |
+| `projects` | Un repo GitHub suivi par Cockpit | `github_repo_id` unique : **un repo GitHub = un projet Cockpit**, ce qui dit sans ambiguïté à quel projet va un webhook ; avec le partage, une deuxième personne sur le même repo y sera ajoutée comme membre (008). **Au MVP**, comme un projet n'a qu'un membre, une deuxième personne qui ajoute un repo déjà suivi est refusée avec un message neutre (« Ce repo est déjà suivi dans Cockpit »), sans dire par qui. *(Avant la 008 : unique sur (`owner_id`, `github_repo_id`), chacun pouvait suivre le même repo de son côté.)* Le repo est identifié par `github_repo_id`, qui survit aux renommages ; `full_name` n'est qu'un affichage. Archivé = `archived_at` rempli |
+| `project_members` | Une personne qui travaille sur un projet (008) | Clé primaire sur (`project_id`, `user_id`). `role` ∈ `owner` (`CHECK`) pour l'instant. **Un seul membre par projet au MVP**, garanti par un index unique sur `project_id`, que le partage retirera |
 
 Le **bilan de santé** n'a pas de table : il est relu sur GitHub à chaque affichage. Avec une GitHub App, le webhook est celui **de l'App** et non un webhook par repo : la ligne « webhook installé » du bilan devient « l'App est installée sur ce repo ».
 
@@ -202,7 +209,7 @@ Le **verdict** de fin de run (« acceptable » ou « à vérifier ») n'est pas 
 | `detail` | Le résultat ou le message d'erreur, en JSON |
 | `github_effects` | Ce qui a été fait sur GitHub, en JSON |
 
-- Des triggers `BEFORE UPDATE` et `BEFORE DELETE` refusent toute modification et toute suppression (`RAISE(ABORT)`).
+- Des triggers PL/pgSQL `BEFORE UPDATE`, `BEFORE DELETE` et `BEFORE TRUNCATE` refusent toute modification et toute suppression (`RAISE EXCEPTION`, 008).
 - **Aucune clé étrangère** vers les autres tables : un ticket peut être supprimé sans toucher à l'historique, et une entrée garde l'identifiant de l'objet même s'il a disparu.
 - Une action et son entrée sont écrites **dans la même transaction** (1.4).
 
@@ -238,14 +245,16 @@ Un ticket n'est écrit qu'une fois : il n'est proposé à Claude que s'il n'a **
 
 ## Décisions
 
-1. **Le propriétaire vit sur `projects`** (ainsi que sur `sessions`, `mcp_tokens` et `runs`). Tickets, US, critères et étapes y remontent par leur projet. Le propriétaire n'existe qu'à un seul endroit, et le partage de projet (après le MVP) s'ajoutera au même endroit. Chaque accès passe par une seule fonction qui vérifie que le projet appartient à l'utilisateur.
+1. **L'accès à un projet vit dans `project_members`** (et l'utilisateur sur `sessions`, `mcp_tokens` et `runs`). Tickets, US, critères et étapes y remontent par leur projet. L'accès n'existe qu'à un seul endroit, et le partage de projet (après le MVP) n'aura qu'à ajouter des lignes. Chaque accès passe par une seule fonction qui vérifie que l'utilisateur est **membre** du projet. *(Avant la 008 : `projects.owner_id`.)*
 2. **Un ticket ne se supprime que s'il n'a aucune US** (étape « Nouveau »). Ensuite, on l'abandonne. Sinon, supprimer un ticket ferait disparaître des US déjà publiées en issues ou déjà développées.
 3. **Le résultat d'un critère est le dernier compte rendu**, stocké sur le critère avec le run qui l'a donné. Les comptes rendus des runs précédents restent dans l'historique. Une table de résultats par run s'ajoutera si l'on veut revoir les critères de chaque run passé.
 
 ## Conventions
 
-- **Identifiants** : entiers auto-incrémentés, communs à toute l'instance (US 42, ticket 17). Pas de numérotation par projet.
-- **Dates** : texte ISO 8601 en UTC (`2026-10-18T14:03:00.000Z`) : lisible dans la base, triable tel quel.
+- **Identifiants** : entiers `generated always as identity`, communs à toute l'instance (US 42, ticket 17). Pas de numérotation par projet.
+- **Dates** : `timestamptz` ; Drizzle les rend en `Date` JavaScript, et l'API les envoie en ISO 8601 UTC (`2026-10-18T14:03:00.000Z`). *(Avant la 008 : texte ISO 8601.)*
+- **JSON** (`args`, `detail`, `github_effects`, `suggested_answers`) : `jsonb`.
+- **Identifiants GitHub** (`github_id`, `github_repo_id`) : `bigint`, car ils peuvent dépasser 2³¹.
 - **Noms** des tables, colonnes et valeurs de statut en anglais ; libellés en français dans l'interface.
 - **Valeurs fermées** (statuts, acteurs, origines) : colonnes texte avec contrainte `CHECK`, dont Drizzle tire aussi le type TS.
 - **Suppressions** : clés étrangères en `ON DELETE RESTRICT` par défaut. Les seules suppressions prévues sont un ticket sans US et les sessions expirées.

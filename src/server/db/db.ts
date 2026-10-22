@@ -1,20 +1,23 @@
 import { join } from "node:path";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import pg from "pg";
 import * as schema from "./schema.ts";
 
-const migrationsFolder = join(import.meta.dirname, "../../../drizzle");
+export const migrationsFolder = join(import.meta.dirname, "../../../drizzle");
 
-/** Opens the SQLite file (or ":memory:") and brings it up to the latest migration. */
-export function openDatabase(path: string) {
-  const sqlite = new Database(path);
-  sqlite.pragma("journal_mode = WAL");
-  // SQLite ignores foreign keys unless asked; decision 002 relies on them.
-  sqlite.pragma("foreign_keys = ON");
-  const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder });
+/** Connects to PostgreSQL and brings the database up to the latest migration. */
+export async function openDatabase(url: string) {
+  const pool = new pg.Pool({ connectionString: url });
+  // Without a listener, an idle client lost to a PostgreSQL restart would crash the process.
+  pool.on("error", (error) =>
+    console.error("PostgreSQL idle client error:", error.message),
+  );
+  const db = drizzle(pool, { schema });
+  await migrate(db, { migrationsFolder });
   return db;
 }
 
-export type Db = ReturnType<typeof openDatabase>;
+/** Any PostgreSQL driver: node-postgres in production, PGlite in tests. */
+export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;

@@ -1,10 +1,9 @@
-CREATE TABLE `users` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`github_id` integer NOT NULL,
-	`login` text NOT NULL,
-	`name` text,
-	`avatar_url` text,
-	`created_at` text DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) NOT NULL
+CREATE TABLE "users" (
+	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "users_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"github_id" bigint NOT NULL,
+	"login" text NOT NULL,
+	"name" text,
+	"avatar_url" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "users_github_id_unique" UNIQUE("github_id")
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `users_github_id_unique` ON `users` (`github_id`);

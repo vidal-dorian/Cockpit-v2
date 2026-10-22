@@ -43,7 +43,7 @@ En plus de cette boucle, Cockpit sert à **configurer Claude Code** sur chaque r
 ## 3. Pour qui, où
 
 - **Utilisateur principal** : Pour tout développeur souhaitant une interface complète afin de manager ses repos ainsi que le développement de chacun d'eux avec claude.
-- **Hébergement** : auto-hébergé sur un Raspberry Pi (Docker), joignable depuis Internet. C'est nécessaire pour recevoir les webhooks GitHub et pour que les sessions cloud de Claude appellent Cockpit.
+- **Hébergement** : un **service en ligne**, joignable depuis Internet (nécessaire pour recevoir les webhooks GitHub et pour que les sessions cloud de Claude appellent Cockpit). Sur un Raspberry Pi (Docker) tant que seuls Dorian et des proches l'utilisent, chez un hébergeur dès les premiers clients payants ([décision 008](docs/decisions/008-service-en-ligne.md)).
 - **Usage** : Autant sur l'ordinateur que sur téléphone. La version sur ordinateur sera biensur la plus importante car l'essentiel se passera dessus.
 - **Langue** : interface en français. Code, commentaires, messages de commit et prompts des agents et skills en anglais.
 
@@ -237,7 +237,7 @@ C'est la porte par laquelle Claude Code travaille avec Cockpit. Ses outils doive
 
 Ce qu'**aucun** outil ne peut faire : valider, terminer ou abandonner une US ; merger ; supprimer une branche ; modifier ou effacer l'historique ; committer un workflow.
 
-Chaque utilisateur a ses jetons, par usage (routines / sessions de développement) et par machine, révocables un par un. Un jeton ne s'affiche qu'une fois et ne donne accès qu'aux projets de son propriétaire. La configuration de ses jetons doit être **la plus simple possible** afin de faciliter la prise en main de l'application.
+Chaque utilisateur a ses jetons, par usage (routines / sessions de développement) et par machine, révocables un par un. Un jeton ne s'affiche qu'une fois et ne donne accès qu'aux projets dont son utilisateur est membre. La configuration de ses jetons doit être **la plus simple possible** afin de faciliter la prise en main de l'application.
 
 ### 6.12 Historique et journal — non négociable
 
@@ -326,6 +326,8 @@ Ces règles valaient pour la v1 et restent valables. Elles sont le fondement de 
 
 ## 8. Contraintes de l'écosystème (constatées en v1, à revérifier)
 
+> **Mise à jour du 2026-10-22** : plusieurs de ces faits ont changé. Le lancement local passe par `claude://code/new` ([005](docs/decisions/005-lancement-local.md)) ; une session cloud reçoit les connecteurs claude.ai ([006](docs/decisions/006-connexion-oauth.md)) ; les routines (lancées par planning, par API ou par un événement GitHub) existent nativement dans Claude Code depuis avril 2026 ([annonce relayée par The Decoder](https://the-decoder.com/claude-code-routines-let-ai-fix-bugs-and-review-code-on-autopilot/)), ce qui rend à revoir le contournement de la v1 décrit ci-dessous. Les décisions font foi ; l'état d'ensemble est dans [`docs/architecture.md`](docs/architecture.md).
+
 Ces faits viennent de la documentation de Claude Code lue en octobre 2026. Ils ont façonné la v1, souvent en forçant des contournements complexes. **Ils peuvent avoir changé : à revérifier avant de concevoir quoi que ce soit dessus.**
 
 - **Routines** : Claude Code ne permet pas de créer, modifier ou mettre en pause une routine par programme. On peut seulement **déclencher** une routine existante qui a un déclencheur API. D'où, en v1, un « lanceur » générique créé une fois à la main, et un planning tenu par Cockpit.
@@ -346,12 +348,14 @@ Ces faits viennent de la documentation de Claude Code lue en octobre 2026. Ils o
 - Écrire dans la mémoire automatique de Claude Code.
 - Déployer quoi que ce soit : chaque projet a sa propre CI/CD.
 - Merger des pull requests.
-- Équipes, rôles, organisations.
+- Organisations et rôles avancés. Plusieurs membres sur un même projet sont en revanche prévus par le modèle de données ([décision 008](docs/decisions/008-service-en-ligne.md)), avec un seul membre par projet au MVP.
 - Piloter l'application Claude Desktop.
 
 ---
 
 ## 10. À re-décider pour la v2
+
+> **Mise à jour du 2026-10-22** : ces points sont tranchés dans [`docs/decoupage.md`](docs/decoupage.md) (périmètre du MVP, plusieurs utilisateurs, cloud) et dans [`docs/decisions/`](docs/decisions/) (stack, base, hébergement). Le résumé est dans [`docs/architecture.md`](docs/architecture.md).
 
 La v1 a tout construit d'un coup. Pour la v2, ces points sont à trancher avec Dorian **avant** de construire, en commençant par la question du périmètre minimal.
 

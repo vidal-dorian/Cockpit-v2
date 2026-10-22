@@ -9,8 +9,16 @@
 - **Vertical, pas horizontal** : pas de « toute la base », puis « toute l'API », puis « toute l'interface ».
 - **Petit** : si une tranche ne se relit pas en une séance, on la coupe.
 - **Démontrable** : chaque tranche finit par une démo concrète (« je clique ici, je vois ça »).
-- **Les règles non négociables sont là dès le début** : propriétaire sur chaque donnée, historique inaltérable, aucun secret en clair, erreurs visibles.
+- **Les règles non négociables sont là dès le début** : accès à chaque donnée par les membres de son projet, historique inaltérable, aucun secret en clair, erreurs visibles.
 - **Chaque PR** contient une section « Notions TS utilisées ici ».
+
+## Avancement
+
+- **Fait** : étape 0 (décisions 001 à 006 validées ; 007 et 008 proposées, à valider), tranche 1.1.
+- **En cours** : tranche 1.1 bis (PostgreSQL).
+- **Ensuite** : tranche 1.2 (déploiement sur le Pi).
+
+L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
 ## Décisions déjà prises
 
@@ -49,7 +57,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 
 | # | Tranche | Démo |
 |---|---|---|
-| 1.1 | **Squelette** : serveur, page React vide servie par le serveur, base SQLite avec sa première migration, tests, lint, CI remplie | `npm test` passe, la CI est verte, une page « Cockpit » s'affiche en local |
+| 1.1 | **Squelette** : serveur, page React vide servie par le serveur, base SQLite avec sa première migration (remplacée par PostgreSQL en 1.1 bis), tests, lint, CI remplie | `npm test` passe, la CI est verte, une page « Cockpit » s'affiche en local |
 | 1.1 bis | **Passer à PostgreSQL** : pilote `pg`, PGlite dans les tests, migration de départ régénérée, conventions de `CLAUDE.md` mises à jour (008) | `npm test` passe sans serveur de base ; `npm start` fonctionne avec un PostgreSQL local |
 | 1.2 | **Déploiement sur le Pi** : `deploy.sh` réel, Docker Compose (Cockpit, PostgreSQL dans un volume, `cloudflared`), sauvegarde quotidienne de la base | La page s'affiche à l'adresse publique du Pi après un lancement du CD |
 | 1.3 | **Connexion GitHub** : connexion via la GitHub App, liste des comptes autorisés en configuration, déconnexion | Je me connecte avec GitHub et je vois mon nom ; un compte non autorisé est refusé avec un message clair |
@@ -125,7 +133,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
 - **GitHub** : supprimer la branche d'une US mergée, changelog par projet.
 - **Plusieurs utilisateurs** : invitations, administration, plusieurs membres par projet (008).
-- **Service payant** : passage chez un hébergeur ; facturation, offre gratuite et offre payante, fonctions payantes bloquées côté serveur (008).
+- **Service payant** : passage chez un hébergeur ; facturation, offre gratuite et offre payante, fonctions payantes bloquées côté serveur (008). Idées d'offres et de prix : [`offres.md`](offres.md).
 - **Connexion OAuth** : Cockpit devient un connecteur claude.ai, disponible en local, dans le cloud et sur le téléphone sans jeton à copier ; démo : j'ajoute Cockpit sur claude.ai, je me connecte, « liste mes projets » marche depuis le téléphone. Voir [`decisions/006-connexion-oauth.md`](decisions/006-connexion-oauth.md). À faire avant ou avec le cloud.
 - **Cloud** : sessions cloud, routines.
 - **Automatisations** : file d'attente ; la relance automatique est peut-être remplacée par l'Auto-fix natif de Claude Code (à étudier).

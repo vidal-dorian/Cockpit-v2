@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
-import { openDatabase } from "./db/db.ts";
+import { openTestDatabase } from "./db/test-db.ts";
 
-const app = createApp(openDatabase(":memory:"), "1.2.3");
+let app: ReturnType<typeof createApp>;
+
+beforeAll(async () => {
+  app = createApp(await openTestDatabase(), "1.2.3");
+});
 
 describe("GET /api/health", () => {
   it("answers ok with the version", async () => {

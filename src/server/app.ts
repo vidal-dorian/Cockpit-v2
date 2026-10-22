@@ -6,8 +6,8 @@ import type { Db } from "./db/db.ts";
 export function createApp(db: Db, version: string) {
   return (
     new Hono()
-      .get("/api/health", (c) => {
-        db.get(sql`select 1`);
+      .get("/api/health", async (c) => {
+        await db.execute(sql`select 1`);
         return c.json({ status: "ok", version });
       })
       // An unknown API route is an error, not a reason to send the page.

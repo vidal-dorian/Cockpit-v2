@@ -7,7 +7,7 @@
 
 ## Contexte
 
-Le bouton « Développer avec Claude » doit ouvrir, **sur le PC du développeur**, une session Claude Code dans le clone du repo, avec `/dev-us` prêt à partir (brief §6.5). Cockpit tourne sur le Pi et ne voit pas ce PC : il ne peut que donner au navigateur un lien qui ouvre Claude Desktop.
+Le bouton « Développer avec Claude » doit ouvrir, **sur le PC du développeur**, une session Claude Code dans le clone du repo, avec `/dev-us` prêt à partir (brief §6.5). Cockpit tourne sur un serveur (le Pi, puis un hébergeur : 008) et ne voit pas ce PC : il ne peut que donner au navigateur un lien qui ouvre Claude Desktop.
 
 ## Ce que permet le lien (octobre 2026)
 
