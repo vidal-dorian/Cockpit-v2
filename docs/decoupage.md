@@ -18,8 +18,9 @@
 - **En cours** : tranche 1.2 (déploiement sur le Pi) : écrite et testée, le premier déploiement réel sur le Pi reste à faire.
 - **Fait** : tranche 1.3 (connexion GitHub, [décision 009](decisions/009-connexion-github.md)).
 - **Fait** : tranche 1.4 (historique inaltérable, [décision 010](decisions/010-historique.md)).
-- **En cours** : tranche 2.1 (importer et archiver un projet, [décision 011](decisions/011-import-projets.md)).
-- **Ensuite** : tranche 2.2.
+- **Fait** : tranche 2.1 (importer et archiver un projet, [décision 011](decisions/011-import-projets.md)).
+- **En cours** : tranche 1.5 (assistant de démarrage, [décision 012](decisions/012-configuration-automatique.md)).
+- **Ensuite** : tranche 1.6, puis tranche 2.2.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -56,6 +57,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.9 | Connexion avec GitHub (tranche 1.3) | `009-connexion-github.md` |
 | 0.10 | Historique inaltérable (tranche 1.4) | `010-historique.md` |
 | 0.11 | Importer et archiver un projet (tranche 2.1) | `011-import-projets.md` |
+| 0.12 | Configuration automatique et consentements (tranches 1.5 et 1.6) | `012-configuration-automatique.md` |
 
 ---
 
@@ -68,6 +70,8 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 1.2 | **Déploiement sur le Pi** : `deploy.sh` réel, Docker Compose (Cockpit, PostgreSQL dans un volume, `cloudflared`), sauvegarde quotidienne de la base | La page s'affiche à l'adresse publique du Pi après un lancement du CD |
 | 1.3 | **Connexion GitHub** : connexion via la GitHub App, liste des comptes autorisés en configuration, déconnexion | Je me connecte avec GitHub et je vois mon nom ; un compte non autorisé est refusé avec un message clair |
 | 1.4 | **Historique inaltérable** : table du journal protégée par la base, fonction « action métier » (vérifie le droit → applique → journalise, dans une seule transaction), connexion et déconnexion journalisées, page Journal simple | Ma connexion apparaît dans le journal ; un test prouve qu'une entrée ne peut être ni modifiée ni supprimée |
+| 1.5 | **Assistant de démarrage** ([012](decisions/012-configuration-automatique.md)) : code de démarrage, création de la GitHub App par le flux du manifeste avec toutes les permissions du MVP, secrets chiffrés en base et clé dans son volume, adresse publique détectée puis confirmée, premier compte administrateur ; suppression des variables GitHub et de `PUBLIC_URL` ; `deploy.sh` génère le mot de passe de la base ; README réécrit | Sur une installation neuve, j'entre le code, je clique « Créer l'App GitHub » puis « Create GitHub App » sur GitHub, et je me connecte en administrateur, sans rien écrire dans le fichier d'environnement que le jeton du tunnel |
+| 1.6 | **Accueil des utilisateurs** ([012](decisions/012-configuration-automatique.md)) : comptes autorisés en base et page « Réglages » de l'administrateur ; renvoi automatique vers une page d'accueil et bandeau tant que l'App n'est pas installée | J'autorise un proche dans « Réglages » ; à sa première connexion, il arrive sur la page qui explique l'installation de l'App, et un bandeau le lui rappelle tant qu'elle n'est pas installée |
 
 ## Phase 2 — Projets
 

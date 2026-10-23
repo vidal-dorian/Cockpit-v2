@@ -8,18 +8,9 @@ export COMPOSE_PROJECT_NAME=cockpit-smoke
 
 TMP=$(mktemp -d)
 ENV="$TMP/cockpit.env"
-# The app refuses to start without the GitHub login settings (slice 1.3) and the GitHub App settings (slice 2.1); the values are dummies.
-# The private key is a real RSA key, base64 on one line (decision 011 H).
-APP_KEY=$(openssl genrsa 2048 2>/dev/null | base64 -w0)
+# The app needs nothing else: GitHub is configured later by the wizard (decision 012).
 cat > "$ENV" <<ENVFILE
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
-GITHUB_CLIENT_ID=smoke-client-id
-GITHUB_CLIENT_SECRET=smoke-client-secret
-PUBLIC_URL=http://127.0.0.1:3000
-ALLOWED_GITHUB_LOGINS=smoke
-GITHUB_APP_ID=123456
-GITHUB_APP_SLUG=smoke-app
-GITHUB_APP_PRIVATE_KEY=$APP_KEY
 ENVFILE
 URL=http://127.0.0.1:3000
 VERSION=$(tr -d '[:space:]' < version.txt)
@@ -44,6 +35,24 @@ health_version() {
 
 # Captured first: grep -q closing the pipe early would make curl fail under pipefail.
 has_page() { local body; body=$(curl -fsS "$URL/") && grep -q '<title>' <<< "$body"; }
+
+# Captured first: grep -q closing the pipe early would make docker compose fail under pipefail.
+logs_show_setup_code() { local logs; logs=$(dc logs app) && grep -q 'setup code:' <<< "$logs"; }
+
+setup_status_is_unconfigured() {
+  local body; body=$(curl -fsS "$URL/api/setup/status") && grep -q '"configured":false' <<< "$body"
+}
+
+key_hash() { dc exec -T app sha256sum secrets/master.key | cut -d' ' -f1; }
+
+# The key lives in its own volume: losing it would make the stored GitHub secrets unreadable.
+key_survives_down_up() {
+  local before after
+  before=$(key_hash) && [ -n "$before" ] &&
+    dc down && dc up -d --wait --wait-timeout 180 &&
+    after=$(key_hash) &&
+    [ "$before" = "$after" ]
+}
 
 runs_hardened() {
   [ "$(dc exec -T app id -u | tr -d '[:space:]')" != 0 ] && ! dc exec -T app test -e node_modules/vitest
@@ -103,8 +112,11 @@ if dc up -d --build --wait --wait-timeout 180; then
   check "GET /api/health returns 200 and the version of version.txt" \
     test "$(health_version)" = "$VERSION"
   check "GET / serves the built page" has_page
+  check "a fresh stack prints the setup code in the app logs" logs_show_setup_code
+  check "GET /api/setup/status answers configured:false on a fresh stack" setup_status_is_unconfigured
   check "app runs as non-root and ships no dev dependencies" runs_hardened
   check "users row survives down (without -v) then up" users_row_survives_down_up
+  check "the encryption key file survives down (without -v) then up" key_survives_down_up
   check "app is not restarted by a database restart and recovers" app_survives_db_restart
   check "backup.sh writes a gzipped dump and deletes old ones" backup_rotates
 else

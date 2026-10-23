@@ -11,12 +11,22 @@ if [ ! -f "$env_file" ]; then
   exit 1
 fi
 # grep instead of sourcing the file, so a crafted file cannot run code.
-for var in POSTGRES_PASSWORD TUNNEL_TOKEN GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET PUBLIC_URL ALLOWED_GITHUB_LOGINS GITHUB_APP_ID GITHUB_APP_SLUG GITHUB_APP_PRIVATE_KEY; do
-  if ! grep -Eq "^$var=([^\"']|[\"'][^\"'])" "$env_file"; then
-    echo "$var is missing or empty in $env_file." >&2
-    exit 1
-  fi
-done
+has_value() { grep -Eq "^$1=([^\"']|[\"'][^\"'])" "$env_file"; }
+# The tunnel token comes from the Cloudflare account: only a human can provide it (decision 012).
+if ! has_value TUNNEL_TOKEN; then
+  echo "TUNNEL_TOKEN is missing or empty in $env_file." >&2
+  exit 1
+fi
+# Generated at the first deploy; appending keeps the file's mode.
+if ! has_value POSTGRES_PASSWORD; then
+  # A last line without its newline would swallow the new one.
+  [ -z "$(tail -c1 "$env_file")" ] || echo >> "$env_file"
+  # Its own line, so `set -e` stops on a failure instead of appending an empty password.
+  password=$(openssl rand -hex 24)
+  [ -n "$password" ] || { echo "Could not generate POSTGRES_PASSWORD." >&2; exit 1; }
+  echo "POSTGRES_PASSWORD=$password" >> "$env_file"
+  echo "POSTGRES_PASSWORD was missing in $env_file: generated and added."
+fi
 
 dc() { docker compose --env-file "$env_file" --profile tunnel "$@"; }
 
@@ -32,5 +42,11 @@ if [ "$served" != "$version" ]; then
   exit 1
 fi
 echo "Cockpit v$version is up."
+
+# Printed again here so the CD log shows it while the wizard still has to run, or no administrator exists yet.
+# A failing status call counts as "needs it": better one line too many than a code nobody sees.
+if dc exec -T app node -e 'fetch("http://localhost:3000/api/setup/status").then((r) => r.json()).then((s) => process.exit(!s.configured || s.hasAdmin === false ? 0 : 1), () => process.exit(0))'; then
+  dc logs app 2>&1 | grep 'setup code:' | tail -n 1 || true
+fi
 
 docker image prune -f

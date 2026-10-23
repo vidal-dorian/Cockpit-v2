@@ -6,10 +6,10 @@ Self-hosted control center for the GitHub repos developed with Claude Code. Read
 
 | Command | What it does |
 |---|---|
-| `npm run dev:server` | API server on http://localhost:3000, restarts on change (needs `DATABASE_URL` and the GitHub variables) |
+| `npm run dev:server` | API server on http://localhost:3000, restarts on change (needs only `DATABASE_URL`) |
 | `npm run dev:web` | Vite on http://localhost:5173, forwards `/api` to the server |
 | `npm run build` | Builds the page into `dist/web` |
-| `npm start` | Serves the API and the built page on http://localhost:3000 (needs `DATABASE_URL`, a PostgreSQL 18 URL, and `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_URL`, `ALLOWED_GITHUB_LOGINS`, and the GitHub App ones: `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY` as base64 on one line) |
+| `npm start` | Serves the API and the built page on http://localhost:3000 (needs only `DATABASE_URL`, a PostgreSQL 18 URL; the start-up wizard then creates the GitHub App, decision 012) |
 | `npm test` | Vitest, server and web |
 | `npm run lint` | Biome: lint, format and import order (`npx biome check --write` fixes) |
 | `npm run typecheck` | `tsc`, no emit |

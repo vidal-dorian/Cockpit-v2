@@ -4,17 +4,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
-import { githubAppConfig } from "./test-github.ts";
+import {
+  configureTestInstance,
+  type InstanceOverrides,
+  TEST_KEY,
+  testAppOptions,
+} from "./test-instance.ts";
 
 type App = ReturnType<typeof createApp>;
+type TestDb = Awaited<ReturnType<typeof openTestDatabase>>;
 
-const baseConfig = {
-  githubClientId: "Iv1.client",
-  githubClientSecret: "secret",
-  publicUrl: "https://cockpit.example.com",
-  allowedLogins: ["octocat"],
-  ...githubAppConfig,
-};
 const octocat = {
   id: 1,
   login: "octocat",
@@ -27,10 +26,21 @@ const TOKEN_URL = "https://github.com/login/oauth/access_token";
 const USER_URL = "https://api.github.com/user";
 const THIRTY_DAYS = 30 * 24 * 60 * 60;
 
-async function setup(config: Partial<typeof baseConfig> = {}) {
+async function setup(overrides: InstanceOverrides = {}) {
   const db = await openTestDatabase();
-  const app = createApp(db, "1.2.3", { ...baseConfig, ...config });
+  await configureTestInstance(db, TEST_KEY, overrides);
+  const app = createApp(db, "1.2.3", testAppOptions);
   return { db, app };
+}
+
+/** The "allowed account" of the tests: the administrator octocat (in slice 1.5 only administrators may log in). */
+async function seedAdmin(db: TestDb, login = "octocat") {
+  const [user] = await db
+    .insert(users)
+    .values({ githubId: 1, login, name: "Old Name", isAdmin: true })
+    .returning();
+  assert(user);
+  return user;
 }
 
 /** Stubs the global fetch the server uses to talk to GitHub; any other URL fails loudly. */
@@ -124,7 +134,8 @@ async function logIn(app: App) {
 }
 
 /** Logs in and returns the Cookie header of the new session, with the raw cookie value. */
-async function loggedInCookie(app: App) {
+async function loggedInCookie(app: App, db: TestDb) {
+  await seedAdmin(db);
   stubGitHub();
   const res = await logIn(app);
   const setCookie = sessionSetCookie(res);
@@ -184,6 +195,7 @@ describe("GET /api/auth/callback, state check", () => {
 describe("GET /api/auth/callback, successful login", () => {
   it("given a matching state and an allowed GitHub account, when the callback is called, then the user and a hashed session are stored and the cookie is hardened", async () => {
     const { app, db } = await setup();
+    await seedAdmin(db);
     const fetchMock = stubGitHub();
 
     const res = await logIn(app);
@@ -233,8 +245,9 @@ describe("GET /api/auth/callback, successful login", () => {
     );
   });
 
-  it("given a PUBLIC_URL in http, when the user logs in, then the session cookie is not Secure", async () => {
-    const { app } = await setup({ publicUrl: "http://127.0.0.1:3000" });
+  it("given a public URL in http, when the user logs in, then the session cookie is not Secure", async () => {
+    const { app, db } = await setup({ publicUrl: "http://127.0.0.1:3000" });
+    await seedAdmin(db);
     stubGitHub();
 
     const res = await logIn(app);
@@ -248,7 +261,13 @@ describe("GET /api/auth/callback, successful login", () => {
     const { app, db } = await setup();
     const [existing] = await db
       .insert(users)
-      .values({ githubId: 1, login: "old-login", name: "Old", avatarUrl: "x" })
+      .values({
+        githubId: 1,
+        login: "old-login",
+        name: "Old",
+        avatarUrl: "x",
+        isAdmin: true,
+      })
       .returning();
     assert(existing);
     stubGitHub({
@@ -272,9 +291,9 @@ describe("GET /api/auth/callback, successful login", () => {
   });
 });
 
-describe("allow-list", () => {
-  it("given a GitHub account that is not in the allow-list, when the callback is called, then it redirects to compte-non-autorise with the login and creates nothing", async () => {
-    const { app, db } = await setup({ allowedLogins: ["someone-else"] });
+describe("admin-only login (slice 1.5: the allow-list UI comes in 1.6)", () => {
+  it("given a GitHub account that is not an administrator and unknown to Cockpit, when the callback is called, then it redirects to compte-non-autorise with the login and creates nothing", async () => {
+    const { app, db } = await setup();
     stubGitHub();
 
     const res = await logIn(app);
@@ -288,8 +307,26 @@ describe("allow-list", () => {
     expect(sessionSetCookie(res)).toBeUndefined();
   });
 
-  it("given an allow-list written OctoCat, when octocat logs in, then they get in (case-insensitive)", async () => {
-    const { app, db } = await setup({ allowedLogins: ["OctoCat"] });
+  it("given a known account that is not an administrator, when it logs in, then it is refused the same way and stays a non-administrator without a session", async () => {
+    const { app, db } = await setup();
+    await db.insert(users).values({ githubId: 1, login: "octocat" });
+    stubGitHub();
+
+    const res = await logIn(app);
+
+    expect(res.headers.get("location")).toBe(
+      "/?erreur=compte-non-autorise&login=octocat",
+    );
+    const rows = await db.select().from(users);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.isAdmin).toBe(false);
+    expect(await db.select().from(sessions)).toHaveLength(0);
+    expect(sessionSetCookie(res)).toBeUndefined();
+  });
+
+  it("given an administrator stored as OctoCat, when octocat logs in, then they get in whatever the case of the login", async () => {
+    const { app, db } = await setup();
+    await seedAdmin(db, "OctoCat");
     stubGitHub();
 
     const res = await logIn(app);
@@ -342,8 +379,8 @@ describe("GitHub failures", () => {
 
 describe("GET /api/me", () => {
   it("given a logged-in user, when /api/me is called with the session cookie, then it answers the account", async () => {
-    const { app } = await setup();
-    const { cookie } = await loggedInCookie(app);
+    const { app, db } = await setup();
+    const { cookie } = await loggedInCookie(app, db);
 
     const res = await app.request("/api/me", { headers: { cookie } });
 
@@ -401,7 +438,7 @@ describe("GET /api/me", () => {
 describe("POST /api/auth/logout", () => {
   it("given a logged-in user, when they log out, then the session is deleted, the cookie is cleared and the old cookie no longer works", async () => {
     const { app, db } = await setup();
-    const { cookie } = await loggedInCookie(app);
+    const { cookie } = await loggedInCookie(app, db);
     expect(await db.select().from(sessions)).toHaveLength(1);
 
     const res = await app.request("/api/auth/logout", {
@@ -439,6 +476,7 @@ describe("POST /api/auth/logout", () => {
 describe("history of login and logout", () => {
   it("given an allowed account, when it logs in, then one login entry is written as ok for that user", async () => {
     const { app, db } = await setup();
+    await seedAdmin(db);
     stubGitHub();
 
     await logIn(app);
@@ -482,6 +520,37 @@ describe("history of login and logout", () => {
     }
   });
 
+  it("given a known account that is not an administrator, when it logs in, then one refused login entry is written with no user and nothing that identifies the account", async () => {
+    const { app, db } = await setup();
+    await db.insert(users).values({
+      githubId: 424242,
+      login: "mallory-bot",
+      name: "Mallory Secret",
+    });
+    stubGitHub({
+      user: {
+        id: 424242,
+        login: "mallory-bot",
+        name: "Mallory Secret",
+        avatar_url: "https://avatars/424242",
+      },
+    });
+
+    await logIn(app);
+
+    const rows = await db.select().from(history);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      action: "login",
+      result: "refused",
+      userId: null,
+    });
+    const serialized = JSON.stringify(rows[0]).toLowerCase();
+    for (const secret of ["mallory", "424242", "secret", "avatars"]) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
   it("given GitHub fails during the exchange, when the callback is called, then one error login entry is written with no user", async () => {
     const { app, db } = await setup();
     stubGitHub({ tokenStatus: 500, tokenBody: {} });
@@ -500,7 +569,7 @@ describe("history of login and logout", () => {
 
   it("given a logged-in user, when they log out, then one logout entry is written as ok for that user", async () => {
     const { app, db } = await setup();
-    const { cookie } = await loggedInCookie(app);
+    const { cookie } = await loggedInCookie(app, db);
     const [user] = await db.select().from(users);
     assert(user);
 

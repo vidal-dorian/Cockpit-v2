@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [008 — Service en ligne](008-service-en-ligne.md), [009 — Connexion avec GitHub](009-connexion-github.md), [010 — Historique](010-historique.md)
 - **Tranche** : 2.1 du [découpage](../decoupage.md)
+- **Modifiée par 012** : la configuration de l'App ne vient plus de l'environnement (créée par l'assistant, secrets en base) et ses permissions sont demandées d'un coup à la création — voir la [012](012-configuration-automatique.md)
 - **Confirme** : le choix B de la [009](009-connexion-github.md) (aucun jeton GitHub d'utilisateur gardé)
 
 ## Contexte

@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, NavLink, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router";
 import { client } from "./api.ts";
 import { Journal } from "./Journal.tsx";
 import { Projects } from "./Projects.tsx";
+import { ClaimAdmin, Setup } from "./Setup.tsx";
 import { focusRing } from "./ui.ts";
 
 async function fetchHealth() {
@@ -174,7 +175,40 @@ function Home() {
 const navLink = ({ isActive }: { isActive: boolean }) =>
   `inline-flex min-h-10 items-center rounded-lg px-4 font-semibold ${focusRing} ${isActive ? "bg-card" : "text-muted-foreground"}`;
 
+/** Whether the wizard has run, and the address the visitor used (decision 012). */
+async function fetchSetupStatus() {
+  const res = await client.api.setup.status.$get();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 export function App() {
+  const setup = useQuery({ queryKey: ["setup"], queryFn: fetchSetupStatus });
+
+  if (setup.isPending)
+    return <p className="p-4 text-muted-foreground">Chargement…</p>;
+  if (setup.isError) {
+    return (
+      <div
+        role="alert"
+        className="m-4 rounded-xl bg-destructive-soft p-4 text-destructive"
+      >
+        <p>Serveur injoignable : {setup.error.message}</p>
+        <button
+          type="button"
+          onClick={() => setup.refetch()}
+          className={`mt-3 min-h-10 rounded-lg bg-card px-4 font-semibold text-foreground ${focusRing}`}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+  // Every page waits for the GitHub App: none of them works without it.
+  if (!setup.data.configured)
+    return <Setup detectedUrl={setup.data.detectedUrl} />;
+  if (setup.data.hasAdmin === false) return <ClaimAdmin />;
+
   return (
     <BrowserRouter>
       <nav aria-label="Navigation principale" className="flex gap-2 px-4 pt-4">
@@ -192,6 +226,8 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/projets" element={<Projects />} />
         <Route path="/journal" element={<Journal />} />
+        {/* The wizard's address: once it is done, nothing to show there. */}
+        <Route path="/installation" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

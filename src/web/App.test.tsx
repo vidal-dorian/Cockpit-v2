@@ -34,7 +34,13 @@ const octocat = {
 type Handler = (request: { method: string }) => Response;
 
 /** Stubs fetch by "METHOD /path"; any other call fails the test loudly. */
-function stubApi(routes: Record<string, Handler>) {
+function stubApi(userRoutes: Record<string, Handler>) {
+  // The instance is configured unless a test says otherwise (decision 012).
+  const routes: Record<string, Handler> = {
+    "GET /api/setup/status": () =>
+      Response.json({ configured: true, detectedUrl: "http://localhost" }),
+    ...userRoutes,
+  };
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =
@@ -83,7 +89,9 @@ describe("home page", () => {
 
     renderApp();
 
-    expect(screen.getByRole("heading", { name: "Cockpit" })).toBeDefined();
+    expect(
+      await screen.findByRole("heading", { name: "Cockpit" }),
+    ).toBeDefined();
     expect(await screen.findByText("Serveur OK · v0.1.0")).toBeDefined();
   });
 

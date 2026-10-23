@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [008 — Service en ligne](008-service-en-ligne.md)
 - **Tranche** : 1.3 du [découpage](../decoupage.md)
+- **Modifiée par 012** : la configuration ne vient plus de l'environnement (App créée par l'assistant, secrets en base, comptes autorisés en base) — voir la [012](012-configuration-automatique.md)
 
 ## Contexte
 

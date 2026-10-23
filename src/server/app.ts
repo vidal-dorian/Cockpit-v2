@@ -1,26 +1,36 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { type AuthConfig, authRoutes } from "./auth.ts";
+import { authRoutes } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import type { GitHubAppConfig } from "./github.ts";
 import { historyRoutes } from "./history.ts";
+import { instanceReader } from "./instance.ts";
 import { projectRoutes } from "./projects.ts";
+import { setupRoutes } from "./setup.ts";
+
+export type AppOptions = {
+  /** Decrypts the GitHub secrets stored in the database (decision 012 F). */
+  encryptionKey: Buffer;
+  /** Printed in the server logs at the first start; opens the wizard. */
+  setupCode: string;
+};
 
 export function createApp(
   db: Db,
   version: string,
-  config: AuthConfig & GitHubAppConfig,
+  { encryptionKey, setupCode }: AppOptions,
 ) {
+  const readInstance = instanceReader(db, encryptionKey);
   return (
     new Hono()
       .get("/api/health", async (c) => {
         await db.execute(sql`select 1`);
         return c.json({ status: "ok", version });
       })
-      .route("/", authRoutes(db, config))
+      .route("/", setupRoutes(db, readInstance, encryptionKey, setupCode))
+      .route("/", authRoutes(db, readInstance))
       .route("/", historyRoutes(db))
-      .route("/", projectRoutes(db, config))
+      .route("/", projectRoutes(db, readInstance))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.

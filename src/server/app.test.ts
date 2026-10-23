@@ -1,18 +1,20 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 import { openTestDatabase } from "./db/test-db.ts";
-import { githubAppConfig } from "./test-github.ts";
+import {
+  configureTestInstance,
+  TEST_KEY,
+  testAppOptions,
+} from "./test-instance.ts";
 
 let app: ReturnType<typeof createApp>;
 
 beforeAll(async () => {
-  app = createApp(await openTestDatabase(), "1.2.3", {
-    githubClientId: "client-id",
-    githubClientSecret: "client-secret",
+  const db = await openTestDatabase();
+  await configureTestInstance(db, TEST_KEY, {
     publicUrl: "http://localhost:3000",
-    allowedLogins: ["octocat"],
-    ...githubAppConfig,
   });
+  app = createApp(db, "1.2.3", testAppOptions);
 });
 
 describe("GET /api/health", () => {
