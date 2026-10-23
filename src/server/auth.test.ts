@@ -33,7 +33,7 @@ async function setup(overrides: InstanceOverrides = {}) {
   return { db, app };
 }
 
-/** The "allowed account" of the tests: the administrator octocat (in slice 1.5 only administrators may log in). */
+/** The "allowed account" of the tests: the administrator octocat (other accounts get in through the allow-list, decision 012 G). */
 async function seedAdmin(db: TestDb, login = "octocat") {
   const [user] = await db
     .insert(users)
@@ -291,7 +291,7 @@ describe("GET /api/auth/callback, successful login", () => {
   });
 });
 
-describe("admin-only login (slice 1.5: the allow-list UI comes in 1.6)", () => {
+describe("login of an account that is neither admin nor allowed", () => {
   it("given a GitHub account that is not an administrator and unknown to Cockpit, when the callback is called, then it redirects to compte-non-autorise with the login and creates nothing", async () => {
     const { app, db } = await setup();
     stubGitHub();
@@ -389,6 +389,7 @@ describe("GET /api/me", () => {
       login: "octocat",
       name: "The Octocat",
       avatarUrl: "https://avatars/1",
+      isAdmin: true,
     });
   });
 

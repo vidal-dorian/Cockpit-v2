@@ -11,7 +11,11 @@ Rien à faire à la main : Cockpit crée lui-même sa GitHub App au premier lanc
 3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos, des PR et de la CI ; écriture du contenu et des issues).
 4. Cliquer sur « Create GitHub App » sur GitHub. Cockpit récupère l'App, chiffre ses secrets en base et te renvoie vers la connexion GitHub : **le premier compte qui se connecte devient administrateur**.
 
-Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account »), mais seuls les comptes autorisés par Cockpit entrent ; pour l'instant, seul l'administrateur (la liste des comptes autorisés arrive avec la tranche 1.6).
+Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account »), mais seuls les comptes autorisés par Cockpit entrent.
+
+### Autoriser un proche
+
+L'administrateur ouvre « Réglages » (lien en haut de la page, visible de lui seul), saisit le login GitHub du proche dans « Ajouter un compte » et clique sur « Ajouter » (majuscules ignorées). Le proche peut alors se connecter avec GitHub ; s'il n'a pas encore installé l'App, il arrive sur une page qui explique l'installation, et un bandeau le lui rappelle tant qu'elle n'est pas installée. « Retirer » enlève le compte et ferme ses sessions ouvertes.
 
 ## Lancer en local
 

@@ -52,7 +52,7 @@ Après la 011, déployer Cockpit demande neuf valeurs dans `/etc/cockpit/cockpit
 
 - **Découpage** : deux tranches avant la 2.2, chacune relisible en une séance :
   - **1.5 — Assistant de démarrage** : code de démarrage, flux du manifeste avec les permissions de D, secrets chiffrés et clé dans son volume, adresse détectée et confirmée, premier compte administrateur ; suppression des variables GitHub et de `PUBLIC_URL` ; `deploy.sh` génère le mot de passe de la base ; README réécrit.
-  - **1.6 — Accueil des utilisateurs** : comptes autorisés en base et page « Réglages » de l'administrateur ; renvoi automatique vers la page d'accueil et bandeau tant que l'App n'est pas installée.
+  - **1.6 — Accueil des utilisateurs** : comptes autorisés en base et page « Réglages » de l'administrateur ; renvoi automatique vers la page d'accueil et bandeau tant que l'App n'est pas installée. Mise en œuvre : table `allowed_accounts` (login unique sans tenir compte des majuscules), `/api/settings/accounts` réservée à l'administrateur, `/api/installation` pour savoir si l'App est installée. Retirer un compte ferme ses sessions ouvertes ; l'historique garde l'identifiant du compte, jamais son login (010 D). Si la vérification de l'installation échoue à la connexion, la session s'ouvre quand même.
 - **Webhooks** : l'App est créée avec ses webhooks actifs vers `/api/webhooks/github` ; jusqu'à la 5.1, ces livraisons échouent sans conséquence (rien n'en dépend encore).
 - **Code** : `GITHUB_APP_*`, `GITHUB_CLIENT_*`, `PUBLIC_URL` et `ALLOWED_GITHUB_LOGINS` disparaissent de `index.ts`, `compose.yaml`, `deploy.sh` et du README.
 

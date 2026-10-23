@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router";
 import { client } from "./api.ts";
+import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
 import { Projects } from "./Projects.tsx";
+import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
 import { focusRing } from "./ui.ts";
+import { Welcome } from "./Welcome.tsx";
 
 async function fetchHealth() {
   const res = await client.api.health.$get();
@@ -175,6 +178,29 @@ function Home() {
 const navLink = ({ isActive }: { isActive: boolean }) =>
   `inline-flex min-h-10 items-center rounded-lg px-4 font-semibold ${focusRing} ${isActive ? "bg-card" : "text-muted-foreground"}`;
 
+/** The main navigation; Réglages is the administrator's. */
+function Nav() {
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  return (
+    <nav aria-label="Navigation principale" className="flex gap-2 px-4 pt-4">
+      <NavLink to="/" end className={navLink}>
+        Accueil
+      </NavLink>
+      <NavLink to="/projets" className={navLink}>
+        Projets
+      </NavLink>
+      <NavLink to="/journal" className={navLink}>
+        Journal
+      </NavLink>
+      {me.data?.isAdmin && (
+        <NavLink to="/reglages" className={navLink}>
+          Réglages
+        </NavLink>
+      )}
+    </nav>
+  );
+}
+
 /** Whether the wizard has run, and the address the visitor used (decision 012). */
 async function fetchSetupStatus() {
   const res = await client.api.setup.status.$get();
@@ -211,21 +237,14 @@ export function App() {
 
   return (
     <BrowserRouter>
-      <nav aria-label="Navigation principale" className="flex gap-2 px-4 pt-4">
-        <NavLink to="/" end className={navLink}>
-          Accueil
-        </NavLink>
-        <NavLink to="/projets" className={navLink}>
-          Projets
-        </NavLink>
-        <NavLink to="/journal" className={navLink}>
-          Journal
-        </NavLink>
-      </nav>
+      <Nav />
+      <InstallBanner />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/projets" element={<Projects />} />
         <Route path="/journal" element={<Journal />} />
+        <Route path="/reglages" element={<Settings />} />
+        <Route path="/bienvenue" element={<Welcome />} />
         {/* The wizard's address: once it is done, nothing to show there. */}
         <Route path="/installation" element={<Navigate to="/" replace />} />
       </Routes>

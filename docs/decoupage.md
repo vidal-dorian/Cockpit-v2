@@ -19,8 +19,9 @@
 - **Fait** : tranche 1.3 (connexion GitHub, [décision 009](decisions/009-connexion-github.md)).
 - **Fait** : tranche 1.4 (historique inaltérable, [décision 010](decisions/010-historique.md)).
 - **Fait** : tranche 2.1 (importer et archiver un projet, [décision 011](decisions/011-import-projets.md)).
-- **En cours** : tranche 1.5 (assistant de démarrage, [décision 012](decisions/012-configuration-automatique.md)).
-- **Ensuite** : tranche 1.6, puis tranche 2.2.
+- **Fait** : tranche 1.5 (assistant de démarrage, [décision 012](decisions/012-configuration-automatique.md)).
+- **En cours** : tranche 1.6 (accueil des utilisateurs, [décision 012](decisions/012-configuration-automatique.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 2.2.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

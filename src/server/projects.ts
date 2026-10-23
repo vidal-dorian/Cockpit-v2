@@ -7,8 +7,7 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
-import { githubClient } from "./github.ts";
-import type { ReadInstance } from "./instance.ts";
+import type { githubClient, ReadGitHub } from "./github.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -17,7 +16,7 @@ const GITHUB_DOWN =
 const importBody = z.object({ githubRepoId: z.number().int() });
 
 const unauthorized = { error: "Unauthorized" };
-const NOT_CONFIGURED =
+export const NOT_CONFIGURED =
   "Cockpit n'est pas encore installé : termine l'assistant de démarrage.";
 
 /** The one place that says whether a user belongs to a project; anyone else gets undefined, as if it did not exist (decisions 004 and 011 E). */
@@ -69,24 +68,11 @@ async function installedRepos(github: GitHub, login: string, githubId: number) {
   };
 }
 
-export function projectRoutes(db: Db, readInstance: ReadInstance) {
-  // Built once the wizard has run: the settings never change after that, so the client keeps its installation tokens.
-  let ready: { github: GitHub; installUrl: string } | undefined;
-
+export function projectRoutes(db: Db, readGitHub: ReadGitHub) {
   /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
   const gate = createMiddleware<Env>(async (c, next) => {
-    if (!ready) {
-      const settings = await readInstance();
-      if (!settings) return c.json({ error: NOT_CONFIGURED }, 503);
-      ready = {
-        github: githubClient({
-          githubAppId: settings.githubAppId,
-          githubAppSlug: settings.githubAppSlug,
-          githubAppPrivateKey: settings.githubPrivateKey,
-        }),
-        installUrl: `https://github.com/apps/${settings.githubAppSlug}/installations/new`,
-      };
-    }
+    const ready = await readGitHub();
+    if (!ready) return c.json({ error: NOT_CONFIGURED }, 503);
     c.set("github", ready.github);
     c.set("installUrl", ready.installUrl);
     await next();
@@ -95,6 +81,23 @@ export function projectRoutes(db: Db, readInstance: ReadInstance) {
   return new Hono<Env>()
     .use("/api/projects/*", gate)
     .use("/api/github/*", gate)
+    .use("/api/installation", gate)
+    .get("/api/installation", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      try {
+        const installationId = await c
+          .get("github")
+          .findUserInstallation(user.login, user.githubId);
+        return c.json({
+          installed: installationId !== null,
+          installUrl: c.get("installUrl"),
+        });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
     .get("/api/github/repositories", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
