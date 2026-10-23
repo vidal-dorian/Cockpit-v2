@@ -1,6 +1,7 @@
 import { App } from "@octokit/app";
 import { Octokit } from "@octokit/core";
 import { z } from "zod";
+import type { ReadInstance } from "./instance.ts";
 
 export type GitHubAppConfig = {
   githubAppId: string;
@@ -76,3 +77,26 @@ export function githubClient(config: GitHubAppConfig) {
     },
   };
 }
+
+/** The client and the App's install page, built once the wizard has run (null before): the settings never change after that, so the client keeps its installation tokens. */
+export function githubReader(readInstance: ReadInstance) {
+  let ready:
+    | { github: ReturnType<typeof githubClient>; installUrl: string }
+    | undefined;
+  return async () => {
+    if (ready) return ready;
+    const settings = await readInstance();
+    if (!settings) return null;
+    ready = {
+      github: githubClient({
+        githubAppId: settings.githubAppId,
+        githubAppSlug: settings.githubAppSlug,
+        githubAppPrivateKey: settings.githubPrivateKey,
+      }),
+      installUrl: `https://github.com/apps/${settings.githubAppSlug}/installations/new`,
+    };
+    return ready;
+  };
+}
+
+export type ReadGitHub = ReturnType<typeof githubReader>;

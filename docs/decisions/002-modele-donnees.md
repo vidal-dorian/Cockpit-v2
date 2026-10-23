@@ -154,7 +154,7 @@ La table `history` n'apparaît pas dans le schéma : elle n'a **volontairement a
 
 | Table | Rôle | Règles |
 |---|---|---|
-| `users` | Un compte GitHub connecté à Cockpit | `github_id` unique. La liste des comptes autorisés est en configuration, pas en base (1.3) |
+| `users` | Un compte GitHub connecté à Cockpit | `github_id` unique. `blocked_at` est renseignée quand l'administrateur bloque le compte : il ne peut plus se connecter (1.6, [012](012-configuration-automatique.md)) |
 | `sessions` | Une connexion ouverte dans un navigateur | `id` est l'**empreinte** du cookie : si la base fuit, les sessions restent inutilisables |
 | `mcp_tokens` | Un jeton MCP | Seule l'empreinte est stockée ; `last_four` sert à le reconnaître dans la liste. Révoqué = `revoked_at` rempli (4.1) |
 

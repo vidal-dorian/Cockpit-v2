@@ -637,7 +637,7 @@ describe("first administrator", () => {
     expect(await db.select().from(sessions)).toHaveLength(1);
   });
 
-  it("given a claim cookie that does not match the stored hash, when someone logs in, then they are refused as an unauthorised account and the claim stays available", async () => {
+  it("given a claim cookie that does not match the stored hash, when someone logs in, then they sign up as a non-administrator and the claim stays available", async () => {
     const { app, db } = await freshInstance();
     await configureTestInstance(db, TEST_KEY, {
       adminClaimHash: sha256(CLAIM),
@@ -645,26 +645,26 @@ describe("first administrator", () => {
 
     const res = await logIn(app, "cockpit_admin_claim=another-value");
 
-    expect(res.headers.get("location")).toBe(
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
-    expect(await db.select().from(users)).toHaveLength(0);
-    expect(await db.select().from(sessions)).toHaveLength(0);
+    expect(res.headers.get("location")).toBe("/");
+    const [user, ...others] = await db.select().from(users);
+    expect(others).toHaveLength(0);
+    expect(user).toMatchObject({ login: "octocat", isAdmin: false });
+    expect(await db.select().from(sessions)).toHaveLength(1);
     const [settings] = await db.select().from(instanceSettings);
     expect(settings?.adminClaimHash).toBe(sha256(CLAIM));
   });
 
-  it("given the claim already spent, when a second person logs in with the old claim cookie, then they are refused", async () => {
+  it("given the claim already spent, when a second person logs in with the old claim cookie, then they sign up as a non-administrator", async () => {
     const { app, db } = await freshInstance();
     await configureTestInstance(db, TEST_KEY);
     await createAdminWithSession(db, 500);
 
     const res = await logIn(app, `cockpit_admin_claim=${CLAIM}`);
 
-    expect(res.headers.get("location")).toBe(
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
-    expect(await db.select().from(users)).toHaveLength(1);
+    expect(res.headers.get("location")).toBe("/");
+    const rows = await db.select().from(users);
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((u) => u.isAdmin).map((u) => u.githubId)).toEqual([500]);
   });
 
   it("given an administrator already exists, when a person logs in with a claim cookie that still matches a leftover hash, then they do not become administrator", async () => {
@@ -676,15 +676,15 @@ describe("first administrator", () => {
 
     const res = await logIn(app, `cockpit_admin_claim=${CLAIM}`);
 
-    expect(res.headers.get("location")).toBe(
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
-    const admins = (await db.select().from(users)).filter((u) => u.isAdmin);
+    expect(res.headers.get("location")).toBe("/");
+    const rows = await db.select().from(users);
+    expect(rows).toHaveLength(2);
+    const admins = rows.filter((u) => u.isAdmin);
     expect(admins).toHaveLength(1);
     expect(admins[0]?.githubId).toBe(500);
   });
 
-  it("given no claim cookie and nobody is administrator yet, when someone logs in, then they are refused", async () => {
+  it("given no claim cookie and nobody is administrator yet, when someone logs in, then they sign up as a non-administrator and the claim stays available", async () => {
     const { app, db } = await freshInstance();
     await configureTestInstance(db, TEST_KEY, {
       adminClaimHash: sha256(CLAIM),
@@ -692,10 +692,12 @@ describe("first administrator", () => {
 
     const res = await logIn(app, "");
 
-    expect(res.headers.get("location")).toBe(
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
-    expect(await db.select().from(users)).toHaveLength(0);
+    expect(res.headers.get("location")).toBe("/");
+    const [user, ...others] = await db.select().from(users);
+    expect(others).toHaveLength(0);
+    expect(user).toMatchObject({ login: "octocat", isAdmin: false });
+    const [settings] = await db.select().from(instanceSettings);
+    expect(settings?.adminClaimHash).toBe(sha256(CLAIM));
   });
 
   const postClaim = (app: App, body: unknown) =>

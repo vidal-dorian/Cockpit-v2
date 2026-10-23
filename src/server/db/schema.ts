@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   name: text("name"),
   avatarUrl: text("avatar_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Set by an administrator (decision 012 G): a blocked account cannot log in. Null when active.
+  blockedAt: timestamp("blocked_at", { withTimezone: true, mode: "date" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),

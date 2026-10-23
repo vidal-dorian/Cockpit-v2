@@ -7,6 +7,7 @@ import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import { instanceSettings, sessions, users } from "./db/schema.ts";
+import type { ReadGitHub } from "./github.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
 
 const SESSION_COOKIE = "cockpit_session";
@@ -46,6 +47,7 @@ export async function currentUser(db: Db, c: Context) {
           id: sessions.id,
           expiresAt: sessions.expiresAt,
           userId: users.id,
+          isAdmin: users.isAdmin,
           githubId: users.githubId,
           login: users.login,
           name: users.name,
@@ -84,7 +86,29 @@ async function spendAdminClaim(tx: Tx, claim: string) {
   return spent.length > 0;
 }
 
-export function authRoutes(db: Db, readInstance: ReadInstance) {
+export function authRoutes(
+  db: Db,
+  readInstance: ReadInstance,
+  readGitHub: ReadGitHub,
+) {
+  /** Where a fresh login lands (decision 012 H); a failing check never blocks the login. */
+  async function landingPage(login: string, githubId: number) {
+    try {
+      const ready = await readGitHub();
+      const installation = await ready?.github.findUserInstallation(
+        login,
+        githubId,
+      );
+      return installation === null ? "/bienvenue" : "/";
+    } catch (error) {
+      console.error(
+        "Installation check failed:",
+        error instanceof Error ? error.message : error,
+      );
+      return "/";
+    }
+  }
+
   /** Asks GitHub who the code belongs to; the token is used here and forgotten. */
   async function fetchGitHubUser(config: InstanceSettings, code: string) {
     const tokenRes = await fetch(
@@ -189,28 +213,42 @@ export function authRoutes(db: Db, readInstance: ReadInstance) {
         const claim = getCookie(c, CLAIM_COOKIE);
         let claimed = false;
         await act(db, entry, async (tx) => {
-          // Slice 1.5: only administrators get in; the allow-list comes in 1.6.
+          // Open sign-up (decision 012 G): anyone gets in unless blocked. Looked up by GitHub id, so a renamed login stays blocked.
+          // FOR UPDATE: a concurrent block waits for this login, then deletes the session it opened.
           const [known] = await tx
-            .select({ isAdmin: users.isAdmin })
+            .select({
+              id: users.id,
+              isAdmin: users.isAdmin,
+              blockedAt: users.blockedAt,
+            })
             .from(users)
-            .where(eq(users.githubId, profile.id));
-          if (!known?.isAdmin) {
-            claimed = claim ? await spendAdminClaim(tx, claim) : false;
-            if (!claimed) throw new Refused("account not allowed");
+            .where(eq(users.githubId, profile.id))
+            .for("update");
+          if (known?.blockedAt) {
+            entry.userId = known.id;
+            throw new Refused("account blocked");
           }
+          if (!known?.isAdmin && claim)
+            claimed = await spendAdminClaim(tx, claim);
           const values = {
             githubId: profile.id,
             login: profile.login,
             name: profile.name ?? null,
             avatarUrl: profile.avatar_url ?? null,
-            isAdmin: true,
+            // Never promoted by a login: only the claim makes an administrator.
+            isAdmin: known?.isAdmin === true || claimed,
           };
           const [user] = await tx
             .insert(users)
             .values(values)
             .onConflictDoUpdate({ target: users.githubId, set: values })
-            .returning({ id: users.id });
+            .returning({ id: users.id, blockedAt: users.blockedAt });
           if (!user) throw new Error("user upsert returned no row");
+          // A new account has no row to lock above: a block landing between that read and this upsert is caught here.
+          if (user.blockedAt) {
+            entry.userId = user.id;
+            throw new Refused("account blocked");
+          }
           await tx.insert(sessions).values({
             id: sha256(value),
             userId: user.id,
@@ -227,15 +265,11 @@ export function authRoutes(db: Db, readInstance: ReadInstance) {
           path: "/",
           maxAge: SESSION_SECONDS,
         });
-        return c.redirect("/");
+        return c.redirect(await landingPage(profile.login, profile.id));
       } catch (error) {
-        if (error instanceof Refused) {
-          const query = new URLSearchParams({
-            erreur: "compte-non-autorise",
-            login: profile.login,
-          });
-          return c.redirect(`/?${query}`);
-        }
+        // The only refusal is a blocked account; no login in the URL, nothing to echo.
+        if (error instanceof Refused)
+          return c.redirect("/?erreur=compte-bloque");
         console.error(
           "GitHub login failed:",
           error instanceof Error ? error.message : error,
@@ -280,7 +314,7 @@ export function authRoutes(db: Db, readInstance: ReadInstance) {
     .get("/api/me", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
-      const { login, name, avatarUrl } = user;
-      return c.json({ login, name, avatarUrl });
+      const { login, name, avatarUrl, isAdmin } = user;
+      return c.json({ login, name, avatarUrl, isAdmin });
     });
 }

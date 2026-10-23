@@ -43,6 +43,13 @@
       "when": 1792741312036,
       "tag": "0005_absent_maestro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792746977566,
+      "tag": "0006_omniscient_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,10 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import type { Db } from "./db/db.ts";
+import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
 import { instanceReader } from "./instance.ts";
 import { projectRoutes } from "./projects.ts";
@@ -21,6 +23,7 @@ export function createApp(
   { encryptionKey, setupCode }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);
+  const readGitHub = githubReader(readInstance);
   return (
     new Hono()
       .get("/api/health", async (c) => {
@@ -28,9 +31,10 @@ export function createApp(
         return c.json({ status: "ok", version });
       })
       .route("/", setupRoutes(db, readInstance, encryptionKey, setupCode))
-      .route("/", authRoutes(db, readInstance))
+      .route("/", authRoutes(db, readInstance, readGitHub))
       .route("/", historyRoutes(db))
-      .route("/", projectRoutes(db, readInstance))
+      .route("/", accountRoutes(db, readInstance))
+      .route("/", projectRoutes(db, readGitHub))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.

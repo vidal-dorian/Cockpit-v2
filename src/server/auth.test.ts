@@ -33,7 +33,7 @@ async function setup(overrides: InstanceOverrides = {}) {
   return { db, app };
 }
 
-/** The "allowed account" of the tests: the administrator octocat (in slice 1.5 only administrators may log in). */
+/** The administrator octocat, already known to Cockpit. */
 async function seedAdmin(db: TestDb, login = "octocat") {
   const [user] = await db
     .insert(users)
@@ -193,7 +193,7 @@ describe("GET /api/auth/callback, state check", () => {
 });
 
 describe("GET /api/auth/callback, successful login", () => {
-  it("given a matching state and an allowed GitHub account, when the callback is called, then the user and a hashed session are stored and the cookie is hardened", async () => {
+  it("given a matching state and a GitHub account that is an administrator, when the callback is called, then the user and a hashed session are stored and the cookie is hardened", async () => {
     const { app, db } = await setup();
     await seedAdmin(db);
     const fetchMock = stubGitHub();
@@ -291,35 +291,51 @@ describe("GET /api/auth/callback, successful login", () => {
   });
 });
 
-describe("admin-only login (slice 1.5: the allow-list UI comes in 1.6)", () => {
-  it("given a GitHub account that is not an administrator and unknown to Cockpit, when the callback is called, then it redirects to compte-non-autorise with the login and creates nothing", async () => {
+describe("login of an account unknown to Cockpit (open sign-up, decision 012 G)", () => {
+  it("given a GitHub account that is not an administrator and unknown to Cockpit, when the callback is called, then a non-administrator row and a session are created", async () => {
     const { app, db } = await setup();
     stubGitHub();
 
     const res = await logIn(app);
 
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe(
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
-    expect(await db.select().from(users)).toHaveLength(0);
-    expect(await db.select().from(sessions)).toHaveLength(0);
-    expect(sessionSetCookie(res)).toBeUndefined();
+    expect(res.headers.get("location")).toBe("/");
+    const rows = await db.select().from(users);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      githubId: 1,
+      login: "octocat",
+      isAdmin: false,
+    });
+    expect(await db.select().from(sessions)).toHaveLength(1);
+    expect(sessionSetCookie(res)).toBeDefined();
   });
 
-  it("given a known account that is not an administrator, when it logs in, then it is refused the same way and stays a non-administrator without a session", async () => {
+  it("given a known account that is not an administrator, when it logs in, then it gets a session and stays a non-administrator", async () => {
     const { app, db } = await setup();
     await db.insert(users).values({ githubId: 1, login: "octocat" });
     stubGitHub();
 
     const res = await logIn(app);
 
-    expect(res.headers.get("location")).toBe(
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
+    expect(res.headers.get("location")).toBe("/");
     const rows = await db.select().from(users);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.isAdmin).toBe(false);
+    expect(await db.select().from(sessions)).toHaveLength(1);
+    expect(sessionSetCookie(res)).toBeDefined();
+  });
+
+  it("given a blocked account, when it logs in, then it is redirected to compte-bloque without a login in the URL and gets no session", async () => {
+    const { app, db } = await setup();
+    await db
+      .insert(users)
+      .values({ githubId: 1, login: "octocat", blockedAt: new Date() });
+    stubGitHub();
+
+    const res = await logIn(app);
+
+    expect(res.headers.get("location")).toBe("/?erreur=compte-bloque");
     expect(await db.select().from(sessions)).toHaveLength(0);
     expect(sessionSetCookie(res)).toBeUndefined();
   });
@@ -389,6 +405,7 @@ describe("GET /api/me", () => {
       login: "octocat",
       name: "The Octocat",
       avatarUrl: "https://avatars/1",
+      isAdmin: true,
     });
   });
 
@@ -474,7 +491,7 @@ describe("POST /api/auth/logout", () => {
 });
 
 describe("history of login and logout", () => {
-  it("given an allowed account, when it logs in, then one login entry is written as ok for that user", async () => {
+  it("given an administrator, when it logs in, then one login entry is written as ok for that user", async () => {
     const { app, db } = await setup();
     await seedAdmin(db);
     stubGitHub();
@@ -494,7 +511,7 @@ describe("history of login and logout", () => {
     });
   });
 
-  it("given an account that is not allowed, when it logs in, then one refused login entry is written with no user and nothing that identifies the account", async () => {
+  it("given an account unknown to Cockpit, when it signs up, then one ok login entry is written for the new user and nothing that identifies the account", async () => {
     const { app, db } = await setup();
     stubGitHub({
       user: {
@@ -507,12 +524,14 @@ describe("history of login and logout", () => {
 
     await logIn(app);
 
+    const [user] = await db.select().from(users);
+    assert(user);
     const rows = await db.select().from(history);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       action: "login",
-      result: "refused",
-      userId: null,
+      result: "ok",
+      userId: user.id,
     });
     const serialized = JSON.stringify(rows[0]).toLowerCase();
     for (const secret of ["mallory", "424242", "secret", "avatars"]) {
@@ -520,13 +539,18 @@ describe("history of login and logout", () => {
     }
   });
 
-  it("given a known account that is not an administrator, when it logs in, then one refused login entry is written with no user and nothing that identifies the account", async () => {
+  it("given a blocked account, when it logs in, then one refused login entry holds the user id and the reason account blocked, and nothing that identifies the account", async () => {
     const { app, db } = await setup();
-    await db.insert(users).values({
-      githubId: 424242,
-      login: "mallory-bot",
-      name: "Mallory Secret",
-    });
+    const [blocked] = await db
+      .insert(users)
+      .values({
+        githubId: 424242,
+        login: "mallory-bot",
+        name: "Mallory Secret",
+        blockedAt: new Date(),
+      })
+      .returning({ id: users.id });
+    assert(blocked);
     stubGitHub({
       user: {
         id: 424242,
@@ -543,7 +567,8 @@ describe("history of login and logout", () => {
     expect(rows[0]).toMatchObject({
       action: "login",
       result: "refused",
-      userId: null,
+      userId: blocked.id,
+      detail: { reason: "account blocked" },
     });
     const serialized = JSON.stringify(rows[0]).toLowerCase();
     for (const secret of ["mallory", "424242", "secret", "avatars"]) {

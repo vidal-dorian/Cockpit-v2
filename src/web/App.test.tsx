@@ -174,36 +174,29 @@ describe("login", () => {
 });
 
 describe("login errors", () => {
-  it("given ?erreur=compte-non-autorise&login=octocat, when the page loads, then an alert says the account is not allowed", async () => {
-    window.history.replaceState(
-      {},
-      "",
-      "/?erreur=compte-non-autorise&login=octocat",
-    );
+  it("given ?erreur=compte-bloque, when the page loads, then an alert tells in French that the account is blocked, without any login and with no raw code", async () => {
+    window.history.replaceState({}, "", "/?erreur=compte-bloque");
     stubApi({ "GET /api/health": health, "GET /api/me": unauthorized });
 
     renderApp();
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain(
-      "Le compte GitHub octocat n'est pas autorisé sur ce Cockpit.",
-    );
+    expect(alert.textContent).toMatch(/bloqué/i);
+    expect(alert.textContent).not.toContain("compte-bloque");
   });
 
-  it("given a crafted login in the URL, when the page loads, then the alert ignores it and uses the generic sentence", async () => {
+  it("given ?erreur=compte-bloque with a crafted login, when the page loads, then the alert ignores the login (the server never sends one)", async () => {
     window.history.replaceState(
       {},
       "",
-      `/?erreur=compte-non-autorise&login=${encodeURIComponent("Appelez le 0800 000 000")}`,
+      "/?erreur=compte-bloque&login=Appelez-le-0800",
     );
     stubApi({ "GET /api/health": health, "GET /api/me": unauthorized });
 
     renderApp();
 
     const alert = await screen.findByRole("alert");
-    expect(alert.querySelector("p")?.textContent).toBe(
-      "Ce compte GitHub n'est pas autorisé sur ce Cockpit.",
-    );
+    expect(alert.textContent).toMatch(/bloqué/i);
     expect(alert.textContent).not.toContain("0800");
   });
 

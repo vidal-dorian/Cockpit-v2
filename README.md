@@ -11,7 +11,11 @@ Rien à faire à la main : Cockpit crée lui-même sa GitHub App au premier lanc
 3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos, des PR et de la CI ; écriture du contenu et des issues).
 4. Cliquer sur « Create GitHub App » sur GitHub. Cockpit récupère l'App, chiffre ses secrets en base et te renvoie vers la connexion GitHub : **le premier compte qui se connecte devient administrateur**.
 
-Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account »), mais seuls les comptes autorisés par Cockpit entrent ; pour l'instant, seul l'administrateur (la liste des comptes autorisés arrive avec la tranche 1.6).
+Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account ») et l'inscription est ouverte : tout compte GitHub qui se connecte à Cockpit obtient un compte non administrateur, sans que l'administrateur ait rien à accepter.
+
+### Bloquer quelqu'un
+
+Chaque personne crée son compte Cockpit en se connectant avec GitHub ; si elle n'a pas encore installé l'App, elle arrive sur une page qui explique l'installation, et un bandeau le lui rappelle tant qu'elle n'est pas installée. Pour écarter quelqu'un, l'administrateur ouvre « Réglages » (lien en haut de la page, visible de lui seul), clique sur « Bloquer » en face de son login puis confirme : ses sessions ouvertes sont fermées et il ne peut plus se connecter, même s'il change de login GitHub. « Débloquer » annule le blocage. Un administrateur ne peut pas être bloqué.
 
 ## Lancer en local
 
