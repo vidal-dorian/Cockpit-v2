@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { githubAppConfig } from "./test-github.ts";
 
 let app: ReturnType<typeof createApp>;
 
@@ -10,6 +11,7 @@ beforeAll(async () => {
     githubClientSecret: "client-secret",
     publicUrl: "http://localhost:3000",
     allowedLogins: ["octocat"],
+    ...githubAppConfig,
   });
 });
 

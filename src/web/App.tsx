@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, NavLink, Route, Routes } from "react-router";
 import { client } from "./api.ts";
 import { Journal } from "./Journal.tsx";
+import { Projects } from "./Projects.tsx";
 import { focusRing } from "./ui.ts";
 
 async function fetchHealth() {
@@ -180,12 +181,16 @@ export function App() {
         <NavLink to="/" end className={navLink}>
           Accueil
         </NavLink>
+        <NavLink to="/projets" className={navLink}>
+          Projets
+        </NavLink>
         <NavLink to="/journal" className={navLink}>
           Journal
         </NavLink>
       </nav>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/projets" element={<Projects />} />
         <Route path="/journal" element={<Journal />} />
       </Routes>
     </BrowserRouter>

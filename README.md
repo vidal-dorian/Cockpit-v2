@@ -12,11 +12,18 @@ Une seule fois, sur le compte de Dorian : la connexion à Cockpit passe par une 
 4. Laisser « Expire user authorization tokens » tel quel (coché).
 5. Laisser décoché « Request user authorization (OAuth) during installation ».
 6. **Webhook** : décocher « Active » (les webhooks arrivent avec la tranche 5.1).
-7. Aucune permission sur les repos pour l'instant (elles arrivent avec la tranche 2.1).
-8. « Where can this GitHub App be installed? » : « Only on this account ». Créer l'App.
-9. Copier le **Client ID**, puis « Generate a new client secret » et copier le secret (il ne s'affiche qu'une fois).
+7. **Permissions** → Repository permissions → **Metadata : Read-only**, la seule nécessaire pour lister les repos ([décision 011](docs/decisions/011-import-projets.md)). Les autres permissions seront demandées par les tranches qui en ont besoin.
+8. **Setup URL** : `<PUBLIC_URL>/projets`, et cocher « Redirect on update » : après l'installation de l'App sur des repos, GitHub renvoie vers la page Projets.
+9. « Where can this GitHub App be installed? » : « Only on this account ». Créer l'App.
+10. Copier le **Client ID**, puis « Generate a new client secret » et copier le secret (il ne s'affiche qu'une fois).
+11. Copier l'**App ID** (en haut de la page de l'App) et le **slug** : la fin de l'adresse publique de l'App, `https://github.com/apps/<slug>`.
+12. « Generate a private key » : GitHub télécharge un fichier `.pem`. Le mettre sur une seule ligne en base64 avec `base64 -w0 fichier.pem` (un fichier d'environnement ne garde pas bien un texte sur plusieurs lignes) ; le résultat est la valeur de `GITHUB_APP_PRIVATE_KEY`. Garder le `.pem` en lieu sûr.
+
+Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new` (ou l'onglet « Install App » des réglages de l'App), ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés.
 
 Une App privée (« Only on this account ») peut refuser la connexion des autres comptes GitHub : si un proche de la liste des comptes autorisés tombe sur une page d'erreur de GitHub, passer l'App en « Any account » dans ses réglages. La liste `ALLOWED_GITHUB_LOGINS` de Cockpit décide toujours qui entre.
+
+Une App « Only on this account » ne peut pas non plus être installée par les autres comptes : les proches de `ALLOWED_GITHUB_LOGINS` ne pourront importer des repos qu'une fois l'App passée en « Any account ».
 
 Pour développer en local, créer une seconde App du même genre, avec pour Callback URL `http://localhost:5173/api/auth/callback` (avec `npm run dev:web`) ou `http://localhost:3000/api/auth/callback` (avec `npm start`).
 
@@ -36,6 +43,9 @@ export GITHUB_CLIENT_ID=<Client ID de l'App>
 export GITHUB_CLIENT_SECRET=<secret de l'App>
 export PUBLIC_URL=http://localhost:3000        # http://localhost:5173 avec npm run dev:web
 export ALLOWED_GITHUB_LOGINS=<ton-login>       # plusieurs : login1,login2
+export GITHUB_APP_ID=<App ID de l'App>
+export GITHUB_APP_SLUG=<slug de l'App>
+export GITHUB_APP_PRIVATE_KEY=$(base64 -w0 fichier.pem)
 ```
 
 ```sh
@@ -65,7 +75,7 @@ Cockpit tourne sur le Raspberry Pi avec Docker Compose (Cockpit, PostgreSQL, `cl
 1. Installer Docker et le plugin Compose sur le Pi.
 2. Installer le runner GitHub auto-hébergé avec les labels `self-hosted, raspberry`, et ajouter son utilisateur au groupe `docker`.
 3. Dans le tableau de bord Cloudflare, créer un tunnel géré à distance, avec un nom d'hôte public qui pointe vers `http://app:3000`. Garder son jeton.
-4. Créer la GitHub App (voir « Créer la GitHub App ») et garder son Client ID et son secret.
+4. Créer la GitHub App (voir « Créer la GitHub App ») et garder son Client ID, son secret, son App ID, son slug et sa clé privée.
 5. Créer les dossiers et le fichier d'environnement, au nom de l'utilisateur du runner (`<runner-user>`), lisible par lui seul :
 
    ```sh
@@ -77,6 +87,9 @@ Cockpit tourne sur le Raspberry Pi avec Docker Compose (Cockpit, PostgreSQL, `cl
    GITHUB_CLIENT_SECRET=<secret de la GitHub App>
    PUBLIC_URL=https://<domaine>
    ALLOWED_GITHUB_LOGINS=<login1,login2>
+   GITHUB_APP_ID=<App ID de la GitHub App>
+   GITHUB_APP_SLUG=<slug de la GitHub App>
+   GITHUB_APP_PRIVATE_KEY=<sortie de base64 -w0 fichier.pem>
    EOF
    sudo chown <runner-user> /etc/cockpit/cockpit.env && sudo chmod 600 /etc/cockpit/cockpit.env
    ```

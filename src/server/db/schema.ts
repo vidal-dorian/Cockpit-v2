@@ -5,8 +5,10 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -37,6 +39,42 @@ export const sessions = pgTable("sessions", {
     .defaultNow(),
 });
 
+export const projects = pgTable("projects", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  // One repo, one project for the whole instance (decision 008); GitHub ids can exceed 2^31.
+  githubRepoId: bigint("github_repo_id", { mode: "number" }).notNull().unique(),
+  fullName: text("full_name").notNull(),
+  defaultBranch: text("default_branch").notNull(),
+  installationId: bigint("installation_id", { mode: "number" }).notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
+/** Who works on a project: the one place access lives (decisions 002 and 008). */
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role", { enum: ["owner"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.userId] }),
+    // Enforces one member per project until sharing (decision 008).
+    uniqueIndex("project_members_project_id_idx").on(t.projectId),
+    check("project_members_role_check", sql`${t.role} in ('owner')`),
+  ],
+);
+
 /** Append-only (triggers in the history_append_only migration); no foreign keys, so entries outlive what they point at (decision 010). */
 export const history = pgTable(
   "history",
@@ -46,6 +84,7 @@ export const history = pgTable(
       .notNull()
       .defaultNow(),
     userId: integer("user_id"),
+    projectId: integer("project_id"),
     actor: text("actor", {
       enum: ["human", "claude", "github", "system"],
     }).notNull(),

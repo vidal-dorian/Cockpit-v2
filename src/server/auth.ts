@@ -51,6 +51,7 @@ export async function currentUser(db: Db, c: Context) {
           id: sessions.id,
           expiresAt: sessions.expiresAt,
           userId: users.id,
+          githubId: users.githubId,
           login: users.login,
           name: users.name,
           avatarUrl: users.avatarUrl,

@@ -8,13 +8,18 @@ export COMPOSE_PROJECT_NAME=cockpit-smoke
 
 TMP=$(mktemp -d)
 ENV="$TMP/cockpit.env"
-# The app refuses to start without the GitHub login settings (slice 1.3); the values are dummies.
+# The app refuses to start without the GitHub login settings (slice 1.3) and the GitHub App settings (slice 2.1); the values are dummies.
+# The private key is a real RSA key, base64 on one line (decision 011 H).
+APP_KEY=$(openssl genrsa 2048 2>/dev/null | base64 -w0)
 cat > "$ENV" <<ENVFILE
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 GITHUB_CLIENT_ID=smoke-client-id
 GITHUB_CLIENT_SECRET=smoke-client-secret
 PUBLIC_URL=http://127.0.0.1:3000
 ALLOWED_GITHUB_LOGINS=smoke
+GITHUB_APP_ID=123456
+GITHUB_APP_SLUG=smoke-app
+GITHUB_APP_PRIVATE_KEY=$APP_KEY
 ENVFILE
 URL=http://127.0.0.1:3000
 VERSION=$(tr -d '[:space:]' < version.txt)
