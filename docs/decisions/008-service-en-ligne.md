@@ -4,6 +4,7 @@
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [006 — Connexion OAuth](006-connexion-oauth.md)
+- **Modifiée par 012** : la règle « seuls les comptes listés entrent sur le Pi » (tranche 1.3) est remplacée par l'inscription ouverte et une liste de comptes bloqués, à la demande de Dorian — voir la [012](012-configuration-automatique.md), choix G
 - **Modifie** : la base de données de la [001](001-stack.md) (SQLite → PostgreSQL) ; le propriétaire, l'unicité de `github_repo_id` et les types de colonnes de la [002](002-modele-donnees.md) ; l'accès d'un jeton dans la [004](004-outils-mcp.md) ; le brief §3 (hébergement) et §9 (plusieurs personnes sur un projet)
 
 ## Contexte
@@ -88,7 +89,7 @@ Un client peut demander l'effacement de ses données (RGPD), alors que l'histori
 
 - **Nouvelle tranche 1.1 bis, avant 1.2** : passer de SQLite à PostgreSQL. Pilote `pg`, PGlite dans les tests, migration de départ régénérée pour PostgreSQL, conventions de `CLAUDE.md` mises à jour. La migration SQLite n'a jamais été appliquée ailleurs qu'en local : elle est remplacée et non complétée, ce qui est une exception assumée à la règle « ne jamais modifier une migration appliquée ».
 - **1.2** : Docker Compose sur le Pi, avec trois services : Cockpit, PostgreSQL (données dans un volume) et `cloudflared`. Ajout d'une sauvegarde quotidienne (`pg_dump`). Le jeton du tunnel et le mot de passe de la base restent sur le Pi, hors du repo.
-- **1.3** : la liste de comptes autorisés reste tant que Cockpit est sur le Pi. L'inscription ouverte viendra avec la facturation.
+- **1.3** : ~~la liste de comptes autorisés reste tant que Cockpit est sur le Pi ; l'inscription ouverte viendra avec la facturation~~ — modifié par la [012](012-configuration-automatique.md) (G) : l'inscription est ouverte dès la 1.6, avec une liste de comptes bloqués.
 - **1.4** : triggers PostgreSQL ; pas de données personnelles en clair dans l'historique.
 - **2.1** : le test d'isolation passe par `project_members`.
 - **5.1** : webhooks enregistrés avant d'être traités.

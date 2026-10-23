@@ -1,68 +1,9 @@
 {
-  "id": "ab054720-fb31-49fd-befa-300e91b2431f",
+  "id": "2d8ccd65-c32e-49be-adb8-0da1a082821f",
   "prevId": "41e8fd72-e5a9-47cd-a79d-0d1b808c7585",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.allowed_accounts": {
-      "name": "allowed_accounts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "allowed_accounts_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "login": {
-          "name": "login",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "allowed_accounts_login_idx": {
-          "name": "allowed_accounts_login_idx",
-          "columns": [
-            {
-              "expression": "lower(\"login\")",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.history": {
       "name": "history",
       "schema": "",
@@ -513,6 +454,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "blocked_at": {
+          "name": "blocked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

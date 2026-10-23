@@ -5,165 +5,127 @@ import { focusRing } from "./ui.ts";
 
 const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
 
-/** A French sentence for a failed answer; the server's codes are not meant to be read. */
-function failure(res: Response, byStatus: Record<number, string> = {}) {
+// The server's refusals, in French; its codes are not meant to be read.
+const REFUSALS: Record<string, string> = {
+  already_blocked: "Ce compte est déjà bloqué.",
+  cannot_block_admin: "Un administrateur ne peut pas être bloqué.",
+  not_blocked: "Ce compte n'est pas bloqué.",
+};
+
+/** A French sentence for a failed answer. */
+async function failure(res: Response) {
+  const body: { error?: string } | null = await res.json().catch(() => null);
   return new Error(
-    byStatus[res.status] ??
+    (res.status === 409 && body?.error && REFUSALS[body.error]) ||
       (res.status === 403
         ? "Cette page est réservée à l'administrateur."
         : "L'opération a échoué, réessaie."),
   );
 }
 
-async function fetchAccounts() {
-  const res = await client.api.settings.accounts.$get();
-  if (!res.ok) throw failure(res);
-  return (await res.json()).accounts;
+async function fetchUsers() {
+  const res = await client.api.settings.users.$get();
+  if (!res.ok) throw await failure(res);
+  return (await res.json()).users;
 }
 
-function AddAccount() {
+function UserList() {
   const queryClient = useQueryClient();
-  const [login, setLogin] = useState("");
-  const add = useMutation({
-    mutationFn: async (value: string) => {
-      const res = await client.api.settings.accounts.$post({
-        json: { login: value },
-      });
-      if (!res.ok)
-        throw failure(res, {
-          400: "Ce login GitHub n'est pas valide.",
-          409: "Ce compte est déjà autorisé.",
-        });
-    },
-    onSuccess: () => setLogin(""),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
-  });
-
-  return (
-    <form
-      className="mt-3 flex flex-wrap items-end gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        add.mutate(login);
-      }}
-    >
-      <label className="grid gap-1 font-semibold">
-        Login GitHub
-        <input
-          value={login}
-          onChange={(event) => setLogin(event.target.value)}
-          autoComplete="off"
-          className={`min-h-10 rounded-lg border border-border bg-card px-3 font-normal ${focusRing}`}
-        />
-      </label>
-      <button
-        type="submit"
-        disabled={add.isPending}
-        className={`min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-      >
-        Ajouter
-      </button>
-      {add.error && (
-        <p
-          role="alert"
-          className="basis-full rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
-          {add.error.message}
-        </p>
-      )}
-    </form>
-  );
-}
-
-function AccountList() {
-  const queryClient = useQueryClient();
-  const accounts = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  // The account waiting for its confirmation: removing ends their sessions, so we ask on the spot (decision 003, rule 4).
+  const users = useQuery({ queryKey: ["users"], queryFn: fetchUsers });
+  // The user waiting for their confirmation: blocking ends their sessions, so we ask on the spot (decision 003, rule 4).
   const [confirming, setConfirming] = useState<number | null>(null);
-  const revoke = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await client.api.settings.accounts[":id"].$delete({
-        param: { id: String(id) },
-      });
-      if (!res.ok) throw failure(res);
+  const change = useMutation({
+    mutationFn: async ({ id, block }: { id: number; block: boolean }) => {
+      const param = { id: String(id) };
+      const res = block
+        ? await client.api.settings.users[":id"].block.$post({ param })
+        : await client.api.settings.users[":id"].unblock.$post({ param });
+      if (!res.ok) throw await failure(res);
     },
     onSettled: () => {
       setConfirming(null);
-      return queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      return queryClient.invalidateQueries({ queryKey: ["users"] });
     },
   });
 
-  if (accounts.isPending)
+  if (users.isPending)
     return <p className="text-muted-foreground">Chargement…</p>;
-  if (accounts.isError) {
+  if (users.isError) {
     return (
       <p
         role="alert"
         className="rounded-xl bg-destructive-soft p-4 text-destructive"
       >
-        {accounts.error.message}
+        {users.error.message}
       </p>
     );
   }
   return (
     <>
-      {accounts.data.length === 0 ? (
-        <p className="text-muted-foreground">
-          Aucun compte autorisé pour l'instant : toi seul peux te connecter.
-        </p>
-      ) : (
-        <ul className="grid gap-2">
-          {accounts.data.map((account) => (
-            <li
-              key={account.id}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
-            >
-              <span className="font-semibold">{account.login}</span>
-              <span className="flex gap-2 sm:ml-auto">
-                {confirming === account.id ? (
-                  <>
-                    <span className="basis-full">
-                      Retirer ce compte ? Ses sessions ouvertes sont fermées.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => revoke.mutate(account.id)}
-                      disabled={revoke.isPending}
-                      className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
-                    >
-                      Confirmer le retrait
-                    </button>
-                    <button
-                      type="button"
-                      // The Retirer button is gone: keep the keyboard focus on the safe choice.
-                      // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-                      autoFocus
-                      onClick={() => setConfirming(null)}
-                      className={button}
-                    >
-                      Annuler
-                    </button>
-                  </>
-                ) : (
+      <ul className="grid gap-2">
+        {users.data.map((user) => (
+          <li
+            key={user.id}
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
+          >
+            <span className="font-semibold">{user.login}</span>
+            {user.isAdmin && (
+              <span className="text-muted-foreground">Administrateur</span>
+            )}
+            {user.blockedAt && <span className="text-destructive">Bloqué</span>}
+            <span className="flex gap-2 sm:ml-auto">
+              {user.isAdmin ? null : user.blockedAt ? (
+                <button
+                  type="button"
+                  onClick={() => change.mutate({ id: user.id, block: false })}
+                  disabled={change.isPending}
+                  className={button}
+                >
+                  Débloquer
+                </button>
+              ) : confirming === user.id ? (
+                <>
+                  <span className="basis-full">
+                    Bloquer ce compte ? Ses sessions ouvertes sont fermées.
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setConfirming(account.id)}
+                    onClick={() => change.mutate({ id: user.id, block: true })}
+                    disabled={change.isPending}
+                    className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                  >
+                    Confirmer le blocage
+                  </button>
+                  <button
+                    type="button"
+                    // The Bloquer button is gone: keep the keyboard focus on the safe choice.
+                    // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                    autoFocus
+                    onClick={() => setConfirming(null)}
                     className={button}
                   >
-                    Retirer
+                    Annuler
                   </button>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {revoke.error && (
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirming(user.id)}
+                  className={button}
+                >
+                  Bloquer
+                </button>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {change.error && (
         <p
           role="alert"
           className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
         >
-          {revoke.error.message}
+          {change.error.message}
         </p>
       )}
     </>
@@ -174,18 +136,16 @@ export function Settings() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-heading text-3xl font-extrabold">Réglages</h1>
-      <section className="mt-6" aria-labelledby="comptes">
-        <h2 id="comptes" className="font-heading text-xl font-bold">
-          Comptes autorisés
+      <section className="mt-6" aria-labelledby="utilisateurs">
+        <h2 id="utilisateurs" className="font-heading text-xl font-bold">
+          Utilisateurs
         </h2>
         <p className="mt-1 text-muted-foreground">
-          Ces comptes GitHub peuvent se connecter à Cockpit, en plus des
-          administrateurs.
+          Toute personne avec un compte GitHub peut se connecter à Cockpit. Un
+          compte bloqué ne peut plus se connecter.
         </p>
-        <h3 className="mt-4 font-semibold">Ajouter un compte</h3>
-        <AddAccount />
-        <div className="mt-6" aria-live="polite">
-          <AccountList />
+        <div className="mt-4" aria-live="polite">
+          <UserList />
         </div>
       </section>
     </main>

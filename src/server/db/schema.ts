@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   name: text("name"),
   avatarUrl: text("avatar_url"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Set by an administrator (decision 012 G): a blocked account cannot log in. Null when active.
+  blockedAt: timestamp("blocked_at", { withTimezone: true, mode: "date" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -46,19 +48,6 @@ export const instanceSettings = pgTable(
       .defaultNow(),
   },
   (t) => [check("instance_settings_single_row", sql`${t.id} = 1`)],
-);
-
-/** The GitHub logins the administrator lets in (decision 012 G); the administrators themselves are not listed. Compared without case, as GitHub does. */
-export const allowedAccounts = pgTable(
-  "allowed_accounts",
-  {
-    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    login: text("login").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [uniqueIndex("allowed_accounts_login_idx").on(sql`lower(${t.login})`)],
 );
 
 export const sessions = pgTable("sessions", {

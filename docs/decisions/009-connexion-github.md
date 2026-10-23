@@ -5,7 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [008 — Service en ligne](008-service-en-ligne.md)
 - **Tranche** : 1.3 du [découpage](../decoupage.md)
-- **Modifiée par 012** : la configuration ne vient plus de l'environnement (App créée par l'assistant, secrets en base, comptes autorisés en base) — voir la [012](012-configuration-automatique.md)
+- **Modifiée par 012** : la configuration ne vient plus de l'environnement (App créée par l'assistant, secrets en base, inscription ouverte avec comptes bloqués en base au lieu d'une liste de comptes autorisés) — voir la [012](012-configuration-automatique.md)
 
 ## Contexte
 
@@ -18,19 +18,19 @@ C'est le flux « application web » des GitHub Apps ([docs GitHub](https://docs.
 1. « Se connecter avec GitHub » mène à `GET /api/auth/login`. Cockpit tire un `state` au hasard, le met dans un cookie de 10 minutes, et renvoie vers `https://github.com/login/oauth/authorize` avec le `client_id` de l'App, le `state` et l'adresse de retour `<PUBLIC_URL>/api/auth/callback`.
 2. GitHub demande à l'utilisateur d'autoriser l'App, puis revient sur `/api/auth/callback` avec un `code` et le `state`.
 3. Cockpit vérifie que le `state` est celui du cookie (sinon, quelqu'un d'autre a lancé la demande : on arrête), échange le `code` contre un jeton (`POST https://github.com/login/oauth/access_token`), et lit le compte avec `GET https://api.github.com/user`.
-4. Compte autorisé : Cockpit crée ou met à jour la ligne `users` (par `github_id`), ouvre une session et revient sur l'accueil. Compte refusé : rien n'est créé, l'accueil affiche pourquoi.
+4. Compte non bloqué : Cockpit crée ou met à jour la ligne `users` (par `github_id`), ouvre une session et revient sur l'accueil. Compte bloqué (012 G) : aucune session, l'accueil affiche pourquoi.
 
 ## Les choix
 
 | # | Question | Décision |
 |---|---|---|
-| A | Où vit la liste des comptes autorisés ? | **Dans la configuration** : `ALLOWED_GITHUB_LOGINS`, des logins séparés par des virgules, comparés sans tenir compte des majuscules (002). L'inscription ouverte viendra avec la facturation (008) |
+| A | Qui peut se connecter ? | ~~**Dans la configuration** : `ALLOWED_GITHUB_LOGINS`~~ — remplacé par la [012](012-configuration-automatique.md) (G) : inscription ouverte, l'administrateur bloque les comptes dont il ne veut pas |
 | B | Cockpit garde-t-il le jeton GitHub de l'utilisateur ? | **Non.** Il ne sert ici qu'à lire le compte, puis il est oublié. Pour agir sur les repos (2.1), Cockpit utilisera les jetons d'**installation** de l'App, limités aux repos que l'utilisateur lui a ouverts : c'est le mode prévu par GitHub pour une App, et il n'y a aucun jeton d'utilisateur à chiffrer ni à rafraîchir. À confirmer en 2.1 |
 | C | Comment la session est-elle tenue ? | Un **cookie `cockpit_session`** : 32 octets tirés au hasard, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` quand `PUBLIC_URL` est en `https`, valable **30 jours**. La base n'en garde que l'**empreinte SHA-256** (`sessions.id`, 002) : une fuite de la base ne donne aucune session utilisable |
 | D | Déconnexion | `POST /api/auth/logout` supprime la ligne de session et efface le cookie. Un `POST` et non un lien, pour qu'une page tierce ne puisse pas déconnecter quelqu'un en chargeant une image |
-| E | Que voit l'interface ? | `GET /api/me` rend le compte connecté, ou `401`. Sans session, l'accueil montre « Se connecter avec GitHub ». Les erreurs reviennent sur l'accueil (`/?erreur=…`) et s'affichent avec ce qu'il faut faire : compte non autorisé (avec son login), ou connexion échouée avec « Réessayer » |
+| E | Que voit l'interface ? | `GET /api/me` rend le compte connecté, ou `401`. Sans session, l'accueil montre « Se connecter avec GitHub ». Les erreurs reviennent sur l'accueil (`/?erreur=…`) et s'affichent avec ce qu'il faut faire : compte bloqué, ou connexion échouée avec « Réessayer » |
 | F | Octokit ? | **Pas encore** : deux appels `fetch` suffisent à la connexion. Octokit arrivera avec les appels à l'API des repos (2.1) |
-| G | Configuration | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_URL` et `ALLOWED_GITHUB_LOGINS` : le serveur refuse de démarrer s'il en manque une, comme pour `DATABASE_URL` |
+| G | Configuration | ~~`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_URL` et `ALLOWED_GITHUB_LOGINS` : le serveur refuse de démarrer s'il en manque une, comme pour `DATABASE_URL`~~ Ces variables ont disparu avec la [012](012-configuration-automatique.md) : la configuration est créée par l'assistant et rangée en base |
 
 ## Modèle de données
 

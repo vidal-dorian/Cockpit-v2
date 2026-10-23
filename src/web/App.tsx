@@ -23,29 +23,16 @@ async function fetchMe() {
   return res.json();
 }
 
-// GitHub's login format; anything else in the URL is not shown, so a crafted link cannot write its own sentence.
-const GITHUB_LOGIN = /^[a-z\d](?:[a-z\d-]{0,38})$/i;
-
 function LoginError() {
   const params = new URLSearchParams(window.location.search);
   const erreur = params.get("erreur");
-  const login = params.get("login");
-  if (erreur === "compte-non-autorise") {
+  if (erreur === "compte-bloque") {
     return (
       <div
         role="alert"
         className="mt-8 rounded-xl bg-destructive-soft p-4 text-destructive"
       >
-        <p>
-          {login && GITHUB_LOGIN.test(login)
-            ? `Le compte GitHub ${login}`
-            : "Ce compte GitHub"}{" "}
-          n'est pas autorisé sur ce Cockpit.
-        </p>
-        <p className="mt-1">
-          Demande à son propriétaire d'ajouter ce login à la liste des comptes
-          autorisés.
-        </p>
+        <p>Ton compte a été bloqué par l'administrateur de ce Cockpit.</p>
       </div>
     );
   }

@@ -1,17 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import {
-  allowedAccounts,
-  instanceSettings,
-  sessions,
-  users,
-} from "./db/schema.ts";
+import { instanceSettings, sessions, users } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
 
@@ -218,25 +213,23 @@ export function authRoutes(
         const claim = getCookie(c, CLAIM_COOKIE);
         let claimed = false;
         await act(db, entry, async (tx) => {
-          // Administrators, accounts they allowed (decision 012 G), and the wizard's claim get in.
+          // Open sign-up (decision 012 G): anyone gets in unless blocked. Looked up by GitHub id, so a renamed login stays blocked.
+          // FOR UPDATE: a concurrent block waits for this login, then deletes the session it opened.
           const [known] = await tx
-            .select({ isAdmin: users.isAdmin })
+            .select({
+              id: users.id,
+              isAdmin: users.isAdmin,
+              blockedAt: users.blockedAt,
+            })
             .from(users)
-            .where(eq(users.githubId, profile.id));
-          if (!known?.isAdmin) {
-            const [allowed] = await tx
-              .select({ id: allowedAccounts.id })
-              .from(allowedAccounts)
-              .where(
-                sql`lower(${allowedAccounts.login}) = lower(${profile.login})`,
-              )
-              // A concurrent revoke waits for this login, then deletes the session it opened.
-              .for("share");
-            if (!allowed) {
-              claimed = claim ? await spendAdminClaim(tx, claim) : false;
-              if (!claimed) throw new Refused("account not allowed");
-            }
+            .where(eq(users.githubId, profile.id))
+            .for("update");
+          if (known?.blockedAt) {
+            entry.userId = known.id;
+            throw new Refused("account blocked");
           }
+          if (!known?.isAdmin && claim)
+            claimed = await spendAdminClaim(tx, claim);
           const values = {
             githubId: profile.id,
             login: profile.login,
@@ -249,8 +242,13 @@ export function authRoutes(
             .insert(users)
             .values(values)
             .onConflictDoUpdate({ target: users.githubId, set: values })
-            .returning({ id: users.id });
+            .returning({ id: users.id, blockedAt: users.blockedAt });
           if (!user) throw new Error("user upsert returned no row");
+          // A new account has no row to lock above: a block landing between that read and this upsert is caught here.
+          if (user.blockedAt) {
+            entry.userId = user.id;
+            throw new Refused("account blocked");
+          }
           await tx.insert(sessions).values({
             id: sha256(value),
             userId: user.id,
@@ -269,13 +267,9 @@ export function authRoutes(
         });
         return c.redirect(await landingPage(profile.login, profile.id));
       } catch (error) {
-        if (error instanceof Refused) {
-          const query = new URLSearchParams({
-            erreur: "compte-non-autorise",
-            login: profile.login,
-          });
-          return c.redirect(`/?${query}`);
-        }
+        // The only refusal is a blocked account; no login in the URL, nothing to echo.
+        if (error instanceof Refused)
+          return c.redirect("/?erreur=compte-bloque");
         console.error(
           "GitHub login failed:",
           error instanceof Error ? error.message : error,
