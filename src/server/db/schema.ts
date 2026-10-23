@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   integer,
   jsonb,
@@ -19,10 +20,33 @@ export const users = pgTable("users", {
   login: text("login").notNull(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
 });
+
+/** The one row the start-up wizard fills (decision 012); the three secrets are AES-256-GCM values (secrets.ts), the key never enters the database. */
+export const instanceSettings = pgTable(
+  "instance_settings",
+  {
+    id: integer("id").primaryKey(),
+    publicUrl: text("public_url").notNull(),
+    // Text, not a number: GitHub's App ids are opaque to Cockpit.
+    githubAppId: text("github_app_id").notNull(),
+    githubAppSlug: text("github_app_slug").notNull(),
+    githubClientId: text("github_client_id").notNull(),
+    githubClientSecret: text("github_client_secret").notNull(),
+    githubPrivateKey: text("github_private_key").notNull(),
+    githubWebhookSecret: text("github_webhook_secret").notNull(),
+    // The SHA-256 of the cookie that lets the person who ran the wizard become the first administrator; null once spent.
+    adminClaimHash: text("admin_claim_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [check("instance_settings_single_row", sql`${t.id} = 1`)],
+);
 
 export const sessions = pgTable("sessions", {
   // The SHA-256 of the cookie value, so a leaked database gives no usable session (decision 009).

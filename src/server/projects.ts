@@ -1,12 +1,14 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
 import { validator } from "hono/validator";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
-import { type GitHubAppConfig, githubClient } from "./github.ts";
+import { githubClient } from "./github.ts";
+import type { ReadInstance } from "./instance.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -15,6 +17,8 @@ const GITHUB_DOWN =
 const importBody = z.object({ githubRepoId: z.number().int() });
 
 const unauthorized = { error: "Unauthorized" };
+const NOT_CONFIGURED =
+  "Cockpit n'est pas encore installé : termine l'assistant de démarrage.";
 
 /** The one place that says whether a user belongs to a project; anyone else gets undefined, as if it did not exist (decisions 004 and 011 E). */
 export async function memberProject(db: Db, userId: number, projectId: number) {
@@ -52,26 +56,52 @@ const present = (p: typeof projects.$inferSelect) => ({
   archived: p.archivedAt !== null,
 });
 
-export function projectRoutes(db: Db, config: GitHubAppConfig) {
-  const github = githubClient(config);
+type GitHub = ReturnType<typeof githubClient>;
+type Env = { Variables: { github: GitHub; installUrl: string } };
 
-  /** The repos the user opened to the App on GitHub; null when the App is not installed on their account. */
-  async function installedRepos(login: string, githubId: number) {
-    const installationId = await github.findUserInstallation(login, githubId);
-    if (installationId === null) return null;
-    return {
-      installationId,
-      repos: await github.listInstallationRepos(installationId),
-    };
-  }
+/** The repos the user opened to the App on GitHub; null when the App is not installed on their account. */
+async function installedRepos(github: GitHub, login: string, githubId: number) {
+  const installationId = await github.findUserInstallation(login, githubId);
+  if (installationId === null) return null;
+  return {
+    installationId,
+    repos: await github.listInstallationRepos(installationId),
+  };
+}
 
-  return new Hono()
+export function projectRoutes(db: Db, readInstance: ReadInstance) {
+  // Built once the wizard has run: the settings never change after that, so the client keeps its installation tokens.
+  let ready: { github: GitHub; installUrl: string } | undefined;
+
+  /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
+  const gate = createMiddleware<Env>(async (c, next) => {
+    if (!ready) {
+      const settings = await readInstance();
+      if (!settings) return c.json({ error: NOT_CONFIGURED }, 503);
+      ready = {
+        github: githubClient({
+          githubAppId: settings.githubAppId,
+          githubAppSlug: settings.githubAppSlug,
+          githubAppPrivateKey: settings.githubPrivateKey,
+        }),
+        installUrl: `https://github.com/apps/${settings.githubAppSlug}/installations/new`,
+      };
+    }
+    c.set("github", ready.github);
+    c.set("installUrl", ready.installUrl);
+    await next();
+  });
+
+  return new Hono<Env>()
+    .use("/api/projects/*", gate)
+    .use("/api/github/*", gate)
     .get("/api/github/repositories", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
-      const installUrl = `https://github.com/apps/${config.githubAppSlug}/installations/new`;
+      const github = c.get("github");
+      const installUrl = c.get("installUrl");
       try {
-        const found = await installedRepos(user.login, user.githubId);
+        const found = await installedRepos(github, user.login, user.githubId);
         if (!found)
           return c.json({ installUrl, installed: false, repositories: [] });
         const tracked = new Set(
@@ -113,7 +143,11 @@ export function projectRoutes(db: Db, config: GitHubAppConfig) {
         // The name, branch and installation come from GitHub, never from the request (decision 011 B).
         let found: Awaited<ReturnType<typeof installedRepos>>;
         try {
-          found = await installedRepos(user.login, user.githubId);
+          found = await installedRepos(
+            c.get("github"),
+            user.login,
+            user.githubId,
+          );
         } catch (error) {
           console.error("GitHub request failed:", error);
           return c.json({ error: GITHUB_DOWN }, 502);

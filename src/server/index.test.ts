@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -17,99 +19,36 @@ describe("server entry point", () => {
     expect(result.stderr).toContain("DATABASE_URL");
   }, 15_000);
 
-  it("given GITHUB_CLIENT_ID is missing, when it starts, then it exits with an error that names GITHUB_CLIENT_ID before connecting to the database", () => {
-    const { GITHUB_CLIENT_ID: _removed, ...env } = process.env;
+  it("given only DATABASE_URL and no GitHub setting, when it starts, then it does not ask for any of them (the wizard configures GitHub, decision 012)", () => {
+    const keyDir = mkdtempSync(join(tmpdir(), "cockpit-index-"));
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) => !/^(GITHUB_|PUBLIC_URL$|ALLOWED_GITHUB_LOGINS$)/.test(name),
+      ),
+    );
 
     const result = spawnSync("node", ["src/server/index.ts"], {
       cwd: join(import.meta.dirname, "../.."),
       env: {
         ...env,
         PORT: "0",
-        // Unreachable on purpose: the check must fail before any connection.
+        // Unreachable on purpose: it fails on the connection, not on a missing setting.
         DATABASE_URL: "postgres://nobody:nothing@127.0.0.1:1/none",
-        GITHUB_CLIENT_SECRET: "secret",
-        PUBLIC_URL: "http://localhost:3000",
-        ALLOWED_GITHUB_LOGINS: "octocat",
+        COCKPIT_KEY_FILE: join(keyDir, "master.key"),
       },
       encoding: "utf8",
       timeout: 10_000,
     });
+    rmSync(keyDir, { recursive: true });
 
     expect(result.status).toBeGreaterThan(0);
-    expect(result.stderr).toContain("GITHUB_CLIENT_ID");
-  }, 15_000);
-
-  it("given PUBLIC_URL is not a URL, when it starts, then it exits with an error that names PUBLIC_URL before connecting to the database", () => {
-    const result = spawnSync("node", ["src/server/index.ts"], {
-      cwd: join(import.meta.dirname, "../.."),
-      env: {
-        ...process.env,
-        PORT: "0",
-        // Unreachable on purpose: the check must fail before any connection.
-        DATABASE_URL: "postgres://nobody:nothing@127.0.0.1:1/none",
-        GITHUB_CLIENT_ID: "client-id",
-        GITHUB_CLIENT_SECRET: "secret",
-        PUBLIC_URL: "nope",
-        ALLOWED_GITHUB_LOGINS: "octocat",
-      },
-      encoding: "utf8",
-      timeout: 10_000,
-    });
-
-    expect(result.status).toBeGreaterThan(0);
-    expect(result.stderr).toContain("PUBLIC_URL");
-  }, 15_000);
-
-  it("given GITHUB_APP_PRIVATE_KEY is missing, when it starts, then it exits with an error that names GITHUB_APP_PRIVATE_KEY before connecting to the database", () => {
-    const { GITHUB_APP_PRIVATE_KEY: _removed, ...env } = process.env;
-
-    const result = spawnSync("node", ["src/server/index.ts"], {
-      cwd: join(import.meta.dirname, "../.."),
-      env: {
-        ...env,
-        PORT: "0",
-        // Unreachable on purpose: the check must fail before any connection.
-        DATABASE_URL: "postgres://nobody:nothing@127.0.0.1:1/none",
-        GITHUB_CLIENT_ID: "client-id",
-        GITHUB_CLIENT_SECRET: "secret",
-        PUBLIC_URL: "http://localhost:3000",
-        ALLOWED_GITHUB_LOGINS: "octocat",
-        GITHUB_APP_ID: "123456",
-        GITHUB_APP_SLUG: "cockpit-test",
-      },
-      encoding: "utf8",
-      timeout: 10_000,
-    });
-
-    expect(result.status).toBeGreaterThan(0);
-    expect(result.stderr).toContain("GITHUB_APP_PRIVATE_KEY");
-  }, 15_000);
-
-  it("given GITHUB_APP_PRIVATE_KEY is not a valid key, when it starts, then it exits with an error that names GITHUB_APP_PRIVATE_KEY before connecting to the database", () => {
-    const notAKey = Buffer.from(
-      "-----BEGIN PRIVATE KEY-----\nnot a key\n-----END PRIVATE KEY-----",
-    ).toString("base64");
-
-    const result = spawnSync("node", ["src/server/index.ts"], {
-      cwd: join(import.meta.dirname, "../.."),
-      env: {
-        ...process.env,
-        PORT: "0",
-        // Unreachable on purpose: the check must fail before any connection.
-        DATABASE_URL: "postgres://nobody:nothing@127.0.0.1:1/none",
-        GITHUB_CLIENT_ID: "client-id",
-        GITHUB_CLIENT_SECRET: "secret",
-        PUBLIC_URL: "http://localhost:3000",
-        ALLOWED_GITHUB_LOGINS: "octocat",
-        GITHUB_APP_ID: "123456",
-        GITHUB_APP_SLUG: "cockpit-test",
-        GITHUB_APP_PRIVATE_KEY: notAKey,
-      },
-      encoding: "utf8",
-      timeout: 10_000,
-    });
-
-    expect(result.status).toBeGreaterThan(0);
-    expect(result.stderr).toContain("GITHUB_APP_PRIVATE_KEY");
+    for (const name of [
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "GITHUB_APP",
+      "PUBLIC_URL",
+      "ALLOWED_GITHUB_LOGINS",
+    ])
+      expect(result.stderr).not.toContain(name);
   }, 15_000);
 });

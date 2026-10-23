@@ -21,13 +21,9 @@ services:
     build: .
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set (see the env file)}@db:5432/cockpit
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:?GITHUB_CLIENT_ID is not set (see the env file)}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:?GITHUB_CLIENT_SECRET is not set (see the env file)}
-      PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL is not set (see the env file)}
-      ALLOWED_GITHUB_LOGINS: ${ALLOWED_GITHUB_LOGINS:?ALLOWED_GITHUB_LOGINS is not set (see the env file)}
-      GITHUB_APP_ID: ${GITHUB_APP_ID:?GITHUB_APP_ID is not set (see the env file)}
-      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:?GITHUB_APP_SLUG is not set (see the env file)}
-      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:?GITHUB_APP_PRIVATE_KEY is not set (see the env file)}
+    # The key that encrypts the GitHub secrets of the database, in its own volume so a database backup never holds it (decision 012 F).
+    volumes:
+      - secrets:/app/secrets
     depends_on:
       db:
         condition: service_healthy
@@ -64,3 +60,4 @@ services:
 
 volumes:
   db-data:
+  secrets:

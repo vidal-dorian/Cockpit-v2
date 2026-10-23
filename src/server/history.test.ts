@@ -4,19 +4,16 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
-import { githubAppConfig } from "./test-github.ts";
-
-const config = {
-  githubClientId: "Iv1.client",
-  githubClientSecret: "secret",
-  publicUrl: "https://cockpit.example.com",
-  allowedLogins: ["octocat"],
-  ...githubAppConfig,
-};
+import {
+  configureTestInstance,
+  TEST_KEY,
+  testAppOptions,
+} from "./test-instance.ts";
 
 async function setup() {
   const db = await openTestDatabase();
-  const app = createApp(db, "1.2.3", config);
+  await configureTestInstance(db, TEST_KEY);
+  const app = createApp(db, "1.2.3", testAppOptions);
   return { db, app };
 }
 

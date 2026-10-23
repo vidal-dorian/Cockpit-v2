@@ -11,20 +11,13 @@ import {
   users,
 } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { githubCalls, INSTALLATION_ID, stubGitHub } from "./test-github.ts";
 import {
-  githubAppConfig,
-  githubCalls,
-  INSTALLATION_ID,
-  stubGitHub,
-} from "./test-github.ts";
+  configureTestInstance,
+  TEST_KEY,
+  testAppOptions,
+} from "./test-instance.ts";
 
-const config = {
-  githubClientId: "Iv1.client",
-  githubClientSecret: "secret",
-  publicUrl: "https://cockpit.example.com",
-  allowedLogins: ["user1000", "user2000"],
-  ...githubAppConfig,
-};
 const INSTALL_URL = "https://github.com/apps/cockpit-test/installations/new";
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 
@@ -40,7 +33,8 @@ const repo = (id: number, fullName: string) => ({
 // Stubbed before createApp, so the app sees the stub whenever it looks fetch up.
 async function setup() {
   const db = await openTestDatabase();
-  const app = createApp(db, "1.2.3", config);
+  await configureTestInstance(db, TEST_KEY);
+  const app = createApp(db, "1.2.3", testAppOptions);
   return { db, app };
 }
 

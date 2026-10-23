@@ -14,5 +14,7 @@ COPY src/server src/server
 COPY drizzle drizzle
 COPY version.txt ./
 COPY --from=build /app/dist/web dist/web
+# Owned by node before USER, so the named volume mounted here inherits it and the key can be written (decision 012 F).
+RUN mkdir secrets && chown node:node secrets
 USER node
 CMD ["node", "src/server/index.ts"]

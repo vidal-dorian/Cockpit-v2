@@ -92,6 +92,11 @@ function stubApi(state: State) {
 
       const unauthorized = () =>
         Response.json({ error: "Unauthorized" }, { status: 401 });
+      if (path === "/api/setup/status")
+        return Response.json({
+          configured: true,
+          detectedUrl: "http://localhost",
+        });
       if (path === "/api/health")
         return Response.json({ status: "ok", version: "0.1.0" });
       if (path === "/api/me")

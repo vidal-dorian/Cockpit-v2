@@ -1,21 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
-import { act, type Entry, Refused } from "./action.ts";
+import { act, type Entry, Refused, type Tx } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { sessions, users } from "./db/schema.ts";
-
-export type AuthConfig = {
-  githubClientId: string;
-  githubClientSecret: string;
-  publicUrl: string;
-  allowedLogins: string[];
-};
+import { instanceSettings, sessions, users } from "./db/schema.ts";
+import type { InstanceSettings, ReadInstance } from "./instance.ts";
 
 const SESSION_COOKIE = "cockpit_session";
+export const CLAIM_COOKIE = "cockpit_admin_claim";
 const STATE_COOKIE = "cockpit_oauth_state";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const STATE_SECONDS = 10 * 60;
@@ -39,7 +34,7 @@ function parseAnswer<T extends z.ZodType>(schema: T, answer: unknown) {
   return parsed.data as z.output<T>;
 }
 
-const sha256 = (value: string) =>
+export const sha256 = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
 /** The account behind the session cookie, or null; an expired session is deleted on the way. */
@@ -68,12 +63,30 @@ export async function currentUser(db: Db, c: Context) {
   return row;
 }
 
-export function authRoutes(db: Db, config: AuthConfig) {
-  const secure = config.publicUrl.startsWith("https:");
-  const allowed = config.allowedLogins.map((login) => login.toLowerCase());
+/** The wizard's claim: valid once, and only while nobody is administrator yet. The update decides, so two parallel logins cannot both win. */
+async function spendAdminClaim(tx: Tx, claim: string) {
+  const [admin] = await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.isAdmin, true))
+    .limit(1);
+  if (admin) return false;
+  const spent = await tx
+    .update(instanceSettings)
+    .set({ adminClaimHash: null })
+    .where(
+      and(
+        eq(instanceSettings.id, 1),
+        eq(instanceSettings.adminClaimHash, sha256(claim)),
+      ),
+    )
+    .returning({ id: instanceSettings.id });
+  return spent.length > 0;
+}
 
+export function authRoutes(db: Db, readInstance: ReadInstance) {
   /** Asks GitHub who the code belongs to; the token is used here and forgotten. */
-  async function fetchGitHubUser(code: string) {
+  async function fetchGitHubUser(config: InstanceSettings, code: string) {
     const tokenRes = await fetch(
       "https://github.com/login/oauth/access_token",
       {
@@ -107,7 +120,11 @@ export function authRoutes(db: Db, config: AuthConfig) {
   }
 
   return new Hono()
-    .get("/api/auth/login", (c) => {
+    .get("/api/auth/login", async (c) => {
+      const config = await readInstance();
+      // Nothing to log in to before the wizard has created the GitHub App.
+      if (!config) return c.redirect("/installation");
+      const secure = config.publicUrl.startsWith("https:");
       const state = randomBytes(32).toString("hex");
       setCookie(c, STATE_COOKIE, state, {
         httpOnly: true,
@@ -125,6 +142,9 @@ export function authRoutes(db: Db, config: AuthConfig) {
       return c.redirect(authorize.href);
     })
     .get("/api/auth/callback", async (c) => {
+      const config = await readInstance();
+      if (!config) return c.redirect("/installation");
+      const secure = config.publicUrl.startsWith("https:");
       const expectedState = getCookie(c, STATE_COOKIE);
       // The state is single-use: whatever happens next, it is gone.
       deleteCookie(c, STATE_COOKIE, { path: "/api/auth" });
@@ -150,7 +170,7 @@ export function authRoutes(db: Db, config: AuthConfig) {
           throw new Error("github_error");
         }
         if (!code) throw new Error("no_code");
-        profile = await fetchGitHubUser(code);
+        profile = await fetchGitHubUser(config, code);
       } catch (failure) {
         console.error(
           "GitHub login failed:",
@@ -166,14 +186,24 @@ export function authRoutes(db: Db, config: AuthConfig) {
 
       try {
         const value = randomBytes(32).toString("hex");
+        const claim = getCookie(c, CLAIM_COOKIE);
+        let claimed = false;
         await act(db, entry, async (tx) => {
-          if (!allowed.includes(profile.login.toLowerCase()))
-            throw new Refused("account not allowed");
+          // Slice 1.5: only administrators get in; the allow-list comes in 1.6.
+          const [known] = await tx
+            .select({ isAdmin: users.isAdmin })
+            .from(users)
+            .where(eq(users.githubId, profile.id));
+          if (!known?.isAdmin) {
+            claimed = claim ? await spendAdminClaim(tx, claim) : false;
+            if (!claimed) throw new Refused("account not allowed");
+          }
           const values = {
             githubId: profile.id,
             login: profile.login,
             name: profile.name ?? null,
             avatarUrl: profile.avatar_url ?? null,
+            isAdmin: true,
           };
           const [user] = await tx
             .insert(users)
@@ -189,6 +219,7 @@ export function authRoutes(db: Db, config: AuthConfig) {
           // The user is only known here; act reads the entry once the work is done.
           entry.userId = user.id;
         });
+        if (claimed) deleteCookie(c, CLAIM_COOKIE, { path: "/api/auth" });
         setCookie(c, SESSION_COOKIE, value, {
           httpOnly: true,
           sameSite: "Lax",
