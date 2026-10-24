@@ -554,3 +554,625 @@ describe("authentication of the project routes", () => {
     },
   );
 });
+
+// Slice 2.2: the health check reads the repo on GitHub at each call (decision 002), nothing is stored.
+describe("GET /api/projects/:id/health", () => {
+  // What a ready repo holds; each test removes or changes what it is about.
+  const COCKPIT_URL = "https://cockpit.example.com/mcp";
+  const mcpFile = (servers: Record<string, unknown>) =>
+    JSON.stringify({ mcpServers: servers });
+  const cockpitServer = (headers?: Record<string, string>) => ({
+    type: "http",
+    url: COCKPIT_URL,
+    ...(headers ? { headers } : {}),
+  });
+  // "${NAME}": a reference to an environment variable, what a .mcp.json may hold.
+  const ref = (name: string) => `\${${name}}`;
+  const GOOD_AUTH = { Authorization: `Bearer ${ref("COCKPIT_MCP_TOKEN")}` };
+  const AGENT_FILES = [
+    ".claude/agents/test-writer.md",
+    ".claude/agents/developer.md",
+    ".claude/agents/reviewer.md",
+    ".claude/skills/dev-us/SKILL.md",
+  ];
+  const readyRepo = (): Record<string, string> => ({
+    "CLAUDE.md": "# Project",
+    ".github/workflows/ci.yml": "name: ci",
+    ".mcp.json": mcpFile({ cockpit: cockpitServer(GOOD_AUTH) }),
+    ...Object.fromEntries(AGENT_FILES.map((path) => [path, "---\n---\n"])),
+  });
+  // The ok lines carry this fixed detail (the red ones carry their reason).
+  const OK = "ok";
+  const READY_LINES = [
+    { key: "claude_md", ok: true, detail: OK },
+    { key: "ci", ok: true, detail: OK },
+    { key: "mcp", ok: true, detail: OK },
+    { key: "agents", ok: true, detail: OK },
+  ];
+
+  type Line = { key: string; ok: boolean; detail: string };
+  const health = (
+    app: ReturnType<typeof createApp>,
+    cookie: string,
+    id: number | string,
+  ) => app.request(`/api/projects/${id}/health`, { headers: { cookie } });
+  const lineOf = async (res: Response, key: string) => {
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { lines: Line[] };
+    return body.lines.find((line) => line.key === key);
+  };
+
+  /** A user A with one project user1000/app, and the stubbed GitHub holding `files`. */
+  async function withRepo(
+    files: Record<string, string>,
+    stub: Partial<Parameters<typeof stubGitHub>[0]> = {},
+    seed: { archivedAt?: Date; installationId?: number } = {},
+  ) {
+    const fetchMock = stubGitHub({ account: 1000, files, ...stub });
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1000);
+    const id = await seedProject(db, a.id, {
+      githubRepoId: 1,
+      fullName: "user1000/app",
+      archivedAt: seed.archivedAt,
+    });
+    if (seed.installationId)
+      await db
+        .update(projects)
+        .set({ installationId: seed.installationId })
+        .where(eq(projects.id, id));
+    return { fetchMock, app, db, a, id };
+  }
+
+  it("given a repo with everything in place, when the health is requested, then 200 with the four lines in order, all ok", async () => {
+    const { app, a, id } = await withRepo(readyRepo());
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ lines: READY_LINES });
+  });
+
+  it("given an empty repo, when the health is requested, then 200 and the four lines are missing, in order", async () => {
+    const { app, a, id } = await withRepo({});
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      lines: [
+        { key: "claude_md", ok: false, detail: "missing" },
+        { key: "ci", ok: false, detail: "missing" },
+        { key: "mcp", ok: false, detail: "missing" },
+        { key: "agents", ok: false, detail: "missing" },
+      ],
+    });
+  });
+
+  it.each([
+    ["CLAUDE.md at the root", { "CLAUDE.md": "# x" }, true],
+    [".claude/CLAUDE.md", { ".claude/CLAUDE.md": "# x" }, true],
+    ["neither of them", { "README.md": "# x", ".claude/other.md": "x" }, false],
+  ])(
+    "given %s, when the health is requested, then the claude_md line is ok=%s",
+    async (_name, files, ok) => {
+      const { app, a, id } = await withRepo(files);
+
+      const line = await lineOf(await health(app, a.cookie, id), "claude_md");
+
+      expect(line).toEqual({
+        key: "claude_md",
+        ok,
+        detail: ok ? OK : "missing",
+      });
+    },
+  );
+
+  it.each([
+    ["a .yml workflow", { ".github/workflows/ci.yml": "x" }, true],
+    ["a .yaml workflow", { ".github/workflows/release.yaml": "x" }, true],
+    ["no .github directory", { "README.md": "x" }, false],
+    [
+      "only other files and a directory called like a workflow",
+      {
+        ".github/workflows/README.md": "x",
+        ".github/workflows/ci.yml.bak": "x",
+        ".github/workflows/nested.yml/a.txt": "x",
+      },
+      false,
+    ],
+    ["a workflow outside .github/workflows", { "ci.yml": "x" }, false],
+  ])(
+    "given %s, when the health is requested, then the ci line is ok=%s",
+    async (_name, files, ok) => {
+      const { app, a, id } = await withRepo(files);
+
+      const line = await lineOf(await health(app, a.cookie, id), "ci");
+
+      expect(line).toEqual({ key: "ci", ok, detail: ok ? OK : "missing" });
+    },
+  );
+
+  it.each([
+    [
+      "a Bearer reference to an environment variable",
+      mcpFile({ cockpit: cockpitServer(GOOD_AUTH) }),
+    ],
+    [
+      "no headers at all (OAuth, decision 006)",
+      mcpFile({ cockpit: cockpitServer() }),
+    ],
+    [
+      "a bare reference in another header",
+      mcpFile({ cockpit: cockpitServer({ "X-Token": ref("MY_TOKEN") }) }),
+    ],
+    [
+      "another server holding a literal secret next to a clean Cockpit entry",
+      mcpFile({
+        github: {
+          type: "http",
+          url: "https://api.example.com/mcp",
+          headers: { Authorization: "Bearer ghp_literal" },
+        },
+        cockpit: cockpitServer(GOOD_AUTH),
+      }),
+    ],
+  ])(
+    "given .mcp.json declares Cockpit with %s, when the health is requested, then the mcp line is ok",
+    async (_name, file) => {
+      const { app, a, id } = await withRepo({ ".mcp.json": file });
+
+      const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+      expect(line).toEqual({ key: "mcp", ok: true, detail: OK });
+    },
+  );
+
+  it.each([
+    ["no .mcp.json", undefined],
+    ["an empty object", "{}"],
+    ["an empty server list", mcpFile({})],
+    ["a JSON array", "[]"],
+    ["JSON null", "null"],
+    ["mcpServers that is not an object", '{"mcpServers":"cockpit"}'],
+    [
+      "only another server, with a literal secret",
+      mcpFile({
+        other: {
+          type: "http",
+          url: "https://other.example.com/mcp",
+          headers: { Authorization: "Bearer literal" },
+        },
+      }),
+    ],
+    [
+      "the right host but not the /mcp path",
+      mcpFile({
+        cockpit: { type: "http", url: "https://cockpit.example.com/" },
+      }),
+    ],
+    [
+      "the /mcp path on another origin",
+      mcpFile({
+        cockpit: { type: "http", url: "https://evil.example.com/mcp" },
+      }),
+    ],
+    [
+      "a server without url",
+      mcpFile({ cockpit: { command: "npx", args: ["cockpit"] } }),
+    ],
+  ])(
+    "given %s, when the health is requested, then the mcp line is red with detail missing",
+    async (_name, file) => {
+      const { app, a, id } = await withRepo(
+        file === undefined ? {} : { ".mcp.json": file },
+      );
+
+      const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+      expect(line).toEqual({ key: "mcp", ok: false, detail: "missing" });
+    },
+  );
+
+  it.each([
+    ["not JSON at all", "{ not json"],
+    ["an empty file", ""],
+  ])(
+    "given a .mcp.json that is %s, when the health is requested, then 200 and the mcp line is red with detail invalid_json while the other lines are still computed",
+    async (_name, file) => {
+      const { app, a, id } = await withRepo({
+        ...readyRepo(),
+        ".mcp.json": file,
+      });
+
+      const res = await health(app, a.cookie, id);
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        lines: [
+          READY_LINES[0],
+          READY_LINES[1],
+          { key: "mcp", ok: false, detail: "invalid_json" },
+          READY_LINES[3],
+        ],
+      });
+    },
+  );
+
+  it.each([
+    ["a literal Bearer token", { Authorization: "Bearer abc123" }],
+    ["a literal value without Bearer", { Authorization: "abc123" }],
+    [
+      "a literal prefix before the reference",
+      { Authorization: `Bearer prefix-${ref("COCKPIT_MCP_TOKEN")}` },
+    ],
+    [
+      "a literal word after the reference",
+      { Authorization: `Bearer ${ref("COCKPIT_MCP_TOKEN")} abc123` },
+    ],
+    [
+      "one clean header and one literal header",
+      { Authorization: GOOD_AUTH.Authorization, "X-Api-Key": "abc123" },
+    ],
+  ])(
+    "given the Cockpit entry has %s, when the health is requested, then the mcp line is red with detail secret_in_clear",
+    async (_name, headers) => {
+      const { app, a, id } = await withRepo({
+        ".mcp.json": mcpFile({ cockpit: cockpitServer(headers) }),
+      });
+
+      const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+      expect(line).toEqual({
+        key: "mcp",
+        ok: false,
+        detail: "secret_in_clear",
+      });
+    },
+  );
+
+  it.each([
+    [
+      "a literal token in env",
+      { COCKPIT_MCP_TOKEN: "ghp_real" },
+      "secret_in_clear",
+    ],
+    [
+      "env pointing at a variable",
+      { COCKPIT_MCP_TOKEN: ref("CI_TOKEN") },
+      "ok",
+    ],
+  ])(
+    "given the Cockpit entry has clean headers and %s, when the health is requested, then env is judged like the headers",
+    async (_name, env, detail) => {
+      const { app, a, id } = await withRepo({
+        ".mcp.json": mcpFile({
+          cockpit: { ...cockpitServer(GOOD_AUTH), env },
+        }),
+      });
+
+      const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+      expect(line).toEqual({ key: "mcp", ok: detail === "ok", detail });
+    },
+  );
+
+  it.each([
+    [
+      "a query string carrying a token",
+      mcpFile({
+        cockpit: { type: "http", url: `${COCKPIT_URL}?token=ghp_x` },
+      }),
+    ],
+    [
+      "credentials in the URL",
+      mcpFile({
+        cockpit: {
+          type: "http",
+          url: "https://u:ghp_x@cockpit.example.com/mcp",
+        },
+      }),
+    ],
+    [
+      "a clean entry followed by a second Cockpit entry with a literal header",
+      mcpFile({
+        first: cockpitServer(GOOD_AUTH),
+        second: cockpitServer({ Authorization: "Bearer ghp_x" }),
+      }),
+    ],
+    [
+      "a second Cockpit entry with a literal header, then a clean one",
+      mcpFile({
+        second: cockpitServer({ Authorization: "Bearer ghp_x" }),
+        first: cockpitServer(GOOD_AUTH),
+      }),
+    ],
+  ])(
+    "given .mcp.json declares Cockpit with %s, when the health is requested, then the mcp line is red with detail secret_in_clear",
+    async (_name, file) => {
+      const { app, a, id } = await withRepo({ ".mcp.json": file });
+
+      const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+      expect(line).toEqual({
+        key: "mcp",
+        ok: false,
+        detail: "secret_in_clear",
+      });
+    },
+  );
+
+  it.each([
+    [".claude/agents", { type: "submodule" }, "agents"],
+    [".github/workflows", { type: "submodule" }, "ci"],
+    ["CLAUDE.md", { type: "symlink", target: "docs/CLAUDE.md" }, "claude_md"],
+    [".mcp.json", { type: "symlink", target: "config/mcp.json" }, "mcp"],
+  ] as const)(
+    "given %s is served by the Contents API as a submodule or a symlink, when the health is requested, then 200 and its line is red with detail missing, not a 502",
+    async (path, special, key) => {
+      const { app, a, id } = await withRepo(
+        {},
+        { specials: { [path]: special } },
+      );
+
+      const line = await lineOf(await health(app, a.cookie, id), key);
+
+      expect(line).toEqual({ key, ok: false, detail: "missing" });
+    },
+  );
+
+  it("given an instance whose public URL is https://cp.example.org, when the health is requested, then Cockpit is recognised by that origin and not by a fixed one", async () => {
+    stubGitHub({
+      account: 1000,
+      files: {
+        ".mcp.json": mcpFile({
+          cockpit: { type: "http", url: "https://cp.example.org/mcp" },
+        }),
+      },
+    });
+    const db = await openTestDatabase();
+    await configureTestInstance(db, TEST_KEY, {
+      publicUrl: "https://cp.example.org",
+    });
+    const app = createApp(db, "1.2.3", testAppOptions);
+    const a = await userWithSession(db, 1000);
+    const id = await seedProject(db, a.id, {
+      githubRepoId: 1,
+      fullName: "user1000/app",
+    });
+
+    const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+    expect(line).toEqual({ key: "mcp", ok: true, detail: OK });
+  });
+
+  it("given the agents and the skill all present, when the health is requested, then the agents line is ok", async () => {
+    const { app, a, id } = await withRepo(
+      Object.fromEntries(AGENT_FILES.map((path) => [path, "x"])),
+    );
+
+    const line = await lineOf(await health(app, a.cookie, id), "agents");
+
+    expect(line).toEqual({ key: "agents", ok: true, detail: OK });
+  });
+
+  it.each(AGENT_FILES)(
+    "given %s is the only file missing, when the health is requested, then the agents line is red with the single detail missing",
+    async (absent) => {
+      const { app, a, id } = await withRepo(
+        Object.fromEntries(
+          AGENT_FILES.filter((path) => path !== absent).map((path) => [
+            path,
+            "x",
+          ]),
+        ),
+      );
+
+      const line = await lineOf(await health(app, a.cookie, id), "agents");
+
+      expect(line).toEqual({ key: "agents", ok: false, detail: "missing" });
+    },
+  );
+
+  it("given an archived project, when its health is requested, then it is still readable", async () => {
+    const { app, a, id } = await withRepo(
+      readyRepo(),
+      {},
+      { archivedAt: new Date("2026-01-01") },
+    );
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ lines: READY_LINES });
+  });
+
+  it("given a project stored with installation 88 and the repo user1000/app, when the health is requested, then GitHub is read with that installation's token, on that repo, on the default branch (no ref)", async () => {
+    const { app, a, id, fetchMock } = await withRepo(
+      readyRepo(),
+      { installations: [88] },
+      { installationId: 88 },
+    );
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    const calls = githubCalls(fetchMock);
+    expect(
+      calls.some(
+        (c) =>
+          c.method === "POST" &&
+          c.path === "/app/installations/88/access_tokens",
+      ),
+    ).toBe(true);
+    const repoCalls = calls.filter((c) => c.path.startsWith("/repos/"));
+    expect(repoCalls.length).toBeGreaterThan(0);
+    for (const call of repoCalls) {
+      expect(call.method).toBe("GET");
+      expect(call.path).toMatch(/^\/repos\/user1000\/app(\/|$)/);
+      expect(call.authorization).toContain("ghs_88");
+      expect(call.search).not.toContain("ref=");
+    }
+    expect(
+      repoCalls.some((c) => c.path.includes("/contents/")),
+      "the files are read through the Contents API",
+    ).toBe(true);
+  });
+
+  it("given a successful check, when it is done, then nothing is written to the history and the project is unchanged", async () => {
+    const { app, db, a, id } = await withRepo(readyRepo());
+    const before = await db.select().from(projects);
+
+    expect((await health(app, a.cookie, id)).status).toBe(200);
+    expect((await health(app, a.cookie, id)).status).toBe(200);
+
+    expect(await db.select().from(history)).toHaveLength(0);
+    expect(await db.select().from(projects)).toEqual(before);
+    expect(await db.select().from(projectMembers)).toHaveLength(1);
+  });
+
+  it("given the repo changes on GitHub between two requests, when the health is requested twice, then the second answer reflects it (nothing is cached or stored)", async () => {
+    const { app, a, id } = await withRepo({});
+    expect(await lineOf(await health(app, a.cookie, id), "claude_md")).toEqual({
+      key: "claude_md",
+      ok: false,
+      detail: "missing",
+    });
+    stubGitHub({ account: 1000, files: { "CLAUDE.md": "# x" } });
+
+    const line = await lineOf(await health(app, a.cookie, id), "claude_md");
+
+    expect(line).toEqual({ key: "claude_md", ok: true, detail: OK });
+  });
+
+  it.each([
+    ["a 500 on a file", { contentsStatus: 500 }],
+    ["a 500 on .mcp.json alone", { contentsStatus: { ".mcp.json": 500 } }],
+    ["a network error", { networkError: true }],
+    ["an installation token that cannot be issued", { tokenStatus: 500 }],
+  ])(
+    "given GitHub fails with %s, when the health is requested, then 502 github_unavailable, no partial answer, nothing from GitHub is relayed and no history entry",
+    async (_name, failure) => {
+      const { app, db, a, id } = await withRepo(readyRepo(), failure);
+
+      const res = await health(app, a.cookie, id);
+
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({ error: "github_unavailable" });
+      expect(await db.select().from(history)).toHaveLength(0);
+    },
+  );
+
+  it("given the installation token request answers 404 (the App was uninstalled), when the health is requested, then 409 repo_unreachable and no history entry", async () => {
+    const { app, db, a, id } = await withRepo(readyRepo(), {
+      tokenStatus: 404,
+    });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_unreachable" });
+    expect(await db.select().from(history)).toHaveLength(0);
+  });
+
+  it("given the repo is no longer reachable by the installation (GET /repos/{owner}/{repo} answers 404), when the health is requested, then 409 repo_unreachable and no history entry", async () => {
+    const { app, db, a, id } = await withRepo(readyRepo(), {
+      repoStatus: 404,
+    });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_unreachable" });
+    expect(await db.select().from(history)).toHaveLength(0);
+  });
+
+  it("given the repo exists but holds none of the files (404 on every file, 200 on the repo), when the health is requested, then it is a normal 200 and not repo_unreachable", async () => {
+    const { app, a, id } = await withRepo({});
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("given another user's project, when A requests its health, then 404, GitHub is not called and nothing is written", async () => {
+    const fetchMock = stubGitHub({ account: 1000, files: readyRepo() });
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1000);
+    const b = await userWithSession(db, 2000);
+    const theirs = await seedProject(db, b.id, {
+      githubRepoId: 1,
+      fullName: "user2000/app",
+    });
+
+    // Control: the route exists and answers A for A's own project.
+    const own = await seedProject(db, a.id, {
+      githubRepoId: 2,
+      fullName: "user1000/own",
+    });
+    expect((await health(app, a.cookie, own)).status).toBe(200);
+    fetchMock.mockClear();
+
+    const res = await health(app, a.cookie, theirs);
+
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(await res.json())).not.toContain("user2000");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await db.select().from(history)).toHaveLength(0);
+  });
+
+  it.each(["abc", "1.5", "0", "99999999999"])(
+    "given the id %s in the URL, when the health is requested, then 404, GitHub is not called and nothing is written",
+    async (badId) => {
+      const fetchMock = stubGitHub({ account: 1000, files: readyRepo() });
+      const { app, db } = await setup();
+      const a = await userWithSession(db, 1000);
+      const own = await seedProject(db, a.id, {
+        githubRepoId: 1,
+        fullName: "user1000/app",
+      });
+      // Control: the route exists and answers for a real id.
+      expect((await health(app, a.cookie, own)).status).toBe(200);
+      fetchMock.mockClear();
+
+      const res = await health(app, a.cookie, badId);
+
+      expect(res.status).toBe(404);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await db.select().from(history)).toHaveLength(0);
+    },
+  );
+
+  it("given an unknown id, when the health is requested, then 404 and GitHub is not called", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    // Control: the route exists and answers for the real id.
+    expect((await health(app, a.cookie, id)).status).toBe(200);
+    fetchMock.mockClear();
+
+    const res = await health(app, a.cookie, id + 1000);
+
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("given no session, when the health is requested, then 401 and GitHub is not called", async () => {
+    const fetchMock = stubGitHub({ account: 1000, files: readyRepo() });
+    const { app } = await setup();
+
+    const res = await app.request("/api/projects/1/health");
+
+    expect(res.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("given an instance the wizard has not configured, when the health is requested, then 503 whoever asks", async () => {
+    const fetchMock = stubGitHub({ account: 1000, files: readyRepo() });
+    const db = await openTestDatabase();
+    const app = createApp(db, "1.2.3", testAppOptions);
+
+    const res = await app.request("/api/projects/1/health");
+
+    expect(res.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

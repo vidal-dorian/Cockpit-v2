@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router";
 import { client } from "./api.ts";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
+import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
@@ -229,6 +230,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/projets" element={<Projects />} />
+        <Route path="/projets/:id" element={<ProjectPage />} />
         <Route path="/journal" element={<Journal />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="/bienvenue" element={<Welcome />} />

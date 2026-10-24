@@ -8,6 +8,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
 import type { githubClient, ReadGitHub } from "./github.ts";
+import { healthLines } from "./health.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -56,7 +57,9 @@ const present = (p: typeof projects.$inferSelect) => ({
 });
 
 type GitHub = ReturnType<typeof githubClient>;
-type Env = { Variables: { github: GitHub; installUrl: string } };
+type Env = {
+  Variables: { github: GitHub; installUrl: string; publicUrl: string };
+};
 
 /** The repos the user opened to the App on GitHub; null when the App is not installed on their account. */
 async function installedRepos(github: GitHub, login: string, githubId: number) {
@@ -75,6 +78,7 @@ export function projectRoutes(db: Db, readGitHub: ReadGitHub) {
     if (!ready) return c.json({ error: NOT_CONFIGURED }, 503);
     c.set("github", ready.github);
     c.set("installUrl", ready.installUrl);
+    c.set("publicUrl", ready.publicUrl);
     await next();
   });
 
@@ -200,6 +204,27 @@ export function projectRoutes(db: Db, readGitHub: ReadGitHub) {
         }
       },
     )
+    .get("/api/projects/:id/health", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      // Read on each call, nothing is stored (decision 013).
+      try {
+        const files = await c
+          .get("github")
+          .readRepoFiles(project.installationId, project.fullName);
+        if (!files) return c.json({ error: "repo_unreachable" }, 409);
+        return c.json({ lines: healthLines(files, c.get("publicUrl")) });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
     .post("/api/projects/:id/archive", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
