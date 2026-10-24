@@ -34,8 +34,9 @@ const contentsSchema = z.union([
   z.object({ type: z.literal("file"), content: z.string() }),
   z.object({ type: z.string() }).transform(() => null),
 ]);
-// The entries of a Git tree: only "blob" entries (files, symlinks included) count.
+// A Git tree. `truncated` is GitHub cutting a recursive answer short.
 const treeSchema = z.object({
+  truncated: z.boolean(),
   tree: z.array(z.object({ path: z.string(), type: z.string() })),
 });
 const repoSchema = z.object({
@@ -101,49 +102,98 @@ export function githubClient(config: GitHubAppConfig) {
       return z.array(repoSchema).parse(repos);
     },
 
-    /** The files the health check looks at, on the default branch: one call for the whole Git tree, plus one for .mcp.json when it is there. Null when the tree answers 404 (the App lost access to the repo). */
+    /** The files the health check looks at, on the default branch. Every read is bounded by a small directory, never by the size of the repo: the root listing, `.claude`, `.github/workflows`, and `.mcp.json` when it is there. Null when the root answers 404 (the App lost access to the repo). */
     async readRepoFiles(installationId: number, fullName: string) {
       const [owner, repo] = fullName.split("/") as [string, string];
       const octokit = await app.getInstallationOctokit(installationId);
-      let blobs: string[] = [];
+      // A Git tree (`HEAD` or `HEAD:<dir>`), null when it does not exist. For a directory GitHub answers 422 when the path is a file, a symlink or a submodule, so 422 means absent too.
+      // `truncated` is ignored on purpose on the root and the workflows: GitHub's limit is about recursive answers, and 100,000 direct entries in one directory is not realistic.
+      const readTree = async (treeish: string, recursive = false) => {
+        try {
+          const { data } = await octokit.request(
+            "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+            {
+              owner,
+              repo,
+              tree_sha: treeish,
+              ...(recursive && { recursive: "1" }),
+            },
+          );
+          return treeSchema.parse(data);
+        } catch (error) {
+          const status = (error as { status?: number }).status;
+          if (status === 404 || (status === 422 && treeish !== "HEAD"))
+            return null;
+          throw error;
+        }
+      };
+      // Only blobs count: files and symlinks, not directories or submodules.
+      const blobs = (tree: z.infer<typeof treeSchema> | null, prefix: string) =>
+        (tree?.tree ?? [])
+          .filter((entry) => entry.type === "blob")
+          .map((entry) => `${prefix}${entry.path}`);
+
+      let root: z.infer<typeof treeSchema> | null;
       try {
-        const { data } = await octokit.request(
-          "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
-          { owner, repo, tree_sha: "HEAD", recursive: "1" },
-        );
-        // shortcut: GitHub cuts a tree past ~100,000 entries (`truncated`), so lines may be wrongly red on such a repo; read the directories one by one if one shows up.
-        blobs = treeSchema
-          .parse(data)
-          .tree.filter((entry) => entry.type === "blob")
-          .map((entry) => entry.path);
+        root = await readTree("HEAD");
       } catch (error) {
-        if (isNotFound(error)) return null;
         // 409: an empty repository, which simply holds none of the files.
         if ((error as { status?: number }).status !== 409) throw error;
+        root = { truncated: false, tree: [] };
       }
-      const filesIn = (dir: string) =>
-        blobs
-          .filter(
-            (p) => p.startsWith(`${dir}/`) && !p.includes("/", dir.length + 1),
-          )
-          .map((p) => p.slice(dir.length + 1));
-      let mcpJson: string | null = null;
-      if (blobs.includes(".mcp.json")) {
+      if (!root) return null;
+      const rootBlobs = blobs(root, "");
+      const rootTrees = root.tree
+        .filter((entry) => entry.type === "tree")
+        .map((entry) => entry.path);
+
+      const readClaude = async () => {
+        const whole = await readTree("HEAD:.claude", true);
+        if (!whole?.truncated) return blobs(whole, ".claude/");
+        // A huge .claude: GitHub cut the answer, so read the three directories we need one by one.
+        const parts = await Promise.all([
+          readTree("HEAD:.claude").then((t) => blobs(t, ".claude/")),
+          readTree("HEAD:.claude/agents").then((t) =>
+            blobs(t, ".claude/agents/"),
+          ),
+          readTree("HEAD:.claude/skills/dev-us").then((t) =>
+            blobs(t, ".claude/skills/dev-us/"),
+          ),
+        ]);
+        return parts.flat();
+      };
+      const readMcpJson = async () => {
         try {
           const { data } = await octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
             { owner, repo, path: ".mcp.json" },
           );
           const file = contentsSchema.parse(data);
-          if (file)
-            mcpJson = Buffer.from(file.content, "base64").toString("utf8");
+          return file && Buffer.from(file.content, "base64").toString("utf8");
         } catch (error) {
-          if (!isNotFound(error)) throw error;
+          if (isNotFound(error)) return null;
+          throw error;
         }
-      }
+      };
+      const [claude, workflows, mcpJson] = await Promise.all([
+        rootTrees.includes(".claude") ? readClaude() : [],
+        rootTrees.includes(".github")
+          ? readTree("HEAD:.github/workflows").then((t) =>
+              blobs(t, ".github/workflows/"),
+            )
+          : [],
+        rootBlobs.includes(".mcp.json") ? readMcpJson() : null,
+      ]);
+      const paths = [...rootBlobs, ...claude, ...workflows];
+      const filesIn = (dir: string) =>
+        paths
+          .filter(
+            (p) => p.startsWith(`${dir}/`) && !p.includes("/", dir.length + 1),
+          )
+          .map((p) => p.slice(dir.length + 1));
       const files: RepoFiles = {
         claudeMd:
-          blobs.includes("CLAUDE.md") || blobs.includes(".claude/CLAUDE.md"),
+          paths.includes("CLAUDE.md") || paths.includes(".claude/CLAUDE.md"),
         workflows: filesIn(".github/workflows"),
         mcpJson,
         agents: filesIn(".claude/agents"),

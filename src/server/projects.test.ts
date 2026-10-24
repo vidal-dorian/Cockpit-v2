@@ -602,6 +602,24 @@ describe("GET /api/projects/:id/health", () => {
     return body.lines.find((line) => line.key === key);
   };
 
+  // What the server asked of the repo (not the installation token), as "METHOD path?query", sorted: the reads run in parallel.
+  const repoCalls = (fetchMock: ReturnType<typeof stubGitHub>) =>
+    githubCalls(fetchMock)
+      .filter((c) => !c.path.startsWith("/app/installations/"))
+      .map((c) => `${c.method} ${decodeURIComponent(c.path)}${c.search}`)
+      .sort();
+  const REPO = "GET /repos/user1000/app";
+  const ROOT = `${REPO}/git/trees/HEAD`;
+  const CLAUDE_DIR = `${REPO}/git/trees/HEAD:.claude?recursive=1`;
+  const WORKFLOWS = `${REPO}/git/trees/HEAD:.github/workflows`;
+  const MCP_JSON = `${REPO}/contents/.mcp.json`;
+  const ALL_MISSING = [
+    { key: "claude_md", ok: false, detail: "missing" },
+    { key: "ci", ok: false, detail: "missing" },
+    { key: "mcp", ok: false, detail: "missing" },
+    { key: "agents", ok: false, detail: "missing" },
+  ];
+
   /** A user A with one project user1000/app, and the stubbed GitHub holding `files`. */
   async function withRepo(
     files: Record<string, string>,
@@ -1060,28 +1078,21 @@ describe("GET /api/projects/:id/health", () => {
     }
     expect(
       repoCalls.filter((c) => c.path === "/repos/user1000/app/git/trees/HEAD"),
-    ).toEqual([
-      expect.objectContaining({ search: "?recursive=1", method: "GET" }),
-    ]);
+    ).toEqual([expect.objectContaining({ search: "", method: "GET" })]);
   });
 
-  it("given a repo with everything in place including .mcp.json, when the health is requested, then GitHub is called exactly twice besides the installation token: the tree, then .mcp.json", async () => {
+  it("given a repo with everything in place including .claude, .github and .mcp.json, when the health is requested, then GitHub is called exactly four times besides the installation token: the root, .claude (recursive), .github/workflows and .mcp.json", async () => {
     const { app, a, id, fetchMock } = await withRepo(readyRepo());
 
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(
-      githubCalls(fetchMock)
-        .filter((c) => !c.path.startsWith("/app/installations/"))
-        .map((c) => `${c.method} ${c.path}${c.search}`),
-    ).toEqual([
-      "GET /repos/user1000/app/git/trees/HEAD?recursive=1",
-      "GET /repos/user1000/app/contents/.mcp.json",
-    ]);
+    expect(repoCalls(fetchMock)).toEqual(
+      [MCP_JSON, CLAUDE_DIR, WORKFLOWS, ROOT].sort(),
+    );
   });
 
-  it("given a repo without .mcp.json, when the health is requested, then GitHub is called exactly once besides the installation token: the tree", async () => {
+  it("given a repo without .mcp.json, when the health is requested, then .mcp.json is not read: three calls, the root, .claude and .github/workflows", async () => {
     const { app, a, id, fetchMock } = await withRepo({
       "CLAUDE.md": "# x",
       ".github/workflows/ci.yml": "x",
@@ -1091,11 +1102,94 @@ describe("GET /api/projects/:id/health", () => {
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(
-      githubCalls(fetchMock)
-        .filter((c) => !c.path.startsWith("/app/installations/"))
-        .map((c) => `${c.method} ${c.path}${c.search}`),
-    ).toEqual(["GET /repos/user1000/app/git/trees/HEAD?recursive=1"]);
+    expect(repoCalls(fetchMock)).toEqual([CLAUDE_DIR, WORKFLOWS, ROOT].sort());
+  });
+
+  it.each([
+    ["a repo with nothing", {}, {}, [ROOT]],
+    [
+      "a repo with only CLAUDE.md at the root",
+      { "CLAUDE.md": "# x" },
+      {},
+      [ROOT],
+    ],
+    [
+      "a repo with only a .claude directory",
+      { ".claude/CLAUDE.md": "# x" },
+      {},
+      [ROOT, CLAUDE_DIR],
+    ],
+    [
+      "a repo with only a .github directory",
+      { ".github/workflows/ci.yml": "x" },
+      {},
+      [ROOT, WORKFLOWS],
+    ],
+    [
+      "a repo with only a .mcp.json",
+      { ".mcp.json": "{}" },
+      {},
+      [ROOT, MCP_JSON],
+    ],
+    [
+      "a repo whose .claude and .github are files, not directories",
+      { ".claude": "x", ".github": "x" },
+      {},
+      [ROOT],
+    ],
+    [
+      "a repo whose .claude is a submodule",
+      {},
+      { specials: { ".claude": { type: "submodule" } } },
+      [ROOT],
+    ],
+  ] as const)(
+    "given %s, when the health is requested, then only what the root shows is read",
+    async (_name, files, stub, calls) => {
+      const { app, a, id, fetchMock } = await withRepo({ ...files }, stub);
+
+      const res = await health(app, a.cookie, id);
+
+      expect(res.status).toBe(200);
+      expect(repoCalls(fetchMock)).toEqual([...calls].sort());
+      expect(repoCalls(fetchMock)).not.toContain(`${ROOT}?recursive=1`);
+    },
+  );
+
+  it("given a repo with 150,000 files elsewhere (committed dependencies) and the Claude files in place, when the health is requested, then every line is ok and the whole repo is never read recursively", async () => {
+    const dependencies = Object.fromEntries(
+      Array.from({ length: 150_000 }, (_, i) => [
+        `node_modules/pkg${i % 1000}/file${i}.js`,
+        "",
+      ]),
+    );
+    const { app, a, id, fetchMock } = await withRepo({
+      ...dependencies,
+      ...readyRepo(),
+    });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ lines: READY_LINES });
+    expect(repoCalls(fetchMock)).toEqual(
+      [MCP_JSON, CLAUDE_DIR, WORKFLOWS, ROOT].sort(),
+    );
+  });
+
+  it("given the Claude files are missing in a repo with 150,000 files elsewhere, when the health is requested, then the lines are red for the right reason, not a 502", async () => {
+    const dependencies = Object.fromEntries(
+      Array.from({ length: 150_000 }, (_, i) => [
+        `node_modules/pkg${i % 1000}/file${i}.js`,
+        "",
+      ]),
+    );
+    const { app, a, id } = await withRepo(dependencies);
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ lines: ALL_MISSING });
   });
 
   it("given .mcp.json is only a directory in the tree, when the health is requested, then it is not read: the mcp line is missing and the tree is the only call", async () => {
@@ -1111,23 +1205,175 @@ describe("GET /api/projects/:id/health", () => {
     ).toEqual([]);
   });
 
-  it("given the tree is truncated, when the health is requested, then what the tree holds is used, with no extra call", async () => {
+  it("given the recursive read of .claude is truncated, when the health is requested, then .claude, .claude/agents and .claude/skills/dev-us are read one by one and the lines are correct", async () => {
     const { app, a, id, fetchMock } = await withRepo(
-      { "CLAUDE.md": "# x" },
-      { treesTruncated: true },
+      {
+        ".claude/CLAUDE.md": "# x",
+        ...Object.fromEntries(AGENT_FILES.map((path) => [path, "x"])),
+      },
+      { treesTruncated: { "HEAD:.claude": true } },
     );
 
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(await lineOf(res, "claude_md")).toEqual({
-      key: "claude_md",
-      ok: true,
-      detail: OK,
+    expect(await res.json()).toEqual({
+      lines: [
+        READY_LINES[0],
+        { key: "ci", ok: false, detail: "missing" },
+        { key: "mcp", ok: false, detail: "missing" },
+        READY_LINES[3],
+      ],
     });
-    expect(
-      githubCalls(fetchMock).filter((c) => c.path.startsWith("/repos/")),
-    ).toHaveLength(1);
+    expect(repoCalls(fetchMock)).toEqual(
+      [
+        ROOT,
+        CLAUDE_DIR,
+        `${REPO}/git/trees/HEAD:.claude`,
+        `${REPO}/git/trees/HEAD:.claude/agents`,
+        `${REPO}/git/trees/HEAD:.claude/skills/dev-us`,
+      ].sort(),
+    );
+  });
+
+  it("given the recursive read of .claude is truncated and agents and skills do not exist, when the health is requested, then those 404s mean absent: 200, agents red, claude_md ok", async () => {
+    const { app, a, id } = await withRepo(
+      { ".claude/CLAUDE.md": "# x", ".claude/settings.json": "{}" },
+      { treesTruncated: { "HEAD:.claude": true } },
+    );
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      lines: [
+        READY_LINES[0],
+        { key: "ci", ok: false, detail: "missing" },
+        { key: "mcp", ok: false, detail: "missing" },
+        { key: "agents", ok: false, detail: "missing" },
+      ],
+    });
+  });
+
+  it("given the recursive read of .claude is truncated and the skill folder lacks SKILL.md, when the health is requested, then agents is red", async () => {
+    const { app, a, id } = await withRepo(
+      {
+        ...Object.fromEntries(AGENT_FILES.slice(0, 3).map((p) => [p, "x"])),
+        ".claude/skills/dev-us/notes.md": "x",
+      },
+      { treesTruncated: { "HEAD:.claude": true } },
+    );
+
+    const line = await lineOf(await health(app, a.cookie, id), "agents");
+
+    expect(line).toEqual({ key: "agents", ok: false, detail: "missing" });
+  });
+
+  it.each([
+    [
+      ".github/workflows is a file",
+      { ".github/workflows": "not a directory", "CLAUDE.md": "# x" },
+      {},
+    ],
+    [
+      ".github/workflows is a submodule",
+      { "CLAUDE.md": "# x" },
+      { specials: { ".github/workflows": { type: "submodule" } } },
+    ],
+  ] as const)(
+    "given %s (GitHub answers 422 on its tree), when the health is requested, then 200 and ci is red with detail missing, not a 502",
+    async (_name, files, stub) => {
+      const { app, a, id } = await withRepo({ ...files }, stub);
+
+      const res = await health(app, a.cookie, id);
+
+      expect(await lineOf(res, "ci")).toEqual({
+        key: "ci",
+        ok: false,
+        detail: "missing",
+      });
+    },
+  );
+
+  it.each([
+    [
+      ".claude/agents is a file",
+      {
+        ".claude/CLAUDE.md": "# x",
+        ".claude/agents": "not a directory",
+        ".claude/skills/dev-us/SKILL.md": "x",
+      },
+    ],
+    [
+      ".claude/skills/dev-us is a file",
+      {
+        ".claude/CLAUDE.md": "# x",
+        ...Object.fromEntries(
+          AGENT_FILES.slice(0, 3).map((path) => [path, "x"]),
+        ),
+        ".claude/skills/dev-us": "not a directory",
+      },
+    ],
+  ])(
+    "given the recursive read of .claude is truncated and %s (GitHub answers 422), when the health is requested, then 200, claude_md ok and agents red with detail missing, not a 502",
+    async (_name, files) => {
+      const { app, a, id } = await withRepo(files, {
+        treesTruncated: { "HEAD:.claude": true },
+      });
+
+      const res = await health(app, a.cookie, id);
+
+      expect(res.status).toBe(200);
+      const lines = ((await res.json()) as { lines: Line[] }).lines;
+      expect(lines.find((l) => l.key === "claude_md")).toEqual(READY_LINES[0]);
+      expect(lines.find((l) => l.key === "agents")).toEqual({
+        key: "agents",
+        ok: false,
+        detail: "missing",
+      });
+    },
+  );
+
+  it.each([
+    ["CLAUDE.md at the root", { "CLAUDE.md": "# x" }, true],
+    ["no CLAUDE.md at the root", { "README.md": "# x" }, false],
+  ])(
+    "given .claude is a tree at the root but its own read answers 404 (a race) and %s, when the health is requested, then 200, claude_md comes from the root only (ok=%s) and agents is missing",
+    async (_name, rootFiles, ok) => {
+      const { app, a, id } = await withRepo(
+        {
+          ...rootFiles,
+          ".claude/CLAUDE.md": "# x",
+          ...Object.fromEntries(AGENT_FILES.map((path) => [path, "x"])),
+        },
+        { treesStatus: { "HEAD:.claude": 404 } },
+      );
+
+      const res = await health(app, a.cookie, id);
+
+      expect(res.status).toBe(200);
+      const lines = ((await res.json()) as { lines: Line[] }).lines;
+      expect(lines.find((l) => l.key === "claude_md")).toEqual({
+        key: "claude_md",
+        ok,
+        detail: ok ? OK : "missing",
+      });
+      expect(lines.find((l) => l.key === "agents")).toEqual({
+        key: "agents",
+        ok: false,
+        detail: "missing",
+      });
+    },
+  );
+
+  it("given a repo that is not truncated, when the health is requested, then there is no fallback read of .claude", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+
+    await health(app, a.cookie, id);
+
+    expect(repoCalls(fetchMock)).not.toContain(
+      `${REPO}/git/trees/HEAD:.claude`,
+    );
   });
 
   it("given a successful check, when it is done, then nothing is written to the history and the project is unchanged", async () => {
@@ -1161,6 +1407,18 @@ describe("GET /api/projects/:id/health", () => {
     ["a 502 on the tree", { treesStatus: 502 }],
     ["a 403 on the tree", { treesStatus: 403 }],
     ["a 500 on .mcp.json", { contentsStatus: { ".mcp.json": 500 } }],
+    ["a 500 on the .claude tree", { treesStatus: { "HEAD:.claude": 500 } }],
+    [
+      "a 500 on .github/workflows",
+      { treesStatus: { "HEAD:.github/workflows": 500 } },
+    ],
+    [
+      "a 500 on a fallback read of .claude/agents",
+      {
+        treesTruncated: { "HEAD:.claude": true },
+        treesStatus: { "HEAD:.claude/agents": 500 },
+      },
+    ],
     ["a network error", { networkError: true }],
     ["an installation token that cannot be issued", { tokenStatus: 500 }],
   ])(
@@ -1198,11 +1456,23 @@ describe("GET /api/projects/:id/health", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "repo_unreachable" });
     expect(await db.select().from(history)).toHaveLength(0);
-    expect(
-      githubCalls(fetchMock)
-        .filter((c) => c.path.startsWith("/repos/"))
-        .map((c) => c.path),
-    ).toEqual(["/repos/user1000/app/git/trees/HEAD"]);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+  });
+
+  it("given .github exists but holds no workflows directory (404), when the health is requested, then 200 and ci is missing", async () => {
+    const { app, a, id, fetchMock } = await withRepo({
+      ".github/CODEOWNERS": "* @me",
+      "CLAUDE.md": "# x",
+    });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(await lineOf(res, "ci")).toEqual({
+      key: "ci",
+      ok: false,
+      detail: "missing",
+    });
+    expect(repoCalls(fetchMock)).toEqual([ROOT, WORKFLOWS].sort());
   });
 
   it("given an empty repository (the tree answers 409 Git Repository is empty), when the health is requested, then 200 with the four lines missing, in order, after a single call to the tree", async () => {
@@ -1211,19 +1481,8 @@ describe("GET /api/projects/:id/health", () => {
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      lines: [
-        { key: "claude_md", ok: false, detail: "missing" },
-        { key: "ci", ok: false, detail: "missing" },
-        { key: "mcp", ok: false, detail: "missing" },
-        { key: "agents", ok: false, detail: "missing" },
-      ],
-    });
-    expect(
-      githubCalls(fetchMock)
-        .filter((c) => c.path.startsWith("/repos/"))
-        .map((c) => c.path),
-    ).toEqual(["/repos/user1000/app/git/trees/HEAD"]);
+    expect(await res.json()).toEqual({ lines: ALL_MISSING });
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
   });
 
   it("given a repo that holds none of the files (an empty tree), when the health is requested, then it is a normal 200 and not repo_unreachable", async () => {

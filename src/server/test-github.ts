@@ -49,21 +49,22 @@ function contentsFile(path: string, text: string) {
  * (decisions 011 and 002); any other call fails loudly. `account` is the GitHub id of the
  * installation's account, or null for "the App is not installed" (404).
  *
- * The health check (slice 2.2) reads any repo through one Git tree and the Contents API:
- * - `files` maps a path of the repo to its text. `GET /repos/{o}/{r}/git/trees/HEAD?recursive=1`
- *   lists them as blobs (mode 100644) plus a tree for each parent directory; any other
- *   tree-ish, or a call without `recursive=1`, fails loudly. The Contents API serves a file
- *   as a file, a path with files under it as a directory (array), any other path as 404.
+ * The health check (slice 2.2) reads a repo through small directories only (decision 013):
+ * - `files` maps a path of the repo to its text. `GET /repos/{o}/{r}/git/trees/{treeish}` serves
+ *   `HEAD` (the root, not recursive) and `HEAD:<dir>` (not recursive, or `?recursive=1`; paths
+ *   relative to the dir; 404 when nothing is there, 422 when it is a file, a symlink or a submodule), as blobs (mode 100644) plus trees.
+ *   Anything else, e.g. `HEAD?recursive=1` (the whole repo), fails loudly with "Unexpected fetch".
+ *   The Contents API serves a file as a file, a path with files under it as a directory (array),
+ *   any other path as 404.
  * - `specials` serves a path as something other than a file or a directory: a
  *   submodule (tree entry `type: "commit"`, mode 160000) or a symlink (blob, mode 120000),
  *   and the Contents API describes them as such.
- * - `treesStatus` fails the trees route with that status; `treesTruncated` sets `truncated: true`
- *   (the entries are still all there); `emptyRepo` answers what GitHub answers for a repo
- *   without commit: 409 "Git Repository is empty." on the trees route, and no file at all.
+ * - `treesStatus` fails the trees route with that status, for every tree-ish or only the given
+ *   ones (`{ "HEAD:.claude": 500 }`); `treesTruncated` does the same with `truncated: true` on a
+ *   recursive answer, which then holds no entry (GitHub cuts it short); `emptyRepo` answers what
+ *   GitHub answers for a repo without commit: 409 "Git Repository is empty." on the trees route.
  * - `contentsStatus` fails every Contents call with that status, or only the given
  *   paths with theirs; `networkError` makes every trees and Contents call throw.
- * - `repoStatus` fails `GET /repos/{owner}/{repo}`; 404 also hides everything under the
- *   repo (trees and Contents: the App lost access to it).
  * - `tokenStatus` fails the installation access token; `installations` lists the
  *   installation ids that get one (default: INSTALLATION_ID only, with the token
  *   `ghs_x`; any other id gets `ghs_<id>`).
@@ -80,16 +81,32 @@ export function stubGitHub(options: {
     { type: "submodule" } | { type: "symlink"; target: string }
   >;
   networkError?: boolean;
-  treesStatus?: number;
-  treesTruncated?: boolean;
+  treesStatus?: number | Record<string, number>;
+  treesTruncated?: boolean | Record<string, boolean>;
   emptyRepo?: boolean;
-  repoStatus?: number;
   tokenStatus?: number;
   installations?: number[];
 }) {
   const files = options.emptyRepo ? {} : (options.files ?? {});
   const installations = options.installations ?? [INSTALLATION_ID];
   const repositories = options.repositories ?? [];
+  // Every path of the repo with its tree entry, directories included; built once, a test may hold 150,000 files.
+  const all = new Map<string, { mode: string; type: string }>();
+  const specials = options.specials ?? {};
+  for (const path of [...Object.keys(files), ...Object.keys(specials)]) {
+    const parts = path.split("/");
+    for (let i = 1; i < parts.length; i++)
+      all.set(parts.slice(0, i).join("/"), { mode: "040000", type: "tree" });
+  }
+  for (const path of Object.keys(files))
+    all.set(path, { mode: "100644", type: "blob" });
+  for (const [path, special] of Object.entries(specials))
+    all.set(
+      path,
+      special.type === "submodule"
+        ? { mode: "160000", type: "commit" }
+        : { mode: "120000", type: "blob" },
+    );
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =
@@ -151,69 +168,72 @@ export function stubGitHub(options: {
         });
       }
       const repoRoute =
-        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)(?:\/contents\/(.+)|\/git\/trees\/([^/]+))?$/.exec(
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)(?:\/contents\/(.+)|\/git\/trees\/(.+))$/.exec(
           route,
         );
       if (repoRoute) {
-        const [, fullName, encodedPath, treeish] = repoRoute;
-        const gone = options.repoStatus === 404;
+        const [, fullName, encodedPath, encodedTreeish] = repoRoute;
         const notFound = () =>
           Response.json({ message: "Not Found" }, { status: 404 });
-        if (encodedPath === undefined && treeish === undefined) {
-          if (options.repoStatus)
-            return Response.json(
-              { message: "boom" },
-              { status: options.repoStatus },
-            );
-          return Response.json({
-            id: 1,
-            full_name: fullName,
-            default_branch: "main",
-          });
-        }
-        if (gone) return notFound();
         if (options.networkError) throw new TypeError("fetch failed");
-        if (treeish !== undefined) {
-          if (treeish !== "HEAD" || url.searchParams.get("recursive") !== "1")
+        if (encodedTreeish !== undefined) {
+          const treeish = decodeURIComponent(encodedTreeish);
+          const recursive = url.searchParams.get("recursive") === "1";
+          // Only the root (HEAD, not recursive) and a directory (HEAD:<dir>, either way) exist:
+          // a recursive read of the whole repo is what the health check must never do.
+          const dir = treeish.startsWith("HEAD:") ? treeish.slice(5) : "";
+          if (
+            (treeish !== "HEAD" && !dir) ||
+            (treeish === "HEAD" && url.search !== "") ||
+            (treeish !== "HEAD" && url.search !== "" && !recursive)
+          )
             throw new Error(`Unexpected fetch ${route}${url.search}`);
-          if (options.treesStatus)
-            return Response.json(
-              { message: "boom" },
-              { status: options.treesStatus },
-            );
+          const status =
+            typeof options.treesStatus === "object"
+              ? options.treesStatus[treeish]
+              : options.treesStatus;
+          if (status) return Response.json({ message: "boom" }, { status });
           if (options.emptyRepo)
             return Response.json(
               { message: "Git Repository is empty." },
               { status: 409 },
             );
-          const specials = options.specials ?? {};
-          const paths = [...Object.keys(files), ...Object.keys(specials)];
-          const dirs = new Set<string>();
-          for (const path of paths) {
-            const parts = path.split("/");
-            for (let i = 1; i < parts.length; i++)
-              dirs.add(parts.slice(0, i).join("/"));
-          }
-          const entry = (
-            path: string,
-            mode: string,
-            type: "blob" | "tree" | "commit",
-          ) => ({ path, mode, type, sha: "abc123" });
+          // GitHub answers 422 when the path is a file or a symlink (verified); a submodule is assumed to answer 422 too. 404 is for a path that does not exist.
+          if (dir && !all.has(dir)) return notFound();
+          if (dir && all.get(dir)?.type !== "tree")
+            return Response.json(
+              {
+                message:
+                  "Invalid object requested. SHA must identify a commit or a tree.",
+              },
+              { status: 422 },
+            );
+          const truncated =
+            recursive &&
+            (typeof options.treesTruncated === "object"
+              ? options.treesTruncated[treeish]
+              : options.treesTruncated) === true;
+          const prefix = dir ? `${dir}/` : "";
+          // A truncated recursive answer is cut short: here it holds nothing.
+          const tree = truncated
+            ? []
+            : [...all]
+                .filter(
+                  ([path]) =>
+                    path.startsWith(prefix) &&
+                    (recursive || !path.includes("/", prefix.length)),
+                )
+                .map(([path, { mode, type }]) => ({
+                  path: path.slice(prefix.length),
+                  mode,
+                  type,
+                  sha: "abc123",
+                }));
           return Response.json({
             sha: "def456",
             url: `https://api.github.com/repos/${fullName}/git/trees/def456`,
-            truncated: options.treesTruncated ?? false,
-            tree: [
-              ...[...dirs].map((path) => entry(path, "040000", "tree")),
-              ...Object.keys(files).map((path) =>
-                entry(path, "100644", "blob"),
-              ),
-              ...Object.entries(specials).map(([path, special]) =>
-                special.type === "submodule"
-                  ? entry(path, "160000", "commit")
-                  : entry(path, "120000", "blob"),
-              ),
-            ],
+            truncated,
+            tree,
           });
         }
         const path = decodeURIComponent(encodedPath as string).replace(
