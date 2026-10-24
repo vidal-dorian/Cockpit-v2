@@ -53,7 +53,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.4 | Liste des outils MCP et ce que chacun a le droit de faire | `004-outils-mcp.md` |
 | 0.5 | Lancement local via Claude Desktop (modèle, mode, chemin du clone) | `005-lancement-local.md` |
 | 0.6 | Connexion de Claude à Cockpit par OAuth (connecteur claude.ai), après le MVP | `006-connexion-oauth.md` |
-| 0.7 | Reprendre une app existante (fonctionnalité phare), après le MVP | `007-reprise-app-existante.md` |
+| 0.7 | Analyser et reprendre une app existante (fonctionnalité phare), après le MVP | `007-reprise-app-existante.md` |
 | 0.8 | Cockpit service en ligne : PostgreSQL, membres d'un projet, hébergement | `008-service-en-ligne.md` |
 | 0.9 | Connexion avec GitHub (tranche 1.3) | `009-connexion-github.md` |
 | 0.10 | Historique inaltérable (tranche 1.4) | `010-historique.md` |
@@ -138,7 +138,16 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 
 ## Après le MVP (ordre à rediscuter le moment venu)
 
-- **Reprendre une app existante** (fonctionnalité phare) : Claude tire les règles métier d'un repo construit sans Cockpit, en citant le code ; je valide chaque règle en regard du code lu, puis un test fige chaque règle validée ; démo : je reprends une fonctionnalité de la v1, je vois le code à gauche et la règle à droite, je la valide et son test passe. Trois tranches, voir [`decisions/007-reprise-app-existante.md`](decisions/007-reprise-app-existante.md).
+- **Analyser et reprendre une app existante** (fonctionnalité phare) : sur un repo construit sans Cockpit, Claude dépose par le MCP la carte du modèle (un diagramme par sous-projet), les règles métier et des constats (bugs, failles, architecture, stack, versions), chacun en citant le code, vérifié sur GitHub ; je valide chaque règle en regard du code lu, un test la fige, et chaque constat retenu devient un ticket. Six tranches, voir [`decisions/007-reprise-app-existante.md`](decisions/007-reprise-app-existante.md) :
+
+  | # | Tranche | Démo |
+  |---|---|---|
+  | R1 | **Carte** : vérification des citations, `submit_code_map`, écran « Conception », vue « Modèle », skill `/analyser` | Sur un repo web + API, je vois deux diagrammes ; un clic sur un objet montre son code |
+  | R2 | **Règles** : `create_takeover_stories`, écran de reprise | Je vois le code à gauche et la règle à droite, je la valide |
+  | R3 | **Graphe par fonctionnalité** : acteurs, fonctionnalités, règles, objets ; export Markdown | Je clique une règle dans le graphe et j'arrive sur l'écran de reprise |
+  | R4 | **Figer l'existant** : mode de `/dev-us` | La règle validée a son test, qui passe |
+  | R5 | **Constats de Claude** : bugs, failles, architecture, stack ; page Constats et tri | Une faille trouvée devient un ticket en un clic |
+  | R6 | **Constats de GitHub et versions** : alertes Dependabot, code scanning, secret scanning ; fin de vie des runtimes | Node 20 en fin de vie est signalé sur la carte |
 - **Projets** : créer depuis un repo modèle, gérer le repo modèle.
 - **Configuration Claude** : éditer `CLAUDE.md`, règles, agents, skills et `.mcp.json` depuis Cockpit ; configuration globale (repo de plugins).
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
