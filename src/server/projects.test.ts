@@ -905,10 +905,9 @@ describe("GET /api/projects/:id/health", () => {
   it.each([
     [".claude/agents", { type: "submodule" }, "agents"],
     [".github/workflows", { type: "submodule" }, "ci"],
-    ["CLAUDE.md", { type: "symlink", target: "docs/CLAUDE.md" }, "claude_md"],
     [".mcp.json", { type: "symlink", target: "config/mcp.json" }, "mcp"],
   ] as const)(
-    "given %s is served by the Contents API as a submodule or a symlink, when the health is requested, then 200 and its line is red with detail missing, not a 502",
+    "given %s is a submodule in the tree or a symlink that the Contents API does not serve as a file, when the health is requested, then 200 and its line is red with detail missing, not a 502",
     async (path, special, key) => {
       const { app, a, id } = await withRepo(
         {},
@@ -920,6 +919,47 @@ describe("GET /api/projects/:id/health", () => {
       expect(line).toEqual({ key, ok: false, detail: "missing" });
     },
   );
+
+  it.each([
+    ["CLAUDE.md", "claude_md"],
+    [".claude/CLAUDE.md", "claude_md"],
+  ] as const)(
+    "given %s is a symlink (a blob of mode 120000 in the tree), when the health is requested, then the claude_md line is ok, as GitHub serves it",
+    async (path, key) => {
+      const { app, a, id } = await withRepo(
+        {},
+        { specials: { [path]: { type: "symlink", target: "docs/CLAUDE.md" } } },
+      );
+
+      const line = await lineOf(await health(app, a.cookie, id), key);
+
+      expect(line).toEqual({ key, ok: true, detail: OK });
+    },
+  );
+
+  it("given .claude/agents is a submodule (type commit in the tree) next to the skill, when the health is requested, then the agents line is red with detail missing", async () => {
+    const { app, a, id } = await withRepo(
+      { ".claude/skills/dev-us/SKILL.md": "x" },
+      { specials: { ".claude/agents": { type: "submodule" } } },
+    );
+
+    const line = await lineOf(await health(app, a.cookie, id), "agents");
+
+    expect(line).toEqual({ key: "agents", ok: false, detail: "missing" });
+  });
+
+  it("given .github/workflows only exists as a file and CLAUDE.md as a directory, when the health is requested, then only blobs count: claude_md and ci are red", async () => {
+    const { app, a, id } = await withRepo({
+      ".github/workflows": "not a directory",
+      "CLAUDE.md/notes.md": "# x",
+    });
+
+    const res = await health(app, a.cookie, id);
+
+    const lines = ((await res.json()) as { lines: Line[] }).lines;
+    expect(lines.find((l) => l.key === "claude_md")?.ok).toBe(false);
+    expect(lines.find((l) => l.key === "ci")?.ok).toBe(false);
+  });
 
   it("given an instance whose public URL is https://cp.example.org, when the health is requested, then Cockpit is recognised by that origin and not by a fixed one", async () => {
     stubGitHub({
@@ -987,12 +1027,16 @@ describe("GET /api/projects/:id/health", () => {
     expect(await res.json()).toEqual({ lines: READY_LINES });
   });
 
-  it("given a project stored with installation 88 and the repo user1000/app, when the health is requested, then GitHub is read with that installation's token, on that repo, on the default branch (no ref)", async () => {
-    const { app, a, id, fetchMock } = await withRepo(
+  it("given a project stored with installation 88 and the repo user1000/app, when the health is requested, then GitHub is read with that installation's token, on that repo, through the tree of HEAD (no ref, no branch name)", async () => {
+    const { app, db, a, id, fetchMock } = await withRepo(
       readyRepo(),
       { installations: [88] },
       { installationId: 88 },
     );
+    await db
+      .update(projects)
+      .set({ defaultBranch: "stored-branch" })
+      .where(eq(projects.id, id));
 
     const res = await health(app, a.cookie, id);
 
@@ -1006,17 +1050,84 @@ describe("GET /api/projects/:id/health", () => {
       ),
     ).toBe(true);
     const repoCalls = calls.filter((c) => c.path.startsWith("/repos/"));
-    expect(repoCalls.length).toBeGreaterThan(0);
     for (const call of repoCalls) {
       expect(call.method).toBe("GET");
       expect(call.path).toMatch(/^\/repos\/user1000\/app(\/|$)/);
       expect(call.authorization).toContain("ghs_88");
       expect(call.search).not.toContain("ref=");
+      expect(call.path).not.toContain("stored-branch");
+      expect(call.search).not.toContain("stored-branch");
     }
     expect(
-      repoCalls.some((c) => c.path.includes("/contents/")),
-      "the files are read through the Contents API",
-    ).toBe(true);
+      repoCalls.filter((c) => c.path === "/repos/user1000/app/git/trees/HEAD"),
+    ).toEqual([
+      expect.objectContaining({ search: "?recursive=1", method: "GET" }),
+    ]);
+  });
+
+  it("given a repo with everything in place including .mcp.json, when the health is requested, then GitHub is called exactly twice besides the installation token: the tree, then .mcp.json", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(
+      githubCalls(fetchMock)
+        .filter((c) => !c.path.startsWith("/app/installations/"))
+        .map((c) => `${c.method} ${c.path}${c.search}`),
+    ).toEqual([
+      "GET /repos/user1000/app/git/trees/HEAD?recursive=1",
+      "GET /repos/user1000/app/contents/.mcp.json",
+    ]);
+  });
+
+  it("given a repo without .mcp.json, when the health is requested, then GitHub is called exactly once besides the installation token: the tree", async () => {
+    const { app, a, id, fetchMock } = await withRepo({
+      "CLAUDE.md": "# x",
+      ".github/workflows/ci.yml": "x",
+      ...Object.fromEntries(AGENT_FILES.map((path) => [path, "x"])),
+    });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(
+      githubCalls(fetchMock)
+        .filter((c) => !c.path.startsWith("/app/installations/"))
+        .map((c) => `${c.method} ${c.path}${c.search}`),
+    ).toEqual(["GET /repos/user1000/app/git/trees/HEAD?recursive=1"]);
+  });
+
+  it("given .mcp.json is only a directory in the tree, when the health is requested, then it is not read: the mcp line is missing and the tree is the only call", async () => {
+    const { app, a, id, fetchMock } = await withRepo({
+      ".mcp.json/other.json": "{}",
+    });
+
+    const line = await lineOf(await health(app, a.cookie, id), "mcp");
+
+    expect(line).toEqual({ key: "mcp", ok: false, detail: "missing" });
+    expect(
+      githubCalls(fetchMock).filter((c) => c.path.includes("/contents/")),
+    ).toEqual([]);
+  });
+
+  it("given the tree is truncated, when the health is requested, then what the tree holds is used, with no extra call", async () => {
+    const { app, a, id, fetchMock } = await withRepo(
+      { "CLAUDE.md": "# x" },
+      { treesTruncated: true },
+    );
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await lineOf(res, "claude_md")).toEqual({
+      key: "claude_md",
+      ok: true,
+      detail: OK,
+    });
+    expect(
+      githubCalls(fetchMock).filter((c) => c.path.startsWith("/repos/")),
+    ).toHaveLength(1);
   });
 
   it("given a successful check, when it is done, then nothing is written to the history and the project is unchanged", async () => {
@@ -1046,8 +1157,10 @@ describe("GET /api/projects/:id/health", () => {
   });
 
   it.each([
-    ["a 500 on a file", { contentsStatus: 500 }],
-    ["a 500 on .mcp.json alone", { contentsStatus: { ".mcp.json": 500 } }],
+    ["a 500 on the tree", { treesStatus: 500 }],
+    ["a 502 on the tree", { treesStatus: 502 }],
+    ["a 403 on the tree", { treesStatus: 403 }],
+    ["a 500 on .mcp.json", { contentsStatus: { ".mcp.json": 500 } }],
     ["a network error", { networkError: true }],
     ["an installation token that cannot be issued", { tokenStatus: 500 }],
   ])(
@@ -1075,9 +1188,9 @@ describe("GET /api/projects/:id/health", () => {
     expect(await db.select().from(history)).toHaveLength(0);
   });
 
-  it("given the repo is no longer reachable by the installation (GET /repos/{owner}/{repo} answers 404), when the health is requested, then 409 repo_unreachable and no history entry", async () => {
-    const { app, db, a, id } = await withRepo(readyRepo(), {
-      repoStatus: 404,
+  it("given the tree answers 404 (the App lost access to the repo), when the health is requested, then 409 repo_unreachable, with no other call to GitHub than the tree, and no history entry", async () => {
+    const { app, db, a, id, fetchMock } = await withRepo(readyRepo(), {
+      treesStatus: 404,
     });
 
     const res = await health(app, a.cookie, id);
@@ -1085,9 +1198,35 @@ describe("GET /api/projects/:id/health", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "repo_unreachable" });
     expect(await db.select().from(history)).toHaveLength(0);
+    expect(
+      githubCalls(fetchMock)
+        .filter((c) => c.path.startsWith("/repos/"))
+        .map((c) => c.path),
+    ).toEqual(["/repos/user1000/app/git/trees/HEAD"]);
   });
 
-  it("given the repo exists but holds none of the files (404 on every file, 200 on the repo), when the health is requested, then it is a normal 200 and not repo_unreachable", async () => {
+  it("given an empty repository (the tree answers 409 Git Repository is empty), when the health is requested, then 200 with the four lines missing, in order, after a single call to the tree", async () => {
+    const { app, a, id, fetchMock } = await withRepo({}, { emptyRepo: true });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      lines: [
+        { key: "claude_md", ok: false, detail: "missing" },
+        { key: "ci", ok: false, detail: "missing" },
+        { key: "mcp", ok: false, detail: "missing" },
+        { key: "agents", ok: false, detail: "missing" },
+      ],
+    });
+    expect(
+      githubCalls(fetchMock)
+        .filter((c) => c.path.startsWith("/repos/"))
+        .map((c) => c.path),
+    ).toEqual(["/repos/user1000/app/git/trees/HEAD"]);
+  });
+
+  it("given a repo that holds none of the files (an empty tree), when the health is requested, then it is a normal 200 and not repo_unreachable", async () => {
     const { app, a, id } = await withRepo({});
 
     const res = await health(app, a.cookie, id);

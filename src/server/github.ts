@@ -29,12 +29,15 @@ const installation = z.object({
   id: z.number().int(),
   account: z.object({ id: z.number().int() }),
 });
-// A file or a directory listing, as the Contents API serves them; any other object (submodule, symlink…) counts as absent.
+// A file as the Contents API serves it (GitHub follows a symlink to a file of the repo); any other object counts as absent.
 const contentsSchema = z.union([
   z.object({ type: z.literal("file"), content: z.string() }),
-  z.array(z.object({ name: z.string(), type: z.string() })),
   z.object({ type: z.string() }).transform(() => null),
 ]);
+// The entries of a Git tree: only "blob" entries (files, symlinks included) count.
+const treeSchema = z.object({
+  tree: z.array(z.object({ path: z.string(), type: z.string() })),
+});
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -98,53 +101,53 @@ export function githubClient(config: GitHubAppConfig) {
       return z.array(repoSchema).parse(repos);
     },
 
-    /** The files the health check looks at, on the default branch; null when the repo itself answers 404 (the App lost access to it). */
+    /** The files the health check looks at, on the default branch: one call for the whole Git tree, plus one for .mcp.json when it is there. Null when the tree answers 404 (the App lost access to the repo). */
     async readRepoFiles(installationId: number, fullName: string) {
       const [owner, repo] = fullName.split("/") as [string, string];
       const octokit = await app.getInstallationOctokit(installationId);
+      let blobs: string[] = [];
       try {
-        await octokit.request("GET /repos/{owner}/{repo}", { owner, repo });
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+          { owner, repo, tree_sha: "HEAD", recursive: "1" },
+        );
+        // shortcut: GitHub cuts a tree past ~100,000 entries (`truncated`), so lines may be wrongly red on such a repo; read the directories one by one if one shows up.
+        blobs = treeSchema
+          .parse(data)
+          .tree.filter((entry) => entry.type === "blob")
+          .map((entry) => entry.path);
       } catch (error) {
         if (isNotFound(error)) return null;
-        throw error;
+        // 409: an empty repository, which simply holds none of the files.
+        if ((error as { status?: number }).status !== 409) throw error;
       }
-      // A file, a directory listing, or null when the path does not exist.
-      const read = async (path: string) => {
+      const filesIn = (dir: string) =>
+        blobs
+          .filter(
+            (p) => p.startsWith(`${dir}/`) && !p.includes("/", dir.length + 1),
+          )
+          .map((p) => p.slice(dir.length + 1));
+      let mcpJson: string | null = null;
+      if (blobs.includes(".mcp.json")) {
         try {
           const { data } = await octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
-            { owner, repo, path },
+            { owner, repo, path: ".mcp.json" },
           );
-          return contentsSchema.parse(data);
+          const file = contentsSchema.parse(data);
+          if (file)
+            mcpJson = Buffer.from(file.content, "base64").toString("utf8");
         } catch (error) {
-          if (isNotFound(error)) return null;
-          throw error;
+          if (!isNotFound(error)) throw error;
         }
-      };
-      const isFile = (found: Awaited<ReturnType<typeof read>>) =>
-        found !== null && !Array.isArray(found);
-      const fileNames = (found: Awaited<ReturnType<typeof read>>) =>
-        Array.isArray(found)
-          ? found.filter((e) => e.type === "file").map((e) => e.name)
-          : [];
-      const [rootClaudeMd, dotClaudeMd, workflows, mcp, agents, devUsSkill] =
-        await Promise.all([
-          read("CLAUDE.md"),
-          read(".claude/CLAUDE.md"),
-          read(".github/workflows"),
-          read(".mcp.json"),
-          read(".claude/agents"),
-          read(".claude/skills/dev-us"),
-        ]);
+      }
       const files: RepoFiles = {
-        claudeMd: isFile(rootClaudeMd) || isFile(dotClaudeMd),
-        workflows: fileNames(workflows),
-        mcpJson:
-          mcp && !Array.isArray(mcp)
-            ? Buffer.from(mcp.content, "base64").toString("utf8")
-            : null,
-        agents: fileNames(agents),
-        devUsSkill: fileNames(devUsSkill),
+        claudeMd:
+          blobs.includes("CLAUDE.md") || blobs.includes(".claude/CLAUDE.md"),
+        workflows: filesIn(".github/workflows"),
+        mcpJson,
+        agents: filesIn(".claude/agents"),
+        devUsSkill: filesIn(".claude/skills/dev-us"),
       };
       return files;
     },
