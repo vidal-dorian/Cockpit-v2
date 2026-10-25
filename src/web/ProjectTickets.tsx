@@ -23,16 +23,18 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
     queryFn: () => fetchTickets(projectId),
   });
   const [title, setTitle] = useState("");
+  const [descriptionMd, setDescriptionMd] = useState("");
   const create = useMutation({
     mutationFn: async () => {
       const res = await client.api.projects[":id"].tickets.$post({
         param: { id: projectId },
-        json: { title },
+        json: descriptionMd ? { title, descriptionMd } : { title },
       });
       if (!res.ok) throw await ticketError(res);
     },
     onSuccess: () => {
       setTitle("");
+      setDescriptionMd("");
       return queryClient.invalidateQueries({
         queryKey: ["tickets", projectId],
       });
@@ -108,6 +110,15 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
+            className={field}
+          />
+        </label>
+        <label className="mt-3 block font-semibold">
+          Description (markdown)
+          <textarea
+            value={descriptionMd}
+            onChange={(event) => setDescriptionMd(event.target.value)}
+            rows={10}
             className={field}
           />
         </label>

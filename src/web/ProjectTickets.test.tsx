@@ -22,10 +22,14 @@ const rowOf = (title: string) => {
   return row as HTMLElement;
 };
 
-const create = (title: string) => {
+const create = (title: string, description?: string) => {
   fireEvent.change(screen.getByLabelText("Titre"), {
     target: { value: title },
   });
+  if (description !== undefined)
+    fireEvent.change(screen.getByLabelText("Description (markdown)"), {
+      target: { value: description },
+    });
   fireEvent.click(screen.getByRole("button", { name: "Créer" }));
 };
 
@@ -89,6 +93,76 @@ describe("Project page, the tickets", () => {
     ).toBeDefined();
     expect((screen.getByLabelText("Titre") as HTMLInputElement).value).toBe("");
     expect(screen.queryByText(/Aucun ticket/)).toBeNull();
+  });
+
+  it("given the Nouveau ticket form, when the page loads, then it shows an empty Description (markdown) textarea", async () => {
+    stubTicketApi([]);
+
+    renderAt("/projets/5");
+
+    await screen.findByText(/Aucun ticket/);
+    const description = screen.getByLabelText("Description (markdown)");
+    expect(description.tagName).toBe("TEXTAREA");
+    expect((description as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("given a title only, when Créer is clicked, then the request holds exactly { title } with no descriptionMd", async () => {
+    const api = stubTicketApi([]);
+    renderAt("/projets/5");
+    await screen.findByText(/Aucun ticket/);
+
+    create("Capture rapide");
+
+    await screen.findByRole("link", { name: "Capture rapide" });
+    expect(api.writes()).toEqual([
+      {
+        method: "POST",
+        path: "/api/projects/5/tickets",
+        body: { title: "Capture rapide" },
+      },
+    ]);
+    expect(Object.keys(api.writes()[0]?.body as object)).toEqual(["title"]);
+  });
+
+  it("given a title and a description, when Créer is clicked, then { title, descriptionMd } is sent as typed and both fields are emptied", async () => {
+    const api = stubTicketApi([]);
+    renderAt("/projets/5");
+    await screen.findByText(/Aucun ticket/);
+    const markdown = "  ## Contexte\n\n- un **point**\n";
+
+    create("Ajouter la recherche", markdown);
+
+    await screen.findByRole("link", { name: "Ajouter la recherche" });
+    expect(api.writes()).toEqual([
+      {
+        method: "POST",
+        path: "/api/projects/5/tickets",
+        body: { title: "Ajouter la recherche", descriptionMd: markdown },
+      },
+    ]);
+    expect((screen.getByLabelText("Titre") as HTMLInputElement).value).toBe("");
+    expect(
+      (screen.getByLabelText("Description (markdown)") as HTMLTextAreaElement)
+        .value,
+    ).toBe("");
+  });
+
+  it("given the server refuses the ticket (400), when Créer is clicked with a title and a description, then both fields keep what was typed", async () => {
+    const api = stubTicketApi([]);
+    api.failNext.post = fail(400, "Bad request");
+    renderAt("/projets/5");
+    await screen.findByText(/Aucun ticket/);
+
+    create("   ", "du **texte**");
+
+    await screen.findByRole("alert");
+    expect((screen.getByLabelText("Titre") as HTMLInputElement).value).toBe(
+      "   ",
+    );
+    expect(
+      (screen.getByLabelText("Description (markdown)") as HTMLTextAreaElement)
+        .value,
+    ).toBe("du **texte**");
   });
 
   it("given the server refuses the title (400), when Créer is clicked, then a French alert talks about the title, keeps what was typed and shows no internal text", async () => {
