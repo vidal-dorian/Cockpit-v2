@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router";
 import { client } from "./api.ts";
 import { focusRing } from "./ui.ts";
 
@@ -13,7 +14,7 @@ async function failure(res: Response) {
 }
 
 /** The caller's projects, or null when the server answers 401. */
-async function fetchProjects() {
+export async function fetchProjects() {
   const res = await client.api.projects.$get();
   if (res.status === 401) return null;
   if (!res.ok) throw await failure(res);
@@ -95,7 +96,12 @@ function ProjectList() {
             key={project.id}
             className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
           >
-            <span className="font-semibold">{project.fullName}</span>
+            <Link
+              to={`/projets/${project.id}`}
+              className={`font-semibold underline ${focusRing}`}
+            >
+              {project.fullName}
+            </Link>
             <span className="text-muted-foreground">
               {project.defaultBranch}
             </span>

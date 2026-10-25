@@ -2,6 +2,8 @@
 
 - **Statut** : idées notées le 2026-10-22, **rien n'est décidé**. À reprendre avec la tranche « Service payant » (voir [`decoupage.md`](decoupage.md)) et le point ouvert 2 de la [décision 008](decisions/008-service-en-ligne.md).
 
+- **Limite de 3 repos** : Dorian a décidé le 2026-10-24 qu'elle sera mise en place **avec le paiement**, pas avant. D'ici là, l'import n'est pas limité (inscription ouverte, [012](decisions/012-configuration-automatique.md)).
+
 ## Les trois offres
 
 ### Gratuite

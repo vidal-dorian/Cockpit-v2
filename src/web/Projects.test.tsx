@@ -194,6 +194,21 @@ describe("Projets page, the list", () => {
     ).toBeNull();
   });
 
+  it("given an active and an archived project, when /projets loads, then each full name is a link to /projets/:id", async () => {
+    stubApi({
+      projects: [project(5, "octocat/hello"), project(6, "octocat/old", true)],
+      installed: false,
+      repositories: [],
+    });
+
+    renderAt("/projets");
+
+    const active = await screen.findByRole("link", { name: "octocat/hello" });
+    expect(active.getAttribute("href")).toBe("/projets/5");
+    const archived = await screen.findByRole("link", { name: "octocat/old" });
+    expect(archived.getAttribute("href")).toBe("/projets/6");
+  });
+
   it("given /api/projects answers 401, when /projets loads, then it offers to log in with GitHub", async () => {
     stubApi({
       projects: [],
