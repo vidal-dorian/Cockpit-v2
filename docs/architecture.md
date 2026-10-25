@@ -47,7 +47,7 @@ flowchart LR
 | Interface | React, Vite, React Router, TanStack Query, Tailwind v4, shadcn/ui | [001](decisions/001-stack.md), [003](decisions/003-interface.md) |
 | GitHub | Une seule GitHub App, **créée par l'assistant de démarrage** à partir d'un manifeste ([012](decisions/012-configuration-automatique.md)), installée par chaque utilisateur ; connexion par son flux web, en `fetch` ; Octokit (`@octokit/app`) pour l'API des repos, avec l'identité de l'App seule (2.1) | [001](decisions/001-stack.md), [002](decisions/002-modele-donnees.md), [009](decisions/009-connexion-github.md), [011](decisions/011-import-projets.md) |
 | Sessions | Cookie aléatoire de 30 jours, seule son empreinte SHA-256 en base ; aucun jeton GitHub de l'utilisateur gardé | [009](decisions/009-connexion-github.md) |
-| MCP | SDK officiel, transport HTTP, à l'adresse `/mcp` | [004](decisions/004-outils-mcp.md) |
+| MCP | SDK officiel (`@modelcontextprotocol/sdk`), transport HTTP en mode sans session et réponses JSON, à l'adresse `/mcp` ; jeton vérifié avant le SDK | [004](decisions/004-outils-mcp.md), [016](decisions/016-serveur-mcp.md) |
 | Tests | Vitest, Testing Library, **PGlite** (PostgreSQL en mémoire), faux GitHub | [001](decisions/001-stack.md), [008](decisions/008-service-en-ligne.md) |
 | Qualité | Biome (lint et format), `tsc` ; la CI lance lint, typecheck, tests et build | [001](decisions/001-stack.md) |
 | Exposition | Cloudflare Tunnel, sur le domaine de Dorian | [008](decisions/008-service-en-ligne.md) |
@@ -74,7 +74,7 @@ Le modèle complet est dans la [002](decisions/002-modele-donnees.md), modifiée
 
 | Domaine | Tables |
 |---|---|
-| Comptes | `users` (dont `is_admin` et `blocked_at`, 1.6), `sessions`, `mcp_tokens` (4.1 ; seule l'empreinte SHA-256 est stockée) |
+| Comptes | `users` (dont `is_admin` et `blocked_at`, 1.6), `sessions`, `mcp_tokens` (4.1 ; seule l'empreinte SHA-256 est stockée ; `history.token_id` depuis la 4.2) |
 | Instance | `instance_settings` : une seule ligne, remplie par l'assistant de démarrage ([012](decisions/012-configuration-automatique.md)) |
 | Projets | `projects` (un repo GitHub = un projet), `project_members` |
 | Travail | `tickets` (3.1 ; `history.ticket_id`, sans clé étrangère), `user_stories`, `acceptance_criteria`, `story_dependencies` |
@@ -122,7 +122,8 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Accueil des utilisateurs : inscription ouverte, comptes bloqués (`users.blocked_at`), `/api/settings/users` (GET) et `/api/settings/users/:id/block` et `/unblock` (POST ; administrateur seulement), page « Réglages » ; `/api/installation` ; à la connexion, renvoi vers `/bienvenue` si l'App n'est pas installée, et bandeau « Installer » sur les autres pages | Écrit et testé (1.6) |
 | Tickets : créer, lister, lire, modifier, supprimer (`/api/projects/:id/tickets`, `/api/tickets/:id`), table `tickets`, étape « Nouveau » calculée, description rendue en markdown sans HTML brut (`react-markdown`), section « Tickets » de `/projets/:id` et page `/tickets/:id` | Écrit et testé (3.1), en relecture |
 | Jetons MCP : créer (secret `ckp_…` montré une fois, haché en base), lister, révoquer (`/api/me/tokens`, `/api/me/tokens/:id/revoke` ; chaque utilisateur, ses jetons seulement), table `mcp_tokens`, section « Jetons MCP » de « Réglages », désormais ouvert à tous (« Utilisateurs » reste à l'administrateur) | Écrit et testé (4.1), en relecture |
-| Tout le reste (serveur MCP, user stories…) | À faire, dans l'ordre du [découpage](decoupage.md) |
+| Serveur MCP : `POST /mcp` (jeton `Bearer ckp_…` vérifié avant le SDK, refus journalisés en `mcp_auth`), outils `list_projects`, `get_project`, `search`, `get_ticket` et `create_ticket`, chaque appel journalisé par `act` (acteur `claude`, origine `mcp`, `history.token_id`) ; le Journal nomme ces actions et écrit « Claude » | Écrit et testé (4.2), en relecture |
+| Tout le reste (user stories…) | À faire, dans l'ordre du [découpage](decoupage.md) |
 
 ## Index des décisions
 
@@ -143,6 +144,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [013](decisions/013-bilan-de-sante.md) | Bilan de santé d'un projet | Proposée | Quatre règles à codes fixes, relues sur GitHub à chaque affichage (cache en mémoire adressé par le commit, rien en base), corrections en 6.2 |
 | [014](decisions/014-tickets.md) | Les tickets | Proposée | Titre et description markdown, projet archivé en lecture seule, étape calculée (« Nouveau » tant qu'il n'y a pas d'US), `args` de l'historique sans texte, markdown sans HTML brut |
 | [015](decisions/015-jetons-mcp.md) | Les jetons MCP | Proposée | `ckp_` + 43 caractères, seule l'empreinte SHA-256 en base, montré une fois, 20 actifs par utilisateur, personnels (l'administrateur n'y touche pas), « Réglages » ouvert à tous |
+| [016](decisions/016-serveur-mcp.md) | Le serveur MCP | Proposée | SDK officiel en mode sans session et réponses JSON, jeton vérifié avant le SDK (401 et `mcp_auth`), cinq outils, refus et erreurs lus par Claude, `args` de l'historique réduits à des identifiants (règle 010 D, qui modifie la 004) |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts

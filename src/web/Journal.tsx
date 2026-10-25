@@ -18,8 +18,13 @@ const ACTIONS: Record<string, string> = {
   delete_ticket: "Ticket supprimé",
   create_token: "Jeton créé",
   revoke_token: "Jeton révoqué",
+  mcp_auth: "Connexion MCP refusée",
+  list_projects: "Projets listés",
+  get_project: "Projet consulté",
+  search: "Recherche",
+  get_ticket: "Ticket consulté",
 };
-const ORIGINS: Record<string, string> = { ui: "Interface" };
+const ORIGINS: Record<string, string> = { ui: "Interface", mcp: "Claude" };
 // The word always comes with the color, so the result never relies on color alone (decision 003).
 const RESULTS: Record<string, { label: string; style: string }> = {
   ok: { label: "Réussie", style: "bg-done-soft text-done-text" },
@@ -73,7 +78,8 @@ export function Journal() {
                   className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-card p-4"
                 >
                   <span className="font-semibold">
-                    {ACTIONS[entry.action] ?? entry.action}
+                    {ACTIONS[entry.action] ??
+                      (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
                   </span>
                   <span
                     className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}

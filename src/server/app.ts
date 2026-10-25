@@ -8,6 +8,7 @@ import type { Db } from "./db/db.ts";
 import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
 import { instanceReader } from "./instance.ts";
+import { mcpRoutes } from "./mcp.ts";
 import { projectRoutes } from "./projects.ts";
 import { setupRoutes } from "./setup.ts";
 import { ticketRoutes } from "./tickets.ts";
@@ -45,6 +46,9 @@ export function createApp(
       // After projectRoutes: its gate covers the ticket routes.
       .route("/", ticketRoutes(db))
       .route("/", tokenRoutes(db))
+      .route("/", mcpRoutes(db, readGitHub, version))
+      // OAuth discovery (006, after the MVP) is not offered yet: a JSON 404, not the page, tells a client so.
+      .all("/.well-known/*", (c) => c.json({ error: "Not found" }, 404))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.
