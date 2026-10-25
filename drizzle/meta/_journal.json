@@ -50,6 +50,13 @@
       "when": 1792746977566,
       "tag": "0006_omniscient_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792938881049,
+      "tag": "0007_legal_owl",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,9 @@ async function fetchHistory() {
 const ACTIONS: Record<string, string> = {
   login: "Connexion",
   logout: "Déconnexion",
+  create_ticket: "Ticket créé",
+  update_ticket: "Ticket modifié",
+  delete_ticket: "Ticket supprimé",
 };
 const ORIGINS: Record<string, string> = { ui: "Interface" };
 // The word always comes with the color, so the result never relies on color alone (decision 003).

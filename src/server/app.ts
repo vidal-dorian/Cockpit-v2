@@ -1,6 +1,7 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import type { Db } from "./db/db.ts";
@@ -9,6 +10,7 @@ import { historyRoutes } from "./history.ts";
 import { instanceReader } from "./instance.ts";
 import { projectRoutes } from "./projects.ts";
 import { setupRoutes } from "./setup.ts";
+import { ticketRoutes } from "./tickets.ts";
 
 export type AppOptions = {
   /** Decrypts the GitHub secrets stored in the database (decision 012 F). */
@@ -28,6 +30,8 @@ export function createApp(
   const readGitHub = githubReader(readInstance);
   return (
     new Hono()
+      // A JSON body is read whole in memory: 256 KiB at most on every API route, before the session and the validation (decision 014).
+      .use("/api/*", bodyLimit({ maxSize: 256 * 1024 }))
       .get("/api/health", async (c) => {
         await db.execute(sql`select 1`);
         return c.json({ status: "ok", version });
@@ -37,6 +41,8 @@ export function createApp(
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize))
+      // After projectRoutes: its gate covers the ticket routes.
+      .route("/", ticketRoutes(db))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.

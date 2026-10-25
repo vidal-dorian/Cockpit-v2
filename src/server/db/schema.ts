@@ -101,6 +101,23 @@ export const projectMembers = pgTable(
   ],
 );
 
+/** A raw idea of a project (decision 014). No step column: it is computed (decision 002). */
+export const tickets = pgTable("tickets", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id),
+  title: text("title").notNull(),
+  descriptionMd: text("description_md").notNull().default(""),
+  abandonedAt: timestamp("abandoned_at", { withTimezone: true, mode: "date" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
 /** Append-only (triggers in the history_append_only migration); no foreign keys, so entries outlive what they point at (decision 010). */
 export const history = pgTable(
   "history",
@@ -111,6 +128,7 @@ export const history = pgTable(
       .defaultNow(),
     userId: integer("user_id"),
     projectId: integer("project_id"),
+    ticketId: integer("ticket_id"),
     actor: text("actor", {
       enum: ["human", "claude", "github", "system"],
     }).notNull(),

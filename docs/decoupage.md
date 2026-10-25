@@ -22,7 +22,8 @@
 - **Fait** : tranche 1.5 (assistant de démarrage, [décision 012](decisions/012-configuration-automatique.md)).
 - **En cours** : tranche 1.6 (accueil des utilisateurs, [décision 012](decisions/012-configuration-automatique.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 2.2 (bilan de santé en lecture, [décision 013](decisions/013-bilan-de-sante.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 3.1.
+- **En cours** : tranche 3.1 (ticket, [décision 014](decisions/014-tickets.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 4.1.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -61,6 +62,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.11 | Importer et archiver un projet (tranche 2.1) | `011-import-projets.md` |
 | 0.12 | Configuration automatique et consentements (tranches 1.5 et 1.6) | `012-configuration-automatique.md` |
 | 0.13 | Bilan de santé d'un projet (tranche 2.2) | `013-bilan-de-sante.md` |
+| 0.14 | Les tickets (tranche 3.1) | `014-tickets.md` |
 
 ---
 

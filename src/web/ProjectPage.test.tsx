@@ -93,6 +93,9 @@ function stubApi(options: {
           installed: false,
           repositories: [],
         });
+      // Slice 3.1: the page also lists the tickets of the project; these tests are about the health.
+      if (/^\/api\/projects\/[^/]+\/tickets$/.test(path) && method === "GET")
+        return Response.json({ tickets: [] });
       const healthMatch = /^\/api\/projects\/([^/]+)\/health$/.exec(path);
       if (healthMatch && method === "GET") {
         healthPaths.push(path);
