@@ -173,7 +173,7 @@ function Home() {
 const navLink = ({ isActive }: { isActive: boolean }) =>
   `inline-flex min-h-10 items-center rounded-lg px-4 font-semibold ${focusRing} ${isActive ? "bg-card" : "text-muted-foreground"}`;
 
-/** The main navigation; Réglages is the administrator's. */
+/** The main navigation; Réglages is every logged-in user's (their MCP tokens). */
 function Nav() {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   return (
@@ -187,7 +187,7 @@ function Nav() {
       <NavLink to="/journal" className={navLink}>
         Journal
       </NavLink>
-      {me.data?.isAdmin && (
+      {me.data && (
         <NavLink to="/reglages" className={navLink}>
           Réglages
         </NavLink>

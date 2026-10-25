@@ -1,0 +1,153 @@
+import { randomBytes } from "node:crypto";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
+import { validator } from "hono/validator";
+import { z } from "zod";
+import { act, type Entry, Refused } from "./action.ts";
+import { currentUser, sha256 } from "./auth.ts";
+import type { Db } from "./db/db.ts";
+import { mcpTokens, users } from "./db/schema.ts";
+import { isDatabaseId } from "./projects.ts";
+
+// Limits of decision 015. PostgreSQL text cannot hold a NUL character: refused here, not left to fail as a 500.
+const MAX_ACTIVE_TOKENS = 20;
+const createBody = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .refine((name) => !name.includes("\0")),
+});
+
+/** Never the hash: the secret is only in the answer of the creation. */
+const present = (t: typeof mcpTokens.$inferSelect) => ({
+  id: t.id,
+  name: t.name,
+  lastFour: t.lastFour,
+  createdAt: t.createdAt,
+  lastUsedAt: t.lastUsedAt,
+  revokedAt: t.revokedAt,
+});
+
+type Env = { Variables: { userId: number } };
+
+/** A user's own MCP tokens (decision 015): personal, so the administrator has no more right on them than anyone. */
+export function tokenRoutes(db: Db) {
+  const entryOf = (userId: number, action: string): Entry => ({
+    userId,
+    actor: "human",
+    origin: "ui",
+    action,
+    args: {},
+  });
+
+  return new Hono<Env>()
+    .get("/api/me/tokens", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const rows = await db
+        .select()
+        .from(mcpTokens)
+        .where(eq(mcpTokens.userId, user.userId))
+        .orderBy(desc(mcpTokens.id));
+      return c.json({ tokens: rows.map(present) });
+    })
+    .post(
+      "/api/me/tokens",
+      // The session comes first: a stranger learns nothing about the validation.
+      createMiddleware<Env>(async (c, next) => {
+        const user = await currentUser(db, c);
+        if (!user) return c.json({ error: "Unauthorized" }, 401);
+        c.set("userId", user.userId);
+        await next();
+      }),
+      validator("json", (value, c) => {
+        const parsed = createBody.safeParse(value);
+        return parsed.success
+          ? parsed.data
+          : c.json({ error: "Bad request" }, 400);
+      }),
+      async (c) => {
+        const userId = c.get("userId");
+        const secret = `ckp_${randomBytes(32).toString("base64url")}`;
+        const entry = entryOf(userId, "create_token");
+        try {
+          const row = await act(db, entry, async (tx) => {
+            // Locks the user: two creations at once wait for each other, so the count cannot be passed.
+            // It also reads the block: one that committed after the session check must stop the creation (decision 012 G).
+            const [owner] = await tx
+              .select({ blockedAt: users.blockedAt })
+              .from(users)
+              .where(eq(users.id, userId))
+              .for("update");
+            if (owner?.blockedAt) throw new Refused("account_blocked");
+            const [{ active } = { active: 0 }] = await tx
+              .select({ active: sql<number>`count(*)::int` })
+              .from(mcpTokens)
+              .where(
+                and(eq(mcpTokens.userId, userId), isNull(mcpTokens.revokedAt)),
+              );
+            if (active >= MAX_ACTIVE_TOKENS)
+              throw new Refused("too_many_tokens");
+            const [inserted] = await tx
+              .insert(mcpTokens)
+              .values({
+                userId: userId,
+                name: c.req.valid("json").name,
+                tokenHash: sha256(secret),
+                lastFour: secret.slice(-4),
+              })
+              .returning();
+            if (!inserted) throw new Error("token not created");
+            entry.args = { tokenId: inserted.id };
+            return inserted;
+          });
+          return c.json({ token: present(row), secret }, 201);
+        } catch (error) {
+          if (error instanceof Refused)
+            return c.json(
+              { error: error.message },
+              error.message === "account_blocked" ? 403 : 409,
+            );
+          throw error;
+        }
+      },
+    )
+    .post("/api/me/tokens/:id/revoke", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const id = Number(c.req.param("id"));
+      if (!isDatabaseId(id)) return c.json({ error: "Not found" }, 404);
+      const [own] = await db
+        .select({ id: mcpTokens.id })
+        .from(mcpTokens)
+        .where(and(eq(mcpTokens.id, id), eq(mcpTokens.userId, user.userId)));
+      // Someone else's token looks like no token, and leaves no entry.
+      if (!own) return c.json({ error: "Not found" }, 404);
+      const entry = {
+        ...entryOf(user.userId, "revoke_token"),
+        args: { tokenId: id },
+      };
+      try {
+        await act(db, entry, async (tx) => {
+          const [token] = await tx
+            .select({ revokedAt: mcpTokens.revokedAt })
+            .from(mcpTokens)
+            .where(eq(mcpTokens.id, id))
+            .for("update");
+          if (token?.revokedAt) throw new Refused("already_revoked");
+          await tx
+            .update(mcpTokens)
+            .set({ revokedAt: sql`now()` })
+            .where(eq(mcpTokens.id, id));
+        });
+        return c.body(null, 204);
+      } catch (error) {
+        if (error instanceof Refused)
+          return c.json({ error: error.message }, 409);
+        throw error;
+      }
+    });
+}

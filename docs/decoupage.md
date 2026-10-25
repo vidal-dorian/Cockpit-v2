@@ -23,7 +23,8 @@
 - **En cours** : tranche 1.6 (accueil des utilisateurs, [décision 012](decisions/012-configuration-automatique.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 2.2 (bilan de santé en lecture, [décision 013](decisions/013-bilan-de-sante.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 3.1 (ticket, [décision 014](decisions/014-tickets.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 4.1.
+- **En cours** : tranche 4.1 (jetons MCP, [décision 015](decisions/015-jetons-mcp.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 4.2.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -63,6 +64,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.12 | Configuration automatique et consentements (tranches 1.5 et 1.6) | `012-configuration-automatique.md` |
 | 0.13 | Bilan de santé d'un projet (tranche 2.2) | `013-bilan-de-sante.md` |
 | 0.14 | Les tickets (tranche 3.1) | `014-tickets.md` |
+| 0.15 | Les jetons MCP (tranche 4.1) | `015-jetons-mcp.md` |
 
 ---
 

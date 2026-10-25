@@ -16,6 +16,8 @@ const ACTIONS: Record<string, string> = {
   create_ticket: "Ticket créé",
   update_ticket: "Ticket modifié",
   delete_ticket: "Ticket supprimé",
+  create_token: "Jeton créé",
+  revoke_token: "Jeton révoqué",
 };
 const ORIGINS: Record<string, string> = { ui: "Interface" };
 // The word always comes with the color, so the result never relies on color alone (decision 003).

@@ -11,6 +11,7 @@ import { instanceReader } from "./instance.ts";
 import { projectRoutes } from "./projects.ts";
 import { setupRoutes } from "./setup.ts";
 import { ticketRoutes } from "./tickets.ts";
+import { tokenRoutes } from "./tokens.ts";
 
 export type AppOptions = {
   /** Decrypts the GitHub secrets stored in the database (decision 012 F). */
@@ -43,6 +44,7 @@ export function createApp(
       .route("/", projectRoutes(db, readGitHub, healthCacheSize))
       // After projectRoutes: its gate covers the ticket routes.
       .route("/", ticketRoutes(db))
+      .route("/", tokenRoutes(db))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.
