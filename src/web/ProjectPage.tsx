@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { fetchProjects } from "./Projects.tsx";
+import { ProjectTickets } from "./ProjectTickets.tsx";
 import { focusRing } from "./ui.ts";
 
 /** The four lines of the health check, or why there are none (decision 013); null when the server answers 401. */
@@ -134,6 +135,7 @@ export function ProjectPage() {
           </div>
         </section>
       )}
+      {!notFound && <ProjectTickets projectId={id} />}
     </main>
   );
 }

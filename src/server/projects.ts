@@ -20,11 +20,13 @@ const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
   "Cockpit n'est pas encore installé : termine l'assistant de démarrage.";
 
+/** Whether a number can be the identity of a row: a PostgreSQL integer from 1 (anything else matches nothing, and a query with it would fail). */
+export const isDatabaseId = (id: number) =>
+  Number.isInteger(id) && id >= 1 && id <= 2147483647;
+
 /** The one place that says whether a user belongs to a project; anyone else gets undefined, as if it did not exist (decisions 004 and 011 E). */
 export async function memberProject(db: Db, userId: number, projectId: number) {
-  // Not a PostgreSQL integer: no such project, and the query must not run (it would fail).
-  if (!Number.isInteger(projectId) || projectId < 1 || projectId > 2147483647)
-    return undefined;
+  if (!isDatabaseId(projectId)) return undefined;
   const [project] = await db
     .select({ project: projects })
     .from(projectMembers)
@@ -100,6 +102,7 @@ export function projectRoutes(
 
   return new Hono<Env>()
     .use("/api/projects/*", gate)
+    .use("/api/tickets/*", gate)
     .use("/api/github/*", gate)
     .use("/api/installation", gate)
     .get("/api/installation", async (c) => {

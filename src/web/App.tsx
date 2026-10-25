@@ -1,14 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router";
 import { client } from "./api.ts";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
+import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
 import { focusRing } from "./ui.ts";
 import { Welcome } from "./Welcome.tsx";
+
+// Loaded on first visit: react-markdown stays out of the main bundle.
+const TicketPage = lazy(() =>
+  import("./TicketPage.tsx").then((m) => ({ default: m.TicketPage })),
+);
 
 async function fetchHealth() {
   const res = await client.api.health.$get();
@@ -231,6 +238,22 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/projets" element={<Projects />} />
         <Route path="/projets/:id" element={<ProjectPage />} />
+        <Route
+          path="/tickets/:id"
+          element={
+            <LoadErrorBoundary>
+              <Suspense
+                fallback={
+                  <p role="status" className="p-4 text-muted-foreground">
+                    Chargement…
+                  </p>
+                }
+              >
+                <TicketPage />
+              </Suspense>
+            </LoadErrorBoundary>
+          }
+        />
         <Route path="/journal" element={<Journal />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="/bienvenue" element={<Welcome />} />
