@@ -105,7 +105,10 @@ function stubApi(state: State) {
       if (path === "/api/settings/users")
         return Response.json({ error: "Forbidden" }, { status: 403 });
       if (path === "/api/me/tokens" && method === "GET")
-        return Response.json({ tokens: state.tokens });
+        // Like the real route: a revoked token is not listed.
+        return Response.json({
+          tokens: state.tokens.filter((t) => !t.revokedAt),
+        });
       if (path === "/api/me/tokens" && method === "POST") {
         if (state.createAnswer) return state.createAnswer;
         const { name } = JSON.parse(body) as { name: string };
@@ -192,13 +195,9 @@ describe("Réglages page, the section Jetons MCP", () => {
     expect(section.textContent).toContain("COCKPIT_MCP_TOKEN");
   });
 
-  it("given three tokens, when /reglages loads, then each row shows its name, … and the last four, the created date, Jamais utilisé or the last use date, and Révoqué for the revoked one only", async () => {
+  it("given three tokens, when /reglages loads, then each row shows its name, … and the last four, the created date and Jamais utilisé or the last use date, with a Révoquer button", async () => {
     stubApi({
       tokens: [
-        token(3, "révoqué-perso", {
-          lastFour: "rrrr",
-          revokedAt: "2026-10-24T08:00:00.000Z",
-        }),
         token(2, "utilisé-pro", {
           lastFour: "uuuu",
           createdAt: "2026-09-02T10:00:00.000Z",
@@ -220,7 +219,6 @@ describe("Réglages page, the section Jetons MCP", () => {
       new Date("2026-10-21T10:00:00.000Z").toLocaleDateString("fr-FR"),
     );
     expect(within(fresh).getByText("Jamais utilisé")).toBeDefined();
-    expect(within(fresh).queryByText("Révoqué")).toBeNull();
 
     const used = rowOf("utilisé-pro");
     expect(used.textContent).toContain("…uuuu");
@@ -231,19 +229,13 @@ describe("Réglages page, the section Jetons MCP", () => {
       new Date("2026-10-23T10:00:00.000Z").toLocaleDateString("fr-FR"),
     );
     expect(within(used).queryByText("Jamais utilisé")).toBeNull();
-    expect(within(used).queryByText("Révoqué")).toBeNull();
-
-    const gone = rowOf("révoqué-perso");
-    expect(gone.textContent).toContain("…rrrr");
-    expect(within(gone).getByText("Révoqué")).toBeDefined();
-    expect(within(gone).queryByRole("button", { name: "Révoquer" })).toBeNull();
-    // The two active tokens can be revoked.
     expect(
       within(fresh).getByRole("button", { name: "Révoquer" }),
     ).toBeDefined();
     expect(
       within(used).getByRole("button", { name: "Révoquer" }),
     ).toBeDefined();
+    expect(screen.queryByText("Révoqué")).toBeNull();
   });
 });
 
@@ -430,7 +422,7 @@ describe("Réglages page, revoking a token", () => {
     expect(posts(calls)).toHaveLength(0);
   });
 
-  it("given the confirmation is shown, when Confirmer la révocation is clicked, then the token is revoked on the server and the refetched list marks it Révoqué without a Révoquer button", async () => {
+  it("given the confirmation is shown, when Confirmer la révocation is clicked, then the token is revoked on the server, leaves the list without any Révoqué marker and a Jeton révoqué. message is announced in a role=status element", async () => {
     const calls = stubApi({
       tokens: [token(2, "portable"), token(1, "bureau")],
     });
@@ -449,14 +441,15 @@ describe("Réglages page, revoking a token", () => {
         posts(calls).some((c) => c.path === "/api/me/tokens/2/revoke"),
       ).toBe(true),
     );
-    await waitFor(() =>
-      expect(within(rowOf("portable")).getByText("Révoqué")).toBeDefined(),
-    );
+    await waitFor(() => expect(screen.queryByText("portable")).toBeNull());
+    expect(screen.queryByText("Révoqué")).toBeNull();
+    expect(rowOf("bureau")).toBeDefined();
     expect(
-      within(rowOf("portable")).queryByRole("button", { name: "Révoquer" }),
-    ).toBeNull();
-    expect(within(rowOf("bureau")).queryByText("Révoqué")).toBeNull();
+      within(rowOf("bureau")).getByRole("button", { name: "Révoquer" }),
+    ).toBeDefined();
     expect(posts(calls)).toHaveLength(1);
+    const status = await screen.findByText("Jeton révoqué.");
+    expect(status.closest("[role='status']")).not.toBeNull();
   });
 
   it.each([
@@ -494,9 +487,7 @@ describe("Réglages page, revoking a token", () => {
       await screen.findByRole("button", { name: "Confirmer la révocation" }),
     );
 
-    await waitFor(() =>
-      expect(within(rowOf("portable")).getByText("Révoqué")).toBeDefined(),
-    );
+    await waitFor(() => expect(screen.queryByText("portable")).toBeNull());
     // The buttons the focus was on are gone: it must not fall back to the page.
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { name: "Jetons MCP" }),

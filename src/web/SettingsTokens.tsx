@@ -164,6 +164,7 @@ export function Tokens() {
           className="mt-2 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            revoke.reset();
             create.mutate();
           }}
         >
@@ -200,7 +201,10 @@ export function Tokens() {
             {tokens.error.message}
           </p>
         )}
-        {tokens.isSuccess && (
+        {tokens.isSuccess && tokens.data.length === 0 && (
+          <p className="text-muted-foreground">Aucun jeton actif.</p>
+        )}
+        {tokens.isSuccess && tokens.data.length > 0 && (
           <ul className="grid gap-2">
             {tokens.data.map((t) => (
               <li
@@ -217,49 +221,50 @@ export function Tokens() {
                     ? `Utilisé le ${day(t.lastUsedAt)}`
                     : "Jamais utilisé"}
                 </span>
-                {t.revokedAt ? (
-                  <span className="text-destructive sm:ml-auto">Révoqué</span>
-                ) : (
-                  <span className="flex gap-2 sm:ml-auto">
-                    {confirming === t.id ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => revoke.mutate(t.id)}
-                          disabled={revoke.isPending}
-                          className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
-                        >
-                          Confirmer la révocation
-                        </button>
-                        <button
-                          type="button"
-                          // The Révoquer button is gone: keep the keyboard focus on the safe choice.
-                          // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-                          autoFocus
-                          onClick={() => {
-                            refocus.current = t.id;
-                            setConfirming(null);
-                          }}
-                          className={button}
-                        >
-                          Annuler
-                        </button>
-                      </>
-                    ) : (
+                <span className="flex gap-2 sm:ml-auto">
+                  {confirming === t.id ? (
+                    <>
                       <button
                         type="button"
-                        id={`revoke-${t.id}`}
-                        onClick={() => setConfirming(t.id)}
+                        onClick={() => revoke.mutate(t.id)}
+                        disabled={revoke.isPending}
+                        className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                      >
+                        Confirmer la révocation
+                      </button>
+                      <button
+                        type="button"
+                        // The Révoquer button is gone: keep the keyboard focus on the safe choice.
+                        // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                        autoFocus
+                        onClick={() => {
+                          refocus.current = t.id;
+                          setConfirming(null);
+                        }}
                         className={button}
                       >
-                        Révoquer
+                        Annuler
                       </button>
-                    )}
-                  </span>
-                )}
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      id={`revoke-${t.id}`}
+                      onClick={() => setConfirming(t.id)}
+                      className={button}
+                    >
+                      Révoquer
+                    </button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
+        )}
+        {revoke.isSuccess && (
+          <p role="status" className="mt-3">
+            Jeton révoqué.
+          </p>
         )}
         {revoke.error && (
           <p
