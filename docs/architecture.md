@@ -80,7 +80,7 @@ Le modèle complet est dans la [002](decisions/002-modele-donnees.md), modifiée
 | Travail | `tickets`, `user_stories`, `acceptance_criteria`, `story_dependencies` |
 | Développement | `runs`, `run_steps`, `questions` |
 | Trace | `history`, sans clé étrangère, inaltérable |
-| Après le MVP | `criterion_sources` et les colonnes `kind` et `reasoning` pour la reprise ([007](decisions/007-reprise-app-existante.md)) ; colonnes OAuth sur `mcp_tokens` ([006](decisions/006-connexion-oauth.md)) ; livraisons de webhooks enregistrées (5.1) |
+| Après le MVP | `code_maps`, `findings`, `code_sources` et les colonnes `kind`, `reasoning` et `object_names` pour l'analyse et la reprise ([007](decisions/007-reprise-app-existante.md)) ; colonnes OAuth sur `mcp_tokens` ([006](decisions/006-connexion-oauth.md)) ; livraisons de webhooks enregistrées (5.1) |
 
 Conventions : dates en `timestamptz`, JSON en `jsonb`, identifiants entiers `identity`, identifiants GitHub en `bigint`, valeurs fermées en texte avec `CHECK`. Les migrations sont générées par drizzle-kit, appliquées au démarrage, et ne sont jamais modifiées une fois appliquées.
 
@@ -131,7 +131,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [004](decisions/004-outils-mcp.md) | Outils MCP | Validée | Ce que Claude peut faire, et ce qu'aucun outil ne fait |
 | [005](decisions/005-lancement-local.md) | Lancement local | Validée | `claude://code/new`, modèle choisi par la fiche de chaque agent |
 | [006](decisions/006-connexion-oauth.md) | Connexion OAuth | Validée | Cockpit comme connecteur claude.ai, après le MVP |
-| [007](decisions/007-reprise-app-existante.md) | Reprendre une app existante | Proposée | La fonctionnalité phare : règles extraites du code, validées en regard du code |
+| [007](decisions/007-reprise-app-existante.md) | Analyser et reprendre une app existante | Proposée | La fonctionnalité phare : carte du modèle par sous-projet, règles et constats (bugs, failles, architecture, stack, versions) déposés par Claude en citant le code vérifié ; règles validées en regard du code, constats triés en tickets |
 | [008](decisions/008-service-en-ligne.md) | Service en ligne | Proposée | PostgreSQL, membres d'un projet, le Pi puis un hébergeur |
 | [009](decisions/009-connexion-github.md) | Connexion avec GitHub | Proposée | Flux web de la GitHub App, cookie de session, inscription ouverte et comptes bloqués (depuis la 012) |
 | [010](decisions/010-historique.md) | Historique inaltérable | Proposée | Triggers, `act` (une action = une transaction), pas de donnée personnelle dans les `args`, page Journal |
@@ -150,3 +150,5 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Choix de l'hébergeur ; facturation par personne ou par organisation | [008](decisions/008-service-en-ligne.md), [offres](offres.md) |
 | Écrans restants et version téléphone | [003](decisions/003-interface.md) |
 | Granularité des règles et contrôle du mode « figer l'existant » | [007](decisions/007-reprise-app-existante.md) |
+| Trois permissions de plus sur la GitHub App pour lire les alertes de sécurité (tranche R6) | [007](decisions/007-reprise-app-existante.md), [012](decisions/012-configuration-automatique.md) |
+| Analyse et reprise dans l'offre Pro, bloquées côté serveur | [007](decisions/007-reprise-app-existante.md), [offres](offres.md) |
