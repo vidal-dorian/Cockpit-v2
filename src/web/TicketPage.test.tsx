@@ -6,8 +6,11 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fail, renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
+
+// The page is a lazy chunk pulling in react-markdown: its first transform can outlast findBy's 1 s on a busy runner.
+beforeAll(() => import("./TicketPage.tsx"));
 
 afterEach(() => {
   cleanup();
