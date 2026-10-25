@@ -45,6 +45,21 @@ function contentsFile(path: string, text: string) {
 }
 
 /**
+ * For a fetch fake: `throw unexpectedFetch(call)` for a call it does not serve. The server can swallow
+ * that throw (Octokit and the routes turn it into a 500, then a 502): the test fails anyway when it finishes.
+ */
+export function failOnUnexpectedFetch() {
+  const unexpected: string[] = [];
+  onTestFinished(() =>
+    expect(unexpected, "calls the fake does not serve").toEqual([]),
+  );
+  return (call: string) => {
+    unexpected.push(call);
+    return new Error(`Unexpected fetch ${call}`);
+  };
+}
+
+/**
  * Stubs the global fetch with the GitHub endpoints the server uses
  * (decisions 011 and 002); any other call fails loudly, and fails the test even when the server swallows it (a 502). `account` is the GitHub id of the
  * installation's account, or null for "the App is not installed" (404).
@@ -162,15 +177,7 @@ export function stubGitHub(initial: {
       [...parts].map(([top, hash]) => [top, hash.digest("hex")] as const),
     );
   };
-  // Octokit and the routes swallow a throw of the fake (500, then 502): the test must still fail.
-  const unexpected: string[] = [];
-  const unexpectedFetch = (call: string) => {
-    unexpected.push(call);
-    return new Error(`Unexpected fetch ${call}`);
-  };
-  onTestFinished(() =>
-    expect(unexpected, "calls the fake GitHub does not serve").toEqual([]),
-  );
+  const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =

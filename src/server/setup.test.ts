@@ -5,7 +5,7 @@ import { createApp } from "./app.ts";
 import { history, instanceSettings, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
 import { decrypt } from "./secrets.ts";
-import { githubAppConfig } from "./test-github.ts";
+import { failOnUnexpectedFetch, githubAppConfig } from "./test-github.ts";
 import {
   configureTestInstance,
   createAdminWithSession,
@@ -64,6 +64,7 @@ const postStart = (app: App, body: unknown) =>
 
 /** Stubs the global fetch: only GitHub's manifest conversion is known; any other call fails loudly. */
 function stubConversion(status: number, body: unknown = CONVERSION) {
+  const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =
@@ -80,7 +81,7 @@ function stubConversion(status: number, body: unknown = CONVERSION) {
         raw === "https://api.github.com/app-manifests/the-code/conversions"
       )
         return Response.json(body, { status });
-      throw new Error(`Unexpected fetch ${method} ${raw}`);
+      throw unexpectedFetch(`${method} ${raw}`);
     },
   );
   vi.stubGlobal("fetch", fetchMock);
@@ -581,6 +582,7 @@ describe("first administrator", () => {
 
   /** The login callback, with GitHub stubbed; `extraCookies` is what the browser holds besides the OAuth state. */
   async function logIn(app: App, extraCookies: string) {
+    const unexpectedFetch = failOnUnexpectedFetch();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
@@ -592,7 +594,10 @@ describe("first administrator", () => {
           return Response.json({ access_token: "gho_token" });
         if (url.origin + url.pathname === "https://api.github.com/user")
           return Response.json(octocat);
-        throw new Error(`Unexpected fetch ${url.href}`);
+        // The landing check after login (decision 012 H): the App is installed.
+        if (/^\/users\/[^/]+\/installation$/.test(url.pathname))
+          return Response.json({ id: 77, account: { id: octocat.id } });
+        throw unexpectedFetch(url.href);
       }),
     );
     const start = await app.request("/api/auth/login");
