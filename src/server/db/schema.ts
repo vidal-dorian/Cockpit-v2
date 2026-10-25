@@ -145,6 +145,8 @@ export const history = pgTable(
     userId: integer("user_id"),
     projectId: integer("project_id"),
     ticketId: integer("ticket_id"),
+    // The MCP token behind an entry of origin mcp (decision 016); no foreign key, like the other ids.
+    tokenId: integer("token_id"),
     actor: text("actor", {
       enum: ["human", "claude", "github", "system"],
     }).notNull(),

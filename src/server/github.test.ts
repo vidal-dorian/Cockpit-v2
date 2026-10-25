@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { githubClient } from "./github.ts";
-import { githubAppConfig } from "./test-github.ts";
+import { githubAppConfig, INSTALLATION_ID, stubGitHub } from "./test-github.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -41,4 +41,34 @@ describe("listInstallationRepos", () => {
       Array.from({ length: 101 }, (_, i) => i + 1),
     );
   });
+});
+
+describe("readClaudeMd", () => {
+  it.each([
+    ["a repository without commit", { emptyRepo: true }, ""],
+    ["a repository the App can no longer reach", { treesStatus: 404 }, null],
+    ["a repository holding only a README", { files: { "README.md": "x" } }, ""],
+    [
+      "a CLAUDE.md at the root",
+      { files: { "CLAUDE.md": "# Rules" } },
+      "# Rules",
+    ],
+    [
+      "a CLAUDE.md only in a subdirectory",
+      { files: { "docs/CLAUDE.md": "# Not the root" } },
+      "",
+    ],
+  ])(
+    "given %s, when CLAUDE.md is read, then its text or an empty string",
+    async (_name, options, expected) => {
+      stubGitHub({ account: 1, ...options });
+
+      const text = await githubClient(githubAppConfig).readClaudeMd(
+        INSTALLATION_ID,
+        "octocat/app",
+      );
+
+      expect(text).toBe(expected);
+    },
+  );
 });

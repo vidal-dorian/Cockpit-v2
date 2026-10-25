@@ -230,6 +230,34 @@ export function githubClient(config: GitHubAppConfig) {
         etag: root.etag,
       };
     },
+
+    /** The text of CLAUDE.md at the root of the default branch, "" when there is none (or the repo is empty), null when the root answers 404 (the App lost access to the repo). Like the health check, the file is read at the commit the root listing answered, so the two reads cannot mix two states. Errors are left to the caller. */
+    async readClaudeMd(installationId: number, fullName: string) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      let root: z.infer<typeof treeSchema>;
+      try {
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+          { owner, repo, tree_sha: "HEAD" },
+        );
+        root = treeSchema.parse(data);
+      } catch (error) {
+        const status = (error as { status?: number }).status;
+        if (status === 404) return null;
+        // 409: an empty repository, which holds no file.
+        if (status === 409) return "";
+        throw error;
+      }
+      if (!root.tree.some((e) => e.path === "CLAUDE.md" && e.type === "blob"))
+        return "";
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        { owner, repo, path: "CLAUDE.md", ref: root.sha },
+      );
+      const file = contentsSchema.parse(data);
+      return file ? Buffer.from(file.content, "base64").toString("utf8") : "";
+    },
   };
 }
 

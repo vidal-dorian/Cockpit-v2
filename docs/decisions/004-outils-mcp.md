@@ -4,6 +4,7 @@
 - **Date** : 2026-10-21
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md)
+- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse)
 
 ## Contexte
 

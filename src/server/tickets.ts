@@ -14,9 +14,9 @@ const notFound = { error: "Not found" };
 
 // Limits of decision 014; the title is trimmed first, the description is kept as typed.
 // PostgreSQL text cannot hold a NUL character: it is refused here, not left to fail as a 500.
-const noNul = (text: string) => !text.includes("\0");
-const title = z.string().trim().min(1).max(200).refine(noNul);
-const descriptionMd = z.string().max(50_000).refine(noNul);
+export const noNul = (text: string) => !text.includes("\0");
+export const title = z.string().trim().min(1).max(200).refine(noNul);
+export const descriptionMd = z.string().max(50_000).refine(noNul);
 const createBody = z.object({ title, descriptionMd: descriptionMd.optional() });
 const editBody = z
   .object({ title: title.optional(), descriptionMd: descriptionMd.optional() })
@@ -31,7 +31,8 @@ const body = <T extends z.ZodType>(schema: T) =>
   });
 
 /** The step of a ticket (decision 002). Until user stories exist (4.3), every ticket is new; they add the other rules. */
-const ticketStep = (_ticket: typeof tickets.$inferSelect) => "new" as const;
+export const ticketStep = (_ticket: typeof tickets.$inferSelect) =>
+  "new" as const;
 
 const present = (t: typeof tickets.$inferSelect) => ({
   id: t.id,
@@ -44,7 +45,7 @@ const present = (t: typeof tickets.$inferSelect) => ({
 });
 
 /** A ticket the user may reach, with its project; undefined for anyone else, as if it did not exist (decisions 002 and 011 E). */
-async function memberTicket(db: Db, userId: number, id: number) {
+export async function memberTicket(db: Db, userId: number, id: number) {
   if (!isDatabaseId(id)) return undefined;
   const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id));
   const project = ticket && (await memberProject(db, userId, ticket.projectId));
@@ -59,6 +60,26 @@ async function assertActive(tx: Tx, projectId: number) {
     .where(eq(projects.id, projectId))
     .for("share");
   if (project?.archivedAt) throw new Refused("project_archived");
+}
+
+/** Creates a ticket of a project the caller already knows to be theirs, in one `act` (shared by the UI and the MCP tool). `entry` carries who acts; the new ticket fills `ticketId` and `args`. */
+export function createTicket(
+  db: Db,
+  entry: Entry,
+  projectId: number,
+  fields: { title: string; descriptionMd?: string },
+) {
+  return act(db, entry, async (tx) => {
+    await assertActive(tx, projectId);
+    const [row] = await tx
+      .insert(tickets)
+      .values({ projectId, ...fields })
+      .returning();
+    if (!row) throw new Error("ticket not created");
+    entry.ticketId = row.id;
+    entry.args = { ticketId: row.id };
+    return row;
+  });
 }
 
 /** A refusal of `act` as an answer; any other error is not ours. */
@@ -111,17 +132,12 @@ export function ticketRoutes(db: Db) {
         projectId: project.id,
       };
       try {
-        const created = await act(db, entry, async (tx) => {
-          await assertActive(tx, project.id);
-          const [row] = await tx
-            .insert(tickets)
-            .values({ projectId: project.id, ...c.req.valid("json") })
-            .returning();
-          if (!row) throw new Error("ticket not created");
-          entry.ticketId = row.id;
-          entry.args = { ticketId: row.id };
-          return row;
-        });
+        const created = await createTicket(
+          db,
+          entry,
+          project.id,
+          c.req.valid("json"),
+        );
         return c.json({ ticket: present(created) }, 201);
       } catch (error) {
         return refusal(c, error);

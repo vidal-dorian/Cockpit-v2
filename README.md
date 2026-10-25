@@ -17,6 +17,30 @@ Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte
 
 Chaque personne crée son compte Cockpit en se connectant avec GitHub ; si elle n'a pas encore installé l'App, elle arrive sur une page qui explique l'installation, et un bandeau le lui rappelle tant qu'elle n'est pas installée. Pour écarter quelqu'un, l'administrateur ouvre « Réglages » (lien en haut de la page), clique sur « Bloquer » en face de son login puis confirme : ses sessions ouvertes sont fermées et il ne peut plus se connecter, même s'il change de login GitHub. « Débloquer » annule le blocage. Un administrateur ne peut pas être bloqué. Chaque utilisateur trouve aussi dans « Réglages » ses **jetons MCP** : « Nouveau jeton » affiche le jeton une seule fois (à copier tout de suite, Cockpit n'en garde que l'empreinte), « Révoquer » le désactive.
 
+## Connecter Claude Code
+
+Claude Code parle à Cockpit par le serveur MCP, à l'adresse `<adresse publique>/mcp` (en local : `http://localhost:3000/mcp`). Il lui faut un jeton : le créer dans « Réglages » (« Nouveau jeton »), puis le mettre dans une variable d'environnement sans le laisser dans l'historique du shell, jamais dans un fichier du repo :
+
+```sh
+read -rs COCKPIT_MCP_TOKEN; export COCKPIT_MCP_TOKEN   # coller le jeton, puis Entrée
+```
+
+Dans le repo, un fichier `.mcp.json` ne garde que le nom de la variable (le type `http` est obligatoire ; Claude Code remplace `${VAR}` dans `url` et `headers`) :
+
+```json
+{
+  "mcpServers": {
+    "cockpit": {
+      "type": "http",
+      "url": "https://cockpit.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${COCKPIT_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+Sans fichier : `claude mcp add --transport http cockpit https://cockpit.example.com/mcp --header 'Authorization: Bearer ${COCKPIT_MCP_TOKEN}'`. Source : la [documentation de Claude Code sur MCP](https://code.claude.com/docs/en/mcp). Puis demander à Claude « liste mes projets » ou « note cette idée sur X » : chaque appel apparaît dans le Journal. Un faux jeton est refusé et inscrit dans l'historique, mais cette ligne n'a pas d'utilisateur et n'est donc visible par personne pour l'instant ; elle le sera avec l'administration (010 G). La décision [016](docs/decisions/016-serveur-mcp.md) donne le détail).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :
