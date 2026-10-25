@@ -11,7 +11,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Slice 1.6, decision 012 G (reopened): the administrator's Réglages page, with the block list.
+// Slice 1.6, decision 012 G (reopened): the Réglages page, with the administrator's block list.
+// Slice 4.1: the page and its link are every user's (the MCP tokens); the block list stays the administrator's.
 
 type User = {
   id: number;
@@ -97,8 +98,13 @@ function stubApi(state: State) {
           installed: true,
           installUrl: "https://github.com/apps/cockpit-test/installations/new",
         });
+      // The MCP tokens have their own tests (SettingsTokens.test.tsx): none here.
+      if (path === "/api/me/tokens" && method === "GET")
+        return Response.json({ tokens: [] });
       if (path === "/api/settings/users" && method === "GET")
-        return Response.json({ users: state.users });
+        return state.isAdmin
+          ? Response.json({ users: state.users })
+          : Response.json({ error: "Forbidden" }, { status: 403 });
       const action = /^\/api\/settings\/users\/(\d+)\/(block|unblock)$/.exec(
         path,
       );
@@ -146,14 +152,54 @@ describe("navigation to Réglages", () => {
     expect(link.getAttribute("href")).toBe("/reglages");
   });
 
-  it("given a user who is not an administrator, when the home page loads, then there is no Réglages link", async () => {
+  it("given a user who is not an administrator, when the home page loads, then the header links to /reglages too", async () => {
     stubApi({ isAdmin: false, users: [admin] });
 
     renderAt("/");
 
     // Wait for /api/me to be read: the Projets link is there for everybody.
     await screen.findByText("Dorian");
-    expect(screen.queryByRole("link", { name: "Réglages" })).toBeNull();
+    const link = await screen.findByRole("link", { name: "Réglages" });
+    expect(link.getAttribute("href")).toBe("/reglages");
+  });
+});
+
+describe("Réglages page, for a user who is not an administrator", () => {
+  it("given a user who is not an administrator, when /reglages loads, then it has the heading Réglages and the section Jetons MCP but no section Utilisateurs", async () => {
+    const calls = stubApi({ isAdmin: false, users: [admin, user(2, "alice")] });
+
+    renderAt("/reglages");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Réglages" }),
+    ).toBeDefined();
+    expect(
+      await screen.findByRole("heading", { name: "Jetons MCP" }),
+    ).toBeDefined();
+    // The page knows who asks before it decides: wait for /api/me, then for the lists to settle.
+    await waitFor(() =>
+      expect(calls.some((c) => c.path === "/api/me")).toBe(true),
+    );
+    await waitFor(() =>
+      expect(calls.some((c) => c.path === "/api/me/tokens")).toBe(true),
+    );
+    expect(screen.queryByRole("heading", { name: "Utilisateurs" })).toBeNull();
+    expect(screen.queryByText("alice")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Bloquer" })).toBeNull();
+    expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
+  });
+
+  it("given an administrator, when /reglages loads, then both sections Utilisateurs and Jetons MCP are there", async () => {
+    stubApi({ isAdmin: true, users: [admin] });
+
+    renderAt("/reglages");
+
+    expect(
+      await screen.findByRole("heading", { name: "Jetons MCP" }),
+    ).toBeDefined();
+    expect(
+      await screen.findByRole("heading", { name: "Utilisateurs" }),
+    ).toBeDefined();
   });
 });
 

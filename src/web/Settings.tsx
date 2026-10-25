@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { Tokens } from "./SettingsTokens.tsx";
 import { focusRing } from "./ui.ts";
 
 const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
@@ -133,20 +134,37 @@ function UserList() {
 }
 
 export function Settings() {
+  // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => {
+      const res = await client.api.me.$get();
+      if (res.status === 401) return null;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+  });
+  if (me.isPending)
+    return <p className="p-4 text-muted-foreground">Chargement…</p>;
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-heading text-3xl font-extrabold">Réglages</h1>
-      <section className="mt-6" aria-labelledby="utilisateurs">
-        <h2 id="utilisateurs" className="font-heading text-xl font-bold">
-          Utilisateurs
-        </h2>
-        <p className="mt-1 text-muted-foreground">
-          Toute personne avec un compte GitHub peut se connecter à Cockpit. Un
-          compte bloqué ne peut plus se connecter.
-        </p>
-        <div className="mt-4" aria-live="polite">
-          <UserList />
-        </div>
+      {me.data?.isAdmin && (
+        <section className="mt-6" aria-labelledby="utilisateurs">
+          <h2 id="utilisateurs" className="font-heading text-xl font-bold">
+            Utilisateurs
+          </h2>
+          <p className="mt-1 text-muted-foreground">
+            Toute personne avec un compte GitHub peut se connecter à Cockpit. Un
+            compte bloqué ne peut plus se connecter.
+          </p>
+          <div className="mt-4" aria-live="polite">
+            <UserList />
+          </div>
+        </section>
+      )}
+      <section className="mt-8" aria-labelledby="jetons">
+        <Tokens />
       </section>
     </main>
   );

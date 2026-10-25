@@ -57,6 +57,13 @@
       "when": 1792938881049,
       "tag": "0007_legal_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792944340474,
+      "tag": "0008_fluffy_chronomancer",
+      "breakpoints": true
     }
   ]
 }

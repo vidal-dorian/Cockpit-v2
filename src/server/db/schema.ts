@@ -118,6 +118,22 @@ export const tickets = pgTable("tickets", {
     .defaultNow(),
 });
 
+/** A personal MCP token (decisions 002 and 015): only the SHA-256 of the secret is kept, the secret is shown once. */
+export const mcpTokens = pgTable("mcp_tokens", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  lastFour: text("last_four").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
+});
+
 /** Append-only (triggers in the history_append_only migration); no foreign keys, so entries outlive what they point at (decision 010). */
 export const history = pgTable(
   "history",

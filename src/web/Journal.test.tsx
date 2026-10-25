@@ -105,6 +105,41 @@ describe("Journal page", () => {
     expect(login?.textContent).toMatch(/2026/);
   });
 
+  it("given entries for a token creation and a revocation, when /journal loads, then the rows read Jeton créé and Jeton révoqué", async () => {
+    stubApi(() =>
+      Response.json({
+        entries: [
+          {
+            id: 2,
+            at: "2026-10-22T12:00:00.000Z",
+            actor: "human",
+            origin: "ui",
+            action: "revoke_token",
+            result: "ok",
+          },
+          {
+            id: 1,
+            at: "2026-10-21T12:00:00.000Z",
+            actor: "human",
+            origin: "ui",
+            action: "create_token",
+            result: "ok",
+          },
+        ],
+      }),
+    );
+
+    renderAt("/journal");
+
+    const created = (await screen.findByText("Jeton créé")).closest("li, tr");
+    const revoked = screen.getByText("Jeton révoqué").closest("li, tr");
+    expect(created).not.toBeNull();
+    expect(revoked).not.toBeNull();
+    expect(created).not.toBe(revoked);
+    expect(screen.queryByText("create_token")).toBeNull();
+    expect(screen.queryByText("revoke_token")).toBeNull();
+  });
+
   it.each([
     ["refused", "Refusée"],
     ["error", "Erreur"],
