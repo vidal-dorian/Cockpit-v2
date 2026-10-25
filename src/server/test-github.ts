@@ -1,5 +1,5 @@
 import { createHash, generateKeyPairSync } from "node:crypto";
-import { vi } from "vitest";
+import { expect, onTestFinished, vi } from "vitest";
 
 // A real key, so the GitHub client can sign the JWT of the App; nothing ever leaves the process.
 const { privateKey } = generateKeyPairSync("rsa", {
@@ -46,7 +46,7 @@ function contentsFile(path: string, text: string) {
 
 /**
  * Stubs the global fetch with the GitHub endpoints the server uses
- * (decisions 011 and 002); any other call fails loudly. `account` is the GitHub id of the
+ * (decisions 011 and 002); any other call fails loudly, and fails the test even when the server swallows it (a 502). `account` is the GitHub id of the
  * installation's account, or null for "the App is not installed" (404).
  *
  * The health check (slice 2.2) reads a repo through small directories only (decision 013):
@@ -162,6 +162,15 @@ export function stubGitHub(initial: {
       [...parts].map(([top, hash]) => [top, hash.digest("hex")] as const),
     );
   };
+  // Octokit and the routes swallow a throw of the fake (500, then 502): the test must still fail.
+  const unexpected: string[] = [];
+  const unexpectedFetch = (call: string) => {
+    unexpected.push(call);
+    return new Error(`Unexpected fetch ${call}`);
+  };
+  onTestFinished(() =>
+    expect(unexpected, "calls the fake GitHub does not serve").toEqual([]),
+  );
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =
@@ -248,7 +257,7 @@ export function stubGitHub(initial: {
             (isRoot && url.search !== "") ||
             (!isRoot && url.search !== "" && !recursive)
           )
-            throw new Error(`Unexpected fetch ${route}${url.search}`);
+            throw unexpectedFetch(`${route}${url.search}`);
           const dir = pinned?.[2] ?? "";
           // The options name a sub-read `HEAD:<dir>`, whatever commit sha pins it.
           const optionKey = isRoot ? "HEAD" : `HEAD:${dir}`;
@@ -330,7 +339,7 @@ export function stubGitHub(initial: {
         // The Contents API is pinned to a commit like the trees; an unpinned read is a bug of the caller.
         const ref = url.searchParams.get("ref");
         if (!ref || !/^[0-9a-f]{40}$/.test(ref))
-          throw new Error(`Unexpected fetch ${route}${url.search}`);
+          throw unexpectedFetch(`${route}${url.search}`);
         const pinnedView = snapshotOf(ref);
         const special = pinnedView?.specials[path];
         if (special)
@@ -342,11 +351,10 @@ export function stubGitHub(initial: {
             size: 0,
           });
         const file = pinnedView?.files[path];
-        if (file === undefined)
-          throw new Error(`Unexpected fetch ${route}${url.search}`);
+        if (file === undefined) throw unexpectedFetch(`${route}${url.search}`);
         return Response.json(contentsFile(path, file));
       }
-      throw new Error(`Unexpected fetch ${route}`);
+      throw unexpectedFetch(route);
     },
   );
   vi.stubGlobal("fetch", fetchMock);
