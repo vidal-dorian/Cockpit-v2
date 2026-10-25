@@ -55,20 +55,19 @@ function contentsFile(path: string, text: string) {
  *   or `?recursive=1`; paths relative to the dir; 404 when nothing is there, 422 when it is a file, a symlink or a submodule), as blobs (mode 100644) plus trees.
  *   Anything else fails loudly with "Unexpected fetch": `HEAD?recursive=1` (the whole repo) and
  *   `HEAD:<dir>` (a sub-read that is not pinned to the commit the root returned).
- *   The Contents API (`?ref=<commit sha>` is required, a call without it fails loudly) serves a file as a file, a path with files under it as a directory (array),
- *   any other path as 404.
+ *   The Contents API (`?ref=<commit sha>` is required, a call without it fails loudly) serves a file or a special as such, at a commit sha the root served;
+ *   anything else fails loudly with "Unexpected fetch".
  *   The stub keeps a snapshot of the repo for every commit sha it served on the root, and answers the
- *   pinned reads from that snapshot, whatever the repo became since. A sha it never served is 404 (trees and Contents).
+ *   pinned reads from that snapshot, whatever the repo became since. A sha it never served is 404 (trees).
  *   The options `treesStatus` / `treesTruncated` keep naming the sub-reads `HEAD:<dir>`, whatever sha pins them.
  * - `specials` serves a path as something other than a file or a directory: a
  *   submodule (tree entry `type: "commit"`, mode 160000) or a symlink (blob, mode 120000),
  *   and the Contents API describes them as such.
  * - `treesStatus` fails the trees route with that status, for every tree-ish or only the given
- *   ones (`{ "HEAD:.claude": 500 }`); `treesTruncated` does the same with `truncated: true` on a
- *   recursive answer, which then holds no entry (GitHub cuts it short); `emptyRepo` answers what
+ *   ones (`{ "HEAD:.claude": 500 }`); `treesTruncated` sets `truncated: true` on a recursive
+ *   answer of the given tree-ishes, which then holds no entry (GitHub cuts it short); `emptyRepo` answers what
  *   GitHub answers for a repo without commit: 409 "Git Repository is empty." on the trees route.
- * - `contentsStatus` fails every Contents call with that status, or only the given
- *   paths with theirs; `networkError` makes every trees and Contents call throw.
+ * - `contentsStatus` fails the given Contents paths with their status; `networkError` makes every trees and Contents call throw.
  * - `tokenStatus` fails the installation access token; `installations` lists the
  *   installation ids that get one (default: INSTALLATION_ID only, with the token
  *   `ghs_x`; any other id gets `ghs_<id>`).
@@ -90,14 +89,14 @@ export function stubGitHub(initial: {
   repositoriesStatus?: number;
   files?: Record<string, string>;
   repoFiles?: Record<string, Record<string, string>>;
-  contentsStatus?: number | Record<string, number>;
+  contentsStatus?: Record<string, number>;
   specials?: Record<
     string,
     { type: "submodule" } | { type: "symlink"; target: string }
   >;
   networkError?: boolean;
   treesStatus?: number | Record<string, number>;
-  treesTruncated?: boolean | Record<string, boolean>;
+  treesTruncated?: Record<string, boolean>;
   emptyRepo?: boolean;
   tokenStatus?: number;
   installations?: number[];
@@ -281,10 +280,7 @@ export function stubGitHub(initial: {
               { status: 422 },
             );
           const truncated =
-            recursive &&
-            (typeof options.treesTruncated === "object"
-              ? options.treesTruncated[optionKey]
-              : options.treesTruncated) === true;
+            recursive && options.treesTruncated?.[optionKey] === true;
           const prefix = dir ? `${dir}/` : "";
           const shas = dir ? undefined : rootShas(files, specials);
           // The root's identity: the sha of the commit (derived from the content, so a push changes it), and the ETag GitHub derives from it.
@@ -327,14 +323,8 @@ export function stubGitHub(initial: {
           }
           return answer;
         }
-        const path = decodeURIComponent(encodedPath as string).replace(
-          /\/$/,
-          "",
-        );
-        const failure =
-          typeof options.contentsStatus === "number"
-            ? options.contentsStatus
-            : options.contentsStatus?.[path];
+        const path = decodeURIComponent(encodedPath as string);
+        const failure = options.contentsStatus?.[path];
         if (failure)
           return Response.json({ message: "boom" }, { status: failure });
         // The Contents API is pinned to a commit like the trees; an unpinned read is a bug of the caller.
@@ -342,9 +332,7 @@ export function stubGitHub(initial: {
         if (!ref || !/^[0-9a-f]{40}$/.test(ref))
           throw new Error(`Unexpected fetch ${route}${url.search}`);
         const pinnedView = snapshotOf(ref);
-        if (!pinnedView) return notFound();
-        const files = pinnedView.files;
-        const special = pinnedView.specials[path];
+        const special = pinnedView?.specials[path];
         if (special)
           return Response.json({
             ...special,
@@ -353,23 +341,10 @@ export function stubGitHub(initial: {
             sha: "abc123",
             size: 0,
           });
-        const file = files[path];
-        if (file !== undefined) return Response.json(contentsFile(path, file));
-        const children = new Map<string, "file" | "dir">();
-        for (const key of Object.keys(files)) {
-          if (!key.startsWith(`${path}/`)) continue;
-          const rest = key.slice(path.length + 1).split("/");
-          if (rest[0]) children.set(rest[0], rest.length > 1 ? "dir" : "file");
-        }
-        if (children.size === 0) return notFound();
-        return Response.json(
-          [...children].map(([name, type]) => ({
-            name,
-            path: `${path}/${name}`,
-            type,
-            sha: "abc123",
-          })),
-        );
+        const file = pinnedView?.files[path];
+        if (file === undefined)
+          throw new Error(`Unexpected fetch ${route}${url.search}`);
+        return Response.json(contentsFile(path, file));
       }
       throw new Error(`Unexpected fetch ${route}`);
     },

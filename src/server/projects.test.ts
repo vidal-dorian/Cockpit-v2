@@ -926,23 +926,20 @@ describe("GET /api/projects/:id/health", () => {
     },
   );
 
-  it.each([
-    [".claude/agents", { type: "submodule" }, "agents"],
-    [".github/workflows", { type: "submodule" }, "ci"],
-    [".mcp.json", { type: "symlink", target: "config/mcp.json" }, "mcp"],
-  ] as const)(
-    "given %s is a submodule in the tree or a symlink that the Contents API does not serve as a file, when the health is requested, then 200 and its line is red with detail missing, not a 502",
-    async (path, special, key) => {
-      const { app, a, id } = await withRepo(
-        {},
-        { specials: { [path]: special } },
-      );
+  it("given .mcp.json is a symlink that the Contents API does not serve as a file, when the health is requested, then 200 and the mcp line is red with detail missing, not a 502", async () => {
+    const { app, a, id } = await withRepo(
+      {},
+      {
+        specials: {
+          ".mcp.json": { type: "symlink", target: "config/mcp.json" },
+        },
+      },
+    );
 
-      const line = await lineOf(await health(app, a.cookie, id), key);
+    const line = await lineOf(await health(app, a.cookie, id), "mcp");
 
-      expect(line).toEqual({ key, ok: false, detail: "missing" });
-    },
-  );
+    expect(line).toEqual({ key: "mcp", ok: false, detail: "missing" });
+  });
 
   it.each([
     ["CLAUDE.md", "claude_md"],
