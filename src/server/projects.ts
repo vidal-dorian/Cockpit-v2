@@ -8,7 +8,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
 import type { githubClient, ReadGitHub } from "./github.ts";
-import { healthLines } from "./health.ts";
+import { type HealthLine, healthLines } from "./health.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -71,7 +71,23 @@ async function installedRepos(github: GitHub, login: string, githubId: number) {
   };
 }
 
-export function projectRoutes(db: Db, readGitHub: ReadGitHub) {
+export function projectRoutes(
+  db: Db,
+  readGitHub: ReadGitHub,
+  healthCacheSize: number,
+) {
+  // Decision 013: the health lines of the repos shown lately, by installation and repo, with the commit they were computed from. Least recently used out first (a Map keeps insertion order).
+  type HealthEntry = { etag: string; commitSha: string; lines: HealthLine[] };
+  const healthCache = new Map<string, HealthEntry>();
+  const remember = (key: string, entry: HealthEntry) => {
+    healthCache.delete(key);
+    healthCache.set(key, entry);
+    for (const oldest of healthCache.keys()) {
+      if (healthCache.size <= healthCacheSize) break;
+      healthCache.delete(oldest);
+    }
+  };
+
   /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
   const gate = createMiddleware<Env>(async (c, next) => {
     const ready = await readGitHub();
@@ -213,13 +229,25 @@ export function projectRoutes(db: Db, readGitHub: ReadGitHub) {
         Number(c.req.param("id")),
       );
       if (!project) return c.json({ error: "Not found" }, 404);
-      // Read on each call, nothing is stored (decision 013).
+      // The root (the commit of HEAD) is read on each call; the rest only when it changed (decision 013). A failure leaves the cache as it was.
+      const key = `${project.installationId}/${project.fullName}`;
+      const cached = healthCache.get(key);
       try {
-        const files = await c
+        const read = await c
           .get("github")
-          .readRepoFiles(project.installationId, project.fullName);
-        if (!files) return c.json({ error: "repo_unreachable" }, 409);
-        return c.json({ lines: healthLines(files, c.get("publicUrl")) });
+          .readRepoFiles(project.installationId, project.fullName, cached);
+        if (!read) return c.json({ error: "repo_unreachable" }, 409);
+        if (read.unchanged) {
+          // Only asked for with a cached entry, so there is one.
+          const entry = { ...(cached as HealthEntry), etag: read.etag };
+          remember(key, entry);
+          return c.json({ lines: entry.lines });
+        }
+        const lines = healthLines(read.files, c.get("publicUrl"));
+        // An empty repository has no ETag: nothing to remember.
+        if (read.etag)
+          remember(key, { etag: read.etag, commitSha: read.commitSha, lines });
+        return c.json({ lines });
       } catch (error) {
         console.error("GitHub request failed:", error);
         return c.json({ error: "github_unavailable" }, 502);

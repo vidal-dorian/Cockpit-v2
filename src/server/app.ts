@@ -15,12 +15,14 @@ export type AppOptions = {
   encryptionKey: Buffer;
   /** Printed in the server logs at the first start; opens the wizard. */
   setupCode: string;
+  /** How many repos' health check the memory cache keeps (decision 013); 1000 when absent. */
+  healthCacheSize?: number;
 };
 
 export function createApp(
   db: Db,
   version: string,
-  { encryptionKey, setupCode }: AppOptions,
+  { encryptionKey, setupCode, healthCacheSize = 1000 }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);
   const readGitHub = githubReader(readInstance);
@@ -34,7 +36,7 @@ export function createApp(
       .route("/", authRoutes(db, readInstance, readGitHub))
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
-      .route("/", projectRoutes(db, readGitHub))
+      .route("/", projectRoutes(db, readGitHub, healthCacheSize))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.

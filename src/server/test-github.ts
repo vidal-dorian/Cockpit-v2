@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { vi } from "vitest";
 
 // A real key, so the GitHub client can sign the JWT of the App; nothing ever leaves the process.
@@ -50,12 +50,16 @@ function contentsFile(path: string, text: string) {
  * installation's account, or null for "the App is not installed" (404).
  *
  * The health check (slice 2.2) reads a repo through small directories only (decision 013):
- * - `files` maps a path of the repo to its text. `GET /repos/{o}/{r}/git/trees/{treeish}` serves
- *   `HEAD` (the root, not recursive) and `HEAD:<dir>` (not recursive, or `?recursive=1`; paths
- *   relative to the dir; 404 when nothing is there, 422 when it is a file, a symlink or a submodule), as blobs (mode 100644) plus trees.
- *   Anything else, e.g. `HEAD?recursive=1` (the whole repo), fails loudly with "Unexpected fetch".
- *   The Contents API serves a file as a file, a path with files under it as a directory (array),
+ * - `files` maps a path of the repo to its text (`repoFiles`: the same per `owner/repo`, for the repos it names; `files` serves the others). `GET /repos/{o}/{r}/git/trees/{treeish}` serves
+ *   `HEAD` (the root, not recursive; its `sha` is a COMMIT sha) and `<commit sha>:<dir>` (not recursive,
+ *   or `?recursive=1`; paths relative to the dir; 404 when nothing is there, 422 when it is a file, a symlink or a submodule), as blobs (mode 100644) plus trees.
+ *   Anything else fails loudly with "Unexpected fetch": `HEAD?recursive=1` (the whole repo) and
+ *   `HEAD:<dir>` (a sub-read that is not pinned to the commit the root returned).
+ *   The Contents API (`?ref=<commit sha>` is required, a call without it fails loudly) serves a file as a file, a path with files under it as a directory (array),
  *   any other path as 404.
+ *   The stub keeps a snapshot of the repo for every commit sha it served on the root, and answers the
+ *   pinned reads from that snapshot, whatever the repo became since. A sha it never served is 404 (trees and Contents).
+ *   The options `treesStatus` / `treesTruncated` keep naming the sub-reads `HEAD:<dir>`, whatever sha pins them.
  * - `specials` serves a path as something other than a file or a directory: a
  *   submodule (tree entry `type: "commit"`, mode 160000) or a symlink (blob, mode 120000),
  *   and the Contents API describes them as such.
@@ -68,13 +72,24 @@ function contentsFile(path: string, text: string) {
  * - `tokenStatus` fails the installation access token; `installations` lists the
  *   installation ids that get one (default: INSTALLATION_ID only, with the token
  *   `ghs_x`; any other id gets `ghs_<id>`).
+ *
+ * Conditional requests (the health cache, decision 013 G): the root (`HEAD`, no query) carries a
+ * commit `sha` and an `ETag` that both derive from the content of the whole repo (a change anywhere,
+ * nested files included, changes them), and answers 304 with no body when `If-None-Match` equals
+ * its ETag (a failure from `treesStatus` still wins). The returned mock also has
+ * `update(patch)`, which changes any of these options between two calls (`files` included, to
+ * simulate a push), `rotateEtag()`, which changes the ETag but not the commit sha, and
+ * `afterNextRoot(fn)`, which runs `fn` once, right after the next root answer is built (a push
+ * landing between the root read and the sub-reads: `fn` calls `update`), and `served`, the commit
+ * sha of each root 200, in order.
  */
-export function stubGitHub(options: {
+export function stubGitHub(initial: {
   account: number | null;
   repositories?: GitHubRepo[];
   installationStatus?: number;
   repositoriesStatus?: number;
   files?: Record<string, string>;
+  repoFiles?: Record<string, Record<string, string>>;
   contentsStatus?: number | Record<string, number>;
   specials?: Record<
     string,
@@ -87,26 +102,67 @@ export function stubGitHub(options: {
   tokenStatus?: number;
   installations?: number[];
 }) {
-  const files = options.emptyRepo ? {} : (options.files ?? {});
+  // Mutable on purpose: `update` changes it between two calls.
+  const options = { ...initial };
+  let etagSalt = 0;
+  let afterRoot: (() => void) | undefined;
+  const served: string[] = [];
+  type Specials = NonNullable<typeof initial.specials>;
+  type RepoView = {
+    files: Record<string, string>;
+    specials: Specials;
+    // Every path of the repo with its tree entry, directories included; built once per repo and change, a test may hold 150,000 files.
+    all: Map<string, { mode: string; type: string }>;
+  };
+  let views = new Map<string, RepoView>();
+  // The repo as it was when each commit sha was served on the root: a pinned read answers from here.
+  const snapshots = new Map<string, RepoView>();
+  const viewOf = (fullName: string): RepoView => {
+    const known = views.get(fullName);
+    if (known) return known;
+    const files = options.emptyRepo
+      ? {}
+      : (options.repoFiles?.[fullName] ?? options.files ?? {});
+    const all = new Map<string, { mode: string; type: string }>();
+    const specials = options.specials ?? {};
+    for (const path of [...Object.keys(files), ...Object.keys(specials)]) {
+      const parts = path.split("/");
+      for (let i = 1; i < parts.length; i++)
+        all.set(parts.slice(0, i).join("/"), { mode: "040000", type: "tree" });
+    }
+    for (const path of Object.keys(files))
+      all.set(path, { mode: "100644", type: "blob" });
+    for (const [path, special] of Object.entries(specials))
+      all.set(
+        path,
+        special.type === "submodule"
+          ? { mode: "160000", type: "commit" }
+          : { mode: "120000", type: "blob" },
+      );
+    const view = { files, specials, all };
+    views.set(fullName, view);
+    return view;
+  };
   const installations = options.installations ?? [INSTALLATION_ID];
   const repositories = options.repositories ?? [];
-  // Every path of the repo with its tree entry, directories included; built once, a test may hold 150,000 files.
-  const all = new Map<string, { mode: string; type: string }>();
-  const specials = options.specials ?? {};
-  for (const path of [...Object.keys(files), ...Object.keys(specials)]) {
-    const parts = path.split("/");
-    for (let i = 1; i < parts.length; i++)
-      all.set(parts.slice(0, i).join("/"), { mode: "040000", type: "tree" });
-  }
-  for (const path of Object.keys(files))
-    all.set(path, { mode: "100644", type: "blob" });
-  for (const [path, special] of Object.entries(specials))
-    all.set(
-      path,
-      special.type === "submodule"
-        ? { mode: "160000", type: "commit" }
-        : { mode: "120000", type: "blob" },
+  // The sha of a root entry, like Git's: a blob's changes with its text, a tree's with anything under it.
+  const rootShas = (files: Record<string, string>, specials: Specials) => {
+    const parts = new Map<string, ReturnType<typeof createHash>>();
+    const entries = [
+      ...Object.entries(files).map(([p, text]) => [p, text] as const),
+      ...Object.entries(specials).map(
+        ([p, special]) => [p, JSON.stringify(special)] as const,
+      ),
+    ].sort(([a], [b]) => (a < b ? -1 : 1));
+    for (const [path, text] of entries) {
+      const top = path.split("/")[0] as string;
+      const hash = parts.get(top) ?? createHash("sha1");
+      parts.set(top, hash.update(`${path}\0${text}\0`));
+    }
+    return new Map(
+      [...parts].map(([top, hash]) => [top, hash.digest("hex")] as const),
     );
+  };
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =
@@ -116,6 +172,9 @@ export function stubGitHub(options: {
             ? input.href
             : input.url;
       const url = new URL(raw);
+      const headers = new Headers(
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+      );
       const method = (
         init?.method ?? (input instanceof Request ? input.method : "GET")
       ).toUpperCase();
@@ -173,31 +232,44 @@ export function stubGitHub(options: {
         );
       if (repoRoute) {
         const [, fullName, encodedPath, encodedTreeish] = repoRoute;
+        const live = viewOf(fullName as string);
+        const snapshotOf = (sha: string) => snapshots.get(`${fullName}@${sha}`);
         const notFound = () =>
           Response.json({ message: "Not Found" }, { status: 404 });
         if (options.networkError) throw new TypeError("fetch failed");
         if (encodedTreeish !== undefined) {
           const treeish = decodeURIComponent(encodedTreeish);
           const recursive = url.searchParams.get("recursive") === "1";
-          // Only the root (HEAD, not recursive) and a directory (HEAD:<dir>, either way) exist:
-          // a recursive read of the whole repo is what the health check must never do.
-          const dir = treeish.startsWith("HEAD:") ? treeish.slice(5) : "";
+          // Only the root (HEAD, not recursive) and a directory pinned to a commit sha (<sha>:<dir>, either way) exist:
+          // a recursive read of the whole repo is what the health check must never do, and `HEAD:<dir>` is not pinned.
+          const pinned = /^([0-9a-f]{40}):(.+)$/.exec(treeish);
+          const isRoot = treeish === "HEAD";
           if (
-            (treeish !== "HEAD" && !dir) ||
-            (treeish === "HEAD" && url.search !== "") ||
-            (treeish !== "HEAD" && url.search !== "" && !recursive)
+            (!isRoot && !pinned) ||
+            (isRoot && url.search !== "") ||
+            (!isRoot && url.search !== "" && !recursive)
           )
             throw new Error(`Unexpected fetch ${route}${url.search}`);
+          const dir = pinned?.[2] ?? "";
+          // The options name a sub-read `HEAD:<dir>`, whatever commit sha pins it.
+          const optionKey = isRoot ? "HEAD" : `HEAD:${dir}`;
           const status =
             typeof options.treesStatus === "object"
-              ? options.treesStatus[treeish]
+              ? options.treesStatus[optionKey]
               : options.treesStatus;
           if (status) return Response.json({ message: "boom" }, { status });
-          if (options.emptyRepo)
+          if (options.emptyRepo && isRoot)
             return Response.json(
               { message: "Git Repository is empty." },
               { status: 409 },
             );
+          // A commit sha the stub never served is unknown to GitHub too: 404.
+          const { files, specials, all } = isRoot
+            ? live
+            : (snapshotOf((pinned as RegExpExecArray)[1] as string) ?? {
+                files: undefined,
+              });
+          if (!files || !all || !specials) return notFound();
           // GitHub answers 422 when the path is a file or a symlink (verified); a submodule is assumed to answer 422 too. 404 is for a path that does not exist.
           if (dir && !all.has(dir)) return notFound();
           if (dir && all.get(dir)?.type !== "tree")
@@ -211,9 +283,17 @@ export function stubGitHub(options: {
           const truncated =
             recursive &&
             (typeof options.treesTruncated === "object"
-              ? options.treesTruncated[treeish]
+              ? options.treesTruncated[optionKey]
               : options.treesTruncated) === true;
           const prefix = dir ? `${dir}/` : "";
+          const shas = dir ? undefined : rootShas(files, specials);
+          // The root's identity: the sha of the commit (derived from the content, so a push changes it), and the ETag GitHub derives from it.
+          const commitSha = createHash("sha1")
+            .update(JSON.stringify([...(shas ?? [])]))
+            .digest("hex");
+          const etag = `W/"${createHash("sha1").update(`${commitSha}:${etagSalt}`).digest("hex")}"`;
+          if (isRoot && headers.get("if-none-match") === etag)
+            return new Response(null, { status: 304, headers: { etag } });
           // A truncated recursive answer is cut short: here it holds nothing.
           const tree = truncated
             ? []
@@ -227,14 +307,25 @@ export function stubGitHub(options: {
                   path: path.slice(prefix.length),
                   mode,
                   type,
-                  sha: "abc123",
+                  sha: shas?.get(path) ?? "abc123",
                 }));
-          return Response.json({
-            sha: "def456",
-            url: `https://api.github.com/repos/${fullName}/git/trees/def456`,
-            truncated,
-            tree,
-          });
+          const answer = Response.json(
+            {
+              sha: dir ? "def456" : commitSha,
+              url: `https://api.github.com/repos/${fullName}/git/trees/${dir ? "def456" : commitSha}`,
+              truncated,
+              tree,
+            },
+            dir ? undefined : { headers: { etag } },
+          );
+          if (isRoot) {
+            snapshots.set(`${fullName}@${commitSha}`, live);
+            served.push(commitSha);
+            const hook = afterRoot;
+            afterRoot = undefined;
+            hook?.();
+          }
+          return answer;
         }
         const path = decodeURIComponent(encodedPath as string).replace(
           /\/$/,
@@ -246,7 +337,14 @@ export function stubGitHub(options: {
             : options.contentsStatus?.[path];
         if (failure)
           return Response.json({ message: "boom" }, { status: failure });
-        const special = options.specials?.[path];
+        // The Contents API is pinned to a commit like the trees; an unpinned read is a bug of the caller.
+        const ref = url.searchParams.get("ref");
+        if (!ref || !/^[0-9a-f]{40}$/.test(ref))
+          throw new Error(`Unexpected fetch ${route}${url.search}`);
+        const pinnedView = snapshotOf(ref);
+        if (!pinnedView) return notFound();
+        const files = pinnedView.files;
+        const special = pinnedView.specials[path];
         if (special)
           return Response.json({
             ...special,
@@ -277,7 +375,20 @@ export function stubGitHub(options: {
     },
   );
   vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+  return Object.assign(fetchMock, {
+    /** The commit sha of each root answer 200, in order. */
+    served,
+    update(patch: Partial<typeof initial>) {
+      Object.assign(options, patch);
+      views = new Map();
+    },
+    rotateEtag() {
+      etagSalt++;
+    },
+    afterNextRoot(fn: () => void) {
+      afterRoot = fn;
+    },
+  });
 }
 
 /** What the server asked of GitHub: method, path, query string and Authorization header of each call. */
@@ -299,6 +410,7 @@ export function githubCalls(fetchMock: ReturnType<typeof stubGitHub>) {
       path: new URL(raw).pathname,
       search: new URL(raw).search,
       authorization: headers.get("authorization") ?? "",
+      ifNoneMatch: headers.get("if-none-match") ?? "",
     };
   });
 }

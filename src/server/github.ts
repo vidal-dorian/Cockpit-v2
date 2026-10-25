@@ -36,6 +36,7 @@ const contentsSchema = z.union([
 ]);
 // A Git tree. `truncated` is GitHub cutting a recursive answer short.
 const treeSchema = z.object({
+  sha: z.string(),
   truncated: z.boolean(),
   tree: z.array(z.object({ path: z.string(), type: z.string() })),
 });
@@ -44,6 +45,9 @@ const repoSchema = z.object({
   full_name: z.string().min(1),
   default_branch: z.string().min(1),
 });
+
+/** What the cache (decision 013) remembers of a repo: the commit (the `sha` GitHub returns for `HEAD`) it was computed from. */
+export type KnownRoot = { etag: string; commitSha: string };
 
 /** What the health check (decision 013) reads of a repo's default branch. */
 export type RepoFiles = {
@@ -102,24 +106,33 @@ export function githubClient(config: GitHubAppConfig) {
       return z.array(repoSchema).parse(repos);
     },
 
-    /** The files the health check looks at, on the default branch. Every read is bounded by a small directory, never by the size of the repo: the root listing, `.claude`, `.github/workflows`, and `.mcp.json` when it is there. Null when the root answers 404 (the App lost access to the repo). */
-    async readRepoFiles(installationId: number, fullName: string) {
+    /** The files the health check looks at, on the default branch. Every read is bounded by a small directory, never by the size of the repo: the root listing, `.claude`, `.github/workflows`, and `.mcp.json` when it is there. Null when the root answers 404 (the App lost access to the repo). When the root is the `known` one (GitHub answers 304, or 200 with the same commit sha), nothing else is read and the answer is `unchanged`. */
+    async readRepoFiles(
+      installationId: number,
+      fullName: string,
+      known?: KnownRoot,
+    ) {
       const [owner, repo] = fullName.split("/") as [string, string];
       const octokit = await app.getInstallationOctokit(installationId);
-      // A Git tree (`HEAD` or `HEAD:<dir>`), null when it does not exist. For a directory GitHub answers 422 when the path is a file, a symlink or a submodule, so 422 means absent too.
+      // A Git tree (`HEAD` or `<sha>:<dir>`), null when it does not exist. For a directory GitHub answers 422 when the path is a file, a symlink or a submodule, so 422 means absent too.
       // `truncated` is ignored on purpose on the root and the workflows: GitHub's limit is about recursive answers, and 100,000 direct entries in one directory is not realistic.
-      const readTree = async (treeish: string, recursive = false) => {
+      const readTree = async (
+        treeish: string,
+        recursive = false,
+        etag?: string,
+      ) => {
         try {
-          const { data } = await octokit.request(
+          const { data, headers } = await octokit.request(
             "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
             {
               owner,
               repo,
               tree_sha: treeish,
               ...(recursive && { recursive: "1" }),
+              ...(etag && { headers: { "if-none-match": etag } }),
             },
           );
-          return treeSchema.parse(data);
+          return { ...treeSchema.parse(data), etag: headers.etag };
         } catch (error) {
           const status = (error as { status?: number }).status;
           if (status === 404 || (status === 422 && treeish !== "HEAD"))
@@ -133,30 +146,41 @@ export function githubClient(config: GitHubAppConfig) {
           .filter((entry) => entry.type === "blob")
           .map((entry) => `${prefix}${entry.path}`);
 
-      let root: z.infer<typeof treeSchema> | null;
+      let root: Awaited<ReturnType<typeof readTree>>;
       try {
-        root = await readTree("HEAD");
+        root = await readTree("HEAD", false, known?.etag);
       } catch (error) {
+        const status = (error as { status?: number }).status;
+        if (status === 304 && known)
+          return { unchanged: true as const, etag: known.etag };
         // 409: an empty repository, which simply holds none of the files.
-        if ((error as { status?: number }).status !== 409) throw error;
-        root = { truncated: false, tree: [] };
+        if (status !== 409) throw error;
+        root = { sha: "", truncated: false, tree: [], etag: undefined };
       }
       if (!root) return null;
+      // The same commit, whatever the ETag says, means nothing changed.
+      if (known && root.sha === known.commitSha)
+        return {
+          unchanged: true as const,
+          etag: root.etag ?? known.etag,
+        };
       const rootBlobs = blobs(root, "");
       const rootTrees = root.tree
         .filter((entry) => entry.type === "tree")
         .map((entry) => entry.path);
 
+      // Every other read is pinned to the commit the root answered, so a push in between cannot mix two states.
+      const at = (dir: string) => `${root.sha}:${dir}`;
       const readClaude = async () => {
-        const whole = await readTree("HEAD:.claude", true);
+        const whole = await readTree(at(".claude"), true);
         if (!whole?.truncated) return blobs(whole, ".claude/");
         // A huge .claude: GitHub cut the answer, so read the three directories we need one by one.
         const parts = await Promise.all([
-          readTree("HEAD:.claude").then((t) => blobs(t, ".claude/")),
-          readTree("HEAD:.claude/agents").then((t) =>
+          readTree(at(".claude")).then((t) => blobs(t, ".claude/")),
+          readTree(at(".claude/agents")).then((t) =>
             blobs(t, ".claude/agents/"),
           ),
-          readTree("HEAD:.claude/skills/dev-us").then((t) =>
+          readTree(at(".claude/skills/dev-us")).then((t) =>
             blobs(t, ".claude/skills/dev-us/"),
           ),
         ]);
@@ -166,7 +190,7 @@ export function githubClient(config: GitHubAppConfig) {
         try {
           const { data } = await octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
-            { owner, repo, path: ".mcp.json" },
+            { owner, repo, path: ".mcp.json", ref: root.sha },
           );
           const file = contentsSchema.parse(data);
           return file && Buffer.from(file.content, "base64").toString("utf8");
@@ -178,7 +202,7 @@ export function githubClient(config: GitHubAppConfig) {
       const [claude, workflows, mcpJson] = await Promise.all([
         rootTrees.includes(".claude") ? readClaude() : [],
         rootTrees.includes(".github")
-          ? readTree("HEAD:.github/workflows").then((t) =>
+          ? readTree(at(".github/workflows")).then((t) =>
               blobs(t, ".github/workflows/"),
             )
           : [],
@@ -199,7 +223,12 @@ export function githubClient(config: GitHubAppConfig) {
         agents: filesIn(".claude/agents"),
         devUsSkill: filesIn(".claude/skills/dev-us"),
       };
-      return files;
+      return {
+        unchanged: false as const,
+        files,
+        commitSha: root.sha,
+        etag: root.etag,
+      };
     },
   };
 }

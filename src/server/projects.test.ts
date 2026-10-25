@@ -602,17 +602,23 @@ describe("GET /api/projects/:id/health", () => {
     return body.lines.find((line) => line.key === key);
   };
 
-  // What the server asked of the repo (not the installation token), as "METHOD path?query", sorted: the reads run in parallel.
+  // What the server asked of the repo (not the installation token), as "METHOD path?query", sorted: the reads run in parallel. Every read but the root is pinned to the commit sha the root returned (decision 013).
   const repoCalls = (fetchMock: ReturnType<typeof stubGitHub>) =>
     githubCalls(fetchMock)
       .filter((c) => !c.path.startsWith("/app/installations/"))
-      .map((c) => `${c.method} ${decodeURIComponent(c.path)}${c.search}`)
+      // The commit sha the root returned shows as SHA; the tests below check which sha it is.
+      .map((c) =>
+        `${c.method} ${decodeURIComponent(c.path)}${c.search}`.replace(
+          /[0-9a-f]{40}/g,
+          "SHA",
+        ),
+      )
       .sort();
   const REPO = "GET /repos/user1000/app";
   const ROOT = `${REPO}/git/trees/HEAD`;
-  const CLAUDE_DIR = `${REPO}/git/trees/HEAD:.claude?recursive=1`;
-  const WORKFLOWS = `${REPO}/git/trees/HEAD:.github/workflows`;
-  const MCP_JSON = `${REPO}/contents/.mcp.json`;
+  const CLAUDE_DIR = `${REPO}/git/trees/SHA:.claude?recursive=1`;
+  const WORKFLOWS = `${REPO}/git/trees/SHA:.github/workflows`;
+  const MCP_JSON = `${REPO}/contents/.mcp.json?ref=SHA`;
   const ALL_MISSING = [
     { key: "claude_md", ok: false, detail: "missing" },
     { key: "ci", ok: false, detail: "missing" },
@@ -1072,7 +1078,9 @@ describe("GET /api/projects/:id/health", () => {
       expect(call.method).toBe("GET");
       expect(call.path).toMatch(/^\/repos\/user1000\/app(\/|$)/);
       expect(call.authorization).toContain("ghs_88");
-      expect(call.search).not.toContain("ref=");
+      if (call.path.includes("/contents/"))
+        expect(call.search).toMatch(/^\?ref=[0-9a-f]{40}$/);
+      else expect(call.search).not.toContain("ref=");
       expect(call.path).not.toContain("stored-branch");
       expect(call.search).not.toContain("stored-branch");
     }
@@ -1229,9 +1237,9 @@ describe("GET /api/projects/:id/health", () => {
       [
         ROOT,
         CLAUDE_DIR,
-        `${REPO}/git/trees/HEAD:.claude`,
-        `${REPO}/git/trees/HEAD:.claude/agents`,
-        `${REPO}/git/trees/HEAD:.claude/skills/dev-us`,
+        `${REPO}/git/trees/SHA:.claude`,
+        `${REPO}/git/trees/SHA:.claude/agents`,
+        `${REPO}/git/trees/SHA:.claude/skills/dev-us`,
       ].sort(),
     );
   });
@@ -1371,9 +1379,7 @@ describe("GET /api/projects/:id/health", () => {
 
     await health(app, a.cookie, id);
 
-    expect(repoCalls(fetchMock)).not.toContain(
-      `${REPO}/git/trees/HEAD:.claude`,
-    );
+    expect(repoCalls(fetchMock)).not.toContain(`${REPO}/git/trees/SHA:.claude`);
   });
 
   it("given a successful check, when it is done, then nothing is written to the history and the project is unchanged", async () => {
@@ -1572,5 +1578,413 @@ describe("GET /api/projects/:id/health", () => {
 
     expect(res.status).toBe(503);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // The health cache (decision 013 G): per repo, in the memory of the app, addressed by the commit sha GitHub returns for HEAD.
+  // Each test builds its own app with `setup()` / `withRepos()`, and the cache lives in that app, so every test starts empty.
+  const ROOT_PATH = "/repos/user1000/app/git/trees/HEAD";
+  const rootCalls = (fetchMock: ReturnType<typeof stubGitHub>) =>
+    githubCalls(fetchMock).filter((c) => c.path === ROOT_PATH);
+  // The status GitHub answered to each call, same order as githubCalls.
+  const statuses = (fetchMock: ReturnType<typeof stubGitHub>) =>
+    Promise.all(
+      fetchMock.mock.results.map(async (r) => (await r.value).status as number),
+    );
+  const ALL_FOUR = [MCP_JSON, CLAUDE_DIR, WORKFLOWS, ROOT].sort();
+  const linesOf = async (res: Response) => {
+    expect(res.status).toBe(200);
+    return ((await res.json()) as { lines: Line[] }).lines;
+  };
+  // The repo without the reviewer agent: the agents line is red until the reviewer is added.
+  const withoutReviewer = () => {
+    const files = readyRepo();
+    delete files[".claude/agents/reviewer.md"];
+    return files;
+  };
+
+  /** A user A with one project per entry of `repos` (user1000/<name>, the given files); `healthCacheSize` is the hook that lowers the limit of the cache. */
+  async function withRepos(
+    repos: Record<string, Record<string, string>>,
+    healthCacheSize?: number,
+  ) {
+    const fetchMock = stubGitHub({
+      account: 1000,
+      repoFiles: Object.fromEntries(
+        Object.entries(repos).map(([name, files]) => [
+          `user1000/${name}`,
+          files,
+        ]),
+      ),
+    });
+    const db = await openTestDatabase();
+    await configureTestInstance(db, TEST_KEY);
+    // A variable, not a literal: typechecks before `healthCacheSize` exists in AppOptions.
+    const appOptions: typeof testAppOptions & { healthCacheSize?: number } = {
+      ...testAppOptions,
+      ...(healthCacheSize ? { healthCacheSize } : {}),
+    };
+    const app = createApp(db, "1.2.3", appOptions);
+    const a = await userWithSession(db, 1000);
+    const ids: Record<string, number> = {};
+    let githubRepoId = 1;
+    for (const name of Object.keys(repos))
+      ids[name] = await seedProject(db, a.id, {
+        githubRepoId: githubRepoId++,
+        fullName: `user1000/${name}`,
+      });
+    // What the server asked of this repo only, as repoCalls shows it.
+    const callsOn = (name: string) =>
+      repoCalls(fetchMock).filter((c) =>
+        c.startsWith(`GET /repos/user1000/${name}/`),
+      );
+    return { fetchMock, app, db, a, ids, callsOn };
+  }
+
+  it("given an unchanged repo already checked, when the health is requested again, then the only call to the repo is the root with If-None-Match, GitHub answers 304 and the same four lines come back", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    const first = await health(app, a.cookie, id);
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+    fetchMock.mockClear();
+
+    const second = await health(app, a.cookie, id);
+
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual(firstBody);
+    expect(firstBody).toEqual({ lines: READY_LINES });
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    const [root] = rootCalls(fetchMock);
+    expect(root?.ifNoneMatch).toMatch(/^W\/"/);
+    expect(await statuses(fetchMock)).toContain(304);
+  });
+
+  it("given a push that adds a file under .claude between two displays, when the health is requested again, then the root answers 200 with a new sha, the sub-reads happen and the new lines are returned", async () => {
+    const { app, a, id, fetchMock } = await withRepo(withoutReviewer());
+    expect((await linesOf(await health(app, a.cookie, id)))[3]).toEqual({
+      key: "agents",
+      ok: false,
+      detail: "missing",
+    });
+    fetchMock.update({ files: readyRepo() });
+    fetchMock.mockClear();
+
+    const lines = await linesOf(await health(app, a.cookie, id));
+
+    expect(lines).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    expect(rootCalls(fetchMock)[0]?.ifNoneMatch).not.toBe("");
+    expect(await statuses(fetchMock)).not.toContain(304);
+    // The new state is what is cached now.
+    fetchMock.mockClear();
+    expect(await linesOf(await health(app, a.cookie, id))).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+  });
+
+  it("given a change that touches only a file read by the health (.mcp.json), when the health is requested again, then the new text is read and judged", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    expect(await linesOf(await health(app, a.cookie, id))).toEqual(READY_LINES);
+    fetchMock.mockClear();
+    await health(app, a.cookie, id);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    fetchMock.update({
+      files: {
+        ...readyRepo(),
+        ".mcp.json": mcpFile({
+          cockpit: cockpitServer({ Authorization: "Bearer ghp_x" }),
+        }),
+      },
+    });
+
+    const lines = await linesOf(await health(app, a.cookie, id));
+
+    expect(lines[2]).toEqual({
+      key: "mcp",
+      ok: false,
+      detail: "secret_in_clear",
+    });
+  });
+
+  it("given GitHub answers 200 on the root with the same commit sha but another ETag, when the health is requested again, then the cached lines come back and nothing else is read", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    await health(app, a.cookie, id);
+    fetchMock.rotateEtag();
+    fetchMock.mockClear();
+
+    const res = await health(app, a.cookie, id);
+
+    expect(await linesOf(res)).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    expect(await statuses(fetchMock)).not.toContain(304);
+  });
+
+  it("given the ETag rotated with the same commit sha, when the health is requested a third time, then the root is sent with the new ETag and GitHub answers 304", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    await health(app, a.cookie, id);
+    fetchMock.rotateEtag();
+    await health(app, a.cookie, id);
+    const [, second] = rootCalls(fetchMock);
+    fetchMock.mockClear();
+
+    const res = await health(app, a.cookie, id);
+
+    expect(await linesOf(res)).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    expect(rootCalls(fetchMock)[0]?.ifNoneMatch).not.toBe(second?.ifNoneMatch);
+    expect(await statuses(fetchMock)).toContain(304);
+  });
+
+  // The commit sha of each read that is not the root: trees `<sha>:<dir>` and Contents `?ref=<sha>`.
+  const pinnedShas = (fetchMock: ReturnType<typeof stubGitHub>) =>
+    githubCalls(fetchMock)
+      .filter((c) => c.path.startsWith("/repos/") && !c.path.endsWith("/HEAD"))
+      .map(
+        (c) =>
+          /\/trees\/([^/:]+):/.exec(decodeURIComponent(c.path))?.[1] ??
+          new URLSearchParams(c.search).get("ref"),
+      );
+
+  it("given a repo with everything in place, when the health is requested, then every sub-read is pinned to the commit sha the root returned: .claude, .github/workflows and .mcp.json, never HEAD", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+
+    expect((await health(app, a.cookie, id)).status).toBe(200);
+
+    const [sha] = fetchMock.served;
+    expect(sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(pinnedShas(fetchMock)).toEqual([sha, sha, sha]);
+    expect(
+      githubCalls(fetchMock).filter((c) =>
+        decodeURIComponent(c.path).includes("HEAD:"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("given a push that lands after the root was read and before the sub-reads, when the health is requested, then the lines describe the commit the root returned, and the next display re-reads the new commit", async () => {
+    const { app, a, id, fetchMock } = await withRepo(withoutReviewer());
+    fetchMock.afterNextRoot(() => fetchMock.update({ files: readyRepo() }));
+
+    const first = await linesOf(await health(app, a.cookie, id));
+
+    // The old commit: the reviewer was not there yet. The new files are not mixed in.
+    expect(first[3]).toEqual({ key: "agents", ok: false, detail: "missing" });
+    expect(first).toEqual([
+      READY_LINES[0],
+      READY_LINES[1],
+      READY_LINES[2],
+      { key: "agents", ok: false, detail: "missing" },
+    ]);
+    const [oldSha] = fetchMock.served;
+    expect(pinnedShas(fetchMock)).toEqual([oldSha, oldSha, oldSha]);
+    fetchMock.mockClear();
+
+    const second = await linesOf(await health(app, a.cookie, id));
+
+    expect(second).toEqual(READY_LINES);
+    expect(fetchMock.served).toHaveLength(2);
+    const newSha = fetchMock.served[1];
+    expect(newSha).not.toBe(oldSha);
+    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    expect(pinnedShas(fetchMock)).toEqual([newSha, newSha, newSha]);
+  });
+
+  it("given a good check cached and a 500 on the root, when the health is requested, then 502 github_unavailable, and once GitHub answers 304 again the good cached lines are returned", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    await health(app, a.cookie, id);
+    const [firstRoot] = rootCalls(fetchMock);
+    fetchMock.update({ treesStatus: 500 });
+
+    const failed = await health(app, a.cookie, id);
+
+    expect(failed.status).toBe(502);
+    expect(await failed.json()).toEqual({ error: "github_unavailable" });
+    fetchMock.update({ treesStatus: undefined });
+    fetchMock.mockClear();
+
+    const third = await health(app, a.cookie, id);
+
+    expect(await linesOf(third)).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    // The error left the entry as it was: same ETag as the first success.
+    expect(rootCalls(fetchMock)[0]?.ifNoneMatch).not.toBe("");
+    expect(await statuses(fetchMock)).toContain(304);
+    expect(firstRoot?.ifNoneMatch).toBe("");
+  });
+
+  it("given a good check cached and a 500 on a sub-read after a push, when the health is requested, then 502, and the old entry is not replaced by a partial one", async () => {
+    const { app, a, id, fetchMock } = await withRepo(withoutReviewer());
+    await health(app, a.cookie, id);
+    fetchMock.update({
+      files: readyRepo(),
+      contentsStatus: { ".mcp.json": 500 },
+    });
+
+    expect((await health(app, a.cookie, id)).status).toBe(502);
+
+    fetchMock.update({ contentsStatus: undefined });
+    fetchMock.mockClear();
+    // The push is still not cached: the repo is read in full and the new lines come back.
+    expect(await linesOf(await health(app, a.cookie, id))).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    // The entry of the old state is still the one sent.
+    expect(rootCalls(fetchMock)[0]?.ifNoneMatch).not.toBe("");
+  });
+
+  it("given a good check cached and the root now answers 404 (access lost), when the health is requested, then 409 repo_unreachable, and the cache is still good once access is back", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    await health(app, a.cookie, id);
+    fetchMock.update({ treesStatus: 404 });
+
+    const lost = await health(app, a.cookie, id);
+
+    expect(lost.status).toBe(409);
+    expect(await lost.json()).toEqual({ error: "repo_unreachable" });
+    fetchMock.update({ treesStatus: undefined });
+    fetchMock.mockClear();
+
+    expect(await linesOf(await health(app, a.cookie, id))).toEqual(READY_LINES);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    expect(await statuses(fetchMock)).toContain(304);
+  });
+
+  it("given a good check cached and the repo is now empty (409 Git Repository is empty), when the health is requested, then 200 with the four lines missing as without a cache, not the cached lines", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+    await health(app, a.cookie, id);
+    fetchMock.mockClear();
+    await health(app, a.cookie, id);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    fetchMock.update({ emptyRepo: true });
+
+    const res = await health(app, a.cookie, id);
+
+    expect(await linesOf(res)).toEqual(ALL_MISSING);
+  });
+
+  it("given two projects on different repos, when each is displayed twice, then each keeps its own lines and only ever sends its own ETag", async () => {
+    const { app, a, ids, fetchMock, callsOn } = await withRepos({
+      app: readyRepo(),
+      bare: {},
+    });
+    const lines = async (name: string) =>
+      linesOf(await health(app, a.cookie, ids[name] as number));
+    expect(await lines("app")).toEqual(READY_LINES);
+    expect(await lines("bare")).toEqual(ALL_MISSING);
+    fetchMock.mockClear();
+
+    expect(await lines("bare")).toEqual(ALL_MISSING);
+    expect(await lines("app")).toEqual(READY_LINES);
+
+    expect(callsOn("app")).toEqual([ROOT]);
+    expect(callsOn("bare")).toEqual([
+      `GET /repos/user1000/bare/git/trees/HEAD`,
+    ]);
+    const sent = githubCalls(fetchMock)
+      .filter((c) => c.path.endsWith("/git/trees/HEAD"))
+      .map((c) => c.ifNoneMatch);
+    expect(sent).toHaveLength(2);
+    expect(sent[0]).not.toBe("");
+    expect(sent[1]).not.toBe("");
+    expect(sent[0]).not.toBe(sent[1]);
+  });
+
+  it("given the same repo path tracked under another installation, when it is displayed for the first time, then it is read in full and sent without If-None-Match: the cache is keyed on the installation too", async () => {
+    const fetchMock = stubGitHub({
+      account: 1000,
+      files: readyRepo(),
+      installations: [INSTALLATION_ID, 88],
+    });
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1000);
+    const first = await seedProject(db, a.id, {
+      githubRepoId: 1,
+      fullName: "user1000/app",
+    });
+    const second = await seedProject(db, a.id, {
+      githubRepoId: 2,
+      fullName: "user1000/app",
+    });
+    await db
+      .update(projects)
+      .set({ installationId: 88 })
+      .where(eq(projects.id, second));
+    expect((await health(app, a.cookie, first)).status).toBe(200);
+    fetchMock.mockClear();
+    expect((await health(app, a.cookie, first)).status).toBe(200);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    fetchMock.mockClear();
+
+    const res = await health(app, a.cookie, second);
+
+    expect(res.status).toBe(200);
+    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    expect(rootCalls(fetchMock).map((c) => c.ifNoneMatch)).toEqual([""]);
+  });
+
+  it("given a repo cached for user A, when a user who is not a member asks for that project, then 404 and GitHub is not called", async () => {
+    const fetchMock = stubGitHub({ account: 1000, files: readyRepo() });
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1000);
+    const b = await userWithSession(db, 2000);
+    const id = await seedProject(db, a.id, {
+      githubRepoId: 1,
+      fullName: "user1000/app",
+    });
+    expect((await health(app, a.cookie, id)).status).toBe(200);
+    fetchMock.mockClear();
+    expect((await health(app, a.cookie, id)).status).toBe(200);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+    fetchMock.mockClear();
+
+    const res = await health(app, b.cookie, id);
+
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(await res.json())).not.toContain("READY");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("given a cache limited to 2 repos and three repos displayed in turn, when the first is displayed again, then it is read in full while the last one is still served from the cache", async () => {
+    const { app, a, ids, fetchMock, callsOn } = await withRepos(
+      { r1: readyRepo(), r2: readyRepo(), r3: readyRepo() },
+      2,
+    );
+    const show = async (name: string) =>
+      linesOf(await health(app, a.cookie, ids[name] as number));
+    await show("r1");
+    await show("r2");
+    await show("r3");
+    fetchMock.mockClear();
+
+    await show("r3");
+    expect(callsOn("r3")).toEqual(["GET /repos/user1000/r3/git/trees/HEAD"]);
+    fetchMock.mockClear();
+
+    expect(await show("r1")).toEqual(READY_LINES);
+    expect(callsOn("r1")).toEqual(
+      [
+        "GET /repos/user1000/r1/contents/.mcp.json?ref=SHA",
+        "GET /repos/user1000/r1/git/trees/SHA:.claude?recursive=1",
+        "GET /repos/user1000/r1/git/trees/SHA:.github/workflows",
+        "GET /repos/user1000/r1/git/trees/HEAD",
+      ].sort(),
+    );
+  });
+
+  it("given a cache limited to 2 repos, when the first repo is displayed again before a third one comes, then the least recently used one (the second) is the one evicted", async () => {
+    const { app, a, ids, fetchMock, callsOn } = await withRepos(
+      { r1: readyRepo(), r2: readyRepo(), r3: readyRepo() },
+      2,
+    );
+    const show = async (name: string) =>
+      linesOf(await health(app, a.cookie, ids[name] as number));
+    await show("r1");
+    await show("r2");
+    await show("r1");
+    await show("r3");
+    fetchMock.mockClear();
+
+    await show("r1");
+    expect(callsOn("r1")).toEqual(["GET /repos/user1000/r1/git/trees/HEAD"]);
+    fetchMock.mockClear();
+
+    await show("r2");
+    expect(callsOn("r2")).toHaveLength(4);
   });
 });
