@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { failOnUnexpectedFetch } from "./test-github.ts";
 import {
   configureTestInstance,
   type InstanceOverrides,
@@ -46,12 +47,13 @@ async function seedAdmin(db: TestDb, login = "octocat") {
 /** Stubs the global fetch the server uses to talk to GitHub; any other URL fails loudly. */
 function stubGitHub(
   options: {
-    user?: object;
+    user?: Record<string, unknown>;
     tokenStatus?: number;
     tokenBody?: object;
     userStatus?: number;
   } = {},
 ) {
+  const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       const raw =
@@ -72,7 +74,14 @@ function stubGitHub(
           status: options.userStatus ?? 200,
         });
       }
-      throw new Error(`Unexpected fetch ${raw} ${init?.method ?? ""}`);
+      // The landing check after login (decision 012 H): the App is installed.
+      if (/^\/users\/[^/]+\/installation$/.test(url.pathname)) {
+        return Response.json({
+          id: 77,
+          account: { id: (options.user ?? octocat).id },
+        });
+      }
+      throw unexpectedFetch(`${raw} ${init?.method ?? ""}`);
     },
   );
   vi.stubGlobal("fetch", fetchMock);
