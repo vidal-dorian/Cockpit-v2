@@ -7,7 +7,7 @@ import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { mcpTokens, users } from "./db/schema.ts";
+import { history, mcpTokens, users } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 
 // Limits of decision 015. PostgreSQL text cannot hold a NUL character: refused here, not left to fail as a 500.
@@ -31,6 +31,46 @@ const present = (t: typeof mcpTokens.$inferSelect) => ({
   revokedAt: t.revokedAt,
 });
 
+const PURGE_EVERY_MS = 24 * 3_600_000;
+
+/**
+ * Deletes the tokens revoked more than 3 calendar months before `now`, and only those (decision 015 G).
+ * The history entry is written in the same transaction, only when something was deleted.
+ */
+export async function purgeRevokedTokens(
+  db: Db,
+  now = new Date(),
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(mcpTokens)
+      .where(
+        sql`${mcpTokens.revokedAt} < ${now.toISOString()}::timestamptz - interval '3 months'`,
+      )
+      .returning({ id: mcpTokens.id });
+    if (deleted.length > 0)
+      await tx.insert(history).values({
+        userId: null,
+        actor: "system",
+        origin: "system",
+        action: "purge_revoked_tokens",
+        args: { count: deleted.length },
+        result: "ok",
+      });
+    return deleted.length;
+  });
+}
+
+/** Purges now, then every 24 hours; a failed run is logged and the next one tries again. */
+export function schedulePurge(db: Db): NodeJS.Timeout {
+  const run = () =>
+    purgeRevokedTokens(db).catch((error) =>
+      console.error("Purge of revoked tokens failed:", error),
+    );
+  void run();
+  return setInterval(run, PURGE_EVERY_MS).unref();
+}
+
 type Env = { Variables: { userId: number } };
 
 /** A user's own MCP tokens (decision 015): personal, so the administrator has no more right on them than anyone. */
@@ -50,7 +90,9 @@ export function tokenRoutes(db: Db) {
       const rows = await db
         .select()
         .from(mcpTokens)
-        .where(eq(mcpTokens.userId, user.userId))
+        .where(
+          and(eq(mcpTokens.userId, user.userId), isNull(mcpTokens.revokedAt)),
+        )
         .orderBy(desc(mcpTokens.id));
       return c.json({ tokens: rows.map(present) });
     })
@@ -137,7 +179,9 @@ export function tokenRoutes(db: Db) {
             .from(mcpTokens)
             .where(eq(mcpTokens.id, id))
             .for("update");
-          if (token?.revokedAt) throw new Refused("already_revoked");
+          // Gone since the ownership check: the purge deleted it meanwhile.
+          if (!token) throw new Refused("not_found");
+          if (token.revokedAt) throw new Refused("already_revoked");
           await tx
             .update(mcpTokens)
             .set({ revokedAt: sql`now()` })
@@ -146,7 +190,9 @@ export function tokenRoutes(db: Db) {
         return c.body(null, 204);
       } catch (error) {
         if (error instanceof Refused)
-          return c.json({ error: error.message }, 409);
+          return error.message === "not_found"
+            ? c.json({ error: "Not found" }, 404)
+            : c.json({ error: error.message }, 409);
         throw error;
       }
     });

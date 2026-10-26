@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -51,4 +51,18 @@ describe("server entry point", () => {
     ])
       expect(result.stderr).not.toContain(name);
   }, 15_000);
+
+  // The entry point opens a real database and a port, so it cannot be imported in a test: the scheduler is tested in
+  // tokens.test.ts (schedulePurge), and here we only check that the entry point starts it with the database.
+  it("given the entry point, when it is read, then it imports schedulePurge from tokens.ts and calls it with the database once the database is open", () => {
+    const source = readFileSync(join(import.meta.dirname, "index.ts"), "utf8");
+
+    expect(source).toMatch(
+      /import\s*\{[^}]*\bschedulePurge\b[^}]*\}\s*from\s*"\.\/tokens\.ts"/,
+    );
+    expect(source).toMatch(/\bschedulePurge\(\s*db\s*\)/);
+    expect(source.indexOf("schedulePurge(db)")).toBeGreaterThan(
+      source.indexOf("openDatabase(databaseUrl)"),
+    );
+  });
 });

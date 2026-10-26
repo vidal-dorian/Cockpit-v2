@@ -7,6 +7,7 @@ import { openDatabase } from "./db/db.ts";
 import { instanceSettings, users } from "./db/schema.ts";
 import { checkInstanceKey } from "./instance.ts";
 import { loadOrCreateKey } from "./secrets.ts";
+import { schedulePurge } from "./tokens.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -48,6 +49,8 @@ try {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 }
+// Started once the key is known good, so a failing start deletes nothing.
+schedulePurge(db);
 const [settings] = await db
   .select({ id: instanceSettings.id })
   .from(instanceSettings);

@@ -15,7 +15,7 @@ Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte
 
 ### Bloquer quelqu'un
 
-Chaque personne crée son compte Cockpit en se connectant avec GitHub ; si elle n'a pas encore installé l'App, elle arrive sur une page qui explique l'installation, et un bandeau le lui rappelle tant qu'elle n'est pas installée. Pour écarter quelqu'un, l'administrateur ouvre « Réglages » (lien en haut de la page), clique sur « Bloquer » en face de son login puis confirme : ses sessions ouvertes sont fermées et il ne peut plus se connecter, même s'il change de login GitHub. « Débloquer » annule le blocage. Un administrateur ne peut pas être bloqué. Chaque utilisateur trouve aussi dans « Réglages » ses **jetons MCP** : « Nouveau jeton » affiche le jeton une seule fois (à copier tout de suite, Cockpit n'en garde que l'empreinte), « Révoquer » le désactive.
+Chaque personne crée son compte Cockpit en se connectant avec GitHub ; si elle n'a pas encore installé l'App, elle arrive sur une page qui explique l'installation, et un bandeau le lui rappelle tant qu'elle n'est pas installée. Pour écarter quelqu'un, l'administrateur ouvre « Réglages » (lien en haut de la page), clique sur « Bloquer » en face de son login puis confirme : ses sessions ouvertes sont fermées et il ne peut plus se connecter, même s'il change de login GitHub. « Débloquer » annule le blocage. Un administrateur ne peut pas être bloqué. Chaque utilisateur trouve aussi dans « Réglages » ses **jetons MCP** : « Nouveau jeton » affiche le jeton une seule fois (à copier tout de suite, Cockpit n'en garde que l'empreinte), « Révoquer » le désactive et le retire de la liste (Cockpit le supprime définitivement 3 mois plus tard).
 
 ## Connecter Claude Code
 

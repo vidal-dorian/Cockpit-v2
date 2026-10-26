@@ -17,6 +17,7 @@ import {
   TEST_KEY,
   testAppOptions,
 } from "./test-instance.ts";
+import { purgeRevokedTokens } from "./tokens.ts";
 
 // Slice 4.2 (decisions 001, 004, 010, 015): the MCP server at POST /mcp, driven with raw JSON-RPC.
 //
@@ -375,6 +376,88 @@ describe("criterion 1: authentication of POST /mcp", () => {
     expect(await historyText(db)).not.toContain(alice.secret);
   });
 
+  // Slice 4.3: revoked tokens are purged 3 months after their revocation.
+  async function revokedDaysAgo(
+    app: App,
+    db: TestDb,
+    alice: { cookie: string; tokenId: number },
+    daysAgo: number,
+  ) {
+    const res = await app.request(`/api/me/tokens/${alice.tokenId}/revoke`, {
+      method: "POST",
+      headers: { cookie: alice.cookie },
+    });
+    expect(res.status).toBe(204);
+    await db.execute(
+      sql`update mcp_tokens set revoked_at = ${new Date(Date.now() - daysAgo * 86_400_000).toISOString()}::timestamptz where id = ${alice.tokenId}`,
+    );
+  }
+
+  it("given a token revoked less than 3 months ago, when the purge runs, then it is still refused as revoked_token with its token id", async () => {
+    const { app, db, alice } = await withProject();
+    await revokedDaysAgo(app, db, alice, 80);
+
+    expect(await purgeRevokedTokens(db)).toBe(0);
+    const res = await rpc(
+      app,
+      "tools/call",
+      { name: "list_projects", arguments: {} },
+      `Bearer ${alice.secret}`,
+    );
+
+    expect(res.status).toBe(401);
+    const found = await rows(db, sql`action = 'mcp_auth'`);
+    expect(found.map((r) => [r.token_id, r.detail])).toEqual([
+      [alice.tokenId, { reason: "revoked_token" }],
+    ]);
+  });
+
+  it("given a token revoked more than 3 months ago and purged, when it calls a tool, then 401 and one mcp_auth refused entry with reason invalid_token, no token id and no secret", async () => {
+    const { app, db, alice } = await withProject();
+    await revokedDaysAgo(app, db, alice, 100);
+    expect(await purgeRevokedTokens(db)).toBe(1);
+
+    const res = await rpc(
+      app,
+      "tools/call",
+      { name: "list_projects", arguments: {} },
+      `Bearer ${alice.secret}`,
+    );
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toMatch(/^Bearer\b/);
+    const found = await rows(db, sql`action = 'mcp_auth'`);
+    expect(found.map(shape)).toEqual([
+      {
+        user_id: null,
+        token_id: null,
+        project_id: null,
+        ticket_id: null,
+        actor: "claude",
+        origin: "mcp",
+        action: "mcp_auth",
+        args: {},
+        result: "refused",
+        detail: { reason: "invalid_token" },
+      },
+    ]);
+    expect(await mcpRows(db)).toHaveLength(1);
+    expect(await historyText(db)).not.toContain(alice.secret);
+  });
+
+  it("given a purged token that made an MCP call before, when the purge ran, then its mcp history entries are untouched", async () => {
+    const { app, db, alice } = await withProject();
+    dataOf(await callTool(app, alice.secret, "list_projects", {}));
+    const before = await mcpRows(db);
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((r) => r.token_id === alice.tokenId)).toBe(true);
+    await revokedDaysAgo(app, db, alice, 100);
+
+    await purgeRevokedTokens(db);
+
+    expect(await mcpRows(db)).toEqual(before);
+  });
+
   it("given a token whose user is blocked, when it calls a tool, then 401, one mcp_auth refused entry with reason blocked_user and the token id, no user, and the secret is nowhere in history", async () => {
     const { app, db, alice } = await withProject();
     await db
@@ -432,15 +515,20 @@ describe("criterion 1: authentication of POST /mcp", () => {
       expect(res.status).toBe(401);
     }
 
-    for (const who of [alice, bob]) {
-      const res = await app.request("/api/me/tokens", {
-        headers: { cookie: who.cookie },
-      });
-      const { tokens } = (await res.json()) as {
-        tokens: { lastUsedAt: string | null }[];
-      };
-      expect(tokens.map((t) => t.lastUsedAt)).toEqual([null]);
-    }
+    // Read from the table: a revoked token is no longer listed.
+    const result = await db.execute(
+      sql`select id, last_used_at from mcp_tokens order by id`,
+    );
+    expect(
+      (
+        result as unknown as {
+          rows: { id: number; last_used_at: unknown }[];
+        }
+      ).rows,
+    ).toEqual([
+      { id: alice.tokenId, last_used_at: null },
+      { id: bob.tokenId, last_used_at: null },
+    ]);
   });
 
   it("given a valid token never used, when it calls tools/list, then last_used_at is set to now", async () => {

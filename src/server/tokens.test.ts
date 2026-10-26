@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
@@ -11,12 +11,17 @@ import {
   TEST_KEY,
   testAppOptions,
 } from "./test-instance.ts";
+import { purgeRevokedTokens, schedulePurge } from "./tokens.ts";
 
 // Slice 4.1 (decisions 002, 004, 006, 010): MCP tokens, created, listed and revoked by their owner.
 // Expected table `mcp_tokens` (migration to add): id serial pk, user_id integer not null references users,
 // name text not null, token_hash text not null unique, last_four text not null,
 // created_at timestamptz not null default now(), last_used_at timestamptz null, revoked_at timestamptz null.
 // The table is read here with raw SQL, so the tests do not depend on the Drizzle export.
+
+// Revoked tokens are no longer listed (decision 015 G, changed): they stay in the table for 3 months after their
+// revocation, then `purgeRevokedTokens(db, now = new Date())` deletes them (and only them). `schedulePurge(db)` runs it
+// immediately and then every 24 hours; both are exported by ./tokens.ts. The revocation date is read from the table.
 
 type App = ReturnType<typeof createApp>;
 type TestDb = Awaited<ReturnType<typeof openTestDatabase>>;
@@ -91,6 +96,16 @@ async function tokenRows(db: TestDb) {
   const result = await db.execute(sql`select * from mcp_tokens order by id`);
   return (result as { rows: Record<string, unknown>[] }).rows;
 }
+
+/** A token as the purge sees it: revoked at a given moment (null: never revoked). */
+async function setRevokedAt(db: TestDb, id: number, at: Date | null) {
+  await db.execute(
+    sql`update mcp_tokens set revoked_at = ${at ? at.toISOString() : null}::timestamptz where id = ${id}`,
+  );
+}
+
+const remainingIds = async (db: TestDb) =>
+  (await tokenRows(db)).map((r) => r.id);
 
 const entriesOf = (db: TestDb, action: string) =>
   db
@@ -359,7 +374,7 @@ describe("GET /api/me/tokens", () => {
     expect(tokens[0]?.lastFour).toBe(a2.secret.slice(-4));
   });
 
-  it("given a revoked token and a used one, when the list is requested, then both are there with revokedAt and lastUsedAt set", async () => {
+  it("given a revoked token and a used one, when the list is requested, then only the used one comes: a revoked token is absent", async () => {
     const { app, db } = await setup();
     const alice = await userWithSession(db, 5);
     const used = await created(app, alice.cookie, "utilisé");
@@ -371,12 +386,44 @@ describe("GET /api/me/tokens", () => {
 
     const tokens = await listed(app, alice.cookie);
 
-    const byId = new Map(tokens.map((t) => [t.id, t]));
-    expect(byId.get(gone.token.id)?.revokedAt).toEqual(expect.any(String));
-    expect(byId.get(used.token.id)?.revokedAt).toBeNull();
-    expect(Date.parse(byId.get(used.token.id)?.lastUsedAt ?? "")).toBe(
+    expect(tokens.map((t) => t.id)).toEqual([used.token.id]);
+    expect(tokens[0]?.revokedAt).toBeNull();
+    expect(Date.parse(tokens[0]?.lastUsedAt ?? "")).toBe(
       Date.parse("2026-10-20T09:00:00Z"),
     );
+    // The row is still in the database: only the list hides it.
+    expect(await remainingIds(db)).toContain(gone.token.id);
+  });
+
+  it("given three tokens of which the middle one is revoked, plus a token of another user revoked, when one lists, then the two active ones come, newest first, caller only", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const bob = await userWithSession(db, 6);
+    const a1 = await created(app, alice.cookie, "premier");
+    const a2 = await created(app, alice.cookie, "second");
+    const a3 = await created(app, alice.cookie, "troisième");
+    const b1 = await created(app, bob.cookie, "de bob");
+    await revoke(app, alice.cookie, a2.token.id);
+    await revoke(app, bob.cookie, b1.token.id);
+
+    expect((await listed(app, alice.cookie)).map((t) => t.id)).toEqual([
+      a3.token.id,
+      a1.token.id,
+    ]);
+    expect(await listed(app, bob.cookie)).toEqual([]);
+  });
+
+  it("given an active token listed, when it is revoked, then the next list no longer has it", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const { token } = await created(app, alice.cookie);
+    expect((await listed(app, alice.cookie)).map((t) => t.id)).toEqual([
+      token.id,
+    ]);
+
+    expect((await revoke(app, alice.cookie, token.id)).status).toBe(204);
+
+    expect(await listed(app, alice.cookie)).toEqual([]);
   });
 
   it("given created tokens, when the list is requested, then neither the secret nor the hash appears anywhere in the answer", async () => {
@@ -405,12 +452,14 @@ describe("POST /api/me/tokens/:id/revoke", () => {
     const res = await revoke(app, alice.cookie, gone.token.id);
 
     expect(res.status).toBe(204);
+    // The revoked token leaves the list; the date is read from the table.
     const tokens = await listed(app, alice.cookie);
-    const revokedAt = tokens.find((t) => t.id === gone.token.id)?.revokedAt;
-    expect(Math.abs(Date.parse(revokedAt ?? "") - Date.now())).toBeLessThan(
-      60_000,
-    );
-    expect(tokens.find((t) => t.id === keep.token.id)?.revokedAt).toBeNull();
+    expect(tokens.map((t) => t.id)).toEqual([keep.token.id]);
+    expect(tokens[0]?.revokedAt).toBeNull();
+    const row = (await tokenRows(db)).find((r) => r.id === gone.token.id);
+    expect(
+      Math.abs(Date.parse(String(row?.revoked_at)) - Date.now()),
+    ).toBeLessThan(60_000);
     const entries = await entriesOf(db, "revoke_token");
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
@@ -428,14 +477,15 @@ describe("POST /api/me/tokens/:id/revoke", () => {
     const alice = await userWithSession(db, 5);
     const { token } = await created(app, alice.cookie);
     await revoke(app, alice.cookie, token.id);
-    const first = (await listed(app, alice.cookie))[0]?.revokedAt;
-    expect(first).toBeTruthy();
+    const first = String((await tokenRows(db))[0]?.revoked_at);
+    expect(first).not.toBe("null");
+    expect(await listed(app, alice.cookie)).toEqual([]);
 
     const res = await revoke(app, alice.cookie, token.id);
 
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "already_revoked" });
-    expect((await listed(app, alice.cookie))[0]?.revokedAt).toBe(first);
+    expect(String((await tokenRows(db))[0]?.revoked_at)).toBe(first);
     const entries = await entriesOf(db, "revoke_token");
     expect(entries.map((e) => e.result)).toEqual(["ok", "refused"]);
     expect(entries[1]).toMatchObject({
@@ -535,5 +585,244 @@ describe("access to /api/me/tokens", () => {
     const res = await revoke(app, alice.cookie, token.id);
 
     expect(res.status).toBe(204);
+  });
+});
+
+// Purge of revoked tokens: kept 3 calendar months after their revocation, then deleted. Only revoked tokens are deleted.
+describe("purgeRevokedTokens", () => {
+  const NOW = new Date("2026-10-25T12:00:00Z");
+  const days = (n: number) => new Date(NOW.getTime() + n * 86_400_000);
+  const purgeEntries = (db: TestDb) => entriesOf(db, "purge_revoked_tokens");
+
+  it("given tokens revoked 3 months + 1 day ago and 3 months - 1 day ago, when the purge runs, then only the first is deleted and 1 is returned", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const old = await created(app, alice.cookie, "vieux");
+    const recent = await created(app, alice.cookie, "récent");
+    await setRevokedAt(db, old.token.id, new Date("2026-07-24T12:00:00Z"));
+    await setRevokedAt(db, recent.token.id, new Date("2026-07-26T12:00:00Z"));
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(1);
+    expect(await remainingIds(db)).toEqual([recent.token.id]);
+  });
+
+  it("given a token revoked 91 days ago but less than 3 calendar months ago, when the purge runs, then it is kept: the delay is calendar months, not 90 days", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const { token } = await created(app, alice.cookie);
+    // 31 October minus 3 months is 31 July; 1 August is 91 days before 31 October.
+    await setRevokedAt(db, token.id, new Date("2026-08-01T12:00:00Z"));
+
+    const count = await purgeRevokedTokens(
+      db,
+      new Date("2026-10-31T12:00:00Z"),
+    );
+
+    expect(count).toBe(0);
+    expect(await remainingIds(db)).toEqual([token.id]);
+  });
+
+  it("given a token that was never revoked and created years ago, when the purge runs, then it is kept", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const { token } = await created(app, alice.cookie);
+    await db.execute(
+      sql`update mcp_tokens set created_at = '2022-01-01T00:00:00Z' where id = ${token.id}`,
+    );
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(0);
+    expect(await remainingIds(db)).toEqual([token.id]);
+    expect(await listed(app, alice.cookie)).toHaveLength(1);
+  });
+
+  it("given old revoked tokens of two users and an active token each, when the purge runs, then both old ones are deleted, both active ones stay and 2 is returned", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const bob = await userWithSession(db, 6);
+    const aOld = await created(app, alice.cookie, "a-vieux");
+    const aLive = await created(app, alice.cookie, "a-actif");
+    const bOld = await created(app, bob.cookie, "b-vieux");
+    const bLive = await created(app, bob.cookie, "b-actif");
+    await setRevokedAt(db, aOld.token.id, days(-200));
+    await setRevokedAt(db, bOld.token.id, days(-100));
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(2);
+    expect(await remainingIds(db)).toEqual([aLive.token.id, bLive.token.id]);
+  });
+
+  it("given no argument for now, when the purge runs, then it uses the current time", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const old = await created(app, alice.cookie, "vieux");
+    const recent = await created(app, alice.cookie, "récent");
+    await setRevokedAt(
+      db,
+      old.token.id,
+      new Date(Date.now() - 100 * 86_400_000),
+    );
+    await setRevokedAt(
+      db,
+      recent.token.id,
+      new Date(Date.now() - 80 * 86_400_000),
+    );
+
+    expect(await purgeRevokedTokens(db)).toBe(1);
+    expect(await remainingIds(db)).toEqual([recent.token.id]);
+  });
+
+  it("given a purge that deleted 2 tokens, when the history is read, then ONE purge_revoked_tokens entry holds actor system, origin system, no user, args { count: 2 } and result ok", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const bob = await userWithSession(db, 6);
+    const a = await created(app, alice.cookie, "Zephyr-secret-name");
+    const b = await created(app, bob.cookie);
+    await setRevokedAt(db, a.token.id, days(-120));
+    await setRevokedAt(db, b.token.id, days(-120));
+
+    await purgeRevokedTokens(db, NOW);
+
+    const entries = await purgeEntries(db);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      userId: null,
+      actor: "system",
+      origin: "system",
+      action: "purge_revoked_tokens",
+      result: "ok",
+      args: { count: 2 },
+      projectId: null,
+      ticketId: null,
+      tokenId: null,
+    });
+    expect(JSON.stringify(await allEntries(db))).not.toContain("Zephyr");
+  });
+
+  it("given a purge that deleted nothing, when the history is read, then it has no purge_revoked_tokens entry and 0 is returned", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const { token } = await created(app, alice.cookie);
+    await setRevokedAt(db, token.id, days(-10));
+    const before = await allEntries(db);
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(0);
+    expect(await allEntries(db)).toEqual(before);
+    expect(await purgeEntries(db)).toHaveLength(0);
+  });
+
+  it("given a purged token that left create_token and revoke_token entries, when the purge runs, then those entries are untouched and the only new row is the purge entry", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const { token } = await created(app, alice.cookie);
+    await revoke(app, alice.cookie, token.id);
+    await setRevokedAt(db, token.id, days(-120));
+    const before = await allEntries(db);
+    expect(before.map((e) => e.action)).toEqual([
+      "create_token",
+      "revoke_token",
+    ]);
+
+    await purgeRevokedTokens(db, NOW);
+
+    const after = await allEntries(db);
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after.map((e) => e.action)).toEqual([
+      "create_token",
+      "revoke_token",
+      "purge_revoked_tokens",
+    ]);
+    expect(after[0]?.args).toEqual({ tokenId: token.id });
+  });
+
+  it("given a purged token, when its owner revokes it, then 404; given a revoked token not yet purged, then 409 already_revoked", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const purged = await created(app, alice.cookie, "purgé");
+    const waiting = await created(app, alice.cookie, "en attente");
+    await revoke(app, alice.cookie, purged.token.id);
+    await revoke(app, alice.cookie, waiting.token.id);
+    await setRevokedAt(db, purged.token.id, days(-120));
+    await setRevokedAt(db, waiting.token.id, days(-80));
+    await purgeRevokedTokens(db, NOW);
+
+    const gone = await revoke(app, alice.cookie, purged.token.id);
+    const still = await revoke(app, alice.cookie, waiting.token.id);
+
+    expect(gone.status).toBe(404);
+    expect(still.status).toBe(409);
+    expect(await still.json()).toEqual({ error: "already_revoked" });
+  });
+});
+
+describe("schedulePurge", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Polls with the real setTimeout: vi.waitFor would advance the fake clock and fire the interval early. */
+  async function until(check: () => Promise<boolean>) {
+    for (let i = 0; i < 150; i++) {
+      if (await check()) return;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(await check()).toBe(true);
+  }
+  const gone = (db: TestDb) => async () =>
+    (await remainingIds(db)).length === 0;
+
+  /** Only the interval is faked: PGlite and the polling above keep their real timers. */
+  async function scheduled() {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const expired = async (name: string) => {
+      const { token } = await created(app, alice.cookie, name);
+      await setRevokedAt(db, token.id, new Date(Date.now() - 200 * 86_400_000));
+      return token.id;
+    };
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    return { db, expired };
+  }
+
+  it("given an expired revoked token, when the purge is scheduled, then it runs immediately, without waiting for the first interval", async () => {
+    const { db, expired } = await scheduled();
+    await expired("vieux");
+
+    const timer = schedulePurge(db);
+
+    await until(gone(db));
+    clearInterval(timer);
+  });
+
+  it("given a scheduled purge, when 24 hours pass, then it runs again, and not a millisecond earlier", async () => {
+    const { db, expired } = await scheduled();
+    await expired("premier");
+    const timer = schedulePurge(db);
+    // The immediate run is over once its token is gone; only then is the next one prepared.
+    await until(gone(db));
+    const later = await expired("plus tard");
+
+    await vi.advanceTimersByTimeAsync(24 * 3_600_000 - 1);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(await remainingIds(db)).toEqual([later]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await until(gone(db));
+    clearInterval(timer);
+  });
+
+  it("given a scheduled purge, when it is created, then its timer is unref'd so it never keeps the process alive", async () => {
+    const { db } = await scheduled();
+
+    const timer = schedulePurge(db);
+
+    expect(timer.hasRef()).toBe(false);
+    clearInterval(timer);
   });
 });

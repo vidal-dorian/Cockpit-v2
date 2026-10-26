@@ -2,6 +2,7 @@
 
 - **Statut** : proposée (à valider à la relecture de la PR)
 - **Date** : 2026-10-25
+- **Modifiée le 2026-10-25 à la demande de Dorian** : un jeton révoqué n'est plus affiché (G), il est gardé 3 mois puis supprimé par une purge quotidienne (G)
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [006 — Connexion OAuth](006-connexion-oauth.md), [010 — Historique](010-historique.md), [012 — Configuration automatique](012-configuration-automatique.md)
 - **Tranche** : 4.1 du [découpage](../decoupage.md)
@@ -20,8 +21,8 @@ Claude Code parle au serveur MCP de Cockpit avec un jeton (004). Cette tranche c
 | D | Combien ? | **20 jetons actifs** au plus par utilisateur ; un jeton révoqué ne compte pas. Au-delà : 409 `too_many_tokens`, refus écrit dans l'historique. Le compte est fait dans la transaction de `act`, après un verrou `FOR UPDATE` sur la ligne de l'utilisateur : deux créations simultanées s'attendent et ne dépassent pas la limite. Le même verrou relit `blocked_at` : si un blocage a été validé après le contrôle de la session, la création est refusée (403 `account_blocked`, refus écrit dans l'historique) |
 | E | Quelles routes ? | Pour l'utilisateur connecté, quel qu'il soit : `POST /api/me/tokens` `{ name }` (201 `{ token, secret }`), `GET /api/me/tokens` (du plus récent au plus ancien, jamais le secret ni l'empreinte), `POST /api/me/tokens/:id/revoke` (204). 401 sans session. Le nom est rogné, de 1 à 100 caractères, sans NUL : sinon 400 **avant** `act`, rien n'est écrit |
 | F | Qui voit et révoque quoi ? | Chacun **ses** jetons. Un jeton d'un autre, inconnu ou à l'identifiant invalide répondent tous 404, sans entrée d'historique. **L'administrateur ne voit ni ne révoque les jetons des autres** : un jeton agit au nom de son propriétaire, l'administrateur qui le verrait n'aurait pas de raison de le toucher, et pour couper l'accès d'un compte il le bloque (012 G) |
-| G | Et une révocation ? | `revoked_at` est rempli, la ligne reste : un jeton révoqué **reste listé** (« Révoqué »), pour que l'historique et la liste racontent la même chose. Révoquer deux fois : 409 `already_revoked`, la première date est gardée. La page demande une confirmation sur place (003, règle 4) |
-| H | Que garde l'historique ? | `create_token` et `revoke_token`, avec `args: { tokenId }` seulement. **Jamais le nom** (texte libre) **ni le secret** (010 D). Le Journal les nomme « Jeton créé » et « Jeton révoqué » |
+| G | Et une révocation ? | `revoked_at` est rempli. Un jeton révoqué n'est **plus listé** (`GET /api/me/tokens` ne renvoie que les actifs, `revokedAt` y est toujours `null`) ni affiché par la page. La ligne reste **3 mois calendaires** après la révocation, pour l'audit et pour que la 4.2 le refuse en `revoked_token` plutôt qu'en jeton inconnu ; passé ce délai, une **purge quotidienne** la supprime (`purgeRevokedTokens`, lancée au démarrage du serveur puis toutes les 24 h) : seuls les jetons révoqués sont jamais supprimés. Un serveur arrêté retarde la purge, jamais ne l'avance. Chaque purge qui supprime quelque chose écrit une entrée `purge_revoked_tokens` (acteur et origine `system`, sans utilisateur, `args: { count }`). Les entrées d'historique gardent l'identifiant du jeton supprimé (historique en ajout seul, sans clé étrangère). Révoquer deux fois : 409 `already_revoked` tant que la ligne existe, 404 une fois purgée ; la première date est gardée. La page demande une confirmation sur place (003, règle 4) et annonce « Jeton révoqué. » |
+| H | Que garde l'historique ? | `create_token` et `revoke_token`, avec `args: { tokenId }` seulement. **Jamais le nom** (texte libre) **ni le secret** (010 D). Le Journal les nomme « Jeton créé » et « Jeton révoqué » ; la purge, « Jetons révoqués supprimés » (les entrées système sans utilisateur ne sont pas encore visibles, 010 G) |
 | I | Qui ouvre « Réglages » ? | **Tout utilisateur connecté** : le lien du bandeau et la page sont ouverts à tous, pour leurs jetons. La section « Utilisateurs » (et la route `/api/settings/users`) reste réservée à l'administrateur. Cela précise la 012 G, qui faisait de « Réglages » la page de l'administrateur |
 
 ## Ce que la 4.2 devra faire
@@ -36,12 +37,12 @@ Claude Code parle au serveur MCP de Cockpit avec un jeton (004). Cette tranche c
 - L'expiration automatique des jetons, les droits par jeton (portée) et la rotation : pas au MVP.
 - Un checksum dans le jeton (comme ceux de GitHub, contre les faux positifs des scanners).
 - Les jetons OAuth de la 006 (colonnes facultatives de `mcp_tokens`) : plus tard.
-- Pas de suppression d'un jeton : la révocation suffit, et la ligne sert de trace.
 
 ## Limites connues
 
 - Le nom d'un jeton est du texte libre : il est affiché à son seul propriétaire, jamais écrit dans l'historique. Si l'insertion échoue sur une erreur de base inattendue, le log du serveur peut contenir les paramètres de la requête (nom, empreinte, quatre derniers caractères), jamais le jeton lui-même (010 D).
 - Un jeton perdu ne se récupère pas : il se révoque et s'en crée un autre.
+- La purge ne passe pas par `act` (010 C), qui écrirait une entrée même quand rien n'est supprimé : elle n'écrit `purge_revoked_tokens` que si elle a supprimé au moins un jeton. Une purge qui échoue ne laisse qu'une ligne dans le log du serveur, sans entrée `error` dans l'historique ; elle est retentée 24 h plus tard.
 
 ## Pistes écartées
 

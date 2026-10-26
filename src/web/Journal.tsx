@@ -18,6 +18,7 @@ const ACTIONS: Record<string, string> = {
   delete_ticket: "Ticket supprimé",
   create_token: "Jeton créé",
   revoke_token: "Jeton révoqué",
+  purge_revoked_tokens: "Jetons révoqués supprimés",
   mcp_auth: "Connexion MCP refusée",
   list_projects: "Projets listés",
   get_project: "Projet consulté",
