@@ -1,5 +1,23 @@
 /** The step labels of a ticket (decision 002); the codes of the server are never shown. */
-export const STEPS: Record<string, string> = { new: "Nouveau" };
+export const STEPS: Record<string, string> = {
+  abandoned: "Abandonné",
+  new: "Nouveau",
+  in_progress: "En cours",
+  to_validate: "À valider",
+  done: "Terminé",
+  validated: "Validé",
+};
+
+/** The status labels of a user story (decision 017 L). */
+export const STORY_STATUSES: Record<string, string> = {
+  to_validate: "à valider",
+  to_rewrite: "à réécrire",
+  ready: "prête",
+  in_progress: "en cours",
+  in_review: "en revue",
+  done: "terminée",
+  abandoned: "abandonnée",
+};
 
 /** The French error of a refused create, edit or delete; nothing of what the server said is shown. */
 export async function ticketError(res: Response) {
@@ -10,5 +28,7 @@ export async function ticketError(res: Response) {
   const body: unknown = await res.json().catch(() => null);
   if ((body as { error?: unknown } | null)?.error === "project_archived")
     return new Error("Ce projet est archivé : ses tickets ne changent plus.");
+  if ((body as { error?: unknown } | null)?.error === "ticket_has_stories")
+    return new Error("Ce ticket a des user stories : il ne se supprime plus.");
   return new Error("L'opération a échoué, réessaie.");
 }

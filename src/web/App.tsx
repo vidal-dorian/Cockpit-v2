@@ -17,6 +17,10 @@ const TicketPage = lazy(() =>
   import("./TicketPage.tsx").then((m) => ({ default: m.TicketPage })),
 );
 
+const StoryPage = lazy(() =>
+  import("./StoryPage.tsx").then((m) => ({ default: m.StoryPage })),
+);
+
 async function fetchHealth() {
   const res = await client.api.health.$get();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -250,6 +254,22 @@ export function App() {
                 }
               >
                 <TicketPage />
+              </Suspense>
+            </LoadErrorBoundary>
+          }
+        />
+        <Route
+          path="/us/:id"
+          element={
+            <LoadErrorBoundary>
+              <Suspense
+                fallback={
+                  <p role="status" className="p-4 text-muted-foreground">
+                    Chargement…
+                  </p>
+                }
+              >
+                <StoryPage />
               </Suspense>
             </LoadErrorBoundary>
           }

@@ -24,6 +24,9 @@ const ACTIONS: Record<string, string> = {
   get_project: "Projet consulté",
   search: "Recherche",
   get_ticket: "Ticket consulté",
+  list_tickets_needing_us: "Tickets à écrire listés",
+  create_user_stories: "User stories écrites",
+  get_user_story: "User story consultée",
 };
 const ORIGINS: Record<string, string> = { ui: "Interface", mcp: "Claude" };
 // The word always comes with the color, so the result never relies on color alone (decision 003).

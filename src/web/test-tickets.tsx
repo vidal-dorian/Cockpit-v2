@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noThenProperty: "then" is the name of a Given/When/Then field of the API (decision 017)
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
@@ -8,9 +9,29 @@ export type FakeTicket = {
   projectId: number;
   title: string;
   descriptionMd: string;
-  step: "new";
+  /** The code of the server (decision 002): new, in_progress, to_validate, validated, done or abandoned. */
+  step: string;
   createdAt: string;
   updatedAt: string;
+};
+/** A story as GET /api/stories/:id gives it (decision 017 L); the ticket page lists { id, position, iWant, status } of it. */
+export type FakeStory = {
+  id: number;
+  ticketId: number;
+  position: number;
+  asA: string;
+  iWant: string;
+  soThat: string;
+  notesMd: string;
+  status: string;
+  criteria: {
+    id: number;
+    position: number;
+    given: string;
+    when: string;
+    then: string;
+  }[];
+  dependsOn: { id: number; iWant: string; status: string }[];
 };
 export type Answer = { status: number; body?: unknown };
 export type Call = { method: string; path: string; body: unknown };
@@ -28,6 +49,33 @@ export const ticket = (
   step: "new",
   createdAt: "2026-10-22T12:00:00.000Z",
   updatedAt: "2026-10-22T12:00:00.000Z",
+});
+
+export const story = (
+  id: number,
+  ticketId: number,
+  iWant: string,
+  overrides: Partial<FakeStory> = {},
+): FakeStory => ({
+  id,
+  ticketId,
+  position: 1,
+  asA: "utilisatrice",
+  iWant,
+  soThat: "gagner du temps",
+  notesMd: "",
+  status: "to_validate",
+  criteria: [
+    {
+      id: id * 10,
+      position: 1,
+      given: "un état",
+      when: "une action",
+      then: "un résultat",
+    },
+  ],
+  dependsOn: [],
+  ...overrides,
 });
 
 export const fail = (status: number, error: string): Answer => ({
@@ -54,7 +102,10 @@ export function renderAt(path: string) {
  * Creating, editing and deleting change `tickets` like the real routes; `failNext` makes the next
  * write of that kind answer something else. Every request is recorded in `calls`.
  */
-export function stubTicketApi(initial: FakeTicket[]) {
+export function stubTicketApi(
+  initial: FakeTicket[],
+  stories: FakeStory[] = [],
+) {
   const tickets = [...initial];
   const calls: Call[] = [];
   const failNext: { post?: Answer; patch?: Answer; delete?: Answer } = {};
@@ -127,12 +178,35 @@ export function stubTicketApi(initial: FakeTicket[]) {
         tickets.unshift(created);
         return Response.json({ ticket: created }, { status: 201 });
       }
+      const storyMatch = /^\/api\/stories\/([^/]+)$/.exec(path);
+      if (storyMatch && method === "GET") {
+        const found = stories.find((s) => String(s.id) === storyMatch[1]);
+        const parent = tickets.find((t) => t.id === found?.ticketId);
+        if (!found || !parent)
+          return Response.json({ error: "Not found" }, { status: 404 });
+        return Response.json({
+          story: found,
+          ticket: { id: parent.id, title: parent.title },
+          project: { id: 5, fullName: "octocat/hello" },
+        });
+      }
       const match = /^\/api\/tickets\/([^/]+)$/.exec(path);
       if (match) {
         const found = tickets.find((t) => String(t.id) === match[1]);
         if (!found)
           return Response.json({ error: "Not found" }, { status: 404 });
-        if (method === "GET") return Response.json({ ticket: found });
+        if (method === "GET")
+          return Response.json({
+            ticket: found,
+            stories: stories
+              .filter((s) => s.ticketId === found.id)
+              .map(({ id, position, iWant, status }) => ({
+                id,
+                position,
+                iWant,
+                status,
+              })),
+          });
         const key = method === "PATCH" ? "patch" : "delete";
         const answer = failNext[key];
         failNext[key] = undefined;

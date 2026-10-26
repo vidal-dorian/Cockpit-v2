@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [010 — Historique](010-historique.md), [011 — Importer un projet](011-import-projets.md)
 - **Tranche** : 3.1 du [découpage](../decoupage.md)
+- **Modifiée par 017** : les lignes F et G (étape « Nouveau » pour tous les tickets, suppression « vraie d'office ») sont remplacées par les règles de la 002, appliquées avec les US, et par le refus `ticket_has_stories` ; dans la ligne I, « Supprimer » n'est plus montré dès que le ticket a des US — voir la [017](017-user-stories.md), choix I, J et L
 
 ## Contexte
 

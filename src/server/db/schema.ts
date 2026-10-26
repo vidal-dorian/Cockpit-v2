@@ -118,6 +118,75 @@ export const tickets = pgTable("tickets", {
     .defaultNow(),
 });
 
+const STORY_STATUSES = [
+  "to_validate",
+  "to_rewrite",
+  "ready",
+  "in_progress",
+  "in_review",
+  "done",
+  "abandoned",
+] as const;
+
+/** A user story of a ticket (decisions 002 and 017 A); the branch, PR and issue columns come with their slices. */
+export const userStories = pgTable(
+  "user_stories",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    ticketId: integer("ticket_id")
+      .notNull()
+      .references(() => tickets.id),
+    // From 1, in the order Claude wrote them.
+    position: integer("position").notNull(),
+    asA: text("as_a").notNull(),
+    iWant: text("i_want").notNull(),
+    soThat: text("so_that").notNull(),
+    notesMd: text("notes_md").notNull().default(""),
+    status: text("status", { enum: STORY_STATUSES }).notNull(),
+    rewriteComment: text("rewrite_comment"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "user_stories_status_check",
+      sql`${t.status} in ('to_validate', 'to_rewrite', 'ready', 'in_progress', 'in_review', 'done', 'abandoned')`,
+    ),
+  ],
+);
+
+export const acceptanceCriteria = pgTable("acceptance_criteria", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  storyId: integer("story_id")
+    .notNull()
+    .references(() => userStories.id),
+  position: integer("position").notNull(),
+  givenText: text("given_text").notNull(),
+  whenText: text("when_text").notNull(),
+  thenText: text("then_text").notNull(),
+});
+
+/** `storyId` needs `dependsOnId` done first. */
+export const storyDependencies = pgTable(
+  "story_dependencies",
+  {
+    storyId: integer("story_id")
+      .notNull()
+      .references(() => userStories.id),
+    dependsOnId: integer("depends_on_id")
+      .notNull()
+      .references(() => userStories.id),
+  },
+  (t) => [
+    primaryKey({ columns: [t.storyId, t.dependsOnId] }),
+    check("story_dependencies_not_self", sql`${t.storyId} <> ${t.dependsOnId}`),
+  ],
+);
+
 /** A personal MCP token (decisions 002 and 015): only the SHA-256 of the secret is kept, the secret is shown once. */
 export const mcpTokens = pgTable("mcp_tokens", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -145,6 +214,7 @@ export const history = pgTable(
     userId: integer("user_id"),
     projectId: integer("project_id"),
     ticketId: integer("ticket_id"),
+    storyId: integer("story_id"),
     // The MCP token behind an entry of origin mcp (decision 016); no foreign key, like the other ids.
     tokenId: integer("token_id"),
     actor: text("actor", {
