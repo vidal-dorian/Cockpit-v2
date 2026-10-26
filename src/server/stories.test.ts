@@ -9,6 +9,7 @@ import {
 import {
   archiveProject,
   callTool,
+  closeWriting,
   dataOf,
   expectRefused,
   historyText,
@@ -25,20 +26,25 @@ import {
   textOf,
   userWithToken,
   withProject,
+  writingClosedAt,
 } from "./test-mcp.ts";
 
 // Slice 4.3 (decisions 004, 010, 016, 017): Claude writes the user stories through three MCP tools.
 //
 // Pinned choices where decision 017 leaves room:
-// - create_user_stories arguments: { ticket_id, stories: [{ as_a, i_want, so_that, notes_md?, criteria: [{ given, when, then }], depends_on?: number[] }] }
-//   (the list is called `stories`, the criteria `criteria`; depends_on holds positions of the same call, from 1).
-// - create_user_stories answer: { ticket_id, step, stories: [{ id, position }] }.
+// - create_user_stories arguments: { ticket_id, stories: [{ as_a, i_want, so_that, notes_md?, criteria: [{ given, when, then }], depends_on?: number[] }], more_to_come?: boolean, stories_written?: integer 0..100 }
+//   (the list is called `stories`, the criteria `criteria`; depends_on holds positions IN THE TICKET, from 1; more_to_come
+//   is false by default and false closes the writing: decision 017 C, N; stories_written is the number of stories the caller
+//   believes are already written on the ticket, 0 by default: a different real count is refused `writing_moved_on`, 017 N).
+// - create_user_stories answer: { ticket_id, step, more_to_come, stories: [{ id, position }] }.
 // - list_tickets_needing_us arguments: { project_id? }; answer: { tickets: [...], stories_to_rewrite: [...] }.
 // - get_user_story arguments: { story_id }; answer: { story, criteria, depends_on, ticket, project } (fields as in 017 G).
 // - get_ticket answer: stories: [{ id, position, status, i_want }]; search answer: type "story" results.
-// - fixed refusal codes in history.detail.reason: not_found, ticket_abandoned, ticket_has_stories, project_archived,
-//   invalid_arguments.
+// - fixed refusal codes in history.detail.reason: not_found, ticket_abandoned, ticket_has_stories (writing closed),
+//   too_many_stories, writing_moved_on, project_archived, invalid_arguments.
 // - history.args of a refused call that found its ticket: { ticketId }; of an invalid call: {} (as in 4.2).
+// - the writing of a ticket is closed by `tickets.stories_written_at` (decision 017 N): seeded stories do not close it,
+//   the tests close it with closeWriting().
 // The tables are seeded with Drizzle (userStories, acceptanceCriteria, storyDependencies: decision 017 A) only to
 // reach the statuses that nothing writes yet.
 
@@ -68,14 +74,29 @@ const storyArgs = (n: number, over: Partial<StoryArgs> = {}): StoryArgs => ({
 type Created = {
   ticket_id: number;
   step: string;
+  more_to_come: boolean;
   stories: { id: number; position: number }[];
 };
 
 type Ctx = Awaited<ReturnType<typeof withProject>>;
-const createStories = (ctx: Ctx, ticketId: unknown, stories: unknown) =>
+/**
+ * `moreToCome` undefined leaves `more_to_come` out of the call (the default is false: the writing is closed);
+ * `storiesWritten` undefined leaves `stories_written` out (the default is 0: nothing written yet, decision 017 N).
+ */
+const createStories = (
+  ctx: Ctx,
+  ticketId: unknown,
+  stories: unknown,
+  moreToCome?: unknown,
+  storiesWritten?: unknown,
+) =>
   callTool(ctx.app, ctx.alice.secret, "create_user_stories", {
     ticket_id: ticketId,
     stories,
+    ...(moreToCome === undefined ? {} : { more_to_come: moreToCome }),
+    ...(storiesWritten === undefined
+      ? {}
+      : { stories_written: storiesWritten }),
   });
 
 describe("criterion 1: create_user_stories writes the stories of a ticket", () => {
@@ -135,7 +156,11 @@ describe("criterion 1: create_user_stories writes the stories of a ticket", () =
     expect(await db.select().from(storyDependencies)).toEqual([
       { storyId: second?.id, dependsOnId: first?.id },
     ]);
-    expect(data).toMatchObject({ ticket_id: ticketId, step: "to_validate" });
+    expect(data).toMatchObject({
+      ticket_id: ticketId,
+      step: "to_validate",
+      more_to_come: false,
+    });
     expect(data.stories).toEqual([
       { id: first?.id, position: 1 },
       { id: second?.id, position: 2 },
@@ -149,7 +174,7 @@ describe("criterion 1: create_user_stories writes the stories of a ticket", () =
       actor: "claude",
       origin: "mcp",
       action: "create_user_stories",
-      args: { ticketId, count: 2 },
+      args: { ticketId, count: 2, moreToCome: false },
       result: "ok",
       detail: null,
     });
@@ -393,7 +418,22 @@ describe("criteria 2 and 3: invalid stories are refused, and nothing is created"
 });
 
 describe("criterion 4: tickets that cannot be written", () => {
-  it("given a ticket that already has stories, when create_user_stories is called again, then Refused (a ticket is written once), nothing new is created and the entry is ticket_has_stories", async () => {
+  it("given a closed writing, when the closing packet is retried with its old stories_written, then Refused ticket_has_stories (not writing_moved_on): the closed check comes first", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Idée");
+    dataOf(await createStories(ctx, ticketId, [storyArgs(1)]));
+    const before = await storyCounts(db);
+
+    const text = expectRefused(
+      await createStories(ctx, ticketId, [storyArgs(1)], undefined, 0),
+    );
+
+    expect(text).toMatch(/already written and its writing is closed/i);
+    expect(await storyCounts(db)).toEqual(before);
+  });
+
+  it("given a ticket whose writing was closed by a first call, when create_user_stories is called again, then Refused (writing is closed), nothing new is created and the entry is ticket_has_stories", async () => {
     const ctx = await withProject();
     const { db, alice, projectId } = ctx;
     const ticketId = await seedTicket(db, projectId, "Idée");
@@ -401,7 +441,13 @@ describe("criterion 4: tickets that cannot be written", () => {
     const before = await storyCounts(db);
 
     const text = expectRefused(
-      await createStories(ctx, ticketId, [storyArgs(2), storyArgs(3)]),
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(2), storyArgs(3)],
+        undefined,
+        1,
+      ),
     );
 
     expect(text).toMatch(/already/i);
@@ -422,13 +468,16 @@ describe("criterion 4: tickets that cannot be written", () => {
     expect(refused.args).toMatchObject({ ticketId });
   });
 
-  it("given a ticket whose stories were seeded in any status, when create_user_stories is called, then Refused ticket_has_stories too (one story is enough)", async () => {
+  it("given a ticket whose writing is closed and whose only story is in any status, when create_user_stories is called, then Refused ticket_has_stories too", async () => {
     const ctx = await withProject();
     const { db, projectId } = ctx;
     const ticketId = await seedTicket(db, projectId, "Idée");
     await seedStory(db, ticketId, { status: "abandoned" });
+    await closeWriting(db, ticketId);
 
-    expectRefused(await createStories(ctx, ticketId, [storyArgs(1)]));
+    expectRefused(
+      await createStories(ctx, ticketId, [storyArgs(1)], undefined, 1),
+    );
 
     expect((await onlyEntry(db)).detail).toEqual({
       reason: "ticket_has_stories",
@@ -548,6 +597,742 @@ describe("criterion 5: two simultaneous create_user_stories on the same ticket",
   });
 });
 
+// Decision 017 N and O: a very large ticket is written in several calls.
+describe("choice N: a ticket written in several calls (more_to_come)", () => {
+  /** Position -> id of the stories of a ticket. */
+  const stored = (db: Ctx["db"], ticketId: number) =>
+    db
+      .select()
+      .from(userStories)
+      .where(eq(userStories.ticketId, ticketId))
+      .orderBy(asc(userStories.position));
+
+  it("given a first call with more_to_come true, when it is made, then the stories exist, the answer says more_to_come true, the writing stays open and the entry holds { ticketId, count, moreToCome: true }", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+
+    const data = dataOf<Created>(
+      await createStories(ctx, ticketId, [storyArgs(1), storyArgs(2)], true),
+    );
+
+    expect(data).toMatchObject({
+      ticket_id: ticketId,
+      step: "to_validate",
+      more_to_come: true,
+    });
+    expect(data.stories.map((s) => s.position)).toEqual([1, 2]);
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    expect((await stored(db, ticketId)).map((s) => s.position)).toEqual([1, 2]);
+    expect((await onlyEntry(db)).args).toEqual({
+      ticketId,
+      count: 2,
+      moreToCome: true,
+    });
+  });
+
+  it("given more_to_come left out or false, when a call is made, then the writing is closed (stories_written_at set) and the answer says more_to_come false", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const omitted = await seedTicket(db, projectId, "Défaut");
+    const explicit = await seedTicket(db, projectId, "Explicite");
+
+    const first = dataOf<Created>(
+      await createStories(ctx, omitted, [storyArgs(1)]),
+    );
+    const second = dataOf<Created>(
+      await createStories(ctx, explicit, [storyArgs(1)], false),
+    );
+
+    expect(first.more_to_come).toBe(false);
+    expect(second.more_to_come).toBe(false);
+    expect(await writingClosedAt(db, omitted)).not.toBeNull();
+    expect(await writingClosedAt(db, explicit)).not.toBeNull();
+  });
+
+  it("given a more_to_come that is not a boolean, when create_user_stories is called, then Refused naming more_to_come and nothing is created", async () => {
+    const ctx = await withProject();
+    const { db } = ctx;
+    const ticketId = await seedTicket(db, ctx.projectId, "Idée");
+
+    const text = expectRefused(
+      await createStories(ctx, ticketId, [storyArgs(1)], "oui"),
+    );
+
+    expect(text.startsWith("Refused: invalid arguments (")).toBe(true);
+    expect(text).toContain("more_to_come");
+    expect((await storyCounts(db)).stories).toBe(0);
+  });
+
+  it("given an open writing with 3 stories, when a second call sends 2 more, then they take positions 4 and 5, the answer says so, the writing closes with more_to_come false and a third call is refused ticket_has_stories", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(1), storyArgs(2), storyArgs(3)],
+        true,
+      ),
+    );
+
+    const second = dataOf<Created>(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(4), storyArgs(5)],
+        false,
+        3,
+      ),
+    );
+
+    const all = await stored(db, ticketId);
+    expect(all.map((s) => [s.position, s.iWant, s.status])).toEqual([
+      [1, "vouloir-1", "to_validate"],
+      [2, "vouloir-2", "to_validate"],
+      [3, "vouloir-3", "to_validate"],
+      [4, "vouloir-4", "to_validate"],
+      [5, "vouloir-5", "to_validate"],
+    ]);
+    expect(second).toEqual({
+      ticket_id: ticketId,
+      step: "to_validate",
+      more_to_come: false,
+      stories: [
+        { id: all[3]?.id, position: 4 },
+        { id: all[4]?.id, position: 5 },
+      ],
+    });
+    // Criteria of the second call belong to the right stories.
+    const criteria = await db
+      .select()
+      .from(acceptanceCriteria)
+      .where(eq(acceptanceCriteria.storyId, all[3]?.id as number));
+    expect(criteria.map((c) => c.givenText)).toEqual(["donné-4"]);
+    expect(await writingClosedAt(db, ticketId)).not.toBeNull();
+    expectRefused(await createStories(ctx, ticketId, [storyArgs(6)], true, 5));
+    expect((await storyCounts(db)).stories).toBe(5);
+    const entries = await mcpRows(db);
+    expect(entries.map((e) => e.result)).toEqual(["ok", "ok", "refused"]);
+    expect(entries[2]?.detail).toEqual({ reason: "ticket_has_stories" });
+  });
+
+  it("given an open writing, when a call with more_to_come true follows another, then the writing is still open and the entries of both calls hold only ids", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(await createStories(ctx, ticketId, [storyArgs(1)], true));
+
+    const second = dataOf<Created>(
+      await createStories(ctx, ticketId, [storyArgs(2)], true, 1),
+    );
+
+    expect(second.more_to_come).toBe(true);
+    expect(second.stories.map((s) => s.position)).toEqual([2]);
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    expect((await mcpRows(db)).map((e) => e.args)).toEqual([
+      { ticketId, count: 1, moreToCome: true },
+      { ticketId, count: 1, moreToCome: true },
+    ]);
+    expect(await historyText(db)).not.toContain("vouloir-2");
+  });
+
+  it("given stories of a first call, when a story of the second call depends_on positions of the ticket, then the dependencies link the right stories, across calls and inside the call", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(1), storyArgs(2, { depends_on: [1] }), storyArgs(3)],
+        true,
+      ),
+    );
+
+    dataOf(
+      await createStories(
+        ctx,
+        ticketId,
+        [
+          // Position 4: depends on the last story of the first call and on its first.
+          storyArgs(4, { depends_on: [3, 1] }),
+          // Position 5: depends on the story just before it, in the same call.
+          storyArgs(5, { depends_on: [4] }),
+        ],
+        undefined,
+        3,
+      ),
+    );
+
+    const id = Object.fromEntries(
+      (await stored(db, ticketId)).map((s) => [s.position, s.id]),
+    );
+    const pairs = (await db.select().from(storyDependencies)).map((d) => [
+      d.storyId,
+      d.dependsOnId,
+    ]);
+    expect(pairs).toHaveLength(4);
+    expect(pairs).toEqual(
+      expect.arrayContaining([
+        [id[2], id[1]],
+        [id[4], id[3]],
+        [id[4], id[1]],
+        [id[5], id[4]],
+      ]),
+    );
+  });
+
+  // The positions are those of the ticket (decision 017 C), so a second call is validated against the stories already written.
+  it.each([
+    ["its own position", [[4]], "stories.0.depends_on.0"],
+    ["a later position", [[5]], "stories.0.depends_on.0"],
+    ["position 0", [[0]], "stories.0.depends_on.0"],
+    ["a repeated position", [[1, 1]], "stories.0.depends_on.1"],
+    [
+      "a later position on the second story",
+      [[], [6]],
+      "stories.1.depends_on.0",
+    ],
+  ] as [string, number[][], string][])(
+    "given 3 stories already written, when a story of the second call depends on %s, then Refused invalid arguments naming the field, nothing is created and the writing stays open",
+    async (_name, dependsOn, path) => {
+      const ctx = await withProject();
+      const { db, alice, projectId } = ctx;
+      const ticketId = await seedTicket(db, projectId, "Gros");
+      dataOf(
+        await createStories(
+          ctx,
+          ticketId,
+          [storyArgs(1), storyArgs(2), storyArgs(3)],
+          true,
+        ),
+      );
+      const before = await storyCounts(db);
+
+      const text = expectRefused(
+        await createStories(
+          ctx,
+          ticketId,
+          dependsOn.map((list, i) =>
+            storyArgs(4 + i, list.length ? { depends_on: list } : {}),
+          ),
+          true,
+          3,
+        ),
+      );
+
+      expect(text.startsWith("Refused: invalid arguments (")).toBe(true);
+      expect(text).toContain(path);
+      expect(await storyCounts(db)).toEqual(before);
+      expect(await writingClosedAt(db, ticketId)).toBeNull();
+      const refused = (await mcpRows(db)).at(-1) as Row;
+      expect(refused).toMatchObject({
+        user_id: alice.id,
+        result: "refused",
+        detail: { reason: "invalid_arguments" },
+      });
+    },
+  );
+
+  it("given a first call whose first story depends on position 2, when it is made, then Refused naming stories.0.depends_on.0 (positions are those of the ticket, already so for a first call)", async () => {
+    const ctx = await withProject();
+    const ticketId = await seedTicket(ctx.db, ctx.projectId, "Idée");
+
+    const text = expectRefused(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(1, { depends_on: [2] }), storyArgs(2)],
+        true,
+      ),
+    );
+
+    expect(text).toContain("stories.0.depends_on.0");
+    expect((await storyCounts(ctx.db)).stories).toBe(0);
+  });
+
+  it("given 98 stories written, when the story at position 100 depends on 99 positions, then it is accepted (depends_on holds up to 99 entries)", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Très gros");
+    for (let i = 0; i < 98; i++) await seedStory(db, ticketId);
+
+    const data = dataOf<Created>(
+      await createStories(
+        ctx,
+        ticketId,
+        [
+          storyArgs(99),
+          storyArgs(100, {
+            depends_on: Array.from({ length: 99 }, (_, i) => i + 1),
+          }),
+        ],
+        undefined,
+        98,
+      ),
+    );
+
+    expect(data.stories.map((s) => s.position)).toEqual([99, 100]);
+    expect((await storyCounts(db)).dependencies).toBe(99);
+  });
+});
+
+describe("choice N: closing the writing with stories: []", () => {
+  it("given an open writing with stories, when stories: [] is sent without more_to_come, then nothing is created, the writing closes and the answer is { ticket_id, step, more_to_come: false, stories: [] }", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(
+      await createStories(ctx, ticketId, [storyArgs(1), storyArgs(2)], true),
+    );
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+
+    const data = dataOf<Created>(
+      await createStories(ctx, ticketId, [], undefined, 2),
+    );
+
+    expect(data).toEqual({
+      ticket_id: ticketId,
+      step: "to_validate",
+      more_to_come: false,
+      stories: [],
+    });
+    expect((await storyCounts(db)).stories).toBe(2);
+    expect(await writingClosedAt(db, ticketId)).not.toBeNull();
+    const closing = (await mcpRows(db)).at(-1) as Row;
+    expect(closing).toMatchObject({
+      result: "ok",
+      ticket_id: ticketId,
+      args: { ticketId, count: 0, moreToCome: false },
+    });
+    expectRefused(
+      await createStories(ctx, ticketId, [storyArgs(3)], undefined, 2),
+    );
+  });
+
+  it("given a ticket without stories, when stories: [] is sent (with or without more_to_come), then Refused invalid arguments naming stories and the ticket stays unwritten", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Neuf");
+
+    const closing = expectRefused(await createStories(ctx, ticketId, []));
+    const open = expectRefused(await createStories(ctx, ticketId, [], true));
+
+    for (const text of [closing, open]) {
+      expect(text.startsWith("Refused: invalid arguments (")).toBe(true);
+      expect(text).toContain("stories");
+    }
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    // Still writable afterwards.
+    dataOf(await createStories(ctx, ticketId, [storyArgs(1)]));
+  });
+
+  it("given an open writing with stories, when stories: [] is sent with more_to_come true, then Refused invalid arguments naming stories and the writing stays open", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(await createStories(ctx, ticketId, [storyArgs(1)], true));
+
+    const text = expectRefused(await createStories(ctx, ticketId, [], true, 1));
+
+    expect(text.startsWith("Refused: invalid arguments (")).toBe(true);
+    expect(text).toContain("stories");
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    expect((await mcpRows(db)).at(-1)?.detail).toEqual({
+      reason: "invalid_arguments",
+    });
+    dataOf(await createStories(ctx, ticketId, [storyArgs(2)], undefined, 1));
+  });
+});
+
+describe("choice N: at most 100 stories per ticket", () => {
+  it("given 95 stories written and the writing open, when 6 more are sent, then Refused too_many_stories (split into several tickets), nothing is created and the writing stays open; 5 more then fit exactly, and one more is refused", async () => {
+    const ctx = await withProject();
+    const { db, alice, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Énorme");
+    for (let i = 0; i < 95; i++) await seedStory(db, ticketId);
+
+    const text = expectRefused(
+      await createStories(
+        ctx,
+        ticketId,
+        Array.from({ length: 6 }, (_, i) => storyArgs(96 + i)),
+        true,
+        95,
+      ),
+    );
+
+    expect(text).toMatch(/several tickets/i);
+    expect((await storyCounts(db)).stories).toBe(95);
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    expect((await mcpRows(db)).at(-1)).toMatchObject({
+      user_id: alice.id,
+      project_id: projectId,
+      ticket_id: ticketId,
+      result: "refused",
+      detail: { reason: "too_many_stories" },
+    });
+    const fit = dataOf<Created>(
+      await createStories(
+        ctx,
+        ticketId,
+        Array.from({ length: 5 }, (_, i) => storyArgs(96 + i)),
+        true,
+        95,
+      ),
+    );
+    expect(fit.stories.map((s) => s.position)).toEqual([96, 97, 98, 99, 100]);
+    expectRefused(
+      await createStories(ctx, ticketId, [storyArgs(101)], true, 100),
+    );
+    expect((await storyCounts(db)).stories).toBe(100);
+    expect((await mcpRows(db)).at(-1)?.detail).toEqual({
+      reason: "too_many_stories",
+    });
+  });
+});
+
+// PGlite runs transactions one after the other, so this test checks the outcome, not the lock: the FOR UPDATE was checked by hand on a real PostgreSQL.
+describe("choice D, N: two simultaneous appends on the same open ticket", () => {
+  it("given an open ticket, when two packets with the same stories_written are sent at the same time, then exactly one succeeds, the other is refused writing_moved_on, the positions have no gap or duplicate and the dependencies point to the stories of the created packet", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Course");
+
+    const results = await Promise.all([
+      createStories(
+        ctx,
+        ticketId,
+        [storyArgs(1), storyArgs(2, { depends_on: [1] })],
+        true,
+        0,
+      ),
+      createStories(
+        ctx,
+        ticketId,
+        [storyArgs(3), storyArgs(4, { depends_on: [1] })],
+        true,
+        0,
+      ),
+    ]);
+
+    expect(results.filter((r) => !r.isError)).toHaveLength(1);
+    const refused = results.filter((r) => r.isError);
+    expect(refused).toHaveLength(1);
+    expect(textOf(refused[0] as (typeof results)[number])).toMatch(
+      /already written/i,
+    );
+    const all = await db
+      .select()
+      .from(userStories)
+      .where(eq(userStories.ticketId, ticketId))
+      .orderBy(asc(userStories.position));
+    expect(all.map((s) => s.position)).toEqual([1, 2]);
+    // One packet only, never a story of each.
+    expect([
+      ["vouloir-1", "vouloir-2"],
+      ["vouloir-3", "vouloir-4"],
+    ]).toContainEqual(all.map((s) => s.iWant));
+    // The second story depends on the first of its own packet, not on a story of the packet that was refused.
+    expect(await db.select().from(storyDependencies)).toEqual([
+      { storyId: all[1]?.id, dependsOnId: all[0]?.id },
+    ]);
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    const entries = await mcpRows(db);
+    expect(entries.map((e) => e.result).sort()).toEqual(["ok", "refused"]);
+    expect(entries.find((e) => e.result === "refused")?.detail).toEqual({
+      reason: "writing_moved_on",
+    });
+  });
+});
+
+// Decision 017 N: the caller says how many stories it believes are written; a different real count means the packet
+// is a duplicate, out of order or from another session, and it is refused instead of re-based.
+describe("choice N: stories_written guards an open writing (writing_moved_on)", () => {
+  const stored = (db: Ctx["db"], ticketId: number) =>
+    db
+      .select()
+      .from(userStories)
+      .where(eq(userStories.ticketId, ticketId))
+      .orderBy(asc(userStories.position));
+
+  it("given a packet already written with more_to_come true, when the same packet is sent again with stories_written 0, then Refused writing_moved_on giving the real count, the ticket keeps only the first packet and one refused entry exists", async () => {
+    const ctx = await withProject();
+    const { db, alice, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    const packet = Array.from({ length: 7 }, (_, i) =>
+      storyArgs(i + 1, i > 0 ? { depends_on: [i] } : {}),
+    );
+    dataOf(await createStories(ctx, ticketId, packet, true, 0));
+    const before = await storyCounts(db);
+
+    const text = expectRefused(
+      await createStories(ctx, ticketId, packet, true, 0),
+    );
+
+    expect(text).toMatch(/already written/i);
+    expect(text).toMatch(/\b7\b/);
+    expect(text).toContain("get_ticket");
+    expect(await storyCounts(db)).toEqual(before);
+    expect((await stored(db, ticketId)).map((s) => s.iWant)).toEqual(
+      packet.map((s) => s.i_want),
+    );
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    const entries = await mcpRows(db);
+    expect(entries.map((e) => e.result)).toEqual(["ok", "refused"]);
+    expect(entries[1]).toMatchObject({
+      user_id: alice.id,
+      token_id: alice.tokenId,
+      project_id: projectId,
+      ticket_id: ticketId,
+      action: "create_user_stories",
+      detail: { reason: "writing_moved_on" },
+    });
+    expect(entries[1]?.args).toMatchObject({ ticketId });
+    expect(await historyText(db)).not.toContain("vouloir-3");
+  });
+
+  it("given the same packet sent twice with stories_written omitted, when the second call is made, then it is refused too (the default is 0)", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(await createStories(ctx, ticketId, [storyArgs(1)], true));
+
+    expectRefused(await createStories(ctx, ticketId, [storyArgs(1)], true));
+
+    expect((await storyCounts(db)).stories).toBe(1);
+    expect((await mcpRows(db)).at(-1)?.detail).toEqual({
+      reason: "writing_moved_on",
+    });
+  });
+
+  it("given 3 stories written, when a second packet is sent with stories_written 3, then it succeeds with positions 4 and 5 and its depends_on point to the right stories", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(1), storyArgs(2), storyArgs(3)],
+        true,
+        0,
+      ),
+    );
+
+    const second = dataOf<Created>(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(4, { depends_on: [3] }), storyArgs(5, { depends_on: [4] })],
+        true,
+        3,
+      ),
+    );
+
+    const all = await stored(db, ticketId);
+    expect(second.stories.map((s) => s.position)).toEqual([4, 5]);
+    expect(all.map((s) => s.position)).toEqual([1, 2, 3, 4, 5]);
+    expect(
+      (await db.select().from(storyDependencies)).map((d) => [
+        d.storyId,
+        d.dependsOnId,
+      ]),
+    ).toEqual(
+      expect.arrayContaining([
+        [all[3]?.id, all[2]?.id],
+        [all[4]?.id, all[3]?.id],
+      ]),
+    );
+    expect((await mcpRows(db)).map((e) => e.result)).toEqual(["ok", "ok"]);
+    // The same packet sent again (a retry after a timeout) no longer matches the 5 stories written.
+    expectRefused(
+      await createStories(
+        ctx,
+        ticketId,
+        [storyArgs(4, { depends_on: [3] }), storyArgs(5, { depends_on: [4] })],
+        true,
+        3,
+      ),
+    );
+    expect((await storyCounts(db)).stories).toBe(5);
+  });
+
+  it.each([
+    ["fewer than written", 2],
+    ["more than written", 5],
+  ])(
+    "given 3 stories written, when a packet is sent with stories_written %s (%i), then Refused writing_moved_on giving 3, nothing is created and the writing stays open",
+    async (_name, believed) => {
+      const ctx = await withProject();
+      const { db, projectId } = ctx;
+      const ticketId = await seedTicket(db, projectId, "Gros");
+      dataOf(
+        await createStories(
+          ctx,
+          ticketId,
+          [storyArgs(1), storyArgs(2), storyArgs(3)],
+          true,
+        ),
+      );
+      const before = await storyCounts(db);
+
+      const text = expectRefused(
+        await createStories(
+          ctx,
+          ticketId,
+          [storyArgs(4, { depends_on: [1] })],
+          true,
+          believed,
+        ),
+      );
+
+      expect(text).toMatch(/already written/i);
+      expect(text).toMatch(/\b3\b/);
+      expect(await storyCounts(db)).toEqual(before);
+      expect(await writingClosedAt(db, ticketId)).toBeNull();
+      expect((await mcpRows(db)).at(-1)).toMatchObject({
+        result: "refused",
+        ticket_id: ticketId,
+        detail: { reason: "writing_moved_on" },
+      });
+    },
+  );
+
+  it("given 2 stories written and the writing open, when stories: [] is sent with a wrong stories_written (omitted, 1, 3), then each is refused writing_moved_on and the writing stays open; with 2 it closes", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    dataOf(
+      await createStories(ctx, ticketId, [storyArgs(1), storyArgs(2)], true),
+    );
+
+    for (const believed of [undefined, 1, 3]) {
+      const text = expectRefused(
+        await createStories(ctx, ticketId, [], undefined, believed),
+      );
+      expect(text).toMatch(/already written/i);
+      expect(text).toMatch(/\b2\b/);
+      expect(await writingClosedAt(db, ticketId)).toBeNull();
+      expect((await mcpRows(db)).at(-1)?.detail).toEqual({
+        reason: "writing_moved_on",
+      });
+    }
+    const closed = dataOf<Created>(
+      await createStories(ctx, ticketId, [], undefined, 2),
+    );
+
+    expect(closed.stories).toEqual([]);
+    expect(await writingClosedAt(db, ticketId)).not.toBeNull();
+    expect((await storyCounts(db)).stories).toBe(2);
+  });
+
+  it("given 100 stories written, when stories: [] is sent with stories_written 99 then 100, then the first is refused writing_moved_on and the second closes the writing (100 is a valid value)", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Plein");
+    for (let i = 0; i < 100; i++) await seedStory(db, ticketId);
+
+    expectRefused(await createStories(ctx, ticketId, [], undefined, 99));
+    expect(await writingClosedAt(db, ticketId)).toBeNull();
+    const closed = dataOf<Created>(
+      await createStories(ctx, ticketId, [], undefined, 100),
+    );
+
+    expect(closed.stories).toEqual([]);
+    expect(await writingClosedAt(db, ticketId)).not.toBeNull();
+  });
+
+  it.each([
+    ["a fraction", 1.5],
+    ["a string", "3"],
+    ["negative", -1],
+    ["above 100", 101],
+    ["a boolean", true],
+  ])(
+    "given a stories_written that is %s, when create_user_stories is called, then Refused invalid arguments naming stories_written and nothing is created",
+    async (_name, value) => {
+      const ctx = await withProject();
+      const { db, projectId } = ctx;
+      const ticketId = await seedTicket(db, projectId, "Idée");
+
+      const text = expectRefused(
+        await createStories(ctx, ticketId, [storyArgs(1)], undefined, value),
+      );
+
+      expect(text.startsWith("Refused: invalid arguments (")).toBe(true);
+      expect(text).toContain("stories_written");
+      expect(await storyCounts(db)).toEqual({
+        stories: 0,
+        criteria: 0,
+        dependencies: 0,
+      });
+      expect((await mcpRows(db)).at(-1)?.detail).toEqual({
+        reason: "invalid_arguments",
+      });
+      expect(await writingClosedAt(db, ticketId)).toBeNull();
+    },
+  );
+
+  it("given 95 stories written, when 6 more are sent with the right stories_written, then the too_many_stories refusal says 5 more still fit and how to close with stories: []", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Énorme");
+    for (let i = 0; i < 95; i++) await seedStory(db, ticketId);
+
+    const text = expectRefused(
+      await createStories(
+        ctx,
+        ticketId,
+        Array.from({ length: 6 }, (_, i) => storyArgs(96 + i)),
+        true,
+        95,
+      ),
+    );
+
+    expect(text).toMatch(/several tickets/i);
+    expect(text).toMatch(/\b5\b/);
+    expect(text).toMatch(/stories: \[\]|close/i);
+    expect((await mcpRows(db)).at(-1)?.detail).toEqual({
+      reason: "too_many_stories",
+    });
+    expect((await storyCounts(db)).stories).toBe(95);
+  });
+});
+
+describe("choice F, N: list_tickets_needing_us follows an open writing", () => {
+  it("given a ticket written in two calls, when list_tickets_needing_us is called between the calls and after the closing, then it shows stories_written 0, then 2, then 3, then the ticket is gone", async () => {
+    const ctx = await withProject();
+    const { db, projectId } = ctx;
+    const ticketId = await seedTicket(db, projectId, "Gros");
+    const written = async () => {
+      const data = dataOf<{
+        tickets: { id: number; stories_written: number }[];
+      }>(
+        await callTool(
+          ctx.app,
+          ctx.alice.secret,
+          "list_tickets_needing_us",
+          {},
+        ),
+      );
+      return data.tickets.find((t) => t.id === ticketId)?.stories_written;
+    };
+
+    expect(await written()).toBe(0);
+    dataOf(
+      await createStories(ctx, ticketId, [storyArgs(1), storyArgs(2)], true),
+    );
+    expect(await written()).toBe(2);
+    dataOf(await createStories(ctx, ticketId, [storyArgs(3)], true, 2));
+    expect(await written()).toBe(3);
+    dataOf(await createStories(ctx, ticketId, [], undefined, 3));
+    expect(await written()).toBeUndefined();
+  });
+});
+
 describe("criterion 6: list_tickets_needing_us", () => {
   type Listed = {
     tickets: Record<string, unknown>[];
@@ -596,8 +1381,12 @@ describe("criterion 6: list_tickets_needing_us", () => {
         "",
         new Date(),
       ),
+      partial: await seedTicket(db, projectId, "À moitié écrit", "reste"),
     };
     await seedStory(db, t.written, { status: "to_validate" });
+    // Decision 017 F: a ticket leaves the list when its writing is closed, not when it has a story.
+    await closeWriting(db, t.written);
+    await closeWriting(db, t.rewrite);
     const rewrite = await seedStory(db, t.rewrite, {
       status: "to_rewrite",
       asA: "lectrice",
@@ -609,10 +1398,13 @@ describe("criterion 6: list_tickets_needing_us", () => {
     await seedStory(db, t.archived, { status: "to_rewrite" });
     await seedStory(db, t.bobs, { status: "to_rewrite" });
     await seedStory(db, t.abandonedRewrite, { status: "to_rewrite" });
+    // Writing still open, two stories already written: it is in the list, with stories_written 2.
+    await seedStory(db, t.partial, { status: "to_validate" });
+    await seedStory(db, t.partial, { status: "to_validate" });
     return { ...ctx, second, archived, bobs, bob, t, rewrite };
   }
 
-  it("given tickets with and without stories, abandoned ones and other projects, when list_tickets_needing_us is called, then tickets lists only the ones without stories of my active projects and stories_to_rewrite the to_rewrite stories of the others, with their fields", async () => {
+  it("given tickets with and without stories, abandoned ones and other projects, when list_tickets_needing_us is called, then tickets lists only the ones whose writing is not closed (new ones and a half-written one) of my active projects and stories_to_rewrite the to_rewrite stories of the others, with their fields", async () => {
     const w = await world();
 
     const data = await list(w);
@@ -624,6 +1416,7 @@ describe("criterion 6: list_tickets_needing_us", () => {
         project: "user1000/app",
         title: "Sans US A",
         description_md: "description-A",
+        stories_written: 0,
       },
       {
         id: w.t.needsB,
@@ -631,6 +1424,15 @@ describe("criterion 6: list_tickets_needing_us", () => {
         project: "user1000/site",
         title: "Sans US B",
         description_md: "description-B",
+        stories_written: 0,
+      },
+      {
+        id: w.t.partial,
+        project_id: w.projectId,
+        project: "user1000/app",
+        title: "À moitié écrit",
+        description_md: "reste",
+        stories_written: 2,
       },
     ]);
     expect(data.stories_to_rewrite).toEqual([
@@ -1104,10 +1906,29 @@ describe("criterion 10: tools/list", () => {
     }
     const props = (name: string) =>
       Object.keys(byName(name)?.inputSchema?.properties ?? {}).sort();
-    expect(props("create_user_stories")).toEqual(["stories", "ticket_id"]);
+    expect(props("create_user_stories")).toEqual([
+      "more_to_come",
+      "stories",
+      "stories_written",
+      "ticket_id",
+    ]);
     expect(
       byName("create_user_stories")?.inputSchema?.required?.sort(),
     ).toEqual(["stories", "ticket_id"]);
+    // Decision 017 N: more_to_come is an optional boolean the description explains.
+    expect(
+      byName("create_user_stories")?.inputSchema?.properties?.more_to_come,
+    ).toMatchObject({ type: "boolean" });
+    expect(byName("create_user_stories")?.description).toContain(
+      "more_to_come",
+    );
+    // Decision 017 N: stories_written is an optional integer from 0 to 100 the description explains.
+    expect(
+      byName("create_user_stories")?.inputSchema?.properties?.stories_written,
+    ).toMatchObject({ type: "integer", minimum: 0, maximum: 100 });
+    expect(byName("create_user_stories")?.description).toContain(
+      "stories_written",
+    );
     expect(props("get_user_story")).toEqual(["story_id"]);
     expect(byName("get_user_story")?.inputSchema?.required).toEqual([
       "story_id",

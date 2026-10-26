@@ -45,4 +45,19 @@ describe("criterion 18: catalog/skills/write-us/SKILL.md", () => {
     expect(named).toContain("create_user_stories");
     for (const name of named) expect(listed, name).toContain(name);
   });
+
+  it("given the skill, when it explains how to write a very large ticket and how to size a story, then it mentions more_to_come, vertical slices and the pull request (decision 017 N, O)", () => {
+    const text = readFileSync(SKILL, "utf8");
+
+    expect(text).toContain("more_to_come");
+    expect(text).toMatch(/vertical/i);
+    expect(text).toMatch(/pull request/i);
+  });
+
+  it("given the skill, when it explains the calls of a very large ticket, then it mentions stories_written and says to send one call at a time, waiting for its answer (decision 017 N)", () => {
+    const text = readFileSync(SKILL, "utf8");
+
+    expect(text).toContain("stories_written");
+    expect(text).toMatch(/one (call )?at a time|wait for (its|the) answer/i);
+  });
 });

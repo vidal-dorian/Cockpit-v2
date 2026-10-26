@@ -57,6 +57,7 @@ const present = (t: typeof tickets.$inferSelect, statuses: StoryStatus[]) => ({
   title: t.title,
   descriptionMd: t.descriptionMd,
   step: ticketStep(t, statuses),
+  storiesWrittenAt: t.storiesWrittenAt,
   createdAt: t.createdAt,
   updatedAt: t.updatedAt,
 });

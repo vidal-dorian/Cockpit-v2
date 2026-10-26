@@ -11,32 +11,49 @@ The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, t
 
 ## Workflow
 
-1. **Find the work.** Call `mcp__cockpit__list_tickets_needing_us`, with `project_id` when the user named a project (get it from `mcp__cockpit__list_projects`). It returns at most 20 tickets without stories, oldest first; a written ticket leaves the list, so call it again for the next ones. If the user named one ticket by a few words, use `mcp__cockpit__search` instead. If both lists are empty, say so and stop. `stories_to_rewrite` lists stories the user sent back; rewriting them is not possible yet: tell the user and leave them.
+1. **Find the work.** Call `mcp__cockpit__list_tickets_needing_us`, with `project_id` when the user named a project (get it from `mcp__cockpit__list_projects`). It returns at most 20 tickets whose writing is not closed, oldest first, each with `stories_written` (0 for a new ticket); a ticket whose writing is closed leaves the list, so call it again for the next ones. If the user named one ticket by a few words, use `mcp__cockpit__search` instead. If both lists are empty, say so and stop. `stories_to_rewrite` lists stories the user sent back; rewriting them is not possible yet: tell the user and leave them.
 2. **Read the rules of the project.** Call `mcp__cockpit__get_project` once per project: its `claude_md` tells you the vocabulary, the conventions and what the code base does. Stories must fit them.
-3. **Read the ticket.** The title and `description_md` from step 1 are usually enough; call `mcp__cockpit__get_ticket` if you need more. Read the code only when the idea cannot be split without it.
-4. **Split the idea** into small stories that each deliver something on their own and can be developed and tested separately. Write them in the language of the user.
+3. **Read the ticket.** The title and `description_md` from step 1 are usually enough; call `mcp__cockpit__get_ticket` if you need more. Read the code only when the idea cannot be split without it. If `stories_written` is above 0, an earlier writing was interrupted: read the stories already written with `mcp__cockpit__get_ticket` (and `mcp__cockpit__get_user_story` when needed), and write only the missing ones, continuing the numbering.
+4. **Split the idea** into right-sized stories (see below), in the language of the user.
    - `as_a`, `i_want`, `so_that`: short, without the words "As a", "I want", "so that" themselves.
    - `notes_md` (optional): what a developer needs and the story does not say: files, constraints, edge cases, what is out of scope.
    - `criteria`: at least one, at most 20 per story. Each is testable: `given` a starting state, `when` one action, `then` one observable result. Cover the error and empty cases, not only the happy path.
-   - `depends_on` (optional): the 1-based positions of earlier stories of the same call that must be done first. The first story you send is position 1. Never point to a later or the same position, and list each position once. Keep dependencies to the strict minimum.
-   - Keep `notes_md` short: the whole call must stay under 256 KiB.
-   - Between 1 and 20 stories per ticket; if the idea needs more, it is too big: write the first stories and tell the user the rest needs another ticket.
-5. **Write them.** Call `mcp__cockpit__create_user_stories` once per ticket with `ticket_id` and all its stories. It is all or nothing, and a ticket is written only once: get the stories right before sending them.
+   - `depends_on` (optional): the positions **in the ticket** of earlier stories that must be done first. The first story of the ticket is position 1; a story sent in a later call continues the numbering (with 12 stories written, the next one is position 13) and may depend on a story of an earlier call. Never point to a later or the same position, and list each position once. Keep dependencies to the strict minimum.
+   - Keep `notes_md` short: each call must stay under 256 KiB.
+5. **Write them.** Call `mcp__cockpit__create_user_stories` with `ticket_id` and the stories. A call creates all its stories or none.
+   - Up to 20 stories: one call, with `more_to_come` left out (false). That closes the writing of the ticket; any further call is refused.
+   - More than 20 (or a call too big for 256 KiB): several calls, each a coherent group (one domain at a time) sent in dependency order. Set `more_to_come: true` on every call but the last; the last one has `more_to_come` false (or left out) and closes the writing.
+   - **Every call passes `stories_written`**, the number of stories already written on the ticket: 0 for the first call, then the count after the previous call (the number of stories in its answer added to the previous count, or `stories_written` from `mcp__cockpit__list_tickets_needing_us`, or the length of `stories` from `mcp__cockpit__get_ticket`). A different real count is refused, so a packet can never be written twice or out of order.
+   - **Send one call at a time and wait for its answer**, never in parallel: the next call needs the count the previous one produced.
+   - If you sent everything with `more_to_come: true` and nothing is left to add, close the writing with `stories: []` (and `more_to_come` false). That is only accepted once the ticket has stories.
+   - At most 100 stories per ticket. Beyond that the idea is several tickets: write what fits, and tell the user the rest needs other tickets.
 6. **Report.** Tell the user which tickets you wrote and how many stories each has, and that the stories wait for their validation in Cockpit.
+
+## Right-sized stories
+
+A story has the right size when **one development session (one branch, one pull request)** can build and test it, and the user can check its result on its own.
+
+- **Too big** (several pull requests, parts with no link between them, about ten criteria or more): cut it into **vertical slices**, each a thin path from the screen to the data. Never cut by layer ("the database", then "the API", then "the screen"): no layer can be checked alone.
+- **Too small** (nothing the user can check alone, a rename, one field, something that only makes sense with the next story): merge it into the story it serves.
+- Most tickets need 1 to 8 stories. More than 20 is rare: send them in several calls, as above.
+
+Example. Ticket "Export the report": the first idea is one story with 14 criteria (choose the format, the period, the columns, download, e-mail, errors). Cut it into 3 vertical slices, each usable on its own: "download a PDF of the current month", "choose the period", "receive the export by e-mail". A fourth story, "add the Export button", only makes sense with the PDF download: merge it into that story.
 
 ## When a call is refused
 
 A refusal starts with `Refused:` and says why. Read it and adapt; do not retry the same call.
 
-- Invalid arguments: it names the faulty field. Fix it and send the whole call again (nothing was created).
+- Invalid arguments: it names the faulty field. Fix it and send the whole call again (nothing was created, and the writing stays as it was).
+- `writing_moved_on` (stories already written on the ticket, with their count): your `stories_written` was wrong, so a packet was probably already written. Read the ticket with `mcp__cockpit__get_ticket`, then send only the missing stories with `stories_written` set to the real count.
 - `not found`: the id is wrong or not the user's. Find it again with `mcp__cockpit__list_tickets_needing_us` or `mcp__cockpit__search`.
-- The ticket already has stories or is abandoned: skip it and tell the user.
+- The writing of the ticket is closed (its stories are already written) or the ticket is abandoned: skip it and tell the user. If you had just sent its last packet and got an `Error:`, that packet was written: the ticket is done.
+- More than 100 stories for the ticket: the refusal says how many more fit. Send those (or close with `stories: []`), so the ticket does not stay open, and tell the user the idea must be split into several tickets.
 - The project is archived: it is read-only; skip it and tell the user.
 
-An `Error:` answer means the call failed; retry once, then tell the user.
+An `Error:` answer means the call failed, and a packet may still have been written: call `mcp__cockpit__get_ticket` before retrying, then send only what is missing with the real `stories_written`. If it keeps failing, tell the user.
 
 ## Never
 
 - Never validate, send back, abandon or edit a story: only the user does, in Cockpit, and no tool lets you.
-- Never write stories for a ticket that already has some. To read them, use `mcp__cockpit__get_user_story`.
+- Never write stories for a ticket whose writing is closed. To read them, use `mcp__cockpit__get_user_story`.
 - Never put secrets or personal data in a story: what you write is stored and shown as is.

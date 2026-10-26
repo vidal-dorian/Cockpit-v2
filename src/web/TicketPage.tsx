@@ -160,6 +160,11 @@ function TicketView({ ticket, stories }: Loaded) {
           {stories.length > 0 && (
             <section className="mt-6">
               <h2 className="font-heading text-xl font-bold">User stories</h2>
+              {!ticket.storiesWrittenAt && (
+                <p className="mt-2 text-muted-foreground">
+                  Claude n'a pas fini d'écrire les user stories de ce ticket.
+                </p>
+              )}
               <ol className="mt-2 grid gap-2">
                 {stories.map((story) => (
                   <li

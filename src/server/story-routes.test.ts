@@ -8,6 +8,7 @@ import { testAppOptions } from "./test-instance.ts";
 import {
   type App,
   archiveProject,
+  closeWriting,
   rows,
   seedProject,
   seedStory,
@@ -20,7 +21,7 @@ import {
 // a ticket with stories is not deleted.
 //
 // Pinned shapes (camelCase like the ticket routes):
-// - GET /api/tickets/:id        -> { ticket, stories: [{ id, position, iWant, status }] }
+// - GET /api/tickets/:id        -> { ticket: { ..., storiesWrittenAt: ISO string | null }, stories: [{ id, position, iWant, status }] }
 // - GET /api/stories/:id        -> { story: { id, ticketId, position, asA, iWant, soThat, notesMd, status,
 //                                   criteria: [{ id, position, given, when, then }], dependsOn: [{ id, iWant, status }] },
 //                                   ticket: { id, title }, project: { id, fullName } }
@@ -101,6 +102,27 @@ describe("criterion 11: GET /api/tickets/:id and the ticket list carry the stori
       "done",
       "abandoned",
     ]);
+  });
+});
+
+describe("choice N: GET /api/tickets/:id exposes whether Claude finished writing", () => {
+  it("given a ticket whose writing is open and one whose writing is closed, when they are read, then storiesWrittenAt is null for the first and the ISO date of the closing for the second", async () => {
+    const { app, db, alice, projectId } = await withProject();
+    const open = await seedTicket(db, projectId, "Ouvert");
+    await seedStory(db, open);
+    const closed = await seedTicket(db, projectId, "Clos");
+    await seedStory(db, closed);
+    await closeWriting(db, closed, new Date("2026-10-26T10:00:00.000Z"));
+
+    const read = async (id: number) =>
+      (
+        (await (await get(app, alice.cookie, `/api/tickets/${id}`)).json()) as {
+          ticket: { storiesWrittenAt?: string | null };
+        }
+      ).ticket.storiesWrittenAt;
+
+    expect(await read(open)).toBeNull();
+    expect(await read(closed)).toBe("2026-10-26T10:00:00.000Z");
   });
 });
 

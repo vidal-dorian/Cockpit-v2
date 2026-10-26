@@ -83,4 +83,37 @@ describe("criterion 14: Ticket page with stories", () => {
     expect(screen.getByRole("button", { name: "Supprimer" })).toBeDefined();
     expect(main().querySelector('a[href^="/us/"]')).toBeNull();
   });
+
+  const unfinished =
+    /Claude n'a pas fini d'écrire les user stories de ce ticket\./;
+
+  it("given a ticket with stories whose writing is not closed (storiesWrittenAt null), when the page loads, then it says Claude n'a pas fini d'écrire les user stories de ce ticket.", async () => {
+    stubTicketApi([{ ...written(), storiesWrittenAt: null }], stories());
+
+    renderAt("/tickets/7");
+
+    await screen.findByRole("link", { name: /exporter le journal/ });
+    expect(main().textContent).toMatch(unfinished);
+  });
+
+  it("given a ticket with stories whose writing is closed, when the page loads, then the notice is not shown", async () => {
+    stubTicketApi(
+      [{ ...written(), storiesWrittenAt: "2026-10-26T10:00:00.000Z" }],
+      stories(),
+    );
+
+    renderAt("/tickets/7");
+
+    await screen.findByRole("link", { name: /exporter le journal/ });
+    expect(main().textContent).not.toMatch(unfinished);
+  });
+
+  it("given a ticket without stories, when the page loads, then the notice is not shown", async () => {
+    stubTicketApi([ticket(7, "Idée brute")], []);
+
+    renderAt("/tickets/7");
+
+    await screen.findByRole("heading", { level: 1, name: "Idée brute" });
+    expect(main().textContent).not.toMatch(unfinished);
+  });
 });

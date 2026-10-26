@@ -4,7 +4,7 @@
 - **Date** : 2026-10-21
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md)
-- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse)
+- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse) ; [017 — Claude écrit les US](017-user-stories.md) (`create_user_stories` en plusieurs appels pour un gros ticket, dépendances par position dans le ticket)
 
 ## Contexte
 
@@ -90,8 +90,8 @@ Chaque outil a une description en anglais, écrite pour qu'une demande vague mè
 
 | Outil | Demande | Fait | Refus |
 |---|---|---|---|
-| `list_tickets_needing_us` | `project_id` facultatif | Rend deux listes : les **tickets sans US** (avec leur description et leur projet) et les **US à réécrire** (avec le commentaire de l'humain et leur ticket). Projets archivés et tickets abandonnés exclus | — |
-| `create_user_stories` | `ticket_id` et une liste d'US (au moins une). Chaque US : `as_a`, `i_want`, `so_that`, `notes_md` facultatives, **au moins un critère** (`given`, `when`, `then`), et `depends_on` facultatif : les positions d'**US précédentes du même envoi** | Crée **toutes** les US d'un coup (tout ou rien), au statut `to_validate`, dans l'ordre donné | Ticket introuvable, abandonné, ou **qui a déjà des US** (un ticket n'est écrit qu'une fois) ; projet archivé ; champ vide ; US sans critère ; dépendance vers une position qui n'est pas antérieure |
+| `list_tickets_needing_us` | `project_id` facultatif | Rend deux listes : les **tickets sans US** (avec leur description et leur projet) et les **US à réécrire** (avec le commentaire de l'humain et leur ticket). Projets archivés et tickets abandonnés exclus. *(Modifié par la [017](017-user-stories.md), choix F et N : les tickets dont l'écriture n'est pas close y figurent aussi, avec le nombre d'US déjà écrites.)* | — |
+| `create_user_stories` | `ticket_id` et une liste d'US (au moins une). Chaque US : `as_a`, `i_want`, `so_that`, `notes_md` facultatives, **au moins un critère** (`given`, `when`, `then`), et `depends_on` facultatif : les positions d'**US précédentes du même envoi** | Crée **toutes** les US d'un coup (tout ou rien), au statut `to_validate`, dans l'ordre donné | Ticket introuvable, abandonné, ou **qui a déjà des US** (un ticket n'est écrit qu'une fois) ; projet archivé ; champ vide ; US sans critère ; dépendance vers une position qui n'est pas antérieure. *(Modifié par la [017](017-user-stories.md), choix N : un gros ticket s'écrit en plusieurs envois, `depends_on` donne des positions dans le ticket, et l'écriture se clôt explicitement.)* |
 | `update_user_story` | `story_id`, `as_a`, `i_want`, `so_that`, `notes_md` facultatives, la **liste complète** des critères (au moins un) | Remplace le récit et les critères, vide `rewrite_comment`, passe l'US de `to_rewrite` à `to_validate` | US qui n'est pas `to_rewrite` ; champ vide ; aucun critère |
 
 Deux précisions :

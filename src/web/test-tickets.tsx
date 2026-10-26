@@ -11,6 +11,8 @@ export type FakeTicket = {
   descriptionMd: string;
   /** The code of the server (decision 002): new, in_progress, to_validate, validated, done or abandoned. */
   step: string;
+  /** ISO date when Claude closed the writing of the stories, null while it has not finished (decision 017 N). */
+  storiesWrittenAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -47,6 +49,7 @@ export const ticket = (
   title,
   descriptionMd,
   step: "new",
+  storiesWrittenAt: null,
   createdAt: "2026-10-22T12:00:00.000Z",
   updatedAt: "2026-10-22T12:00:00.000Z",
 });

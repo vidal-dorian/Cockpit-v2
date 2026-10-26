@@ -3,7 +3,7 @@
 - **Statut** : validée
 - **Date** : 2026-10-18
 - **Décidé par** : Dorian, avec Claude
-- **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : `project_members` remplace `projects.owner_id` ; `github_repo_id` devient unique pour toute l'instance (un repo = un projet) ; dates en `timestamptz`, JSON en `jsonb`, transactions asynchrones
+- **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : `project_members` remplace `projects.owner_id` ; `github_repo_id` devient unique pour toute l'instance (un repo = un projet) ; dates en `timestamptz`, JSON en `jsonb`, transactions asynchrones ; [017 — Claude écrit les US](017-user-stories.md) : `tickets.stories_written_at`, un gros ticket s'écrit en plusieurs envois
 - **Dépend de** : [001 — Stack technique](001-stack.md) (PostgreSQL, Drizzle)
 
 ## Contexte
@@ -234,7 +234,7 @@ Deux cas que le brief ne tranchait pas :
 - « En cours » passe avant « À valider » : un ticket dont une US est en développement est montré en cours, même si une autre attend encore la validation.
 - Un ticket dont une US est terminée et une autre seulement prête est « En cours », pas « Validé » : le travail a commencé.
 
-Un ticket n'est écrit qu'une fois : il n'est proposé à Claude que s'il n'a **aucune** US. Comme les US ne sont jamais supprimées (seulement abandonnées), aucune colonne supplémentaire n'est nécessaire.
+Un ticket n'est écrit qu'une fois : il n'est proposé à Claude que s'il n'a **aucune** US. Comme les US ne sont jamais supprimées (seulement abandonnées), aucune colonne supplémentaire n'est nécessaire. *(Modifié par la [017](017-user-stories.md), choix N : un gros ticket s'écrit en plusieurs envois, et `tickets.stories_written_at` dit quand l'écriture est close.)*
 
 ### Autres calculs
 

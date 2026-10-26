@@ -103,6 +103,24 @@ export async function seedTicket(
   return ticket.id;
 }
 
+/** Closes the writing of a ticket's stories (decision 017 N): raw SQL, so the test does not depend on the Drizzle export of the column. */
+export const closeWriting = (db: TestDb, ticketId: number, at = new Date()) =>
+  db.execute(
+    sql`update tickets set stories_written_at = ${at.toISOString()}::timestamptz where id = ${ticketId}`,
+  );
+
+/** `stories_written_at` of a ticket: null while Claude may still add stories. */
+export async function writingClosedAt(db: TestDb, ticketId: number) {
+  const result = await db.execute(
+    sql`select stories_written_at from tickets where id = ${ticketId}`,
+  );
+  const found = (
+    result as unknown as { rows: { stories_written_at: Date | null }[] }
+  ).rows[0];
+  assert(found, "the ticket exists");
+  return found.stories_written_at;
+}
+
 export const archiveProject = (db: TestDb, projectId: number) =>
   db
     .update(projects)

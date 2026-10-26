@@ -110,6 +110,11 @@ export const tickets = pgTable("tickets", {
   title: text("title").notNull(),
   descriptionMd: text("description_md").notNull().default(""),
   abandonedAt: timestamp("abandoned_at", { withTimezone: true, mode: "date" }),
+  // Empty while Claude has not finished writing the stories of the ticket (decision 017 N).
+  storiesWrittenAt: timestamp("stories_written_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),

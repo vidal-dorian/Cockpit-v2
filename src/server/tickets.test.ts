@@ -168,6 +168,7 @@ describe("POST /api/projects/:id/tickets", () => {
       "id",
       "projectId",
       "step",
+      "storiesWrittenAt",
       "title",
       "updatedAt",
     ]);
