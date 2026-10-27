@@ -25,7 +25,8 @@
 - **En cours** : tranche 3.1 (ticket, [décision 014](decisions/014-tickets.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.1 (jetons MCP, [décision 015](decisions/015-jetons-mcp.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.2 (serveur MCP minimal, [décision 016](decisions/016-serveur-mcp.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 4.3.
+- **En cours** : tranche 4.3 (Claude écrit les US, [décision 017](decisions/017-user-stories.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 4.4.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -67,6 +68,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 0.14 | Les tickets (tranche 3.1) | `014-tickets.md` |
 | 0.15 | Les jetons MCP (tranche 4.1) | `015-jetons-mcp.md` |
 | 0.16 | Le serveur MCP (tranche 4.2) | `016-serveur-mcp.md` |
+| 0.17 | Claude écrit les user stories (tranche 4.3) | `017-user-stories.md` |
 
 ---
 

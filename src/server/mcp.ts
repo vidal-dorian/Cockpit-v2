@@ -5,7 +5,7 @@ import {
   type CallToolResult,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { and, asc, eq, ilike, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, ilike, isNull, type SQL, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -13,15 +13,25 @@ import { act, type Entry, Refused } from "./action.ts";
 import { sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
+  acceptanceCriteria,
   mcpTokens,
   projectMembers,
   projects,
+  storyDependencies,
   tickets,
+  userStories,
   users,
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import {
+  memberStory,
+  storyParts,
+  storyStatuses,
+  ticketStories,
+} from "./stories.ts";
+import {
+  assertActive,
   createTicket,
   descriptionMd,
   memberTicket,
@@ -33,6 +43,8 @@ import {
 // Decision 016. The body is read whole in memory: same 256 KiB as the API routes (the global limit only covers /api/*).
 const MAX_BODY = 256 * 1024;
 const MAX_RESULTS = 20;
+/** Per ticket, over all the calls that write it (decision 017 B). */
+const MAX_STORIES = 100;
 
 /** The caller of a tool and what the call writes to the history. `entry` is filled in as the call learns the ids it concerns. */
 type Call = { db: Db; userId: number; entry: Entry; readGitHub: ReadGitHub };
@@ -44,6 +56,23 @@ class InvalidArguments extends Refused {
     super("invalid_arguments");
     this.fields = fields;
   }
+}
+
+/** A refusal that tells Claude how many stories the ticket really has (the history gets the fixed code only). */
+class WrittenCount extends Refused {
+  written: number;
+  constructor(code: string, written: number) {
+    super(code);
+    this.written = written;
+  }
+}
+
+/** Invalid arguments found once the stories already written are known: the entry is left as zod's checks leave it (no ids, no arguments), for consistency with the refusals of the same inputs that zod gives (decision 016 F). */
+function invalidAfterRead(call: Call, fields: string) {
+  call.entry.args = {};
+  call.entry.projectId = undefined;
+  call.entry.ticketId = undefined;
+  return new InvalidArguments(fields);
 }
 
 /** Writes the `refused` entry of a call that stops before its work: `act` records the refusal and rethrows it. */
@@ -61,6 +90,64 @@ async function ownProject(call: Call, id: number) {
 }
 
 const id = z.number().int().min(1).max(2_147_483_647);
+
+/** Rows of a project the user belongs to and has not archived (what `search` and `list_tickets_needing_us` look at). */
+const activeOf = (userId: number) =>
+  and(eq(projectMembers.userId, userId), isNull(projects.archivedAt));
+
+// Limits of decision 017 B: the narrative and the criteria are trimmed, the notes are kept as typed.
+const narrative = z.string().trim().min(1).max(1_000).refine(noNul);
+const criterionText = z.string().trim().min(1).max(2_000).refine(noNul);
+const storyInput = z.object({
+  as_a: narrative.describe("The role, e.g. 'project owner' (no 'As a' prefix)"),
+  i_want: narrative.describe("What the user wants, without 'I want'"),
+  so_that: narrative.describe("The benefit, without 'so that'"),
+  notes_md: descriptionMd
+    .optional()
+    .describe("Markdown notes for the developer, up to 50,000 characters"),
+  criteria: z
+    .array(
+      z.object({
+        given: criterionText.describe("The starting state"),
+        when: criterionText.describe("The action"),
+        // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the tool (decision 004)
+        then: criterionText.describe("The observable result"),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .describe("1 to 20 testable acceptance criteria"),
+  depends_on: z
+    .array(z.number().int())
+    .max(99)
+    .optional()
+    .describe(
+      "Positions in the ticket (1 = the first story ever written for it, including earlier calls) of EARLIER stories this one needs first",
+    ),
+});
+
+/** `depends_on` holds positive positions, each once (decision 017 C); that they are strictly earlier needs the stories already written, so `create_user_stories` checks it in its transaction. The refusal names the faulty field. */
+const storyList = z
+  .array(storyInput)
+  .max(20)
+  .superRefine((list, ctx) => {
+    list.forEach((story, index) => {
+      const seen = new Set<number>();
+      story.depends_on?.forEach((position, at) => {
+        const problem =
+          position < 1
+            ? `position ${position} must be at least 1`
+            : seen.has(position) && `position ${position} is repeated`;
+        seen.add(position);
+        if (problem)
+          ctx.addIssue({
+            code: "custom",
+            path: [index, "depends_on", at],
+            message: problem,
+          });
+      });
+    });
+  });
 
 /** A tool: validates its arguments, then runs. `inputSchema` is what `tools/list` shows Claude. */
 function tool<S extends z.ZodObject>(
@@ -102,7 +189,7 @@ const tools = {
   ),
 
   get_project: tool(
-    "Get one project: its details, the CLAUDE.md of its repository (empty when it has none; claude_md_unreachable is true when GitHub can no longer be reached for this repo) and its tickets (id, title, step). Use it to learn a project's rules and to see what ideas are already noted before creating a ticket. Works on archived projects too.",
+    "Get one project: its details, the CLAUDE.md of its repository (empty when it has none; claude_md_unreachable is true when GitHub can no longer be reached for this repo) and its tickets (id, title, step: new, to_validate, validated, in_progress, done or abandoned). Use it to learn a project's rules and to see what ideas are already noted before creating a ticket. Works on archived projects too.",
     z.object({ project_id: id.describe("Id from list_projects or search") }),
     async (call, { project_id }) => {
       call.entry.args = { projectId: project_id };
@@ -127,6 +214,10 @@ const tools = {
           .from(tickets)
           .where(eq(tickets.projectId, project.id))
           .orderBy(asc(tickets.id));
+        const statuses = await storyStatuses(
+          tx,
+          rows.map((t) => t.id),
+        );
         return {
           project: {
             id: project.id,
@@ -140,7 +231,7 @@ const tools = {
           tickets: rows.map((t) => ({
             id: t.id,
             title: t.title,
-            step: ticketStep(t),
+            step: ticketStep(t, statuses.get(t.id) ?? []),
           })),
         };
       });
@@ -148,7 +239,7 @@ const tools = {
   ),
 
   search: tool(
-    "Search by words, when the user refers to a ticket or a project by a few words (for example 'the login idea on GestionProjet'). Every word must appear, whatever the case, in a project name or a ticket title; there is no spelling or synonym handling, so try other words (or get_project to list a project's tickets) when nothing comes back. At most 20 results, archived projects excluded.",
+    "Search by words, when the user refers to a ticket or a project by a few words (for example 'the login idea on GestionProjet'). Every word must appear, whatever the case, in a project name, a ticket title or the narrative of a user story (as a / I want / so that, not the notes); there is no spelling or synonym handling, so try other words (or get_project to list a project's tickets, or get_ticket for its stories) when nothing comes back. At most 20 results, archived projects excluded.",
     z.object({
       query: z
         .string()
@@ -168,12 +259,9 @@ const tools = {
       }
       // LIKE wildcards in the query are plain characters.
       const words = query.split(/\s+/).map((w) => w.replace(/[\\%_]/g, "\\$&"));
-      const matching = (column: AnyPgColumn) =>
+      const matching = (column: AnyPgColumn | SQL) =>
         and(...words.map((word) => ilike(column, `%${word}%`)));
-      const mine = and(
-        eq(projectMembers.userId, call.userId),
-        isNull(projects.archivedAt),
-      );
+      const mine = activeOf(call.userId);
       return act(call.db, call.entry, async (tx) => {
         const found =
           project_id === undefined
@@ -204,6 +292,29 @@ const tools = {
           )
           .orderBy(asc(tickets.id))
           .limit(MAX_RESULTS);
+        const foundStories = await tx
+          .select({ story: userStories, projectId: tickets.projectId })
+          .from(userStories)
+          .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+          .innerJoin(projects, eq(projects.id, tickets.projectId))
+          .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+          .where(
+            and(
+              mine,
+              matching(
+                sql`${userStories.asA} || ' ' || ${userStories.iWant} || ' ' || ${userStories.soThat}`,
+              ),
+              project_id === undefined
+                ? undefined
+                : eq(tickets.projectId, project_id),
+            ),
+          )
+          .orderBy(asc(userStories.id))
+          .limit(MAX_RESULTS);
+        const statuses = await storyStatuses(
+          tx,
+          foundTickets.map(({ ticket }) => ticket.id),
+        );
         return {
           results: [
             ...found.map((p) => ({
@@ -217,7 +328,15 @@ const tools = {
               id: ticket.id,
               title: ticket.title,
               project_id: ticket.projectId,
-              step: ticketStep(ticket),
+              step: ticketStep(ticket, statuses.get(ticket.id) ?? []),
+            })),
+            ...foundStories.map(({ story, projectId }) => ({
+              type: "story",
+              id: story.id,
+              title: story.iWant,
+              project_id: projectId,
+              ticket_id: story.ticketId,
+              status: story.status,
             })),
           ].slice(0, MAX_RESULTS),
         };
@@ -226,7 +345,7 @@ const tools = {
   ),
 
   get_ticket: tool(
-    "Get one ticket: its title, its description in markdown, its step and its user stories. Use it when you have a ticket_id (from search or get_project) and need the whole idea. Works on tickets of archived projects too.",
+    "Get one ticket: its title, its description in markdown, its step and its user stories (id, position, status, i_want; use get_user_story for one story in full). Use it when you have a ticket_id (from search or get_project) and need the whole idea. Works on tickets of archived projects too.",
     z.object({ ticket_id: id.describe("Id from search or get_project") }),
     async (call, { ticket_id }) => {
       call.entry.args = { ticketId: ticket_id };
@@ -235,15 +354,25 @@ const tools = {
       const { ticket } = found;
       call.entry.projectId = ticket.projectId;
       call.entry.ticketId = ticket.id;
-      return act(call.db, call.entry, async () => ({
-        id: ticket.id,
-        project_id: ticket.projectId,
-        title: ticket.title,
-        description_md: ticket.descriptionMd,
-        step: ticketStep(ticket),
-        // User stories arrive with slice 4.3.
-        stories: [],
-      }));
+      return act(call.db, call.entry, async (tx) => {
+        const stories = await ticketStories(tx, ticket.id);
+        return {
+          id: ticket.id,
+          project_id: ticket.projectId,
+          title: ticket.title,
+          description_md: ticket.descriptionMd,
+          step: ticketStep(
+            ticket,
+            stories.map((story) => story.status),
+          ),
+          stories: stories.map((story) => ({
+            id: story.id,
+            position: story.position,
+            status: story.status,
+            i_want: story.iWant,
+          })),
+        };
+      });
     },
   ),
 
@@ -267,8 +396,263 @@ const tools = {
         id: ticket.id,
         project_id: ticket.projectId,
         title: ticket.title,
-        step: ticketStep(ticket),
+        step: ticketStep(ticket, []),
       };
+    },
+  ),
+
+  list_tickets_needing_us: tool(
+    "List the user-story work waiting for Claude: tickets whose stories are not all written yet (id, project, title, description, stories_written: how many stories are already written, above 0 when an earlier writing was interrupted) and user stories the user sent back to be rewritten (with the user's comment). Use it when the user asks to write, split or specify their ideas, or asks what is left to write; pass project_id to look at one project only. At most 20 of each list, oldest first: a ticket leaves the list as soon as its writing is closed, so call again for the next ones. Abandoned tickets and archived projects are left out. Next: get_project for the rules of the repository, get_ticket if you need more, then create_user_stories.",
+    z.object({
+      project_id: id
+        .optional()
+        .describe("Only look at this project (id from list_projects)"),
+    }),
+    async (call, { project_id }) => {
+      if (project_id !== undefined) {
+        call.entry.args = { projectId: project_id };
+        await ownProject(call, project_id);
+      }
+      // An archived project of the caller is not "active": it simply yields nothing, like search.
+      const mine = and(
+        activeOf(call.userId),
+        project_id === undefined ? undefined : eq(projects.id, project_id),
+        isNull(tickets.abandonedAt),
+      );
+      return act(call.db, call.entry, async (tx) => {
+        const needing = await tx
+          .select({
+            ticket: tickets,
+            project: projects.fullName,
+            written: count(userStories.id),
+          })
+          .from(tickets)
+          .innerJoin(projects, eq(projects.id, tickets.projectId))
+          .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+          .leftJoin(userStories, eq(userStories.ticketId, tickets.id))
+          .where(and(mine, isNull(tickets.storiesWrittenAt)))
+          .groupBy(tickets.id, projects.id)
+          .orderBy(asc(tickets.id))
+          .limit(MAX_RESULTS);
+        const rewrite = await tx
+          .select({ story: userStories, projectId: tickets.projectId })
+          .from(userStories)
+          .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+          .innerJoin(projects, eq(projects.id, tickets.projectId))
+          .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+          .where(and(mine, eq(userStories.status, "to_rewrite")))
+          .orderBy(asc(userStories.id))
+          .limit(MAX_RESULTS);
+        return {
+          tickets: needing.map(({ ticket, project, written }) => ({
+            id: ticket.id,
+            project_id: ticket.projectId,
+            project,
+            title: ticket.title,
+            description_md: ticket.descriptionMd,
+            stories_written: written,
+          })),
+          stories_to_rewrite: rewrite.map(({ story, projectId }) => ({
+            id: story.id,
+            ticket_id: story.ticketId,
+            project_id: projectId,
+            as_a: story.asA,
+            i_want: story.iWant,
+            so_that: story.soThat,
+            rewrite_comment: story.rewriteComment,
+          })),
+        };
+      });
+    },
+  ),
+
+  create_user_stories: tool(
+    "Write the user stories of a ticket, in one call or in several. Use it after reading the ticket (get_ticket) and the rules of the project (get_project). Split the idea into right-sized stories, in the user's language, each with as_a / i_want / so_that, optional markdown notes_md for the developer, and 1 to 20 testable acceptance criteria (given / when / then). A story is right-sized when ONE development session (one branch, one pull request) can build and test it and the user can check its result alone: if it is bigger, cut it into vertical slices (a thin path from screen to data), never by layer; if it is smaller (nothing checkable alone, a rename, one field, only makes sense with the next story), merge it into the story it serves. Never write two similar stories (same goal, overlapping criteria): merge them into one that keeps all their details. Most tickets need 1 to 8 stories. Every call must stay under 256 KiB, so keep notes short. 1 to 20 stories per call, and at most 100 per ticket (beyond that, split the idea into several tickets). more_to_come (default false): with false the ticket's writing is closed after this call and any further call is refused; with true more calls follow, so a very large ticket is written in several calls of coherent groups, in dependency order. If you sent everything with more_to_come true, close the writing with stories: [] (only allowed once the ticket has stories, with more_to_come false). Every call states stories_written, the number of stories already written on the ticket (0 for the first call, then the previous count plus the stories that call created, or the count list_tickets_needing_us or get_ticket gives); if it differs from the real count (a packet sent twice, out of order or in parallel) the call is refused and nothing is written, so send ONE call at a time and wait for its answer. A story with about ten criteria or more is too big: cut it. depends_on lists the positions IN THE TICKET (1 is the first story ever written for it, so later calls continue the numbering) of EARLIER stories that must be done first; never a later or the same position. Each call creates its stories as 'to_validate' or nothing: only the user validates stories, in Cockpit. Refused on abandoned tickets and on archived projects.",
+    z.object({
+      ticket_id: id.describe("Id from list_tickets_needing_us or get_ticket"),
+      stories: storyList.describe(
+        "The stories of this call, in order; empty only to close an open writing",
+      ),
+      more_to_come: z
+        .boolean()
+        .default(false)
+        .describe(
+          "True when other calls will add stories to this ticket; false (default) closes the writing",
+        ),
+      stories_written: z
+        .number()
+        .int()
+        .min(0)
+        .max(MAX_STORIES)
+        .default(0)
+        .describe(
+          "How many stories are already written on this ticket (0 for the first call, then the count after the previous call); a different real count is refused",
+        ),
+    }),
+    async (call, args) => {
+      call.entry.args = {
+        ticketId: args.ticket_id,
+        count: args.stories.length,
+        moreToCome: args.more_to_come,
+      };
+      const found = await memberTicket(call.db, call.userId, args.ticket_id);
+      if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
+      call.entry.projectId = found.project.id;
+      call.entry.ticketId = found.ticket.id;
+      return act(call.db, call.entry, async (tx) => {
+        await assertActive(tx, found.project.id);
+        // Locked until the end: a simultaneous call waits, then sees its stories (and a closed writing) and positions its own after them.
+        const [ticket] = await tx
+          .select()
+          .from(tickets)
+          .where(eq(tickets.id, found.ticket.id))
+          .for("update");
+        if (!ticket) throw new Refused("not_found");
+        if (ticket.abandonedAt) throw new Refused("ticket_abandoned");
+        if (ticket.storiesWrittenAt) throw new Refused("ticket_has_stories");
+        const existing = await tx
+          .select({
+            id: userStories.id,
+            position: userStories.position,
+            status: userStories.status,
+          })
+          .from(userStories)
+          .where(eq(userStories.ticketId, ticket.id));
+        const before = existing.length;
+        if (before !== args.stories_written)
+          throw new WrittenCount("writing_moved_on", before);
+        if (before + args.stories.length > MAX_STORIES)
+          throw new WrittenCount("too_many_stories", before);
+        if (args.stories.length === 0 && (before === 0 || args.more_to_come))
+          throw invalidAfterRead(
+            call,
+            "stories: send at least one story (an empty list only closes the writing of a ticket that has stories, with more_to_come false)",
+          );
+        // Positions are those of the ticket: story `index` of this call is at before + index + 1, so it may depend on 1 to before + index.
+        args.stories.forEach((story, index) => {
+          const at = story.depends_on?.findIndex(
+            (position) => position > before + index,
+          );
+          if (at !== undefined && at >= 0)
+            throw invalidAfterRead(
+              call,
+              `stories.${index}.depends_on.${at}: position ${story.depends_on?.[at]} is not an earlier story (story ${before + index + 1} can depend on positions 1 to ${before + index})`,
+            );
+        });
+
+        const created =
+          args.stories.length === 0
+            ? []
+            : await tx
+                .insert(userStories)
+                .values(
+                  args.stories.map((story, index) => ({
+                    ticketId: ticket.id,
+                    position: before + index + 1,
+                    asA: story.as_a,
+                    iWant: story.i_want,
+                    soThat: story.so_that,
+                    notesMd: story.notes_md,
+                    status: "to_validate" as const,
+                  })),
+                )
+                .returning({
+                  id: userStories.id,
+                  position: userStories.position,
+                });
+        const idAt = new Map(
+          [...existing, ...created].map((c) => [c.position, c.id]),
+        );
+        if (created.length > 0)
+          await tx.insert(acceptanceCriteria).values(
+            args.stories.flatMap((story, index) =>
+              story.criteria.map((criterion, at) => ({
+                storyId: idAt.get(before + index + 1) as number,
+                position: at + 1,
+                givenText: criterion.given,
+                whenText: criterion.when,
+                thenText: criterion.then,
+              })),
+            ),
+          );
+        const dependencies = args.stories.flatMap((story, index) =>
+          (story.depends_on ?? []).map((position) => ({
+            storyId: idAt.get(before + index + 1) as number,
+            dependsOnId: idAt.get(position) as number,
+          })),
+        );
+        if (dependencies.length > 0)
+          await tx.insert(storyDependencies).values(dependencies);
+        if (!args.more_to_come)
+          await tx
+            .update(tickets)
+            .set({ storiesWrittenAt: sql`now()` })
+            .where(eq(tickets.id, ticket.id));
+        return {
+          ticket_id: ticket.id,
+          step: ticketStep(ticket, [
+            ...existing.map((e) => e.status),
+            ...created.map(() => "to_validate" as const),
+          ]),
+          more_to_come: args.more_to_come,
+          stories: created
+            .map(({ id, position }) => ({ id, position }))
+            .sort((a, b) => a.position - b.position),
+        };
+      });
+    },
+  ),
+
+  get_user_story: tool(
+    "Get one user story in full: its narrative (as_a, i_want, so_that), notes in markdown, status, the user's rewrite_comment when it was sent back, its acceptance criteria (id, given / when / then), the stories it depends on (with their status), its ticket and its project (name, default branch, archived or not). Use it when you have a story_id (from search, get_ticket or list_tickets_needing_us) and need the details to understand, rewrite or implement it. Works on archived projects too.",
+    z.object({
+      story_id: id.describe(
+        "Id from search, get_ticket or list_tickets_needing_us",
+      ),
+    }),
+    async (call, { story_id }) => {
+      call.entry.args = { storyId: story_id };
+      const found = await memberStory(call.db, call.userId, story_id);
+      if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
+      const { story, ticket, project } = found;
+      call.entry.projectId = project.id;
+      call.entry.ticketId = ticket.id;
+      call.entry.storyId = story.id;
+      return act(call.db, call.entry, async (tx) => {
+        const { criteria, dependsOn } = await storyParts(tx, story.id);
+        return {
+          story: {
+            id: story.id,
+            position: story.position,
+            as_a: story.asA,
+            i_want: story.iWant,
+            so_that: story.soThat,
+            notes_md: story.notesMd,
+            status: story.status,
+            rewrite_comment: story.rewriteComment,
+          },
+          criteria: criteria.map((k) => ({
+            id: k.id,
+            position: k.position,
+            given: k.givenText,
+            when: k.whenText,
+            // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the tool (decision 004)
+            then: k.thenText,
+          })),
+          depends_on: dependsOn.map((d) => ({
+            id: d.id,
+            status: d.status,
+            i_want: d.iWant,
+          })),
+          ticket: { id: ticket.id, title: ticket.title },
+          project: {
+            id: project.id,
+            full_name: project.fullName,
+            default_branch: project.defaultBranch,
+            archived: project.archivedAt !== null,
+          },
+        };
+      });
     },
   ),
 };
@@ -276,11 +660,19 @@ const tools = {
 const TOOL_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 
 /** What Claude reads after a refusal: why, and what to do (decision 004). */
-const ADVICE: Record<string, string> = {
+const ADVICE: Record<string, string | ((written: number) => string)> = {
   not_found:
-    "not found. The project or ticket does not exist or is not yours. Find the right id with list_projects or search, then call again.",
+    "not found. The project, ticket or story does not exist or is not yours. Find the right id with list_projects, search or list_tickets_needing_us, then call again.",
   project_archived:
     "this project is archived, so it is read-only. Tell the user, or use another project from list_projects.",
+  ticket_abandoned:
+    "this ticket is abandoned, so no story can be written for it. Tell the user, or pick another ticket from list_tickets_needing_us.",
+  ticket_has_stories:
+    "this ticket's stories are already written and its writing is closed (a call without more_to_come closes it). Read them with get_ticket and get_user_story; do not write them again. If they are wrong, tell the user, who can send them back for a rewrite in Cockpit.",
+  too_many_stories: (written) =>
+    `this ticket would have more than 100 user stories (${written} are written, so ${MAX_STORIES - written} more fit). ${written < MAX_STORIES ? "Send at most that many, with more_to_come false, or close" : "Close"} the writing with stories: [] (otherwise the ticket stays open). The idea is too big for one ticket: tell the user to split it into several tickets, and write the stories of each.`,
+  writing_moved_on: (written) =>
+    `${written} stories are already written on this ticket. Read them with get_ticket, then send only the missing ones with stories_written: ${written} (their positions start at ${written + 1}). Send one call at a time.`,
   unknown_tool:
     "unknown tool. Use only the tools this server lists (tools/list).",
 };
@@ -288,8 +680,10 @@ const ADVICE: Record<string, string> = {
 function failure(error: unknown) {
   if (error instanceof InvalidArguments)
     return `Refused: invalid arguments (${error.fields}). Fix them and call the tool again.`;
-  if (error instanceof Refused)
-    return `Refused: ${ADVICE[error.message] ?? error.message}`;
+  if (error instanceof Refused) {
+    const advice = ADVICE[error.message] ?? error.message;
+    return `Refused: ${typeof advice === "function" ? advice(error instanceof WrittenCount ? error.written : 0) : advice}`;
+  }
   return "Error: the call failed (GitHub or the server did not answer as expected). Retry in a moment; if it keeps failing, tell the user.";
 }
 

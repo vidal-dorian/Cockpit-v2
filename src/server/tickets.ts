@@ -6,8 +6,9 @@ import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { projects, tickets } from "./db/schema.ts";
+import { projects, tickets, userStories } from "./db/schema.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
+import { type StoryStatus, storyStatuses, ticketStories } from "./stories.ts";
 
 const unauthorized = { error: "Unauthorized" };
 const notFound = { error: "Not found" };
@@ -30,16 +31,33 @@ const body = <T extends z.ZodType>(schema: T) =>
     return parsed.data as z.output<T>;
   });
 
-/** The step of a ticket (decision 002). Until user stories exist (4.3), every ticket is new; they add the other rules. */
-export const ticketStep = (_ticket: typeof tickets.$inferSelect) =>
-  "new" as const;
+/** The step of a ticket (decision 002): computed from the ticket and the statuses of its stories, the first rule that applies wins. */
+export function ticketStep(
+  ticket: Pick<typeof tickets.$inferSelect, "abandonedAt">,
+  statuses: StoryStatus[],
+) {
+  const any = (...wanted: StoryStatus[]) =>
+    statuses.some((status) => wanted.includes(status));
+  const only = (...wanted: StoryStatus[]) =>
+    statuses.every((status) => wanted.includes(status));
+  if (ticket.abandonedAt || (statuses.length > 0 && only("abandoned")))
+    return "abandoned";
+  if (statuses.length === 0) return "new";
+  if (any("in_progress", "in_review")) return "in_progress";
+  if (any("to_validate", "to_rewrite")) return "to_validate";
+  if (only("done", "abandoned")) return "done";
+  // Left: ready, done and abandoned stories. A done one next to a ready one means the work has begun.
+  if (any("done")) return "in_progress";
+  return "validated";
+}
 
-const present = (t: typeof tickets.$inferSelect) => ({
+const present = (t: typeof tickets.$inferSelect, statuses: StoryStatus[]) => ({
   id: t.id,
   projectId: t.projectId,
   title: t.title,
   descriptionMd: t.descriptionMd,
-  step: ticketStep(t),
+  step: ticketStep(t, statuses),
+  storiesWrittenAt: t.storiesWrittenAt,
   createdAt: t.createdAt,
   updatedAt: t.updatedAt,
 });
@@ -53,7 +71,7 @@ export async function memberTicket(db: Db, userId: number, id: number) {
 }
 
 /** Read-only once archived (decision 014 D). Called inside the transaction of the action: `for share` makes a concurrent archiving wait for it, so none slips between the check and the write. */
-async function assertActive(tx: Tx, projectId: number) {
+export async function assertActive(tx: Tx, projectId: number) {
   const [project] = await tx
     .select({ archivedAt: projects.archivedAt })
     .from(projects)
@@ -85,9 +103,12 @@ export function createTicket(
 /** A refusal of `act` as an answer; any other error is not ours. */
 function refusal(c: Context, error: unknown) {
   if (!(error instanceof Refused)) throw error;
-  return error.message === "project_archived"
-    ? c.json({ error: "project_archived" }, 409)
-    : c.json(notFound, 404);
+  if (
+    error.message === "project_archived" ||
+    error.message === "ticket_has_stories"
+  )
+    return c.json({ error: error.message }, 409);
+  return c.json(notFound, 404);
 }
 
 /** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/tickets/*. */
@@ -115,7 +136,13 @@ export function ticketRoutes(db: Db) {
         .from(tickets)
         .where(eq(tickets.projectId, project.id))
         .orderBy(desc(tickets.id));
-      return c.json({ tickets: rows.map(present) });
+      const statuses = await storyStatuses(
+        db,
+        rows.map((t) => t.id),
+      );
+      return c.json({
+        tickets: rows.map((t) => present(t, statuses.get(t.id) ?? [])),
+      });
     })
     .post("/api/projects/:id/tickets", body(createBody), async (c) => {
       const user = await currentUser(db, c);
@@ -138,7 +165,7 @@ export function ticketRoutes(db: Db) {
           project.id,
           c.req.valid("json"),
         );
-        return c.json({ ticket: present(created) }, 201);
+        return c.json({ ticket: present(created, []) }, 201);
       } catch (error) {
         return refusal(c, error);
       }
@@ -152,7 +179,14 @@ export function ticketRoutes(db: Db) {
         Number(c.req.param("id")),
       );
       if (!found) return c.json(notFound, 404);
-      return c.json({ ticket: present(found.ticket) });
+      const stories = await ticketStories(db, found.ticket.id);
+      return c.json({
+        ticket: present(
+          found.ticket,
+          stories.map((s) => s.status),
+        ),
+        stories,
+      });
     })
     .patch("/api/tickets/:id", body(editBody), async (c) => {
       const user = await currentUser(db, c);
@@ -183,7 +217,10 @@ export function ticketRoutes(db: Db) {
           if (!row) throw new Refused("not_found");
           return row;
         });
-        return c.json({ ticket: present(updated) });
+        const statuses = await storyStatuses(db, [updated.id]);
+        return c.json({
+          ticket: present(updated, statuses.get(updated.id) ?? []),
+        });
       } catch (error) {
         return refusal(c, error);
       }
@@ -208,7 +245,19 @@ export function ticketRoutes(db: Db) {
       try {
         await act(db, entry, async (tx) => {
           await assertActive(tx, project.id);
-          // Decision 002 rule 2 (only a ticket without user story is deleted) is trivially true until user stories exist (4.3).
+          // Decision 002 rule 2: only a ticket without story is deleted. The row is locked, so a create_user_stories in flight cannot slip in between the check and the delete.
+          const [locked] = await tx
+            .select({ id: tickets.id })
+            .from(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .for("update");
+          if (!locked) throw new Refused("not_found");
+          const [story] = await tx
+            .select({ id: userStories.id })
+            .from(userStories)
+            .where(eq(userStories.ticketId, ticket.id))
+            .limit(1);
+          if (story) throw new Refused("ticket_has_stories");
           const deleted = await tx
             .delete(tickets)
             .where(eq(tickets.id, ticket.id))

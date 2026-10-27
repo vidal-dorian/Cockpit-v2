@@ -11,6 +11,7 @@ import { instanceReader } from "./instance.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { projectRoutes } from "./projects.ts";
 import { setupRoutes } from "./setup.ts";
+import { storyRoutes } from "./stories.ts";
 import { ticketRoutes } from "./tickets.ts";
 import { tokenRoutes } from "./tokens.ts";
 
@@ -43,8 +44,9 @@ export function createApp(
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize))
-      // After projectRoutes: its gate covers the ticket routes.
+      // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db))
+      .route("/", storyRoutes(db))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, version))
       // OAuth discovery (006, after the MVP) is not offered yet: a JSON 404, not the page, tells a client so.

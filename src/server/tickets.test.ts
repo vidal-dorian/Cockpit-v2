@@ -168,6 +168,7 @@ describe("POST /api/projects/:id/tickets", () => {
       "id",
       "projectId",
       "step",
+      "storiesWrittenAt",
       "title",
       "updatedAt",
     ]);
@@ -355,8 +356,10 @@ describe("GET /api/tickets/:id", () => {
     const res = await getTicket(app, a.cookie, created.id);
 
     expect(res.status).toBe(200);
+    // Slice 4.3 (decision 017 L): the answer also carries the ticket's stories, none here.
     expect(await res.json()).toEqual({
       ticket: { ...created, descriptionMd: description, step: "new" },
+      stories: [],
     });
   });
 });

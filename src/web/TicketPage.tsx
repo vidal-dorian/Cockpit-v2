@@ -3,31 +3,27 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link, useNavigate, useParams } from "react-router";
 import { client } from "./api.ts";
-import { STEPS, ticketError } from "./tickets.ts";
-import { focusRing } from "./ui.ts";
+import { STEPS, STORY_STATUSES, ticketError } from "./tickets.ts";
+import { focusRing, markdownStyle } from "./ui.ts";
 
-/** The ticket, "not_found" when the user cannot reach it, or null when the server answers 401. */
+/** The ticket with its stories, "not_found" when the user cannot reach it, or null when the server answers 401. */
 async function fetchTicket(id: string) {
   const res = await client.api.tickets[":id"].$get({ param: { id } });
   if (res.status === 401) return null;
   if (res.status === 404) return "not_found" as const;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).ticket;
+  return res.json();
 }
 
 const field = `mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 ${focusRing}`;
 const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
 const alertBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
-// The page has no typography plugin: the few elements a description uses are styled here, with tokens.
-const markdownStyle =
-  "break-words [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-card [&_code]:px-1 [&_h1]:mt-4 [&_h1]:text-xl [&_h1]:font-bold [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:mt-4 [&_h3]:font-bold [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mt-3 [&_pre]:mt-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-card [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-6";
-
-type Ticket = Exclude<
+type Loaded = Exclude<
   Awaited<ReturnType<typeof fetchTicket>>,
   null | "not_found"
 >;
 
-function TicketView({ ticket }: { ticket: Ticket }) {
+function TicketView({ ticket, stories }: Loaded) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming the deletion (decision 003, rule 4).
@@ -76,6 +72,8 @@ function TicketView({ ticket }: { ticket: Ticket }) {
       });
       navigate(`/projets/${ticket.projectId}`);
     },
+    // Refused because Claude wrote stories meanwhile: show them, and hide « Supprimer ».
+    onError: () => queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
   });
   const cancel = () => {
     focusAfter.current = mode === "edit" ? "edit" : "delete";
@@ -159,6 +157,35 @@ function TicketView({ ticket }: { ticket: Ticket }) {
               {ticket.descriptionMd}
             </Markdown>
           </div>
+          {stories.length > 0 && (
+            <section className="mt-6">
+              <h2 className="font-heading text-xl font-bold">User stories</h2>
+              {!ticket.storiesWrittenAt && (
+                <p className="mt-2 text-muted-foreground">
+                  Claude n'a pas fini d'écrire les user stories de ce ticket.
+                </p>
+              )}
+              <ol className="mt-2 grid gap-2">
+                {stories.map((story) => (
+                  <li
+                    key={story.id}
+                    className="flex flex-wrap items-baseline gap-x-3 rounded-xl bg-card p-3"
+                  >
+                    <span className="font-semibold">{story.position}.</span>
+                    <Link
+                      to={`/us/${story.id}`}
+                      className={`underline ${focusRing}`}
+                    >
+                      {story.iWant}
+                    </Link>
+                    <span className="text-muted-foreground sm:ml-auto">
+                      {STORY_STATUSES[story.status] ?? story.status}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
           <div className="mt-6 flex gap-2">
             {mode === "view" ? (
               <>
@@ -174,14 +201,17 @@ function TicketView({ ticket }: { ticket: Ticket }) {
                 >
                   Modifier
                 </button>
-                <button
-                  ref={supprimer}
-                  type="button"
-                  onClick={() => setMode("delete")}
-                  className={button}
-                >
-                  Supprimer
-                </button>
+                {/* A ticket with stories is never deleted (decision 017 J). */}
+                {stories.length === 0 && (
+                  <button
+                    ref={supprimer}
+                    type="button"
+                    onClick={() => setMode("delete")}
+                    className={button}
+                  >
+                    Supprimer
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -264,7 +294,7 @@ export function TicketPage() {
         )}
         {/* Keyed by id: another ticket starts from a clean state, a save keeps the node (and the focus). */}
         {ticket.data && ticket.data !== "not_found" && (
-          <TicketView key={ticket.data.id} ticket={ticket.data} />
+          <TicketView key={ticket.data.ticket.id} {...ticket.data} />
         )}
       </div>
     </main>

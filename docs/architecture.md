@@ -77,7 +77,7 @@ Le modèle complet est dans la [002](decisions/002-modele-donnees.md), modifiée
 | Comptes | `users` (dont `is_admin` et `blocked_at`, 1.6), `sessions`, `mcp_tokens` (4.1 ; seule l'empreinte SHA-256 est stockée ; `history.token_id` depuis la 4.2) |
 | Instance | `instance_settings` : une seule ligne, remplie par l'assistant de démarrage ([012](decisions/012-configuration-automatique.md)) |
 | Projets | `projects` (un repo GitHub = un projet), `project_members` |
-| Travail | `tickets` (3.1 ; `history.ticket_id`, sans clé étrangère), `user_stories`, `acceptance_criteria`, `story_dependencies` |
+| Travail | `tickets` (3.1 ; `history.ticket_id`, sans clé étrangère), `user_stories`, `acceptance_criteria`, `story_dependencies` (4.3 ; `history.story_id`, sans clé étrangère) |
 | Développement | `runs`, `run_steps`, `questions` |
 | Trace | `history`, sans clé étrangère, inaltérable |
 | Après le MVP | `code_maps`, `findings`, `code_sources` et les colonnes `kind`, `reasoning` et `object_names` pour l'analyse et la reprise ([007](decisions/007-reprise-app-existante.md)) ; colonnes OAuth sur `mcp_tokens` ([006](decisions/006-connexion-oauth.md)) ; livraisons de webhooks enregistrées (5.1) |
@@ -123,7 +123,8 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Tickets : créer, lister, lire, modifier, supprimer (`/api/projects/:id/tickets`, `/api/tickets/:id`), table `tickets`, étape « Nouveau » calculée, description rendue en markdown sans HTML brut (`react-markdown`), section « Tickets » de `/projets/:id` et page `/tickets/:id` | Écrit et testé (3.1), en relecture |
 | Jetons MCP : créer (secret `ckp_…` montré une fois, haché en base), lister, révoquer (`/api/me/tokens`, `/api/me/tokens/:id/revoke` ; chaque utilisateur, ses jetons seulement ; un jeton révoqué n'est plus listé, il est supprimé 3 mois plus tard par une purge quotidienne), table `mcp_tokens`, section « Jetons MCP » de « Réglages », désormais ouvert à tous (« Utilisateurs » reste à l'administrateur) | Écrit et testé (4.1), en relecture |
 | Serveur MCP : `POST /mcp` (jeton `Bearer ckp_…` vérifié avant le SDK, refus journalisés en `mcp_auth`), outils `list_projects`, `get_project`, `search`, `get_ticket` et `create_ticket`, chaque appel journalisé par `act` (acteur `claude`, origine `mcp`, `history.token_id`) ; le Journal nomme ces actions et écrit « Claude » | Écrit et testé (4.2), en relecture |
-| Tout le reste (user stories…) | À faire, dans l'ordre du [découpage](decoupage.md) |
+| Claude écrit les US : tables `user_stories`, `acceptance_criteria`, `story_dependencies`, outils MCP `list_tickets_needing_us`, `create_user_stories` (tout ou rien par appel, écriture d'un gros ticket en plusieurs appels avec `more_to_come` et `stories_written` (le nombre d'US déjà écrites, sinon refus `writing_moved_on`) puis close par `tickets.stories_written_at`, au plus 100 US par ticket, ticket relu `FOR UPDATE`) et `get_user_story`, `search`, `get_ticket` et `get_project` étendus, étape du ticket calculée par `ticketStep(ticket, statuts des US)`, `GET /api/stories/:id`, suppression d'un ticket refusée s'il a des US (409 `ticket_has_stories`), page `/us/:id` en lecture seule, skill `/write-us` dans `catalog/skills/write-us/SKILL.md` | Écrit et testé (4.3), en relecture |
+| Tout le reste (validation des US, Kanban, issues, runs…) | À faire, dans l'ordre du [découpage](decoupage.md) |
 
 ## Index des décisions
 
@@ -145,6 +146,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [014](decisions/014-tickets.md) | Les tickets | Proposée | Titre et description markdown, projet archivé en lecture seule, étape calculée (« Nouveau » tant qu'il n'y a pas d'US), `args` de l'historique sans texte, markdown sans HTML brut |
 | [015](decisions/015-jetons-mcp.md) | Les jetons MCP | Proposée | `ckp_` + 43 caractères, seule l'empreinte SHA-256 en base, montré une fois, 20 actifs par utilisateur, personnels (l'administrateur n'y touche pas), « Réglages » ouvert à tous |
 | [016](decisions/016-serveur-mcp.md) | Le serveur MCP | Proposée | SDK officiel en mode sans session et réponses JSON, jeton vérifié avant le SDK (401 et `mcp_auth`), cinq outils, refus et erreurs lus par Claude, `args` de l'historique réduits à des identifiants (règle 010 D, qui modifie la 004) |
+| [017](decisions/017-user-stories.md) | Claude écrit les user stories | Proposée | Trois tables, `create_user_stories` tout ou rien par appel, en plusieurs appels pour un gros ticket (`more_to_come`), `list_tickets_needing_us` et `get_user_story`, étape du ticket calculée avec ses US, page d'une US en lecture seule, skill `/write-us` (règles F et G de la 014 modifiées) |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts
