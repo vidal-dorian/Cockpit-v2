@@ -35,7 +35,10 @@ A story has the right size when **one development session (one branch, one pull 
 
 - **Too big** (several pull requests, parts with no link between them, about ten criteria or more): cut it into **vertical slices**, each a thin path from the screen to the data. Never cut by layer ("the database", then "the API", then "the screen"): no layer can be checked alone.
 - **Too small** (nothing the user can check alone, a rename, one field, something that only makes sense with the next story): merge it into the story it serves.
+- **Similar to another** (same user and same goal, or criteria that largely overlap, even worded differently): it is one story. Merge them into a single story that keeps every detail, note and criterion of both. Check this across every call of the ticket, not only inside one call.
+- **Already covered elsewhere**: before writing, look for a story of another ticket of the project that does the same (`mcp__cockpit__search` with a few words of the `i_want`, then `mcp__cockpit__get_user_story`). If one covers it, do not write it again: tell the user, and only write what is new.
 - Most tickets need 1 to 8 stories. More than 20 is rare: send them in several calls, as above.
+- **Before each call**, re-read the whole list as a reviewer: merge any two stories that are similar, and any story too small to stand alone.
 
 Example. Ticket "Export the report": the first idea is one story with 14 criteria (choose the format, the period, the columns, download, e-mail, errors). Cut it into 3 vertical slices, each usable on its own: "download a PDF of the current month", "choose the period", "receive the export by e-mail". A fourth story, "add the Export button", only makes sense with the PDF download: merge it into that story.
 
