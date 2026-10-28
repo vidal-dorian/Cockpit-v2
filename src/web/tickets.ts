@@ -32,3 +32,22 @@ export async function ticketError(res: Response) {
     return new Error("Ce ticket a des user stories : il ne se supprime plus.");
   return new Error("L'opération a échoué, réessaie.");
 }
+
+/** The French error of a refused decision on a story or a ticket (decision 018 J); nothing of what the server said is shown. */
+export async function decisionError(res: Response) {
+  if (res.status === 400)
+    return new Error(
+      "Le texte est refusé : chaque champ et chaque critère doit être rempli (1 000 caractères au plus pour le récit, 2 000 pour un critère ou le commentaire, 50 000 pour les notes).",
+    );
+  const body: unknown = await res.json().catch(() => null);
+  const error = (body as { error?: unknown } | null)?.error;
+  if (error === "project_archived")
+    return new Error("Ce projet est archivé : plus rien n'y change.");
+  if (error === "ticket_abandoned")
+    return new Error("Ce ticket est abandonné : il ne change plus.");
+  if (error === "wrong_status")
+    return new Error(
+      "Le statut de cette user story a changé entre-temps : recharge la page.",
+    );
+  return new Error("L'opération a échoué, réessaie.");
+}

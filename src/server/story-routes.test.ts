@@ -24,7 +24,7 @@ import {
 // - GET /api/tickets/:id        -> { ticket: { ..., storiesWrittenAt: ISO string | null }, stories: [{ id, position, iWant, status }] }
 // - GET /api/stories/:id        -> { story: { id, ticketId, position, asA, iWant, soThat, notesMd, status,
 //                                   criteria: [{ id, position, given, when, then }], dependsOn: [{ id, iWant, status }] },
-//                                   ticket: { id, title }, project: { id, fullName } }
+//                                   ticket: { id, title }, project: { id, fullName, archived } }
 // - DELETE /api/tickets/:id with stories -> 409 { error: "ticket_has_stories" }, one refused delete_ticket entry.
 
 afterEach(() => {
@@ -179,7 +179,12 @@ describe("criterion 12: GET /api/stories/:id", () => {
     });
     expect(body.story.criteria.every((c) => Number.isInteger(c.id))).toBe(true);
     expect(body.ticket).toEqual({ id: s.ticketId, title: "Le ticket" });
-    expect(body.project).toEqual({ id: s.projectId, fullName: "user1000/app" });
+    // Slice 4.4 (decision 018 J): the project also says whether it is archived, so the page can disable the decisions.
+    expect(body.project).toEqual({
+      id: s.projectId,
+      fullName: "user1000/app",
+      archived: false,
+    });
     expect(await rows(s.db)).toHaveLength(before);
   });
 

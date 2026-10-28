@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
 import { focusRing, markdownStyle } from "./ui.ts";
 
@@ -18,7 +19,7 @@ async function fetchStory(id: string) {
 const alertBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
 const label = "font-semibold";
 
-/** Read-only: validating, sending back and abandoning are slice 4.4. */
+/** The story, and the decisions of the user on it (decision 018). */
 export function StoryPage() {
   const { id = "" } = useParams();
   const result = useQuery({
@@ -82,6 +83,21 @@ export function StoryPage() {
                 {found.project.fullName}
               </span>
             </p>
+            {found.story.status === "to_rewrite" &&
+              found.story.rewriteComment && (
+                <section className="mt-4 rounded-xl bg-you-soft p-4 text-you-text">
+                  <h2 className="font-semibold">Ton commentaire pour Claude</h2>
+                  <p className="mt-1 whitespace-pre-wrap">
+                    {found.story.rewriteComment}
+                  </p>
+                </section>
+              )}
+            <StoryDecisions
+              key={found.story.id}
+              story={found.story}
+              projectId={found.project.id}
+              archived={found.project.archived}
+            />
             <div className="mt-4 grid gap-1">
               <p>
                 <span className={label}>En tant que</span> {found.story.asA}
@@ -146,6 +162,7 @@ export function StoryPage() {
                 </ul>
               </section>
             )}
+            <StoryHistory id={found.story.id} />
           </>
         )}
       </div>

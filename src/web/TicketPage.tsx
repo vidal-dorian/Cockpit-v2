@@ -3,7 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link, useNavigate, useParams } from "react-router";
 import { client } from "./api.ts";
-import { STEPS, STORY_STATUSES, ticketError } from "./tickets.ts";
+import {
+  decisionError,
+  STEPS,
+  STORY_STATUSES,
+  ticketError,
+} from "./tickets.ts";
 import { focusRing, markdownStyle } from "./ui.ts";
 
 /** The ticket with its stories, "not_found" when the user cannot reach it, or null when the server answers 401. */
@@ -26,18 +31,22 @@ type Loaded = Exclude<
 function TicketView({ ticket, stories }: Loaded) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  // One thing at a time: reading, editing or confirming the deletion (decision 003, rule 4).
-  const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
+  // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
+  const [mode, setMode] = useState<"view" | "edit" | "delete" | "abandon">(
+    "view",
+  );
   const [title, setTitle] = useState(ticket.title);
   const [descriptionMd, setDescriptionMd] = useState(ticket.descriptionMd);
   const id = String(ticket.id);
   // The form or the confirmation is gone and so is the button that opened it: the focus goes back to a new one, not to <body>.
   const modifier = useRef<HTMLButtonElement>(null);
   const supprimer = useRef<HTMLButtonElement>(null);
-  const focusAfter = useRef<"edit" | "delete" | null>(null);
+  const abandonner = useRef<HTMLButtonElement>(null);
+  const focusAfter = useRef<"edit" | "delete" | "abandon" | null>(null);
   useEffect(() => {
     if (mode !== "view" || !focusAfter.current) return;
-    (focusAfter.current === "edit" ? modifier : supprimer).current?.focus();
+    const buttons = { edit: modifier, delete: supprimer, abandon: abandonner };
+    buttons[focusAfter.current].current?.focus();
     focusAfter.current = null;
   }, [mode]);
 
@@ -75,11 +84,31 @@ function TicketView({ ticket, stories }: Loaded) {
     // Refused because Claude wrote stories meanwhile: show them, and hide « Supprimer ».
     onError: () => queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
   });
+  const abandon = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.tickets[":id"].abandon.$post({
+        param: { id },
+      });
+      if (!res.ok) throw await decisionError(res);
+    },
+    onSuccess: async () => {
+      // Its unfinished stories are abandoned with it.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
+        queryClient.invalidateQueries({ queryKey: ["story"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["tickets", String(ticket.projectId)],
+        }),
+      ]);
+      setMode("view");
+    },
+  });
   const cancel = () => {
-    focusAfter.current = mode === "edit" ? "edit" : "delete";
+    if (mode !== "view") focusAfter.current = mode;
     setMode("view");
     save.reset();
     remove.reset();
+    abandon.reset();
   };
 
   return (
@@ -187,20 +216,23 @@ function TicketView({ ticket, stories }: Loaded) {
             </section>
           )}
           <div className="mt-6 flex gap-2">
-            {mode === "view" ? (
+            {mode === "view" && (
               <>
-                <button
-                  ref={modifier}
-                  type="button"
-                  onClick={() => {
-                    setTitle(ticket.title);
-                    setDescriptionMd(ticket.descriptionMd);
-                    setMode("edit");
-                  }}
-                  className={button}
-                >
-                  Modifier
-                </button>
+                {/* An abandoned ticket is not modified any more (decision 018 D). */}
+                {ticket.step !== "abandoned" && (
+                  <button
+                    ref={modifier}
+                    type="button"
+                    onClick={() => {
+                      setTitle(ticket.title);
+                      setDescriptionMd(ticket.descriptionMd);
+                      setMode("edit");
+                    }}
+                    className={button}
+                  >
+                    Modifier
+                  </button>
+                )}
                 {/* A ticket with stories is never deleted (decision 017 J). */}
                 {stories.length === 0 && (
                   <button
@@ -212,22 +244,37 @@ function TicketView({ ticket, stories }: Loaded) {
                     Supprimer
                   </button>
                 )}
+                {ticket.step !== "abandoned" && (
+                  <button
+                    ref={abandonner}
+                    type="button"
+                    onClick={() => setMode("abandon")}
+                    className={button}
+                  >
+                    Abandonner le ticket
+                  </button>
+                )}
               </>
-            ) : (
+            )}
+            {(mode === "delete" || mode === "abandon") && (
               <>
                 <button
                   type="button"
-                  onClick={() => remove.mutate()}
-                  disabled={remove.isPending}
+                  onClick={() =>
+                    mode === "delete" ? remove.mutate() : abandon.mutate()
+                  }
+                  disabled={remove.isPending || abandon.isPending}
                   className={`min-h-10 rounded-lg bg-destructive px-4 font-semibold text-card ${focusRing}`}
                 >
-                  Confirmer la suppression
+                  {mode === "delete"
+                    ? "Confirmer la suppression"
+                    : "Confirmer l'abandon"}
                 </button>
                 <button
                   // A key of its own: without it React would reuse the Supprimer button and never mount this one, so autoFocus would not run.
                   key="cancel-delete"
                   type="button"
-                  // The Supprimer button is gone: keep the keyboard focus on the safe choice.
+                  // The button that asked is gone: keep the keyboard focus on the safe choice.
                   // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
                   autoFocus
                   onClick={cancel}
@@ -238,6 +285,11 @@ function TicketView({ ticket, stories }: Loaded) {
               </>
             )}
           </div>
+          {abandon.error && (
+            <p role="alert" className={`mt-3 ${alertBox}`}>
+              {abandon.error.message}
+            </p>
+          )}
           {remove.error && (
             <p role="alert" className={`mt-3 ${alertBox}`}>
               {remove.error.message}

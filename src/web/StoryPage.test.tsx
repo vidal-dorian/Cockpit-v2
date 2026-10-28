@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 
 // Slice 4.3 (decision 017 L): the page of one story at /us/:id, loaded on demand like the ticket page. It shows,
-// it changes nothing (validating, sending back and abandoning are slice 4.4).
+// it changes nothing (validating, sending back, editing and abandoning are slice 4.4, StoryDecisions.test.tsx).
 
 afterEach(() => {
   cleanup();
@@ -129,8 +129,11 @@ describe("criterion 15: Story page", () => {
     expect(main().querySelector('a[href="/tickets/7"]')).not.toBeNull();
   });
 
-  it("given a story, when the page loads, then it offers no action button (validating and the like belong to slice 4.4)", async () => {
-    seed();
+  it("given an abandoned story, when the page loads, then it offers no action button (the decisions of slice 4.4 are tested in StoryDecisions.test.tsx)", async () => {
+    stubTicketApi(
+      [ticket(7, "Idée découpée")],
+      [story(21, 7, "relire les exports", { status: "abandoned" })],
+    );
 
     renderAt("/us/21");
 
