@@ -602,7 +602,10 @@ describe("criterion 8: simultaneous decisions on the same story", () => {
         status: "to_rewrite",
         rewriteComment: "Précise",
       });
-    const results = (await rows(s.db)).map((e) => [e.action, e.result]);
+    // The fixture's create_token entry is not part of the race.
+    const results = (await rows(s.db, sql`action <> 'create_token'`)).map(
+      (e) => [e.action, e.result],
+    );
     expect(results).toHaveLength(2);
     expect(results.filter(([, result]) => result === "ok")).toHaveLength(1);
     expect(results.filter(([, result]) => result === "refused")).toHaveLength(

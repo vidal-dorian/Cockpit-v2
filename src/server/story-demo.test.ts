@@ -117,7 +117,13 @@ describe("criterion 10: the demo flow", () => {
     expect(await step()).toBe("validated");
 
     // 7. The history: the writes of both actors, in order (the reads of Claude are not asked about here).
-    const reads = ["list_tickets_needing_us", "get_user_story", "get_ticket"];
+    // create_token comes from the fixture, not from the demo.
+    const reads = [
+      "list_tickets_needing_us",
+      "get_user_story",
+      "get_ticket",
+      "create_token",
+    ];
     const journal = (
       (await (await send(app, alice.cookie, "GET", "/api/history")).json()) as {
         entries: {
