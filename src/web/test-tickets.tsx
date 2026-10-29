@@ -115,6 +115,8 @@ export function stubTicketApi(
   const tickets = [...initial];
   const calls: Call[] = [];
   const failNext: { post?: Answer; patch?: Answer; delete?: Answer } = {};
+  /** Set `status` (401, 500...) to make GET /api/projects/5/stories answer it, until it is set back to undefined. */
+  const failStories: { status?: number } = {};
   let nextId = 100;
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -184,6 +186,36 @@ export function stubTicketApi(
         tickets.unshift(created);
         return Response.json({ ticket: created }, { status: 201 });
       }
+      // Slice 4.5 (decision 019): the Kanban of the project, as the real route gives it (no abandoned story, ticket then position).
+      if (path === "/api/projects/5/stories" && method === "GET") {
+        if (failStories.status)
+          return Response.json(
+            { error: "stub failure" },
+            { status: failStories.status },
+          );
+        return Response.json({
+          stories: stories
+            .filter((s) => s.status !== "abandoned")
+            .flatMap((s) => {
+              const parent = tickets.find(
+                (t) => t.id === s.ticketId && t.projectId === 5,
+              );
+              return parent
+                ? [
+                    {
+                      id: s.id,
+                      ticketId: s.ticketId,
+                      ticketTitle: parent.title,
+                      position: s.position,
+                      iWant: s.iWant,
+                      status: s.status,
+                    },
+                  ]
+                : [];
+            })
+            .sort((a, b) => a.ticketId - b.ticketId || a.position - b.position),
+        });
+      }
       const storyMatch = /^\/api\/stories\/([^/]+)$/.exec(path);
       if (storyMatch && method === "GET") {
         const found = stories.find((s) => String(s.id) === storyMatch[1]);
@@ -234,6 +266,7 @@ export function stubTicketApi(
   return {
     calls,
     failNext,
+    failStories,
     /** The writes the page sent (everything but GET). */
     writes: () => calls.filter((c) => c.method !== "GET"),
   };

@@ -74,6 +74,9 @@ export function StoryDecisions({
         queryClient.invalidateQueries({
           queryKey: ["tickets", String(projectId)],
         }),
+        queryClient.invalidateQueries({
+          queryKey: ["stories", String(projectId)],
+        }),
         queryClient.invalidateQueries({ queryKey: ["story-history", id] }),
       ]);
       // Saving keeps the status, so Modifier stays; any other decision changes it and removes the button that was used.

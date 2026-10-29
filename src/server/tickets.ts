@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
@@ -151,6 +151,40 @@ export function ticketRoutes(db: Db) {
       return c.json({
         tickets: rows.map((t) => present(t, statuses.get(t.id) ?? [])),
       });
+    })
+    .get("/api/projects/:id/stories", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json(notFound, 404);
+      // The Kanban of decision 019: one join, no N+1; a read, so no history entry.
+      const stories = await db
+        .select({
+          id: userStories.id,
+          ticketId: userStories.ticketId,
+          ticketTitle: tickets.title,
+          position: userStories.position,
+          iWant: userStories.iWant,
+          status: userStories.status,
+        })
+        .from(userStories)
+        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+        .where(
+          and(
+            eq(tickets.projectId, project.id),
+            ne(userStories.status, "abandoned"),
+          ),
+        )
+        .orderBy(
+          asc(tickets.id),
+          asc(userStories.position),
+          asc(userStories.id),
+        );
+      return c.json({ stories });
     })
     .post("/api/projects/:id/tickets", body(createBody), async (c) => {
       const user = await currentUser(db, c);

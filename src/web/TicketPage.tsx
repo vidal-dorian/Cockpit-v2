@@ -76,6 +76,9 @@ function TicketView({ ticket, stories }: Loaded) {
         queryClient.invalidateQueries({
           queryKey: ["tickets", String(ticket.projectId)],
         }),
+        queryClient.invalidateQueries({
+          queryKey: ["stories", String(ticket.projectId)],
+        }),
       ]);
       focusAfter.current = "edit";
       setMode("view");
@@ -110,6 +113,9 @@ function TicketView({ ticket, stories }: Loaded) {
         queryClient.invalidateQueries({ queryKey: ["story"] }),
         queryClient.invalidateQueries({
           queryKey: ["tickets", String(ticket.projectId)],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["stories", String(ticket.projectId)],
         }),
       ]);
     },

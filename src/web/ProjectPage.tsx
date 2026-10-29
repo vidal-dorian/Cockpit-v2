@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { ProjectKanban } from "./ProjectKanban.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
 import { focusRing } from "./ui.ts";
@@ -135,6 +136,7 @@ export function ProjectPage() {
           </div>
         </section>
       )}
+      {!notFound && <ProjectKanban projectId={id} />}
       {!notFound && <ProjectTickets projectId={id} />}
     </main>
   );
