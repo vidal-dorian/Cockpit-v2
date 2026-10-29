@@ -17,7 +17,7 @@ Le brief (§6.3) veut un tableau par projet : à valider, prêtes, en cours, en 
 | A | Quelle route ? | `GET /api/projects/:id/stories` : les US **non abandonnées** du projet, chacune avec `id`, `ticketId`, le titre de son ticket, `position`, `iWant`, `status`. Ordre : ticket, puis position. Mêmes barrières que la liste des tickets (503, 401, 404 pour le projet d'un autre). Une lecture : pas d'entrée d'historique. Lisible sur un projet archivé |
 | B | Quelles colonnes ? | Cinq, dans cet ordre : **À valider** (`to_validate` et `to_rewrite`, cette dernière marquée « à réécrire »), **Prêtes** (`ready`), **En cours** (`in_progress`), **En revue** (`in_review`), **Terminées** (`done`). Les US abandonnées n'apparaissent pas : elles restent sur la page de leur ticket |
 | C | Une carte ? | Le « je veux » de l'US, le titre de son ticket, et pour une US à réécrire le libellé « à réécrire ». Toute la carte est un lien vers `/us/:id`. **Aucun bouton** sur la carte : on ne déplace rien, on ouvre l'US (brief §6.3) |
-| D | Où ? | Une section « Kanban » sur `/projets/:id`, au-dessus des tickets. Chaque colonne est une section avec un titre et son compte (« À valider (3) ») et une liste ; une colonne vide le dit (« Aucune »). En largeur téléphone, les colonnes s'empilent ; sinon elles sont côte à côte et défilent horizontalement si besoin. Couleurs des jetons seulement (003) |
+| D | Où ? | Une section « Kanban » sur `/projets/:id`, au-dessus des tickets. Chaque colonne est une section avec un titre et son compte (« À valider (3) ») et une liste, ou « Aucune » quand elle est vide. Les colonnes sont dans une région focalisable au clavier (« Colonnes du Kanban »), pour pouvoir les faire défiler sans souris ; pour un lecteur d'écran, le titre du ticket sur une carte est précédé de « Ticket : ». En largeur téléphone, les colonnes s'empilent ; sinon elles sont côte à côte et défilent horizontalement si besoin. Couleurs des jetons seulement (003) |
 | E | Fraîcheur ? | Les décisions (018) invalident aussi la requête du Kanban, pour qu'il reflète l'état réel au retour sur le projet |
 
 ## Ce qui est repoussé
@@ -28,3 +28,4 @@ Le brief (§6.3) veut un tableau par projet : à valider, prêtes, en cours, en 
 ## Limites connues
 
 - **Pas de pagination** : la colonne « Terminées » grandit avec le projet. Elle se repliera ou se paginera quand elle deviendra longue.
+- **Pas de mise à jour en direct** : les US que Claude écrit pendant que la page est ouverte apparaissent au rafraîchissement suivant. Il n'y a qu'une relecture quand la fenêtre reprend le focus.

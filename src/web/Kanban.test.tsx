@@ -413,7 +413,9 @@ describe("accessibility of the board", () => {
 
     const link = await screen.findByRole("link", { name: /vouloir-alpha/ });
     // The tickets list also links « Idée A », so the word « ticket » tells the card from it.
-    expect(screen.queryByRole("link", { name: /ticket.*Idée A/i })).toBe(link);
+    expect(
+      screen.queryByRole("link", { name: /vouloir-alpha.*ticket.*Idée A/i }),
+    ).toBe(link);
   });
 
   it("given the columns, when the page loads, then their scroll container is focusable by keyboard and is a named region", async () => {

@@ -129,252 +129,250 @@ export function ticketRoutes(db: Db) {
     args: {},
   });
 
-  return (
-    new Hono()
-      .get("/api/projects/:id/tickets", async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const project = await memberProject(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!project) return c.json(notFound, 404);
-        const rows = await db
-          .select()
-          .from(tickets)
-          .where(eq(tickets.projectId, project.id))
-          .orderBy(desc(tickets.id));
-        const statuses = await storyStatuses(
-          db,
-          rows.map((t) => t.id),
-        );
-        return c.json({
-          tickets: rows.map((t) => present(t, statuses.get(t.id) ?? [])),
-        });
-      })
+  return new Hono()
+    .get("/api/projects/:id/tickets", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json(notFound, 404);
+      const rows = await db
+        .select()
+        .from(tickets)
+        .where(eq(tickets.projectId, project.id))
+        .orderBy(desc(tickets.id));
+      const statuses = await storyStatuses(
+        db,
+        rows.map((t) => t.id),
+      );
+      return c.json({
+        tickets: rows.map((t) => present(t, statuses.get(t.id) ?? [])),
+      });
+    })
+    .get("/api/projects/:id/stories", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json(notFound, 404);
       // The Kanban of decision 019: one join, no N+1; a read, so no history entry.
-      .get("/api/projects/:id/stories", async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const project = await memberProject(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!project) return c.json(notFound, 404);
-        const stories = await db
-          .select({
-            id: userStories.id,
-            ticketId: userStories.ticketId,
-            ticketTitle: tickets.title,
-            position: userStories.position,
-            iWant: userStories.iWant,
-            status: userStories.status,
-          })
-          .from(userStories)
-          .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-          .where(
-            and(
-              eq(tickets.projectId, project.id),
-              ne(userStories.status, "abandoned"),
-            ),
-          )
-          .orderBy(
-            asc(tickets.id),
-            asc(userStories.position),
-            asc(userStories.id),
-          );
-        return c.json({ stories });
-      })
-      .post("/api/projects/:id/tickets", body(createBody), async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const project = await memberProject(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!project) return c.json(notFound, 404);
-
-        const entry: Entry = {
-          ...entryOf(user.userId, "create_ticket"),
-          projectId: project.id,
-        };
-        try {
-          const created = await createTicket(
-            db,
-            entry,
-            project.id,
-            c.req.valid("json"),
-          );
-          return c.json({ ticket: present(created, []) }, 201);
-        } catch (error) {
-          return refusal(c, error);
-        }
-      })
-      .get("/api/tickets/:id", async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const found = await memberTicket(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!found) return c.json(notFound, 404);
-        const stories = await ticketStories(db, found.ticket.id);
-        return c.json({
-          ticket: present(
-            found.ticket,
-            stories.map((s) => s.status),
+      const stories = await db
+        .select({
+          id: userStories.id,
+          ticketId: userStories.ticketId,
+          ticketTitle: tickets.title,
+          position: userStories.position,
+          iWant: userStories.iWant,
+          status: userStories.status,
+        })
+        .from(userStories)
+        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+        .where(
+          and(
+            eq(tickets.projectId, project.id),
+            ne(userStories.status, "abandoned"),
           ),
-          stories,
+        )
+        .orderBy(
+          asc(tickets.id),
+          asc(userStories.position),
+          asc(userStories.id),
+        );
+      return c.json({ stories });
+    })
+    .post("/api/projects/:id/tickets", body(createBody), async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json(notFound, 404);
+
+      const entry: Entry = {
+        ...entryOf(user.userId, "create_ticket"),
+        projectId: project.id,
+      };
+      try {
+        const created = await createTicket(
+          db,
+          entry,
+          project.id,
+          c.req.valid("json"),
+        );
+        return c.json({ ticket: present(created, []) }, 201);
+      } catch (error) {
+        return refusal(c, error);
+      }
+    })
+    .get("/api/tickets/:id", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const found = await memberTicket(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json(notFound, 404);
+      const stories = await ticketStories(db, found.ticket.id);
+      return c.json({
+        ticket: present(
+          found.ticket,
+          stories.map((s) => s.status),
+        ),
+        stories,
+      });
+    })
+    .patch("/api/tickets/:id", body(editBody), async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const found = await memberTicket(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json(notFound, 404);
+
+      const { ticket, project } = found;
+      const entry: Entry = {
+        ...entryOf(user.userId, "update_ticket"),
+        projectId: project.id,
+        ticketId: ticket.id,
+        args: { ticketId: ticket.id },
+      };
+      try {
+        const updated = await act(db, entry, async (tx) => {
+          await assertActive(tx, project.id);
+          const [current] = await tx
+            .select({ abandonedAt: tickets.abandonedAt })
+            .from(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .for("update");
+          // Deleted since we read it.
+          if (!current) throw new Refused("not_found");
+          if (current.abandonedAt) throw new Refused("ticket_abandoned");
+          const [row] = await tx
+            .update(tickets)
+            .set({ ...c.req.valid("json"), updatedAt: sql`now()` })
+            .where(eq(tickets.id, ticket.id))
+            .returning();
+          if (!row) throw new Refused("not_found");
+          return row;
         });
-      })
-      .patch("/api/tickets/:id", body(editBody), async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const found = await memberTicket(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!found) return c.json(notFound, 404);
+        const statuses = await storyStatuses(db, [updated.id]);
+        return c.json({
+          ticket: present(updated, statuses.get(updated.id) ?? []),
+        });
+      } catch (error) {
+        return refusal(c, error);
+      }
+    })
+    .post("/api/tickets/:id/abandon", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const found = await memberTicket(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json(notFound, 404);
 
-        const { ticket, project } = found;
-        const entry: Entry = {
-          ...entryOf(user.userId, "update_ticket"),
-          projectId: project.id,
-          ticketId: ticket.id,
-          args: { ticketId: ticket.id },
-        };
-        try {
-          const updated = await act(db, entry, async (tx) => {
-            await assertActive(tx, project.id);
-            const [current] = await tx
-              .select({ abandonedAt: tickets.abandonedAt })
-              .from(tickets)
-              .where(eq(tickets.id, ticket.id))
-              .for("update");
-            // Deleted since we read it.
-            if (!current) throw new Refused("not_found");
-            if (current.abandonedAt) throw new Refused("ticket_abandoned");
-            const [row] = await tx
-              .update(tickets)
-              .set({ ...c.req.valid("json"), updatedAt: sql`now()` })
-              .where(eq(tickets.id, ticket.id))
-              .returning();
-            if (!row) throw new Refused("not_found");
-            return row;
-          });
-          const statuses = await storyStatuses(db, [updated.id]);
-          return c.json({
-            ticket: present(updated, statuses.get(updated.id) ?? []),
-          });
-        } catch (error) {
-          return refusal(c, error);
-        }
-      })
-      .post("/api/tickets/:id/abandon", async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const found = await memberTicket(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!found) return c.json(notFound, 404);
+      const { ticket, project } = found;
+      const entry: Entry = {
+        ...entryOf(user.userId, "abandon_ticket"),
+        projectId: project.id,
+        ticketId: ticket.id,
+        args: { ticketId: ticket.id },
+      };
+      try {
+        const abandoned = await act(db, entry, async (tx) => {
+          await assertActive(tx, project.id);
+          const [locked] = await tx
+            .select({ abandonedAt: tickets.abandonedAt })
+            .from(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .for("update");
+          if (!locked) throw new Refused("not_found");
+          if (locked.abandonedAt) throw new Refused("ticket_abandoned");
+          // Decision 018 D: no story of an abandoned ticket stays ready to develop; done ones stay done.
+          const stories = await tx
+            .update(userStories)
+            .set({ status: "abandoned", updatedAt: sql`now()` })
+            .where(
+              and(
+                eq(userStories.ticketId, ticket.id),
+                ne(userStories.status, "done"),
+                ne(userStories.status, "abandoned"),
+              ),
+            )
+            .returning({ id: userStories.id });
+          entry.args = {
+            ticketId: ticket.id,
+            abandonedStories: stories.length,
+          };
+          const [row] = await tx
+            .update(tickets)
+            .set({ abandonedAt: sql`now()`, updatedAt: sql`now()` })
+            .where(eq(tickets.id, ticket.id))
+            .returning();
+          if (!row) throw new Refused("not_found");
+          return row;
+        });
+        // An abandoned ticket is abandoned whatever its stories say.
+        return c.json({ ticket: present(abandoned, []) });
+      } catch (error) {
+        return refusal(c, error);
+      }
+    })
+    .delete("/api/tickets/:id", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const found = await memberTicket(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json(notFound, 404);
 
-        const { ticket, project } = found;
-        const entry: Entry = {
-          ...entryOf(user.userId, "abandon_ticket"),
-          projectId: project.id,
-          ticketId: ticket.id,
-          args: { ticketId: ticket.id },
-        };
-        try {
-          const abandoned = await act(db, entry, async (tx) => {
-            await assertActive(tx, project.id);
-            const [locked] = await tx
-              .select({ abandonedAt: tickets.abandonedAt })
-              .from(tickets)
-              .where(eq(tickets.id, ticket.id))
-              .for("update");
-            if (!locked) throw new Refused("not_found");
-            if (locked.abandonedAt) throw new Refused("ticket_abandoned");
-            // Decision 018 D: no story of an abandoned ticket stays ready to develop; done ones stay done.
-            const stories = await tx
-              .update(userStories)
-              .set({ status: "abandoned", updatedAt: sql`now()` })
-              .where(
-                and(
-                  eq(userStories.ticketId, ticket.id),
-                  ne(userStories.status, "done"),
-                  ne(userStories.status, "abandoned"),
-                ),
-              )
-              .returning({ id: userStories.id });
-            entry.args = {
-              ticketId: ticket.id,
-              abandonedStories: stories.length,
-            };
-            const [row] = await tx
-              .update(tickets)
-              .set({ abandonedAt: sql`now()`, updatedAt: sql`now()` })
-              .where(eq(tickets.id, ticket.id))
-              .returning();
-            if (!row) throw new Refused("not_found");
-            return row;
-          });
-          // An abandoned ticket is abandoned whatever its stories say.
-          return c.json({ ticket: present(abandoned, []) });
-        } catch (error) {
-          return refusal(c, error);
-        }
-      })
-      .delete("/api/tickets/:id", async (c) => {
-        const user = await currentUser(db, c);
-        if (!user) return c.json(unauthorized, 401);
-        const found = await memberTicket(
-          db,
-          user.userId,
-          Number(c.req.param("id")),
-        );
-        if (!found) return c.json(notFound, 404);
-
-        const { ticket, project } = found;
-        const entry: Entry = {
-          ...entryOf(user.userId, "delete_ticket"),
-          projectId: project.id,
-          ticketId: ticket.id,
-          args: { ticketId: ticket.id },
-        };
-        try {
-          await act(db, entry, async (tx) => {
-            await assertActive(tx, project.id);
-            // Decision 002 rule 2: only a ticket without story is deleted. The row is locked, so a create_user_stories in flight cannot slip in between the check and the delete.
-            const [locked] = await tx
-              .select({ id: tickets.id })
-              .from(tickets)
-              .where(eq(tickets.id, ticket.id))
-              .for("update");
-            if (!locked) throw new Refused("not_found");
-            const [story] = await tx
-              .select({ id: userStories.id })
-              .from(userStories)
-              .where(eq(userStories.ticketId, ticket.id))
-              .limit(1);
-            if (story) throw new Refused("ticket_has_stories");
-            const deleted = await tx
-              .delete(tickets)
-              .where(eq(tickets.id, ticket.id))
-              .returning({ id: tickets.id });
-            if (deleted.length === 0) throw new Refused("not_found");
-          });
-          return c.body(null, 204);
-        } catch (error) {
-          return refusal(c, error);
-        }
-      })
-  );
+      const { ticket, project } = found;
+      const entry: Entry = {
+        ...entryOf(user.userId, "delete_ticket"),
+        projectId: project.id,
+        ticketId: ticket.id,
+        args: { ticketId: ticket.id },
+      };
+      try {
+        await act(db, entry, async (tx) => {
+          await assertActive(tx, project.id);
+          // Decision 002 rule 2: only a ticket without story is deleted. The row is locked, so a create_user_stories in flight cannot slip in between the check and the delete.
+          const [locked] = await tx
+            .select({ id: tickets.id })
+            .from(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .for("update");
+          if (!locked) throw new Refused("not_found");
+          const [story] = await tx
+            .select({ id: userStories.id })
+            .from(userStories)
+            .where(eq(userStories.ticketId, ticket.id))
+            .limit(1);
+          if (story) throw new Refused("ticket_has_stories");
+          const deleted = await tx
+            .delete(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .returning({ id: tickets.id });
+          if (deleted.length === 0) throw new Refused("not_found");
+        });
+        return c.body(null, 204);
+      } catch (error) {
+        return refusal(c, error);
+      }
+    });
 }
