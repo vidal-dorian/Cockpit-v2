@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md)
 - **Modifie** : la décision D de la [004](004-outils-mcp.md) (« un jeton par machine »), après le MVP seulement
+- **Modifiée par** : [021 — Connecter Claude](021-connecter-claude.md) : le choix A (« après le MVP ») est rouvert, la tranche est avancée avant les webhooks ; la 021 précise les adresses, les clients acceptés et l'expiration du rafraîchissement
 
 ## Contexte
 
