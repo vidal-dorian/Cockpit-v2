@@ -39,8 +39,10 @@ function parseAnswer<T extends z.ZodType>(schema: T, answer: unknown) {
 /** Where a login may lead back to (decision 021 C): the /autoriser page and its query, never another address or page. Printable ASCII only, so nothing can split the redirect header. */
 function safeNext(value: string | undefined) {
   return value !== undefined &&
-    /^\/autoriser(\?[\x21-\x7e]{0,8192})?$/.test(value) &&
-    !value.includes("\\")
+    /^\/autoriser(\?[\x21-\x7e]*)?$/.test(value) &&
+    !value.includes("\\") &&
+    // It travels in a cookie, which browsers drop beyond about 4 KB once encoded.
+    encodeURIComponent(value).length <= 4000
     ? value
     : undefined;
 }

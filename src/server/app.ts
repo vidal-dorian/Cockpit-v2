@@ -47,6 +47,12 @@ export function createApp(
   const readGitHub = githubReader(readInstance);
   return (
     new Hono()
+      // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
+      .use("*", async (c, next) => {
+        await next();
+        c.res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+        c.res.headers.set("X-Frame-Options", "DENY");
+      })
       // A JSON body is read whole in memory: 256 KiB at most on every API route, before the session and the validation (decision 014).
       .use("/api/*", bodyLimit({ maxSize: 256 * 1024 }))
       .get("/api/health", async (c) => {

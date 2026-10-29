@@ -42,7 +42,8 @@ const authorizeRequest = z.object({
   code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   code_challenge_method: z.literal("S256"),
   // Up to what a `next` of /autoriser can carry through the login (auth.ts safeNext).
-  state: z.string().max(4096).optional(),
+  // A longer state could not survive the login cookie of next (auth.ts): refused here rather than lost there.
+  state: z.string().max(2048).optional(),
   resource: z.string().max(2048).optional(),
 });
 const approveBody = authorizeRequest.extend({
@@ -265,16 +266,7 @@ export function oauthRoutes(
     });
   }
 
-  // The consent page and what leads to it must not be framed (clickjacking of the Autoriser button), whatever the status.
-  const noFraming = createMiddleware(async (c, next) => {
-    c.header("Content-Security-Policy", "frame-ancestors 'none'");
-    c.header("X-Frame-Options", "DENY");
-    await next();
-  });
-
   return new Hono<Env>()
-    .use("/autoriser", noFraming)
-    .use("/oauth/authorize", noFraming)
     .get("/.well-known/oauth-protected-resource", protectedResource)
     .get("/.well-known/oauth-protected-resource/mcp", protectedResource)
     .get("/.well-known/oauth-authorization-server", async (c) => {
