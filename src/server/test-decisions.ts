@@ -209,7 +209,8 @@ export async function ticketRow(db: TestDb, ticketId: number) {
   return ticket;
 }
 
-/** The whole history, as a number: "this call wrote no entry". */
+/** The decision entries, as a number: "this call wrote no entry". The fixture's create_token and the issue syncs that follow a decision (decision 020, tested in issues.test.ts) are left out. */
 export async function entryCount(db: TestDb) {
-  return (await rows(db, sql`action <> 'create_token'`)).length;
+  return (await rows(db, sql`action not in ('create_token', 'sync_issue')`))
+    .length;
 }
