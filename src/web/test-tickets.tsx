@@ -184,6 +184,30 @@ export function stubTicketApi(
         tickets.unshift(created);
         return Response.json({ ticket: created }, { status: 201 });
       }
+      // Slice 4.5 (decision 019): the Kanban of the project, as the real route gives it (no abandoned story, ticket then position).
+      if (path === "/api/projects/5/stories" && method === "GET")
+        return Response.json({
+          stories: stories
+            .filter((s) => s.status !== "abandoned")
+            .flatMap((s) => {
+              const parent = tickets.find(
+                (t) => t.id === s.ticketId && t.projectId === 5,
+              );
+              return parent
+                ? [
+                    {
+                      id: s.id,
+                      ticketId: s.ticketId,
+                      ticketTitle: parent.title,
+                      position: s.position,
+                      iWant: s.iWant,
+                      status: s.status,
+                    },
+                  ]
+                : [];
+            })
+            .sort((a, b) => a.ticketId - b.ticketId || a.position - b.position),
+        });
       const storyMatch = /^\/api\/stories\/([^/]+)$/.exec(path);
       if (storyMatch && method === "GET") {
         const found = stories.find((s) => String(s.id) === storyMatch[1]);
