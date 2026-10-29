@@ -31,6 +31,8 @@ import {
   rewriteStory,
   storyParts,
   storyStatuses,
+  storyToRewrite,
+  ticketNeedsStories,
   ticketStories,
   WrongStatus,
 } from "./stories.ts";
@@ -424,7 +426,6 @@ const tools = {
       const mine = and(
         activeOf(call.userId),
         project_id === undefined ? undefined : eq(projects.id, project_id),
-        isNull(tickets.abandonedAt),
       );
       return act(call.db, call.entry, async (tx) => {
         const needing = await tx
@@ -437,7 +438,7 @@ const tools = {
           .innerJoin(projects, eq(projects.id, tickets.projectId))
           .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
           .leftJoin(userStories, eq(userStories.ticketId, tickets.id))
-          .where(and(mine, isNull(tickets.storiesWrittenAt)))
+          .where(and(mine, ticketNeedsStories))
           .groupBy(tickets.id, projects.id)
           .orderBy(asc(tickets.id))
           .limit(MAX_RESULTS);
@@ -447,7 +448,7 @@ const tools = {
           .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
           .innerJoin(projects, eq(projects.id, tickets.projectId))
           .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-          .where(and(mine, eq(userStories.status, "to_rewrite")))
+          .where(and(mine, storyToRewrite))
           .orderBy(asc(userStories.id))
           .limit(MAX_RESULTS);
         return {

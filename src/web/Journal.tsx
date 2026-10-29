@@ -36,6 +36,10 @@ export const ACTIONS: Record<string, string> = {
   abandon_ticket: "Ticket abandonné",
   update_user_story: "User story réécrite",
   sync_issue: "Issue GitHub synchronisée",
+  connect_routine: "Tâche d'écriture des US connectée",
+  disconnect_routine: "Tâche d'écriture des US retirée",
+  schedule_routine: "Planning d'écriture des US modifié",
+  fire_write_us: "Écriture des US lancée",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",

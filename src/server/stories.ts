@@ -1,4 +1,14 @@
-import { and, asc, desc, eq, inArray, notLike, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  notLike,
+  or,
+  sql,
+} from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
@@ -25,6 +35,16 @@ import {
 } from "./tickets.ts";
 
 export type StoryStatus = typeof userStories.$inferSelect.status;
+
+/** What `list_tickets_needing_us` lists (decision 017), also what the scheduled writing looks at (decision 022 E): tickets whose writing is open, and stories sent back, of tickets not abandoned. */
+export const ticketNeedsStories = and(
+  isNull(tickets.abandonedAt),
+  isNull(tickets.storiesWrittenAt),
+);
+export const storyToRewrite = and(
+  isNull(tickets.abandonedAt),
+  eq(userStories.status, "to_rewrite"),
+);
 
 /** The statuses of the stories of many tickets in one query, for `ticketStep` (no query per ticket). A ticket without story has no entry. Shortcut: one parameter per id, so PostgreSQL's 65,535 limit; upgrade with a subquery on the project if a project ever holds that many tickets. */
 export async function storyStatuses(db: Db, ticketIds: number[]) {
