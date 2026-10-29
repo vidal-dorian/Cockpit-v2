@@ -24,6 +24,24 @@ export type GitHubRepo = {
 
 export const INSTALLATION_ID = 77;
 
+/** An issue as the fake holds it (slice 4.6, decision 020); `labels` are names. */
+export type FakeIssue = {
+  number: number;
+  title: string;
+  body: string;
+  labels: string[];
+  state: "open" | "closed";
+  stateReason: string | null;
+  html_url: string;
+};
+
+/** An issue as GitHub's REST API serves it. */
+const serve = ({ labels, stateReason, ...issue }: FakeIssue) => ({
+  ...issue,
+  labels: labels.map((name) => ({ name })),
+  state_reason: stateReason,
+});
+
 /** A file as GitHub's Contents API serves it: base64 cut into lines of 60 characters. */
 function contentsFile(path: string, text: string) {
   const content = (
@@ -96,6 +114,18 @@ export function failOnUnexpectedFetch() {
  * `afterNextRoot(fn)`, which runs `fn` once, right after the next root answer is built (a push
  * landing between the root read and the sub-reads: `fn` calls `update`), and `served`, the commit
  * sha of each root 200, in order.
+ *
+ * Issues (slice 4.6, decision 020), per `owner/repo`: `POST /repos/{o}/{r}/issues` (title, body, labels; answers `number`
+ * and `html_url` = https://github.com/{o}/{r}/issues/{number}, numbers from 1), `PATCH .../issues/{n}` (title, body,
+ * state, state_reason, and `labels` which replaces them all), `POST .../issues/{n}/labels`, `DELETE .../issues/{n}/labels/{name}`
+ * (404 when the issue does not carry it) and `POST /repos/{o}/{r}/labels` (422 when it exists). A label that does not
+ * exist in the repo is refused with 422 when it is added to an issue or given at its creation (stricter than GitHub, which
+ * creates it: the server must create it first). A GET of an issue is not served. The returned mock reads and seeds that
+ * state: `issues(fullName)`, `labels(fullName)`, `addLabel(fullName, name)` and `addIssueLabel(fullName, number, name)`.
+ * `issuesStatus` fails every call on an issue or a label with that status (body message `github-boom-message`),
+ * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
+ * with 500 every call it returns true for, to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
+ * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
  */
 export function stubGitHub(initial: {
   account: number | null;
@@ -115,6 +145,9 @@ export function stubGitHub(initial: {
   emptyRepo?: boolean;
   tokenStatus?: number;
   installations?: number[];
+  issuesStatus?: number;
+  issuesDelay?: number;
+  failOn?: (call: { method: string; path: string }) => boolean;
 }) {
   // Mutable on purpose: `update` changes it between two calls.
   const options = { ...initial };
@@ -176,6 +209,15 @@ export function stubGitHub(initial: {
     return new Map(
       [...parts].map(([top, hash]) => [top, hash.digest("hex")] as const),
     );
+  };
+  // The issues and labels of each repo (slice 4.6, decision 020), kept so a test can read what the server did.
+  const repos = new Map<string, { issues: FakeIssue[]; labels: Set<string> }>();
+  const repoOf = (fullName: string) => {
+    const known = repos.get(fullName);
+    if (known) return known;
+    const created = { issues: [] as FakeIssue[], labels: new Set<string>() };
+    repos.set(fullName, created);
+    return created;
   };
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
@@ -361,11 +403,140 @@ export function stubGitHub(initial: {
         if (file === undefined) throw unexpectedFetch(`${route}${url.search}`);
         return Response.json(contentsFile(path, file));
       }
+      const issueRoute =
+        /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:(labels)|issues(?:\/(\d+)(?:\/(labels)(?:\/(.+))?)?)?)$/.exec(
+          route,
+        );
+      if (issueRoute) {
+        const [, verb, fullName, repoLabels, rawNumber, issueLabels, rawName] =
+          issueRoute;
+        const repo = repoOf(fullName as string);
+        const sent = (() => {
+          const raw = init?.body;
+          return typeof raw === "string" && raw ? JSON.parse(raw) : {};
+        })() as Record<string, unknown>;
+        const reply = (status: number, body: unknown) =>
+          Response.json(body, { status });
+        if (options.issuesDelay)
+          await new Promise((resolve) =>
+            setTimeout(resolve, options.issuesDelay),
+          );
+        if (options.issuesStatus)
+          return reply(options.issuesStatus, {
+            message: "github-boom-message",
+          });
+        if (options.failOn?.({ method: verb as string, path: url.pathname }))
+          return reply(500, { message: "github-boom-message" });
+        // GitHub's limits, in characters (here UTF-16 units).
+        const tooLong = () =>
+          (typeof sent.title === "string" && sent.title.length > 256) ||
+          (typeof sent.body === "string" && sent.body.length > 65_536)
+            ? reply(422, {
+                message: "Validation Failed",
+                errors: [{ resource: "Issue", code: "custom" }],
+              })
+            : undefined;
+        const labelNames = () =>
+          Array.isArray(sent.labels)
+            ? (sent.labels as unknown[]).map((l) =>
+                typeof l === "string"
+                  ? l
+                  : String((l as { name?: unknown }).name),
+              )
+            : [];
+        // GitHub creates unknown labels on its own when an issue is created with them; this fake is stricter on purpose, so the "create the label first" path is exercised.
+        const unknown = (names: string[]) =>
+          names.find((name) => !repo.labels.has(name));
+        const missing = (name: string) =>
+          reply(422, {
+            message: "Validation Failed",
+            errors: [{ resource: "Label", code: "invalid", value: name }],
+          });
+        if (repoLabels && verb === "POST") {
+          const name = String(sent.name ?? "");
+          if (!name || repo.labels.has(name))
+            return reply(422, {
+              message: "Validation Failed",
+              errors: [{ resource: "Label", code: "already_exists" }],
+            });
+          repo.labels.add(name);
+          return reply(201, { name });
+        }
+        if (!repoLabels && rawNumber === undefined && verb === "POST") {
+          const names = labelNames();
+          const absent = unknown(names);
+          if (absent !== undefined) return missing(absent);
+          const refused = tooLong();
+          if (refused) return refused;
+          const number = repo.issues.length + 1;
+          const issue: FakeIssue = {
+            number,
+            title: String(sent.title ?? ""),
+            body: String(sent.body ?? ""),
+            labels: names,
+            state: "open",
+            stateReason: null,
+            html_url: `https://github.com/${fullName}/issues/${number}`,
+          };
+          repo.issues.push(issue);
+          return reply(201, serve(issue));
+        }
+        const issue = repo.issues.find((i) => i.number === Number(rawNumber));
+        if (rawNumber !== undefined && !issue)
+          return reply(404, { message: "Not Found" });
+        if (issue && !issueLabels && verb === "PATCH") {
+          const refused = tooLong();
+          if (refused) return refused;
+          if (typeof sent.title === "string") issue.title = sent.title;
+          if (typeof sent.body === "string") issue.body = sent.body;
+          if (sent.state === "open" || sent.state === "closed")
+            issue.state = sent.state;
+          if (sent.state === "open") issue.stateReason = null;
+          else if (typeof sent.state_reason === "string")
+            issue.stateReason = sent.state_reason;
+          if (Array.isArray(sent.labels)) issue.labels = labelNames();
+          return reply(200, serve(issue));
+        }
+        if (issue && issueLabels && !rawName && verb === "POST") {
+          const names = labelNames();
+          const absent = unknown(names);
+          if (absent !== undefined) return missing(absent);
+          issue.labels = [...new Set([...issue.labels, ...names])];
+          return reply(
+            200,
+            issue.labels.map((name) => ({ name })),
+          );
+        }
+        if (issue && issueLabels && rawName && verb === "DELETE") {
+          const name = decodeURIComponent(rawName);
+          if (!issue.labels.includes(name))
+            return reply(404, { message: "Label does not exist" });
+          issue.labels = issue.labels.filter((l) => l !== name);
+          return reply(
+            200,
+            issue.labels.map((l) => ({ name: l })),
+          );
+        }
+      }
       throw unexpectedFetch(route);
     },
   );
   vi.stubGlobal("fetch", fetchMock);
   return Object.assign(fetchMock, {
+    /** The issues of a repo, as GitHub holds them now (live objects: read them after the call under test). */
+    issues: (fullName: string) => repoOf(fullName).issues,
+    /** The names of the labels that exist in a repo. */
+    labels: (fullName: string) => [...repoOf(fullName).labels],
+    /** Makes a label exist in a repo, as a person would have created it. */
+    addLabel(fullName: string, name: string) {
+      repoOf(fullName).labels.add(name);
+    },
+    /** Puts a label (created in the repo if needed) on an issue, as a person would (the label `bug`). */
+    addIssueLabel(fullName: string, number: number, name: string) {
+      const repo = repoOf(fullName);
+      repo.labels.add(name);
+      repo.issues.find((i) => i.number === number)?.labels.push(name);
+    },
     /** The commit sha of each root answer 200, in order. */
     served,
     update(patch: Partial<typeof initial>) {
@@ -403,4 +574,11 @@ export function githubCalls(fetchMock: ReturnType<typeof stubGitHub>) {
       ifNoneMatch: headers.get("if-none-match") ?? "",
     };
   });
+}
+
+/** The calls that touch the issues or the labels of a repo (slice 4.6): "the server did not write to GitHub" is `toEqual([])` on this. */
+export function issueCalls(fetchMock: ReturnType<typeof stubGitHub>) {
+  return githubCalls(fetchMock).filter((call) =>
+    /^\/repos\/[^/]+\/[^/]+\/(issues|labels)(\/|$)/.test(call.path),
+  );
 }

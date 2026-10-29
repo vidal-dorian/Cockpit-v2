@@ -11,6 +11,8 @@ import {
   tickets,
   userStories,
 } from "./db/schema.ts";
+import type { ReadGitHub } from "./github.ts";
+import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
 import {
   assertActive,
@@ -63,7 +65,7 @@ export async function memberStory(db: Db, userId: number, id: number) {
   return project && { ...found, project };
 }
 
-/** The criteria of a story in order, and the stories it depends on. */
+/** The criteria of a story in order, and the stories it depends on (with their issue number, for the issue's « Dépend de #12 »). */
 export async function storyParts(db: Db, storyId: number) {
   const criteria = await db
     .select()
@@ -75,6 +77,7 @@ export async function storyParts(db: Db, storyId: number) {
       id: userStories.id,
       status: userStories.status,
       iWant: userStories.iWant,
+      issueNumber: userStories.issueNumber,
     })
     .from(storyDependencies)
     .innerJoin(userStories, eq(userStories.id, storyDependencies.dependsOnId))
@@ -178,7 +181,7 @@ export async function rewriteStory(
 
 type Parts = Awaited<ReturnType<typeof storyParts>>;
 
-const presentStory = (story: Story, { criteria, dependsOn }: Parts) => ({
+const presentStory = (story: Story, parts: Parts, fullName: string) => ({
   id: story.id,
   ticketId: story.ticketId,
   position: story.position,
@@ -188,7 +191,7 @@ const presentStory = (story: Story, { criteria, dependsOn }: Parts) => ({
   notesMd: story.notesMd,
   status: story.status,
   rewriteComment: story.rewriteComment,
-  criteria: criteria.map((k) => ({
+  criteria: parts.criteria.map((k) => ({
     id: k.id,
     position: k.position,
     given: k.givenText,
@@ -196,12 +199,26 @@ const presentStory = (story: Story, { criteria, dependsOn }: Parts) => ({
     // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
     then: k.thenText,
   })),
-  dependsOn,
+  dependsOn: parts.dependsOn.map(({ id, status, iWant }) => ({
+    id,
+    status,
+    iWant,
+  })),
+  issue: issueOf(story, parts, fullName),
 });
 
 /** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/stories/*. */
-export function storyRoutes(db: Db) {
-  /** A human decision: the caller's story, its allowed statuses, the change; answers with the story. */
+export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
+  /** The story as it is now (after the sync of its issue), for the answer of a decision. */
+  const reread = async (id: number, fullName: string) => {
+    const [story] = await db
+      .select()
+      .from(userStories)
+      .where(eq(userStories.id, id));
+    if (!story) throw new Refused("not_found");
+    return presentStory(story, await storyParts(db, id), fullName);
+  };
+  /** A human decision: the caller's story, its allowed statuses, the change; then the sync of its issue (decision 020 F, which never fails the decision); answers with the story. */
   const decide = async (
     c: Context,
     action: string,
@@ -221,9 +238,8 @@ export function storyRoutes(db: Db) {
     };
     try {
       const story = await changeStory(db, entry, found, from, change);
-      return c.json({
-        story: presentStory(story, await storyParts(db, story.id)),
-      });
+      await syncIssue(db, readGitHub, user.userId, story.id);
+      return c.json({ story: await reread(story.id, found.project.fullName) });
     } catch (error) {
       return refusal(c, error);
     }
@@ -262,7 +278,11 @@ export function storyRoutes(db: Db) {
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
       return c.json({
-        story: presentStory(story, await storyParts(db, story.id)),
+        story: presentStory(
+          story,
+          await storyParts(db, story.id),
+          project.fullName,
+        ),
         ticket: { id: ticket.id, title: ticket.title },
         project: {
           id: project.id,
@@ -312,6 +332,24 @@ export function storyRoutes(db: Db) {
         .orderBy(desc(history.at), desc(history.id))
         .limit(100);
       return c.json({ entries });
+    })
+    .post("/api/stories/:id/publish", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const found = await memberStory(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json({ error: "Not found" }, 404);
+      if (found.project.archivedAt)
+        return c.json({ error: "project_archived" }, 409);
+      if (!shouldHaveIssue(found.story))
+        return c.json({ error: "wrong_status" }, 409);
+      await syncIssue(db, readGitHub, user.userId, found.story.id);
+      return c.json({
+        story: await reread(found.story.id, found.project.fullName),
+      });
     })
     .post("/api/stories/:id/validate", (c) =>
       decide(c, "validate_story", ["to_validate", "to_rewrite"], (tx, story) =>

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { failOnUnexpectedFetch, stubGitHub } from "./test-github.ts";
+import {
+  failOnUnexpectedFetch,
+  issueCalls,
+  stubGitHub,
+} from "./test-github.ts";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -78,5 +82,126 @@ describe("failOnUnexpectedFetch", () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(error.message).toBe("Unexpected fetch POST https://github.com/nope");
+  });
+});
+
+describe("stubGitHub issues (slice 4.6)", () => {
+  const api = "https://api.github.com/repos/o/r";
+  const call = (method: string, path: string, body?: unknown) =>
+    fetch(`${api}${path}`, {
+      method,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+  it("given a label that does not exist, when an issue is created with it or it is added to an issue, then 422 until the label is created, and creating it twice is 422", async () => {
+    const github = stubGitHub({ account: 1 });
+    expect(
+      (await call("POST", "/issues", { title: "t", body: "b", labels: ["x"] }))
+        .status,
+    ).toBe(422);
+    expect(
+      (await call("POST", "/issues", { title: "t", body: "b" })).status,
+    ).toBe(201);
+    expect(
+      (await call("POST", "/issues/1/labels", { labels: ["x"] })).status,
+    ).toBe(422);
+
+    expect((await call("POST", "/labels", { name: "x" })).status).toBe(201);
+    expect((await call("POST", "/labels", { name: "x" })).status).toBe(422);
+    expect(
+      (await call("POST", "/issues/1/labels", { labels: ["x"] })).status,
+    ).toBe(200);
+
+    expect(github.issues("o/r")[0]?.labels).toEqual(["x"]);
+  });
+
+  it("given an issue with a label, when it is patched, closed and a label removed, then the fake holds the new state and a missing label or issue is 404", async () => {
+    const github = stubGitHub({ account: 1 });
+    github.addLabel("o/r", "x");
+    const created = await call("POST", "/issues", {
+      title: "t",
+      body: "b",
+      labels: ["x"],
+    });
+    expect(await created.json()).toMatchObject({
+      number: 1,
+      html_url: "https://github.com/o/r/issues/1",
+    });
+
+    await call("PATCH", "/issues/1", {
+      title: "t2",
+      body: "b2",
+      state: "closed",
+      state_reason: "not_planned",
+    });
+    expect(github.issues("o/r")[0]).toMatchObject({
+      title: "t2",
+      body: "b2",
+      state: "closed",
+      stateReason: "not_planned",
+      labels: ["x"],
+    });
+    expect((await call("DELETE", "/issues/1/labels/x")).status).toBe(200);
+    expect((await call("DELETE", "/issues/1/labels/x")).status).toBe(404);
+    expect((await call("PATCH", "/issues/9", { title: "z" })).status).toBe(404);
+  });
+
+  it("given issuesStatus, when an issue call is made, then it fails with that status, and issueCalls lists only the issue and label calls", async () => {
+    const github = stubGitHub({ account: 1, issuesStatus: 500 });
+    expect((await call("POST", "/labels", { name: "x" })).status).toBe(500);
+    github.update({ issuesStatus: undefined });
+    expect((await call("POST", "/labels", { name: "x" })).status).toBe(201);
+    await fetch("https://api.github.com/users/x/installation");
+
+    expect(issueCalls(github).map((c) => [c.method, c.path])).toEqual([
+      ["POST", "/repos/o/r/labels"],
+      ["POST", "/repos/o/r/labels"],
+    ]);
+  });
+
+  it("given an issue, when a label is added, then the answer is the whole label list of the issue, as GitHub's, not only the label added", async () => {
+    const github = stubGitHub({ account: 1 });
+    github.addLabel("o/r", "x");
+    github.addLabel("o/r", "y");
+    await call("POST", "/issues", { title: "t", body: "b", labels: ["x"] });
+
+    const res = await call("POST", "/issues/1/labels", { labels: ["y"] });
+
+    expect(await res.json()).toEqual([{ name: "x" }, { name: "y" }]);
+  });
+
+  it("given GitHub's limits, when an issue is created or patched with a title over 256 characters or a body over 65,536, then 422 and nothing changes; at the limit it is accepted", async () => {
+    const github = stubGitHub({ account: 1 });
+    const title = "t".repeat(256);
+    const body = "b".repeat(65_536);
+    expect(
+      (await call("POST", "/issues", { title: `${title}t`, body: "b" })).status,
+    ).toBe(422);
+    expect(
+      (await call("POST", "/issues", { title: "t", body: `${body}b` })).status,
+    ).toBe(422);
+    expect(github.issues("o/r")).toEqual([]);
+    expect((await call("POST", "/issues", { title, body })).status).toBe(201);
+
+    expect(
+      (await call("PATCH", "/issues/1", { title: `${title}t` })).status,
+    ).toBe(422);
+    expect(
+      (await call("PATCH", "/issues/1", { body: `${body}b` })).status,
+    ).toBe(422);
+    expect(github.issues("o/r")[0]).toMatchObject({ title, body });
+  });
+
+  it("given failOn, when a call matches it, then only that call fails with 500, until it is cleared", async () => {
+    const github = stubGitHub({
+      account: 1,
+      failOn: (c) => c.method === "PATCH",
+    });
+    await call("POST", "/issues", { title: "t", body: "b" });
+
+    expect((await call("PATCH", "/issues/1", { title: "u" })).status).toBe(500);
+    expect(github.issues("o/r")[0]?.title).toBe("t");
+    github.update({ failOn: undefined });
+    expect((await call("PATCH", "/issues/1", { title: "u" })).status).toBe(200);
   });
 });

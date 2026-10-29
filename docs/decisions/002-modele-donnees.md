@@ -181,6 +181,7 @@ Sur `user_stories` :
 - **`rewrite_comment`** : le commentaire du dernier renvoi. Claude le lit directement, sans fouiller l'historique ; il est vidé à la réécriture.
 - **`branch`, `pr_number`** : sur l'US et non sur le run, car une relance réutilise la même branche et la même PR.
 - **`pr_ci_state`, `pr_review_state`** : **copie de cache** de GitHub, mise à jour par les webhooks. Elle permet à l'accueil d'afficher « PR dont la CI échoue » sans interroger GitHub à chaque affichage.
+- **`issue_number`, `issue_claimed_at`** : le numéro de l'issue, et l'heure où une synchronisation a réservé sa création (vide sinon). *Note (020 E et G) : `issue_claimed_at` est ajoutée par la 020.*
 - **`issue_body_hash`** : l'empreinte du dernier contenu publié par Cockpit dans l'issue. Si le texte sur GitHub ne correspond plus, l'issue a été modifiée à la main : Cockpit montre le diff entre l'issue et le rendu actuel de l'US (5.2).
 
 ### Runs
@@ -207,7 +208,7 @@ Le **verdict** de fin de run (« acceptable » ou « à vérifier ») n'est pas 
 | `args` | Les arguments, en JSON, **secrets masqués** |
 | `result` | `ok`, `error` ou `refused` |
 | `detail` | Le résultat ou le message d'erreur, en JSON |
-| `github_effects` | Ce qui a été fait sur GitHub, en JSON |
+| `github_effects` | Ce qui a été fait sur GitHub, en JSON. *Note (020 H) : rempli par `sync_issue`, `{ issueNumber, created, closed }`.* |
 
 - Des triggers PL/pgSQL `BEFORE UPDATE`, `BEFORE DELETE` et `BEFORE TRUNCATE` refusent toute modification et toute suppression (`RAISE EXCEPTION`, 008).
 - **Aucune clé étrangère** vers les autres tables : un ticket peut être supprimé sans toucher à l'historique, et une entrée garde l'identifiant de l'objet même s'il a disparu.

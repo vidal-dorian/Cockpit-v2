@@ -7,6 +7,8 @@ import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projects, tickets, userStories } from "./db/schema.ts";
+import type { ReadGitHub } from "./github.ts";
+import { syncTicketIssues } from "./issues.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
 import { type StoryStatus, storyStatuses, ticketStories } from "./stories.ts";
 
@@ -120,7 +122,11 @@ export function refusal(c: Context, error: unknown) {
 }
 
 /** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/tickets/*. */
-export function ticketRoutes(db: Db) {
+export function ticketRoutes(
+  db: Db,
+  readGitHub: ReadGitHub,
+  issueSyncBudgetMs: number,
+) {
   const entryOf = (userId: number, action: string): Entry => ({
     userId,
     actor: "human",
@@ -325,6 +331,13 @@ export function ticketRoutes(db: Db) {
           if (!row) throw new Refused("not_found");
           return row;
         });
+        await syncTicketIssues(
+          db,
+          readGitHub,
+          user.userId,
+          ticket.id,
+          issueSyncBudgetMs,
+        );
         // An abandoned ticket is abandoned whatever its stories say.
         return c.json({ ticket: present(abandoned, []) });
       } catch (error) {

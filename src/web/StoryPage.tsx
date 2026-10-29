@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
+import { StoryIssue } from "./StoryIssue.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
 import { focusRing, markdownStyle } from "./ui.ts";
 
@@ -89,6 +90,13 @@ export function StoryPage() {
                 {found.project.fullName}
               </span>
             </p>
+            {found.story.issue && (
+              <StoryIssue
+                id={found.story.id}
+                issue={found.story.issue}
+                archived={found.project.archived}
+              />
+            )}
             {found.story.status === "to_rewrite" &&
               found.story.rewriteComment && (
                 <section className="mt-4 rounded-xl bg-you-soft p-4 text-you-text">

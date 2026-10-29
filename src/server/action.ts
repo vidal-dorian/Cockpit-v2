@@ -10,7 +10,7 @@ export type Entry = Required<
 > &
   Pick<
     typeof history.$inferInsert,
-    "projectId" | "ticketId" | "storyId" | "tokenId"
+    "projectId" | "ticketId" | "storyId" | "tokenId" | "githubEffects"
   >;
 
 /** The work was not allowed; `act` records a `refused` entry. The message goes to the history, so it must be a fixed code: no free text, nothing personal. */

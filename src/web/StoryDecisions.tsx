@@ -419,7 +419,11 @@ export function StoryHistory({ id }: { id: number }) {
               className="flex flex-wrap items-baseline gap-x-3 rounded-xl bg-card p-3"
             >
               <span className="font-semibold">
-                {entry.actor === "claude" ? "Claude" : "Toi"}
+                {entry.actor === "claude"
+                  ? "Claude"
+                  : entry.actor === "system"
+                    ? "Cockpit"
+                    : "Toi"}
               </span>
               <span>{ACTIONS[entry.action] ?? entry.action}</span>
               <span className="text-muted-foreground">
