@@ -120,7 +120,7 @@ Qui peut faire chaque transition d'une US, et par où. Elle reprend le brief (§
 | Transition | Claude (outil MCP) | Humain (interface) | GitHub (webhook) |
 |---|---|---|---|
 | Créer → `to_validate` | `create_user_stories` | — | — |
-| `to_validate` → `ready` (valider) | **jamais** | oui | — |
+| `to_validate` → `ready` (valider) | **jamais** | oui *(et depuis `to_rewrite`, 018 B ; l'humain modifie aussi une US `to_validate`, `to_rewrite` ou `ready` sans en changer le statut, 018 C)* | — |
 | `to_validate` → `to_rewrite` (renvoyer, commentaire obligatoire) | **jamais** | oui | — |
 | `to_rewrite` → `to_validate` (réécrire) | `update_user_story` | — | — |
 | `ready` → `in_progress` | `start_run` | — | — |
