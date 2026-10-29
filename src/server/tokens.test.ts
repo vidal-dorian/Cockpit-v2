@@ -117,7 +117,7 @@ const entriesOf = (db: TestDb, action: string) =>
 const allEntries = (db: TestDb) => db.select().from(history);
 
 describe("POST /api/me/tokens", () => {
-  it("given a user, when they create a token, then 201 with { token: { id, name, lastFour, createdAt, lastUsedAt: null, revokedAt: null }, secret } and the secret is ckp_ plus 43 base64url characters", async () => {
+  it("given a user, when they create a token, then 201 with { token: { id, name, kind: manual, lastFour, createdAt, lastUsedAt: null, revokedAt: null }, secret } and the secret is ckp_ plus 43 base64url characters", async () => {
     const { app, db } = await setup();
     const alice = await userWithSession(db, 5);
 
@@ -130,6 +130,7 @@ describe("POST /api/me/tokens", () => {
     expect(Object.keys(body.token).sort()).toEqual([
       "createdAt",
       "id",
+      "kind",
       "lastFour",
       "lastUsedAt",
       "name",
@@ -137,6 +138,7 @@ describe("POST /api/me/tokens", () => {
     ]);
     expect(body.token).toMatchObject({
       name: "Mon Claude",
+      kind: "manual",
       lastFour: body.secret.slice(-4),
       lastUsedAt: null,
       revokedAt: null,
@@ -366,6 +368,7 @@ describe("GET /api/me/tokens", () => {
       expect(Object.keys(token).sort()).toEqual([
         "createdAt",
         "id",
+        "kind",
         "lastFour",
         "lastUsedAt",
         "name",

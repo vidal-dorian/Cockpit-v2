@@ -46,7 +46,7 @@ import { purgeRevokedTokens } from "./tokens.ts";
 // - get_project when the App lost access to the repo (root tree 404): still ok, with claude_md "" and
 //   `claude_md_unreachable: true`; a GitHub failure (500) is an Error that says to retry.
 // - protocol: GET and DELETE -> 405 with Allow: POST; a notification -> 202 without body; a body over
-//   256 KiB -> 413; the OAuth discovery paths under /.well-known -> 404 JSON (they must not get the page).
+//   256 KiB -> 413; the /.well-known paths other than the three OAuth discovery ones (decision 021 A) -> 404 JSON (they must not get the page).
 // - unknown tool: journaled under its own name when that is a short identifier (/^[a-z][a-z0-9_]{0,39}$/),
 //   else under "unknown_tool".
 
@@ -1252,12 +1252,9 @@ describe("protocol details of /mcp", () => {
     expect(res.status).toBe(413);
   });
 
-  it.each([
-    "/.well-known/oauth-protected-resource",
-    "/.well-known/oauth-protected-resource/mcp",
-    "/.well-known/oauth-authorization-server",
-  ])(
-    "given the OAuth discovery path %s, when it is requested, then 404 as JSON, not the page",
+  // Decision 021 A: the three OAuth discovery paths are served now (oauth.test.ts); every other path stays a 404.
+  it.each(["/.well-known/openid-configuration", "/.well-known/nope"])(
+    "given the other /.well-known path %s, when it is requested, then 404 as JSON, not the page",
     async (path) => {
       const { app } = await setup();
 

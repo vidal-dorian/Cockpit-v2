@@ -619,10 +619,11 @@ describe("GET /api/projects/:id/health", () => {
   const CLAUDE_DIR = `${REPO}/git/trees/SHA:.claude?recursive=1`;
   const WORKFLOWS = `${REPO}/git/trees/SHA:.github/workflows`;
   const MCP_JSON = `${REPO}/contents/.mcp.json?ref=SHA`;
-  const ALL_MISSING = [
+  // Decision 021 H: a repo that does not declare Cockpit in .mcp.json is fine, so an empty repo is red on three lines only.
+  const NOTHING_IN_PLACE = [
     { key: "claude_md", ok: false, detail: "missing" },
     { key: "ci", ok: false, detail: "missing" },
-    { key: "mcp", ok: false, detail: "missing" },
+    { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: false, detail: "missing" },
   ];
 
@@ -657,20 +658,13 @@ describe("GET /api/projects/:id/health", () => {
     expect(await res.json()).toEqual({ lines: READY_LINES });
   });
 
-  it("given an empty repo, when the health is requested, then 200 and the four lines are missing, in order", async () => {
+  it("given an empty repo, when the health is requested, then 200, the other three lines are missing and the mcp line is ok (Cockpit is a connector, decision 021 H), in order", async () => {
     const { app, a, id } = await withRepo({});
 
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      lines: [
-        { key: "claude_md", ok: false, detail: "missing" },
-        { key: "ci", ok: false, detail: "missing" },
-        { key: "mcp", ok: false, detail: "missing" },
-        { key: "agents", ok: false, detail: "missing" },
-      ],
-    });
+    expect(await res.json()).toEqual({ lines: NOTHING_IN_PLACE });
   });
 
   it.each([
@@ -786,7 +780,7 @@ describe("GET /api/projects/:id/health", () => {
       mcpFile({ cockpit: { command: "npx", args: ["cockpit"] } }),
     ],
   ])(
-    "given %s, when the health is requested, then the mcp line is red with detail missing",
+    "given %s, when the health is requested, then the mcp line is ok: Cockpit is absent from .mcp.json (decision 021 H)",
     async (_name, file) => {
       const { app, a, id } = await withRepo(
         file === undefined ? {} : { ".mcp.json": file },
@@ -794,7 +788,7 @@ describe("GET /api/projects/:id/health", () => {
 
       const line = await lineOf(await health(app, a.cookie, id), "mcp");
 
-      expect(line).toEqual({ key: "mcp", ok: false, detail: "missing" });
+      expect(line).toEqual({ key: "mcp", ok: true, detail: OK });
     },
   );
 
@@ -926,7 +920,7 @@ describe("GET /api/projects/:id/health", () => {
     },
   );
 
-  it("given .mcp.json is a symlink that the Contents API does not serve as a file, when the health is requested, then 200 and the mcp line is red with detail missing, not a 502", async () => {
+  it("given .mcp.json is a symlink that the Contents API does not serve as a file, when the health is requested, then 200 and the mcp line is ok (Cockpit is absent, decision 021 H), not a 502", async () => {
     const { app, a, id } = await withRepo(
       {},
       {
@@ -938,7 +932,7 @@ describe("GET /api/projects/:id/health", () => {
 
     const line = await lineOf(await health(app, a.cookie, id), "mcp");
 
-    expect(line).toEqual({ key: "mcp", ok: false, detail: "missing" });
+    expect(line).toEqual({ key: "mcp", ok: true, detail: OK });
   });
 
   it.each([
@@ -1194,17 +1188,17 @@ describe("GET /api/projects/:id/health", () => {
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ lines: ALL_MISSING });
+    expect(await res.json()).toEqual({ lines: NOTHING_IN_PLACE });
   });
 
-  it("given .mcp.json is only a directory in the tree, when the health is requested, then it is not read: the mcp line is missing and the tree is the only call", async () => {
+  it("given .mcp.json is only a directory in the tree, when the health is requested, then it is not read: the mcp line is ok (Cockpit is absent, decision 021 H) and the tree is the only call", async () => {
     const { app, a, id, fetchMock } = await withRepo({
       ".mcp.json/other.json": "{}",
     });
 
     const line = await lineOf(await health(app, a.cookie, id), "mcp");
 
-    expect(line).toEqual({ key: "mcp", ok: false, detail: "missing" });
+    expect(line).toEqual({ key: "mcp", ok: true, detail: OK });
     expect(
       githubCalls(fetchMock).filter((c) => c.path.includes("/contents/")),
     ).toEqual([]);
@@ -1226,7 +1220,7 @@ describe("GET /api/projects/:id/health", () => {
       lines: [
         READY_LINES[0],
         { key: "ci", ok: false, detail: "missing" },
-        { key: "mcp", ok: false, detail: "missing" },
+        { key: "mcp", ok: true, detail: OK },
         READY_LINES[3],
       ],
     });
@@ -1254,7 +1248,7 @@ describe("GET /api/projects/:id/health", () => {
       lines: [
         READY_LINES[0],
         { key: "ci", ok: false, detail: "missing" },
-        { key: "mcp", ok: false, detail: "missing" },
+        { key: "mcp", ok: true, detail: OK },
         { key: "agents", ok: false, detail: "missing" },
       ],
     });
@@ -1478,13 +1472,13 @@ describe("GET /api/projects/:id/health", () => {
     expect(repoCalls(fetchMock)).toEqual([ROOT, WORKFLOWS].sort());
   });
 
-  it("given an empty repository (the tree answers 409 Git Repository is empty), when the health is requested, then 200 with the four lines missing, in order, after a single call to the tree", async () => {
+  it("given an empty repository (the tree answers 409 Git Repository is empty), when the health is requested, then 200 with the lines of an empty repo (mcp ok, decision 021 H), in order, after a single call to the tree", async () => {
     const { app, a, id, fetchMock } = await withRepo({}, { emptyRepo: true });
 
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ lines: ALL_MISSING });
+    expect(await res.json()).toEqual({ lines: NOTHING_IN_PLACE });
     expect(repoCalls(fetchMock)).toEqual([ROOT]);
   });
 
@@ -1842,7 +1836,7 @@ describe("GET /api/projects/:id/health", () => {
     expect(await statuses(fetchMock)).toContain(304);
   });
 
-  it("given a good check cached and the repo is now empty (409 Git Repository is empty), when the health is requested, then 200 with the four lines missing as without a cache, not the cached lines", async () => {
+  it("given a good check cached and the repo is now empty (409 Git Repository is empty), when the health is requested, then 200 with the lines of an empty repo (mcp ok, decision 021 H) as without a cache, not the cached lines", async () => {
     const { app, a, id, fetchMock } = await withRepo(readyRepo());
     await health(app, a.cookie, id);
     fetchMock.mockClear();
@@ -1852,7 +1846,7 @@ describe("GET /api/projects/:id/health", () => {
 
     const res = await health(app, a.cookie, id);
 
-    expect(await linesOf(res)).toEqual(ALL_MISSING);
+    expect(await linesOf(res)).toEqual(NOTHING_IN_PLACE);
   });
 
   it("given two projects on different repos, when each is displayed twice, then each keeps its own lines and only ever sends its own ETag", async () => {
@@ -1863,10 +1857,10 @@ describe("GET /api/projects/:id/health", () => {
     const lines = async (name: string) =>
       linesOf(await health(app, a.cookie, ids[name] as number));
     expect(await lines("app")).toEqual(READY_LINES);
-    expect(await lines("bare")).toEqual(ALL_MISSING);
+    expect(await lines("bare")).toEqual(NOTHING_IN_PLACE);
     fetchMock.mockClear();
 
-    expect(await lines("bare")).toEqual(ALL_MISSING);
+    expect(await lines("bare")).toEqual(NOTHING_IN_PLACE);
     expect(await lines("app")).toEqual(READY_LINES);
 
     expect(callsOn("app")).toEqual([ROOT]);
