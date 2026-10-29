@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
@@ -18,13 +18,16 @@ const notFound = { error: "Not found" };
 export const noNul = (text: string) => !text.includes("\0");
 export const title = z.string().trim().min(1).max(200).refine(noNul);
 export const descriptionMd = z.string().max(50_000).refine(noNul);
+// Limits of decision 017 B, shared by the stories Claude writes (MCP) and the ones the user edits (REST): the texts are trimmed.
+export const narrative = z.string().trim().min(1).max(1_000).refine(noNul);
+export const criterionText = z.string().trim().min(1).max(2_000).refine(noNul);
 const createBody = z.object({ title, descriptionMd: descriptionMd.optional() });
 const editBody = z
   .object({ title: title.optional(), descriptionMd: descriptionMd.optional() })
   .refine((body) => Object.keys(body).length > 0);
 
 /** A zod schema as a route validator: a body that does not fit is a 400, before any work and any history entry. */
-const body = <T extends z.ZodType>(schema: T) =>
+export const body = <T extends z.ZodType>(schema: T) =>
   validator("json", (value, c) => {
     const parsed = schema.safeParse(value);
     if (!parsed.success) return c.json({ error: "Bad request" }, 400);
@@ -58,6 +61,7 @@ const present = (t: typeof tickets.$inferSelect, statuses: StoryStatus[]) => ({
   descriptionMd: t.descriptionMd,
   step: ticketStep(t, statuses),
   storiesWrittenAt: t.storiesWrittenAt,
+  abandonedAt: t.abandonedAt,
   createdAt: t.createdAt,
   updatedAt: t.updatedAt,
 });
@@ -100,13 +104,17 @@ export function createTicket(
   });
 }
 
+const CONFLICTS = [
+  "project_archived",
+  "ticket_has_stories",
+  "ticket_abandoned",
+  "wrong_status",
+];
+
 /** A refusal of `act` as an answer; any other error is not ours. */
-function refusal(c: Context, error: unknown) {
+export function refusal(c: Context, error: unknown) {
   if (!(error instanceof Refused)) throw error;
-  if (
-    error.message === "project_archived" ||
-    error.message === "ticket_has_stories"
-  )
+  if (CONFLICTS.includes(error.message))
     return c.json({ error: error.message }, 409);
   return c.json(notFound, 404);
 }
@@ -208,12 +216,19 @@ export function ticketRoutes(db: Db) {
       try {
         const updated = await act(db, entry, async (tx) => {
           await assertActive(tx, project.id);
+          const [current] = await tx
+            .select({ abandonedAt: tickets.abandonedAt })
+            .from(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .for("update");
+          // Deleted since we read it.
+          if (!current) throw new Refused("not_found");
+          if (current.abandonedAt) throw new Refused("ticket_abandoned");
           const [row] = await tx
             .update(tickets)
             .set({ ...c.req.valid("json"), updatedAt: sql`now()` })
             .where(eq(tickets.id, ticket.id))
             .returning();
-          // Deleted since we read it.
           if (!row) throw new Refused("not_found");
           return row;
         });
@@ -221,6 +236,63 @@ export function ticketRoutes(db: Db) {
         return c.json({
           ticket: present(updated, statuses.get(updated.id) ?? []),
         });
+      } catch (error) {
+        return refusal(c, error);
+      }
+    })
+    .post("/api/tickets/:id/abandon", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const found = await memberTicket(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json(notFound, 404);
+
+      const { ticket, project } = found;
+      const entry: Entry = {
+        ...entryOf(user.userId, "abandon_ticket"),
+        projectId: project.id,
+        ticketId: ticket.id,
+        args: { ticketId: ticket.id },
+      };
+      try {
+        const abandoned = await act(db, entry, async (tx) => {
+          await assertActive(tx, project.id);
+          const [locked] = await tx
+            .select({ abandonedAt: tickets.abandonedAt })
+            .from(tickets)
+            .where(eq(tickets.id, ticket.id))
+            .for("update");
+          if (!locked) throw new Refused("not_found");
+          if (locked.abandonedAt) throw new Refused("ticket_abandoned");
+          // Decision 018 D: no story of an abandoned ticket stays ready to develop; done ones stay done.
+          const stories = await tx
+            .update(userStories)
+            .set({ status: "abandoned", updatedAt: sql`now()` })
+            .where(
+              and(
+                eq(userStories.ticketId, ticket.id),
+                ne(userStories.status, "done"),
+                ne(userStories.status, "abandoned"),
+              ),
+            )
+            .returning({ id: userStories.id });
+          entry.args = {
+            ticketId: ticket.id,
+            abandonedStories: stories.length,
+          };
+          const [row] = await tx
+            .update(tickets)
+            .set({ abandonedAt: sql`now()`, updatedAt: sql`now()` })
+            .where(eq(tickets.id, ticket.id))
+            .returning();
+          if (!row) throw new Refused("not_found");
+          return row;
+        });
+        // An abandoned ticket is abandoned whatever its stories say.
+        return c.json({ ticket: present(abandoned, []) });
       } catch (error) {
         return refusal(c, error);
       }

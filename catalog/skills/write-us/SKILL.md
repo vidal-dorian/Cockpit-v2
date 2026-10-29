@@ -11,7 +11,7 @@ The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, t
 
 ## Workflow
 
-1. **Find the work.** Call `mcp__cockpit__list_tickets_needing_us`, with `project_id` when the user named a project (get it from `mcp__cockpit__list_projects`). It returns at most 20 tickets whose writing is not closed, oldest first, each with `stories_written` (0 for a new ticket); a ticket whose writing is closed leaves the list, so call it again for the next ones. If the user named one ticket by a few words, use `mcp__cockpit__search` instead. If both lists are empty, say so and stop. `stories_to_rewrite` lists stories the user sent back; rewriting them is not possible yet: tell the user and leave them.
+1. **Find the work.** Call `mcp__cockpit__list_tickets_needing_us`, with `project_id` when the user named a project (get it from `mcp__cockpit__list_projects`). It returns at most 20 tickets whose writing is not closed, oldest first, each with `stories_written` (0 for a new ticket); a ticket whose writing is closed leaves the list, so call it again for the next ones. If the user named one ticket by a few words, use `mcp__cockpit__search` instead. If both lists are empty, say so and stop. `stories_to_rewrite` lists stories the user sent back: rewrite them as in "Rewrite the stories the user sent back" below.
 2. **Read the rules of the project.** Call `mcp__cockpit__get_project` once per project: its `claude_md` tells you the vocabulary, the conventions and what the code base does. Stories must fit them.
 3. **Read the ticket.** The title and `description_md` from step 1 are usually enough; call `mcp__cockpit__get_ticket` if you need more. Read the code only when the idea cannot be split without it. If `stories_written` is above 0, an earlier writing was interrupted: read the stories already written with `mcp__cockpit__get_ticket` (and `mcp__cockpit__get_user_story` when needed), and write only the missing ones, continuing the numbering.
 4. **Split the idea** into right-sized stories (see below), in the language of the user.
@@ -28,6 +28,17 @@ The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, t
    - If you sent everything with `more_to_come: true` and nothing is left to add, close the writing with `stories: []` (and `more_to_come` false). That is only accepted once the ticket has stories.
    - At most 100 stories per ticket. Beyond that the idea is several tickets: write what fits, and tell the user the rest needs other tickets.
 6. **Report.** Tell the user which tickets you wrote and how many stories each has, and that the stories wait for their validation in Cockpit.
+
+## Rewrite the stories the user sent back
+
+`stories_to_rewrite` (from step 1) lists the stories the user sent back, each with their `rewrite_comment`.
+
+1. Read the story with `mcp__cockpit__get_user_story`: its narrative, notes, criteria and the user's `rewrite_comment`. Answer that comment; change nothing it does not ask for.
+2. Call `mcp__cockpit__update_user_story` with `story_id`, `as_a`, `i_want`, `so_that`, `notes_md` (optional: send it only to change the notes, left out they are kept) and the **complete list of criteria** (1 to 20): it replaces the old list as a whole, so repeat the criteria that were right as they were and change only the others. Dependencies are kept.
+3. Apply the same sizing and similarity rules as for a new story (below). If the comment asks for a split or a merge you cannot do in one story, rewrite this story for what it should keep and tell the user the rest needs new stories or another ticket.
+4. The story goes back to the user as `to_validate`. Send one call per story, and tell the user which stories you rewrote.
+
+A refusal saying the story is not `to_rewrite` ("Refused: this story is …") means it is not, or no longer, to rewrite: skip it. The other refusals are those below.
 
 ## Right-sized stories
 
@@ -57,6 +68,6 @@ An `Error:` answer means the call failed, and a packet may still have been writt
 
 ## Never
 
-- Never validate, send back, abandon or edit a story: only the user does, in Cockpit, and no tool lets you.
+- Never validate, send back, abandon or edit a story, and never rewrite one that is not `to_rewrite`: only the user validates, in Cockpit, and no tool lets you. You never validate: a rewritten story waits for the user's validation too.
 - Never write stories for a ticket whose writing is closed. To read them, use `mcp__cockpit__get_user_story`.
 - Never put secrets or personal data in a story: what you write is stored and shown as is.

@@ -25,16 +25,21 @@ import {
 import type { ReadGitHub } from "./github.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import {
+  changeStory,
   memberStory,
+  rewriteStory,
   storyParts,
   storyStatuses,
   ticketStories,
+  WrongStatus,
 } from "./stories.ts";
 import {
   assertActive,
   createTicket,
+  criterionText,
   descriptionMd,
   memberTicket,
+  narrative,
   noNul,
   ticketStep,
   title,
@@ -95,10 +100,8 @@ const id = z.number().int().min(1).max(2_147_483_647);
 const activeOf = (userId: number) =>
   and(eq(projectMembers.userId, userId), isNull(projects.archivedAt));
 
-// Limits of decision 017 B: the narrative and the criteria are trimmed, the notes are kept as typed.
-const narrative = z.string().trim().min(1).max(1_000).refine(noNul);
-const criterionText = z.string().trim().min(1).max(2_000).refine(noNul);
-const storyInput = z.object({
+// Limits of decision 017 B (shared with the REST edit of a story): the notes are kept as typed.
+const storyText = {
   as_a: narrative.describe("The role, e.g. 'project owner' (no 'As a' prefix)"),
   i_want: narrative.describe("What the user wants, without 'I want'"),
   so_that: narrative.describe("The benefit, without 'so that'"),
@@ -117,6 +120,9 @@ const storyInput = z.object({
     .min(1)
     .max(20)
     .describe("1 to 20 testable acceptance criteria"),
+};
+const storyInput = z.object({
+  ...storyText,
   depends_on: z
     .array(z.number().int())
     .max(99)
@@ -402,7 +408,7 @@ const tools = {
   ),
 
   list_tickets_needing_us: tool(
-    "List the user-story work waiting for Claude: tickets whose stories are not all written yet (id, project, title, description, stories_written: how many stories are already written, above 0 when an earlier writing was interrupted) and user stories the user sent back to be rewritten (with the user's comment). Use it when the user asks to write, split or specify their ideas, or asks what is left to write; pass project_id to look at one project only. At most 20 of each list, oldest first: a ticket leaves the list as soon as its writing is closed, so call again for the next ones. Abandoned tickets and archived projects are left out. Next: get_project for the rules of the repository, get_ticket if you need more, then create_user_stories.",
+    "List the user-story work waiting for Claude: tickets whose stories are not all written yet (id, project, title, description, stories_written: how many stories are already written, above 0 when an earlier writing was interrupted) and user stories the user sent back to be rewritten (with the user's comment). Use it when the user asks to write, split or specify their ideas, or asks what is left to write; pass project_id to look at one project only. At most 20 of each list, oldest first: a ticket leaves the list as soon as its writing is closed, so call again for the next ones. Abandoned tickets and archived projects are left out. Next: get_project for the rules of the repository, get_ticket if you need more, then create_user_stories for the tickets, or update_user_story for stories_to_rewrite (after get_user_story).",
     z.object({
       project_id: id
         .optional()
@@ -603,6 +609,50 @@ const tools = {
     },
   ),
 
+  update_user_story: tool(
+    "Rewrite a user story the user sent back (status to_rewrite), then hand it back for validation (it becomes to_validate). Use it when list_tickets_needing_us lists the story in stories_to_rewrite, or the user asks you to rewrite a story they sent back. Read the story and its rewrite_comment with get_user_story first, and answer that comment. Only to_rewrite stories can be rewritten: any other status is refused, and only the user validates, sends back, edits or abandons stories, in Cockpit. Send the full text: as_a, i_want, so_that, optional notes_md (send it only to change the notes: left out, they are kept; an empty string clears them) and the COMPLETE list of criteria (1 to 20), which replaces the old list as a whole, so repeat the criteria that were right. The limits and the right size are those of create_user_stories (one development session per story, no two similar stories). The dependencies of the story are kept. Refused on abandoned tickets and on archived projects.",
+    z.object({
+      story_id: id.describe("Id from list_tickets_needing_us or get_ticket"),
+      ...storyText,
+    }),
+    async (call, args) => {
+      call.entry.args = { storyId: args.story_id };
+      const found = await memberStory(call.db, call.userId, args.story_id);
+      if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
+      const story = await changeStory(
+        call.db,
+        call.entry,
+        found,
+        ["to_rewrite"],
+        (tx, locked) =>
+          rewriteStory(
+            tx,
+            locked.id,
+            {
+              asA: args.as_a,
+              iWant: args.i_want,
+              soThat: args.so_that,
+              notesMd: args.notes_md,
+              criteria: args.criteria,
+            },
+            { status: "to_validate", rewriteComment: null },
+          ),
+      );
+      const { criteria } = await storyParts(call.db, story.id);
+      return {
+        story: { id: story.id, status: story.status },
+        criteria: criteria.map((k) => ({
+          id: k.id,
+          position: k.position,
+          given: k.givenText,
+          when: k.whenText,
+          // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the tool (decision 004)
+          then: k.thenText,
+        })),
+      };
+    },
+  ),
+
   get_user_story: tool(
     "Get one user story in full: its narrative (as_a, i_want, so_that), notes in markdown, status, the user's rewrite_comment when it was sent back, its acceptance criteria (id, given / when / then), the stories it depends on (with their status), its ticket and its project (name, default branch, archived or not). Use it when you have a story_id (from search, get_ticket or list_tickets_needing_us) and need the details to understand, rewrite or implement it. Works on archived projects too.",
     z.object({
@@ -666,7 +716,7 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
   project_archived:
     "this project is archived, so it is read-only. Tell the user, or use another project from list_projects.",
   ticket_abandoned:
-    "this ticket is abandoned, so no story can be written for it. Tell the user, or pick another ticket from list_tickets_needing_us.",
+    "this ticket is abandoned, so none of its stories can be written or rewritten. Tell the user, or pick another ticket from list_tickets_needing_us.",
   ticket_has_stories:
     "this ticket's stories are already written and its writing is closed (a call without more_to_come closes it). Read them with get_ticket and get_user_story; do not write them again. If they are wrong, tell the user, who can send them back for a rewrite in Cockpit.",
   too_many_stories: (written) =>
@@ -678,6 +728,8 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
 };
 
 function failure(error: unknown) {
+  if (error instanceof WrongStatus)
+    return `Refused: this story is ${error.status}, not to_rewrite. Only stories the user sent back (status to_rewrite) can be rewritten; check list_tickets_needing_us or get_user_story. Do not retry; tell the user if the story needs changes.`;
   if (error instanceof InvalidArguments)
     return `Refused: invalid arguments (${error.fields}). Fix them and call the tool again.`;
   if (error instanceof Refused) {

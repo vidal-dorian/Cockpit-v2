@@ -4,7 +4,7 @@
 - **Date** : 2026-10-21
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md)
-- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse) ; [017 — Claude écrit les US](017-user-stories.md) (`create_user_stories` en plusieurs appels pour un gros ticket, dépendances par position dans le ticket)
+- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse) ; [017 — Claude écrit les US](017-user-stories.md) (`create_user_stories` en plusieurs appels pour un gros ticket, dépendances par position dans le ticket) ; [018 — Les décisions humaines sur une US](018-decisions-humaines.md) (table des droits, choix B : l'humain valide aussi une US à réécrire)
 
 ## Contexte
 
@@ -120,7 +120,7 @@ Qui peut faire chaque transition d'une US, et par où. Elle reprend le brief (§
 | Transition | Claude (outil MCP) | Humain (interface) | GitHub (webhook) |
 |---|---|---|---|
 | Créer → `to_validate` | `create_user_stories` | — | — |
-| `to_validate` → `ready` (valider) | **jamais** | oui | — |
+| `to_validate` → `ready` (valider) | **jamais** | oui *(et depuis `to_rewrite`, 018 B ; l'humain modifie aussi une US `to_validate`, `to_rewrite` ou `ready` sans en changer le statut, 018 C)* | — |
 | `to_validate` → `to_rewrite` (renvoyer, commentaire obligatoire) | **jamais** | oui | — |
 | `to_rewrite` → `to_validate` (réécrire) | `update_user_story` | — | — |
 | `ready` → `in_progress` | `start_run` | — | — |

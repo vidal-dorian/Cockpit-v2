@@ -10,7 +10,7 @@ async function fetchHistory() {
   return (await res.json()).entries;
 }
 
-const ACTIONS: Record<string, string> = {
+export const ACTIONS: Record<string, string> = {
   login: "Connexion",
   logout: "Déconnexion",
   create_ticket: "Ticket créé",
@@ -27,10 +27,16 @@ const ACTIONS: Record<string, string> = {
   list_tickets_needing_us: "Tickets à écrire listés",
   create_user_stories: "User stories écrites",
   get_user_story: "User story consultée",
+  validate_story: "User story validée",
+  update_story: "User story modifiée",
+  send_back_story: "User story renvoyée",
+  abandon_story: "User story abandonnée",
+  abandon_ticket: "Ticket abandonné",
+  update_user_story: "User story réécrite",
 };
 const ORIGINS: Record<string, string> = { ui: "Interface", mcp: "Claude" };
 // The word always comes with the color, so the result never relies on color alone (decision 003).
-const RESULTS: Record<string, { label: string; style: string }> = {
+export const RESULTS: Record<string, { label: string; style: string }> = {
   ok: { label: "Réussie", style: "bg-done-soft text-done-text" },
   refused: { label: "Refusée", style: "bg-destructive-soft text-destructive" },
   error: { label: "Erreur", style: "bg-destructive-soft text-destructive" },

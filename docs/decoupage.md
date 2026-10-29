@@ -26,7 +26,8 @@
 - **En cours** : tranche 4.1 (jetons MCP, [décision 015](decisions/015-jetons-mcp.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.2 (serveur MCP minimal, [décision 016](decisions/016-serveur-mcp.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.3 (Claude écrit les US, [décision 017](decisions/017-user-stories.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 4.4.
+- **En cours** : tranche 4.4 (décisions humaines sur une US, [décision 018](decisions/018-decisions-humaines.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 4.5.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

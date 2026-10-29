@@ -60,4 +60,17 @@ describe("criterion 18: catalog/skills/write-us/SKILL.md", () => {
     expect(text).toContain("stories_written");
     expect(text).toMatch(/one (call )?at a time|wait for (its|the) answer/i);
   });
+
+  it("given the skill, when it handles the stories the user sent back (decision 018 K), then it reads them with get_user_story and rewrite_comment, rewrites them with mcp__cockpit__update_user_story and the complete list of criteria, and no longer says rewriting is not possible", () => {
+    const text = readFileSync(SKILL, "utf8");
+
+    expect(text).toContain("stories_to_rewrite");
+    expect(text).toContain("mcp__cockpit__update_user_story");
+    expect(text).toContain("mcp__cockpit__get_user_story");
+    expect(text).toContain("rewrite_comment");
+    expect(text).toMatch(
+      /complete list|full list|whole list|all (the )?criteria/i,
+    );
+    expect(text).not.toMatch(/not possible yet/i);
+  });
 });
