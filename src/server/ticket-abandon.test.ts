@@ -230,6 +230,49 @@ describe("criterion 5: abandon a ticket", () => {
   });
 });
 
+describe("criterion 5: GET /api/tickets/:id exposes abandonedAt (decision 018 J)", () => {
+  const read = async (
+    ctx: Awaited<ReturnType<typeof withProject>>,
+    id: number,
+  ) =>
+    (
+      (await (
+        await send(ctx.app, ctx.alice.cookie, "GET", `/api/tickets/${id}`)
+      ).json()) as { ticket: { step: string; abandonedAt?: string | null } }
+    ).ticket;
+
+  it("given a ticket, when it is read before and after POST /abandon, then abandonedAt is null, then the ISO date of the abandonment", async () => {
+    const ctx = await withProject();
+    const ticketId = await seedTicket(ctx.db, ctx.projectId, "À lâcher");
+    await seedStory(ctx.db, ticketId, { status: "ready" });
+
+    const before = await read(ctx, ticketId);
+    expect(
+      (await abandonTicket(ctx.app, ctx.alice.cookie, ticketId)).status,
+    ).toBe(200);
+    const after = await read(ctx, ticketId);
+
+    expect(before.abandonedAt).toBeNull();
+    expect(typeof after.abandonedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(after.abandonedAt as string))).toBe(false);
+    expect(after.abandonedAt).toBe(
+      (await ticketRow(ctx.db, ticketId)).abandonedAt?.toISOString(),
+    );
+  });
+
+  it("given a ticket whose stories are all abandoned, when it is read, then its step is abandoned but abandonedAt is null (it still has to be closed)", async () => {
+    const ctx = await withProject();
+    const ticketId = await seedTicket(ctx.db, ctx.projectId, "Tout lâché");
+    await seedStory(ctx.db, ticketId, { status: "abandoned" });
+    await seedStory(ctx.db, ticketId, { status: "abandoned" });
+
+    const ticket = await read(ctx, ticketId);
+
+    expect(ticket.step).toBe("abandoned");
+    expect(ticket.abandonedAt).toBeNull();
+  });
+});
+
 describe("criterion 5: an abandoned ticket is not modified any more", () => {
   const patch = (
     ctx: Awaited<ReturnType<typeof withProject>>,

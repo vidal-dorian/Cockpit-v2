@@ -329,6 +329,39 @@ describe("criterion 3: edit a story", () => {
     expect((await snapshot(s.db, s.id)).asA).toBe("rôle-modifié-3");
   });
 
+  it.each(["to_validate", "to_rewrite", "ready"] as const)(
+    "given a %s story with notes, when it is edited without notesMd, then 200, the narrative and criteria are replaced and the notes are unchanged (decision 018 C: absent notes are kept)",
+    async (status) => {
+      const s = await withStory(status, { notesMd: "  notes à garder\n" });
+      const { notesMd: _left, ...body } = editBody(10);
+
+      const res = await editStory(s.app, s.alice.cookie, s.id, body);
+
+      expect(res.status).toBe(200);
+      expect(await snapshot(s.db, s.id)).toMatchObject({
+        asA: "rôle-modifié-10",
+        notesMd: "  notes à garder\n",
+      });
+    },
+  );
+
+  it("given a story with notes, when it is edited with notesMd empty, then 200 and the notes are emptied", async () => {
+    const s = await withStory("to_validate", { notesMd: "notes à effacer" });
+
+    const res = await editStory(
+      s.app,
+      s.alice.cookie,
+      s.id,
+      editBody(11, { notesMd: "" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await snapshot(s.db, s.id)).toMatchObject({
+      asA: "rôle-modifié-11",
+      notesMd: "",
+    });
+  });
+
   it("given the limits of decision 017 B at their maximum, when a story is edited, then 200 (narrative 1000, 20 criteria of 2000, notes 50,000)", async () => {
     const s = await withStory("to_validate");
     const long = "x".repeat(2000);

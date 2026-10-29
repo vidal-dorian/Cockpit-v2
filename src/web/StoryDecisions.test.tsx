@@ -551,24 +551,28 @@ describe("criterion 11: an archived project", () => {
 describe("criterion 11: the history of the story", () => {
   const history: HistoryEntry[] = [
     {
+      id: 4,
       at: "2026-10-28T12:04:00.000Z",
       action: "validate_story",
       result: "ok",
       actor: "human",
     },
     {
+      id: 3,
       at: "2026-10-28T12:03:00.000Z",
       action: "update_user_story",
       result: "ok",
       actor: "claude",
     },
     {
+      id: 2,
       at: "2026-10-28T12:02:00.000Z",
       action: "send_back_story",
       result: "refused",
       actor: "human",
     },
     {
+      id: 1,
       at: "2026-10-28T12:01:00.000Z",
       action: "create_user_stories",
       result: "ok",
@@ -624,5 +628,160 @@ describe("criterion 11: the history of the story", () => {
       );
     expect(rows[0]).toMatch(/valid/i);
     expect(rows[2]).toMatch(/renvo/i);
+  });
+});
+
+describe("criterion 11: the abandon confirmation names what is lost (decision 003, rule 4)", () => {
+  it("given a story, when Abandonner is clicked, then the confirmation says the story will be abandoned and that this cannot be undone", async () => {
+    const api = seed("ready");
+    renderAt("/us/21");
+    await loaded();
+    expect(main().textContent).not.toMatch(
+      /ne (se )?(rouvre|reprend)|définitif|irréversible/i,
+    );
+
+    click("Abandonner");
+
+    expect(main().textContent).toMatch(/abandonn/i);
+    expect(main().textContent).toMatch(
+      /ne (se )?(rouvre|reprend)|définitif|irréversible/i,
+    );
+    expect(api.writes()).toEqual([]);
+  });
+});
+
+describe("criterion 11: the keyboard focus stays on an element that exists after each decision (decision 018 J)", () => {
+  /** The focus is on an element of the page, not on the body that a removed button leaves behind. */
+  const focusStays = () =>
+    waitFor(() => {
+      expect(document.activeElement).not.toBe(document.body);
+      expect(main().contains(document.activeElement)).toBe(true);
+    });
+
+  it("given a to_validate story, when Valider is clicked, then the focus is not lost", async () => {
+    seed("to_validate");
+    renderAt("/us/21");
+    await loaded();
+    button("Valider").focus();
+
+    click("Valider");
+
+    await waitFor(() => expect(main().textContent).toContain("prête"));
+    await focusStays();
+  });
+
+  it("given a to_validate story, when the sending back is confirmed, then the focus is not lost", async () => {
+    seed("to_validate");
+    renderAt("/us/21");
+    await loaded();
+    click("Renvoyer");
+    type(/Commentaire/, "Précise le cas vide");
+    button("Confirmer le renvoi").focus();
+
+    click("Confirmer le renvoi");
+
+    await waitFor(() => expect(main().textContent).toContain("à réécrire"));
+    await focusStays();
+  });
+
+  it("given a story, when the abandon is confirmed, then the focus is not lost although no button is left", async () => {
+    seed("ready");
+    renderAt("/us/21");
+    await loaded();
+    click("Abandonner");
+    button("Confirmer l'abandon").focus();
+
+    click("Confirmer l'abandon");
+
+    await waitFor(() => expect(main().textContent).toContain("abandonnée"));
+    await focusStays();
+  });
+
+  it("given a story, when the edition is saved, then the focus is not lost", async () => {
+    seed("to_validate");
+    renderAt("/us/21");
+    await loaded();
+    click("Modifier");
+    type(/Je veux/, "relire vite");
+    button("Enregistrer").focus();
+
+    click("Enregistrer");
+
+    await waitFor(() => expect(main().textContent).toContain("relire vite"));
+    await waitFor(() => expect(maybeButton("Enregistrer")).toBeNull());
+    await focusStays();
+  });
+});
+
+describe("criterion 11: a refused decision refreshes the story (decision 018 F)", () => {
+  const reads = (api: ReturnType<typeof seed>) =>
+    api.calls.filter((c) => c.method === "GET" && c.path === "/api/stories/21")
+      .length;
+
+  it("given the story changed on the server, when Valider is answered 409 wrong_status, then the alert is shown and the story is read again", async () => {
+    const api = seed("to_validate");
+    renderAt("/us/21");
+    await loaded();
+    const before = reads(api);
+    api.failNext.validate = fail(409, "wrong_status");
+
+    click("Valider");
+
+    await screen.findByRole("alert");
+    await waitFor(() => expect(reads(api)).toBeGreaterThan(before));
+  });
+
+  it("given the story changed on the server, when the sending back is answered 409 wrong_status, then the story is read again", async () => {
+    const api = seed("to_validate");
+    renderAt("/us/21");
+    await loaded();
+    click("Renvoyer");
+    type(/Commentaire/, "Non");
+    const before = reads(api);
+    api.failNext.sendBack = fail(409, "wrong_status");
+
+    click("Confirmer le renvoi");
+
+    await screen.findByRole("alert");
+    await waitFor(() => expect(reads(api)).toBeGreaterThan(before));
+  });
+});
+
+describe("criterion 11: the history rows are keyed on the id of the entry", () => {
+  it("given two entries with the same date and the same action, when the section is opened, then both rows are shown and React reports no duplicate key", async () => {
+    const twin = {
+      at: "2026-10-28T12:02:00.000Z",
+      action: "send_back_story",
+      result: "refused",
+      actor: "human",
+    };
+    seed(
+      "to_validate",
+      {},
+      {
+        history: [
+          { id: 9, ...twin },
+          { id: 8, ...twin },
+        ],
+      },
+    );
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderAt("/us/21");
+    await loaded();
+    const details = main().querySelector("details") as HTMLDetailsElement;
+
+    fireEvent.click(details.querySelector("summary") as HTMLElement);
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+
+    await waitFor(() =>
+      expect(within(details).getAllByRole("listitem")).toHaveLength(2),
+    );
+    expect(
+      errors.mock.calls.filter((c) =>
+        /same key|unique "key"/i.test(String(c[0])),
+      ),
+    ).toEqual([]);
+    errors.mockRestore();
   });
 });

@@ -13,6 +13,8 @@ export type FakeTicket = {
   step: string;
   /** ISO date when Claude closed the writing of the stories, null while it has not finished (decision 017 N). */
   storiesWrittenAt: string | null;
+  /** ISO date when the user abandoned the ticket, null otherwise: the page decides its buttons on it, not on the step (decision 018 J). */
+  abandonedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -50,6 +52,7 @@ export const ticket = (
   descriptionMd,
   step: "new",
   storiesWrittenAt: null,
+  abandonedAt: null,
   createdAt: "2026-10-22T12:00:00.000Z",
   updatedAt: "2026-10-22T12:00:00.000Z",
 });

@@ -163,6 +163,25 @@ describe("criterion 9: the history of a story", () => {
     expect(entries[0]).toMatchObject({ actor: "human", result: "ok" });
   });
 
+  it("given entries of the story, when its history is read, then every entry carries a numeric id, distinct from the others, so that the page can key on it", async () => {
+    const ctx = await withStory("to_validate");
+    // Same date and same action twice: only the id tells them apart.
+    for (const minute of [1, 1, 2])
+      await note(ctx, minute, "send_back_story", {
+        ticketId: ctx.ticketId,
+        storyId: ctx.id,
+        args: { storyId: ctx.id },
+      });
+
+    const res = await storyHistory(ctx.app, ctx.alice.cookie, ctx.id);
+
+    expect(res.status).toBe(200);
+    const { entries } = (await res.json()) as { entries: { id?: unknown }[] };
+    expect(entries).toHaveLength(3);
+    expect(entries.every((e) => typeof e.id === "number")).toBe(true);
+    expect(new Set(entries.map((e) => e.id)).size).toBe(3);
+  });
+
   it("given a story nothing happened to, when its history is read, then entries is an empty list", async () => {
     const ctx = await withStory("to_validate");
 

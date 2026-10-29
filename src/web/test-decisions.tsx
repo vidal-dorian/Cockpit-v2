@@ -15,10 +15,12 @@ import {
 // - GET /api/stories/:id gives { story: { ..., rewriteComment: string | null }, ticket, project: { id, fullName, archived } }
 // - POST /api/stories/:id/validate | send-back { comment } | abandon, PATCH /api/stories/:id answer 200 { story };
 //   POST /api/tickets/:id/abandon answers 200 { ticket }; a refusal answers { error: <code> } with its status.
-// - GET /api/stories/:id/history gives { entries: [{ at, action, result, actor }] }, newest first.
+// - GET /api/stories/:id/history gives { entries: [{ id, at, action, result, actor }] }, newest first.
 
 export type DecisionStory = FakeStory & { rewriteComment: string | null };
 export type HistoryEntry = {
+  /** Numeric id of the history row: the page keys its list on it. */
+  id: number;
   at: string;
   action: string;
   result: string;
@@ -140,6 +142,7 @@ export function stubDecisionApi(options: {
         const refused = take("abandonTicket");
         if (refused) return refused;
         parent.step = "abandoned";
+        parent.abandonedAt = new Date().toISOString();
         for (const s of stories)
           if (s.ticketId === parent.id && s.status !== "done")
             s.status = "abandoned";

@@ -137,6 +137,33 @@ describe("criterion 6: update_user_story rewrites a to_rewrite story", () => {
     expect(data.story.status).toBe("to_validate");
   });
 
+  it("given a to_rewrite story with notes, when Claude rewrites it without notes_md, then the notes are unchanged (decision 018 E: absent notes are kept)", async () => {
+    const s = await withStory("to_rewrite", { notesMd: "  notes à garder\n" });
+    const { notes_md: _left, ...args } = rewrite(s.id, 5);
+
+    const data = dataOf<{ story: { status: string } }>(await call(s, args));
+
+    expect(data.story.status).toBe("to_validate");
+    expect(await snapshot(s.db, s.id)).toMatchObject({
+      asA: "rôle-réécrit-5",
+      notesMd: "  notes à garder\n",
+    });
+  });
+
+  it("given a to_rewrite story with notes, when Claude rewrites it with notes_md empty, then the notes are emptied", async () => {
+    const s = await withStory("to_rewrite", { notesMd: "notes à effacer" });
+
+    const data = dataOf<{ story: { status: string } }>(
+      await call(s, rewrite(s.id, 6, { notes_md: "" })),
+    );
+
+    expect(data.story.status).toBe("to_validate");
+    expect(await snapshot(s.db, s.id)).toMatchObject({
+      asA: "rôle-réécrit-6",
+      notesMd: "",
+    });
+  });
+
   it("given 20 criteria of 2000 characters, narrative of 1000 and notes of 50,000, when Claude rewrites a story, then it is accepted (the limits of 017 B are inclusive)", async () => {
     const s = await withStory("to_rewrite");
     const long = "x".repeat(2000);

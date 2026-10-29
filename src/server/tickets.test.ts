@@ -163,6 +163,7 @@ describe("POST /api/projects/:id/tickets", () => {
       step: "new",
     });
     expect(Object.keys(ticket).sort()).toEqual([
+      "abandonedAt",
       "createdAt",
       "descriptionMd",
       "id",
