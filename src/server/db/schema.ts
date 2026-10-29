@@ -213,6 +213,14 @@ export const mcpTokens = pgTable("mcp_tokens", {
     .defaultNow(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
   revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
+  // Only for a connection made by OAuth (decisions 006 E and 021 E): the client, the refresh token's hash, and the two expiries.
+  clientId: text("client_id"),
+  refreshHash: text("refresh_hash").unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+  refreshExpiresAt: timestamp("refresh_expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
 });
 
 /** Append-only (triggers in the history_append_only migration); no foreign keys, so entries outlive what they point at (decision 010). */

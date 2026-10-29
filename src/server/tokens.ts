@@ -11,7 +11,7 @@ import { history, mcpTokens, users } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 
 // Limits of decision 015. PostgreSQL text cannot hold a NUL character: refused here, not left to fail as a 500.
-const MAX_ACTIVE_TOKENS = 20;
+export const MAX_ACTIVE_TOKENS = 20;
 const createBody = z.object({
   name: z
     .string()
@@ -25,6 +25,8 @@ const createBody = z.object({
 const present = (t: typeof mcpTokens.$inferSelect) => ({
   id: t.id,
   name: t.name,
+  // OAuth connections (decision 021 E) are the rows with a client; the page tells them from the manual tokens.
+  kind: t.clientId ? ("oauth" as const) : ("manual" as const),
   lastFour: t.lastFour,
   createdAt: t.createdAt,
   lastUsedAt: t.lastUsedAt,

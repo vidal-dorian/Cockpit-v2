@@ -29,7 +29,7 @@ async function fetchTokens() {
   return (await res.json()).tokens;
 }
 
-const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
+export const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
 
 const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
 

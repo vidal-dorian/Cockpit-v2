@@ -13,6 +13,7 @@ import type { InstanceSettings, ReadInstance } from "./instance.ts";
 const SESSION_COOKIE = "cockpit_session";
 export const CLAIM_COOKIE = "cockpit_admin_claim";
 const STATE_COOKIE = "cockpit_oauth_state";
+const NEXT_COOKIE = "cockpit_login_next";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const STATE_SECONDS = 10 * 60;
 // Shorter than Cloudflare's ~100 s limit, so a slow GitHub ends on our error page, not a 524.
@@ -33,6 +34,16 @@ function parseAnswer<T extends z.ZodType>(schema: T, answer: unknown) {
   const parsed = schema.safeParse(answer);
   if (!parsed.success) throw new Error("invalid_github_answer");
   return parsed.data as z.output<T>;
+}
+
+/** Where a login may lead back to (decision 021 C): the /autoriser page and its query, never another address or page. Printable ASCII only, so nothing can split the redirect header. */
+function safeNext(value: string | undefined) {
+  return value !== undefined &&
+    value.length <= 2048 &&
+    /^\/autoriser(\?[\x21-\x7e]*)?$/.test(value) &&
+    !value.includes("\\")
+    ? value
+    : undefined;
 }
 
 export const sha256 = (value: string) =>
@@ -157,6 +168,17 @@ export function authRoutes(
         path: "/api/auth",
         maxAge: STATE_SECONDS,
       });
+      // Carried through the login in a cookie like the state: the callback checks it again, since a cookie can be set from elsewhere.
+      const next = safeNext(c.req.query("next"));
+      if (next)
+        setCookie(c, NEXT_COOKIE, next, {
+          httpOnly: true,
+          sameSite: "Lax",
+          secure,
+          path: "/api/auth",
+          maxAge: STATE_SECONDS,
+        });
+      else deleteCookie(c, NEXT_COOKIE, { path: "/api/auth" });
       const authorize = new URL("https://github.com/login/oauth/authorize");
       authorize.search = new URLSearchParams({
         client_id: config.githubClientId,
@@ -172,6 +194,8 @@ export function authRoutes(
       const expectedState = getCookie(c, STATE_COOKIE);
       // The state is single-use: whatever happens next, it is gone.
       deleteCookie(c, STATE_COOKIE, { path: "/api/auth" });
+      const next = safeNext(getCookie(c, NEXT_COOKIE));
+      deleteCookie(c, NEXT_COOKIE, { path: "/api/auth" });
       const { code, state, error } = c.req.query();
       // Not a login started from Cockpit: no history row, so strangers cannot grow the table.
       if (!expectedState || state !== expectedState) {
@@ -265,7 +289,9 @@ export function authRoutes(
           path: "/",
           maxAge: SESSION_SECONDS,
         });
-        return c.redirect(await landingPage(profile.login, profile.id));
+        return c.redirect(
+          next ?? (await landingPage(profile.login, profile.id)),
+        );
       } catch (error) {
         // The only refusal is a blocked account; no login in the URL, nothing to echo.
         if (error instanceof Refused)

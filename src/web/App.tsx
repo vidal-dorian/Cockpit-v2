@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router";
+import { Autoriser } from "./Autoriser.tsx";
 import { client } from "./api.ts";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
@@ -277,6 +278,7 @@ export function App() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="/bienvenue" element={<Welcome />} />
+        <Route path="/autoriser" element={<Autoriser />} />
         {/* The wizard's address: once it is done, nothing to show there. */}
         <Route path="/installation" element={<Navigate to="/" replace />} />
       </Routes>

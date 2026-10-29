@@ -1,0 +1,132 @@
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { client } from "./api.ts";
+import { day } from "./SettingsTokens.tsx";
+import { focusRing } from "./ui.ts";
+
+const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
+
+async function fetchConnect() {
+  const res = await client.api.me.connect.$get();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Decision 021 G: Cockpit is added once as a connector of claude.ai, in three steps. */
+export function ConnectClaude() {
+  const connect = useQuery({ queryKey: ["connect"], queryFn: fetchConnect });
+  const [copy, setCopy] = useState<"idle" | "done" | "failed">("idle");
+
+  // The section appears with its content: the address is what it is about.
+  if (connect.isPending)
+    return <p className="text-muted-foreground">Chargement…</p>;
+
+  return (
+    <section aria-labelledby="connecter">
+      <h2 id="connecter" className="font-heading text-xl font-bold">
+        Connecter Claude
+      </h2>
+      <p className="mt-1 text-muted-foreground">
+        Ajoute Cockpit une seule fois comme connecteur de claude.ai : il marche
+        ensuite dans Claude Code, sur le web et sur le téléphone.
+      </p>
+      <div className="mt-4" aria-live="polite">
+        {connect.isError && (
+          <p
+            role="alert"
+            className="rounded-xl bg-destructive-soft p-4 text-destructive"
+          >
+            Impossible de lire l'adresse du connecteur : {connect.error.message}
+          </p>
+        )}
+        {connect.isSuccess && (
+          <>
+            {connect.data.connected && connect.data.connectedAt && (
+              <p className="mb-4 rounded-xl bg-done-soft p-4 font-semibold text-done-text">
+                Connecté depuis claude.ai, le {day(connect.data.connectedAt)}.
+                C'est fait : Claude voit tes projets partout, y compris dans les
+                tâches planifiées.
+              </p>
+            )}
+            <ol className="grid gap-3">
+              <li className="rounded-xl bg-card p-4">
+                <p className="font-semibold">1. Copier l'adresse</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    readOnly
+                    aria-label="Adresse du connecteur"
+                    value={connect.data.mcpUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className={`min-w-0 grow rounded-lg border border-border bg-background px-3 py-2 font-mono ${focusRing}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigator.clipboard.writeText(connect.data.mcpUrl).then(
+                        () => setCopy("done"),
+                        () => setCopy("failed"),
+                      )
+                    }
+                    className={button}
+                  >
+                    Copier l'adresse
+                  </button>
+                  {/* No role="status": the section is already a live region, and Réglages has one status for the tokens. */}
+                  <span
+                    className={
+                      copy === "failed" ? "text-destructive" : undefined
+                    }
+                  >
+                    {copy === "done" && "Copié."}
+                    {copy === "failed" &&
+                      "Copie impossible : sélectionne l'adresse à la main."}
+                  </span>
+                </div>
+              </li>
+              <li className="rounded-xl bg-card p-4">
+                <p className="font-semibold">2. Ouvrir claude.ai</p>
+                <p className="mt-1">
+                  Choisis « Ajouter un connecteur personnalisé », puis colle
+                  l'adresse.
+                </p>
+                <a
+                  href="https://claude.ai/customize/connectors"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={`mt-2 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+                >
+                  Ouvrir claude.ai
+                </a>
+              </li>
+              <li className="rounded-xl bg-card p-4">
+                <p className="font-semibold">3. Se connecter</p>
+                <p className="mt-1">
+                  claude.ai ouvre Cockpit : connecte-toi avec GitHub si besoin,
+                  puis clique « Autoriser ».
+                </p>
+              </li>
+            </ol>
+            <details className="mt-4">
+              <summary className={`cursor-pointer font-semibold ${focusRing}`}>
+                Claude Code sans compte claude.ai
+              </summary>
+              <p className="mt-2">
+                Dans un terminal, Claude Code fait la même connexion au premier
+                usage :
+              </p>
+              <pre className="mt-2 overflow-x-auto rounded-lg bg-card p-3">
+                <code>{`claude mcp add --transport http cockpit ${connect.data.mcpUrl}`}</code>
+              </pre>
+              <p className="mt-2 text-muted-foreground">
+                Les jetons manuels (plus bas) restent possibles. Un fichier{" "}
+                <code>.mcp.json</code> qui déclare Cockpit masque le connecteur.
+                Les connexions comptent parmi les 20 jetons actifs : si la
+                connexion échoue, révoque-en un.
+              </p>
+            </details>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}

@@ -29,8 +29,6 @@ const EXPLANATIONS: Record<string, string> = {
     "Ajoute un fichier CLAUDE.md à la racine du repo (ou dans .claude/) pour expliquer le projet à Claude.",
   "ci.missing":
     "Aucun workflow dans .github/workflows : ajoute un fichier .yml qui lance tes tests.",
-  "mcp.missing":
-    "Le serveur MCP de Cockpit n'est pas déclaré dans le fichier .mcp.json du repo.",
   "mcp.invalid_json": "Le fichier .mcp.json n'est pas un JSON valide.",
   "mcp.secret_in_clear":
     "Le .mcp.json contient un secret en clair pour Cockpit : utilise une référence à une variable d'environnement.",

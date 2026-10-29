@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { ConnectClaude } from "./ConnectClaude.tsx";
 import { Tokens } from "./SettingsTokens.tsx";
 import { focusRing } from "./ui.ts";
 
@@ -149,8 +150,11 @@ export function Settings() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-heading text-3xl font-extrabold">Réglages</h1>
+      <div className="mt-6">
+        <ConnectClaude />
+      </div>
       {me.data?.isAdmin && (
-        <section className="mt-6" aria-labelledby="utilisateurs">
+        <section className="mt-8" aria-labelledby="utilisateurs">
           <h2 id="utilisateurs" className="font-heading text-xl font-bold">
             Utilisateurs
           </h2>

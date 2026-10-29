@@ -1469,7 +1469,8 @@ describe("criterion 8: OAuth connections count in the 20 active tokens", () => {
 
     await connect(ctx, alice);
 
-    expect(await tokenRows(ctx.db)).toHaveLength(24);
+    // 19 active + 5 revoked + the new connection.
+    expect(await tokenRows(ctx.db)).toHaveLength(25);
   });
 
   it("given 20 active tokens that include the connection, when it is refreshed, then it works: a rotation adds no row", async () => {
