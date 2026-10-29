@@ -398,6 +398,18 @@ describe("Project page, the section Écriture automatique des US", () => {
     expect(section.textContent).toMatch(/30 octobre|30\/10\/2026/);
   });
 
+  it("given a project, when the section loads, then the sentence about nothing to write is scoped to the planning, since the button always fires (022 D, E)", async () => {
+    stubApi({ schedule: DAILY_AT_7, routine: CONNECTED });
+
+    renderAt("/projets/5");
+
+    const section = await routineSection();
+    expect(section.textContent).toMatch(/au planning|lancement automatique/i);
+    expect(
+      within(section).getByRole("button", { name: "Écrire les US maintenant" }),
+    ).not.toBeNull();
+  });
+
   it("given a project with no schedule, when the section loads, then it shows no next run and no last run", async () => {
     stubApi({ schedule: OFF, routine: CONNECTED });
 

@@ -204,6 +204,17 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
     expect(link.getAttribute("rel")).toMatch(/\bnoreferrer\b/);
   });
 
+  it("given a user, when the section loads, then the first step tells to keep only the Cockpit connector and remove the others (022 A)", async () => {
+    stubApi({ routine: NOT_CONNECTED });
+
+    renderAt("/reglages");
+
+    const section = await loadedSection();
+    expect(section.textContent).toMatch(
+      /seulement le connecteur Cockpit|retire les autres/i,
+    );
+  });
+
   it("given nothing connected, when the section loads, then the prompt is shown and « Copier la consigne » writes exactly the prompt of the server to the clipboard", async () => {
     const writeText = stubClipboard();
     stubApi({ routine: NOT_CONNECTED });
