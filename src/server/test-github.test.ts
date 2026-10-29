@@ -158,4 +158,50 @@ describe("stubGitHub issues (slice 4.6)", () => {
       ["POST", "/repos/o/r/labels"],
     ]);
   });
+
+  it("given an issue, when a label is added, then the answer is the whole label list of the issue, as GitHub's, not only the label added", async () => {
+    const github = stubGitHub({ account: 1 });
+    github.addLabel("o/r", "x");
+    github.addLabel("o/r", "y");
+    await call("POST", "/issues", { title: "t", body: "b", labels: ["x"] });
+
+    const res = await call("POST", "/issues/1/labels", { labels: ["y"] });
+
+    expect(await res.json()).toEqual([{ name: "x" }, { name: "y" }]);
+  });
+
+  it("given GitHub's limits, when an issue is created or patched with a title over 256 characters or a body over 65,536, then 422 and nothing changes; at the limit it is accepted", async () => {
+    const github = stubGitHub({ account: 1 });
+    const title = "t".repeat(256);
+    const body = "b".repeat(65_536);
+    expect(
+      (await call("POST", "/issues", { title: `${title}t`, body: "b" })).status,
+    ).toBe(422);
+    expect(
+      (await call("POST", "/issues", { title: "t", body: `${body}b` })).status,
+    ).toBe(422);
+    expect(github.issues("o/r")).toEqual([]);
+    expect((await call("POST", "/issues", { title, body })).status).toBe(201);
+
+    expect(
+      (await call("PATCH", "/issues/1", { title: `${title}t` })).status,
+    ).toBe(422);
+    expect(
+      (await call("PATCH", "/issues/1", { body: `${body}b` })).status,
+    ).toBe(422);
+    expect(github.issues("o/r")[0]).toMatchObject({ title, body });
+  });
+
+  it("given failOn, when a call matches it, then only that call fails with 500, until it is cleared", async () => {
+    const github = stubGitHub({
+      account: 1,
+      failOn: (c) => c.method === "PATCH",
+    });
+    await call("POST", "/issues", { title: "t", body: "b" });
+
+    expect((await call("PATCH", "/issues/1", { title: "u" })).status).toBe(500);
+    expect(github.issues("o/r")[0]?.title).toBe("t");
+    github.update({ failOn: undefined });
+    expect((await call("PATCH", "/issues/1", { title: "u" })).status).toBe(200);
+  });
 });

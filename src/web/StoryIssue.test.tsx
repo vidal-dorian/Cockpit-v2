@@ -15,6 +15,7 @@ import { App } from "./App.tsx";
 import {
   type DecisionStory,
   decisionStory,
+  type HistoryEntry,
   stubDecisionApi,
 } from "./test-decisions.tsx";
 import { type Answer, fail, renderAt, story, ticket } from "./test-tickets.tsx";
@@ -50,7 +51,7 @@ const STALE = "L'issue GitHub n'est pas à jour.";
 function seed(
   status: string,
   issue: Issue | null,
-  options: { archived?: boolean } = {},
+  options: { archived?: boolean; history?: HistoryEntry[] } = {},
 ) {
   const shown = decisionStory(
     story(21, 7, "relire les exports", { status }),
@@ -63,7 +64,8 @@ function seed(
     ...options,
   });
   const inner = globalThis.fetch;
-  const failPublish: { next?: Answer } = {};
+  // `stale`: the next publish answers 200 but GitHub is still behind (`upToDate` stays false).
+  const failPublish: { next?: Answer; stale?: boolean } = {};
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -84,7 +86,7 @@ function seed(
         shown.issue = {
           number: shown.issue?.number ?? 13,
           url: shown.issue?.url ?? "https://github.com/octocat/hello/issues/13",
-          upToDate: true,
+          upToDate: !failPublish.stale,
         };
         return Response.json({ story: { ...shown } });
       }
@@ -278,4 +280,160 @@ describe("criterion 11: the Journal names sync_issue", () => {
     expect(label).toMatch(/issue/i);
     expect(screen.queryByText("Outil inconnu")).toBeNull();
   });
+});
+
+// Review of slice 4.6 (S6): who did it, what a screen reader hears, where the focus goes.
+describe("review S6: the page of a story and the Journal", () => {
+  it("given a sync_issue entry made by the system, when the history of the story is opened, then the row says « Cockpit », not « Toi »", async () => {
+    seed(
+      "ready",
+      { number: 12, url: URL_12, upToDate: true },
+      {
+        history: [
+          {
+            id: 2,
+            at: "2026-10-29T12:02:00.000Z",
+            action: "sync_issue",
+            result: "ok",
+            actor: "system",
+          },
+          {
+            id: 1,
+            at: "2026-10-29T12:01:00.000Z",
+            action: "validate_story",
+            result: "ok",
+            actor: "human",
+          },
+        ],
+      },
+    );
+    renderAt("/us/21");
+    await loaded();
+    const details = main().querySelector("details") as HTMLDetailsElement;
+
+    fireEvent.click(details.querySelector("summary") as HTMLElement);
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+
+    await waitFor(() =>
+      expect(within(details).getAllByRole("listitem")).toHaveLength(2),
+    );
+    const [system, human] = within(details)
+      .getAllByRole("listitem")
+      .map((r) => r.textContent ?? "");
+    expect(system).toContain("Cockpit");
+    expect(system).not.toContain("Toi");
+    expect(human).toContain("Toi");
+    expect(human).not.toContain("Cockpit");
+  });
+
+  it("given an entry whose origin is system, when /journal loads, then the origin is a French word, « Cockpit », never the code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const path = new URL(raw, "http://localhost").pathname;
+        if (path === "/api/setup/status")
+          return Response.json({
+            configured: true,
+            detectedUrl: "http://localhost",
+          });
+        if (path === "/api/me")
+          return Response.json({
+            login: "octocat",
+            name: null,
+            avatarUrl: null,
+          });
+        if (path === "/api/history")
+          return Response.json({
+            entries: [
+              {
+                id: 1,
+                at: "2026-10-29T12:01:00.000Z",
+                actor: "system",
+                origin: "system",
+                action: "sync_issue",
+                result: "ok",
+              },
+            ],
+          });
+        throw new Error(`Unexpected fetch ${raw}`);
+      }),
+    );
+    window.history.replaceState({}, "", "/journal");
+
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <App />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "Journal" });
+    const row = await waitFor(() => {
+      const found = within(screen.getByRole("main")).getAllByRole("listitem");
+      expect(found).toHaveLength(1);
+      return found[0] as HTMLElement;
+    });
+    expect(row.textContent).toContain("Cockpit");
+    expect(row.textContent).not.toMatch(/\bsystem\b/);
+  });
+
+  it("given Republier answers 200 but the issue is still not up to date, when it is clicked, then an alert says so in French, the warning stays and Republier can be clicked again", async () => {
+    const api = seed("ready", { number: 12, url: URL_12, upToDate: false });
+    renderAt("/us/21");
+    await loaded();
+    api.failPublish.stale = true;
+
+    fireEvent.click(button("Republier"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/issue|GitHub/i);
+    expect(alert.textContent).not.toMatch(/upToDate|wrong_status|HTTP/);
+    expect(main().textContent).toContain(STALE);
+    await waitFor(() => expect(button("Republier").disabled).toBe(false));
+  });
+
+  it("given an issue that is not up to date, when the page loads, then the warning is in a live region (role status)", async () => {
+    seed("ready", { number: 12, url: URL_12, upToDate: false });
+
+    renderAt("/us/21");
+
+    await loaded();
+    expect(within(main()).getByRole("status").textContent).toContain(STALE);
+  });
+
+  it.each([
+    ["a link already there", { number: 12, url: URL_12, upToDate: false }, 12],
+    ["no issue yet", { number: null, url: null, upToDate: false }, 13],
+  ])(
+    "given %s, when Republier succeeds, then the focus is on the link of the issue",
+    async (_case, issue, number) => {
+      seed("ready", issue);
+      renderAt("/us/21");
+      await loaded();
+
+      fireEvent.click(button("Republier"));
+
+      const link = await within(main()).findByRole("link", {
+        name: new RegExp(`Issue #${number}`),
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(
+          within(main()).getByRole("link", {
+            name: new RegExp(`Issue #${number}`),
+          }),
+        );
+      });
+      expect(link.getAttribute("href")).toContain(`/issues/${number}`);
+    },
+  );
 });

@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createApp } from "./app.ts";
 import {
   abandonStory,
   abandonTicket,
@@ -15,6 +16,7 @@ import {
   withStory,
 } from "./test-decisions.ts";
 import { issueCalls } from "./test-github.ts";
+import { testAppOptions } from "./test-instance.ts";
 import {
   archiveProject,
   historyText,
@@ -525,5 +527,184 @@ describe("criterion 9: two syncs at once", () => {
     const row = await issueRow(s, s.id);
     expect(row.issue_number).toBe(theIssue(s).number);
     expect(row.issue_claimed_at).toBeNull();
+  });
+});
+
+// Review of slice 4.6. Pinned here (the decision leaves them open):
+// - `createApp`'s options take `issueSyncBudgetMs` (milliseconds, 30,000 when absent): the time after which a ticket abandon starts no new sync (decision 020 F);
+// - the fake's `failOn(call)` breaks one kind of call (see test-github.ts).
+
+describe("review B1: a story over the limits of GitHub is published all the same", () => {
+  it("given a « je veux » of 300 characters, 50,000 characters of notes and 20 long criteria, when it is validated, then the issue is created within GitHub's limits (no 422), the story keeps its number and is up to date", async () => {
+    const s = await withStory("to_validate", {
+      iWant: "x".repeat(300),
+      notesMd: "n".repeat(50_000),
+      criteria: Array.from({ length: 20 }, (_, i) => ({
+        given: `g${i}-${"g".repeat(900)}`,
+        when: `w${i}-${"w".repeat(900)}`,
+        then: `t${i}-${"t".repeat(900)}`,
+      })),
+    });
+
+    const res = await validate(s.app, s.alice.cookie, s.id);
+
+    expect(res.status).toBe(200);
+    const issue = theIssue(s);
+    expect(issue.title.length).toBeLessThanOrEqual(256);
+    expect(issue.body.length).toBeLessThanOrEqual(65_536);
+    expect((await issueRow(s, s.id)).issue_number).toBe(issue.number);
+    expect((await shown(s, s.id)).issue?.upToDate).toBe(true);
+    expect((await syncs(s)).map((e) => e.result)).toEqual(["ok"]);
+  });
+});
+
+describe("review B2: the abandon of a ticket answers within a budget", () => {
+  it("given 3 published stories, GitHub taking 50 ms a call and a budget of 60 ms, when the ticket is abandoned, then it answers 200, at least one story is synced, at least one is not, and the others say they are not up to date", async () => {
+    const s = await published();
+    expect((await publish(s, s.alice.cookie, s.base)).status).toBe(200);
+    const third = await seedStory(s.db, s.ticketId, { status: "ready" });
+    expect((await publish(s, s.alice.cookie, third)).status).toBe(200);
+    s.fetchMock.update({ issuesDelay: 50 });
+    const app = createApp(s.db, "1.2.3", {
+      ...testAppOptions,
+      issueSyncBudgetMs: 60,
+    });
+
+    const res = await abandonTicket(app, s.alice.cookie, s.ticketId);
+
+    expect(res.status).toBe(200);
+    const upToDate = await Promise.all(
+      [s.id, s.base, third].map(
+        async (id) => (await shown(s, id)).issue?.upToDate,
+      ),
+    );
+    expect(upToDate).toContain(true);
+    expect(upToDate).toContain(false);
+    const closed = issues(s).filter((i) => i.state === "closed");
+    expect(closed).toHaveLength(upToDate.filter(Boolean).length);
+  });
+});
+
+describe("review S4: fewer calls for the labels", () => {
+  const labelCalls = (calls: ReturnType<typeof issueCalls>) =>
+    calls.filter(
+      (c) =>
+        c.method === "DELETE" ||
+        (c.method === "POST" && c.path.endsWith("/labels")),
+    );
+
+  it("given a ready story whose status does not change, when its text is edited, then the issue is patched and no label is added, created or removed", async () => {
+    const s = await published();
+    const before = issueCalls(s.fetchMock).length;
+
+    const res = await editStory(s.app, s.alice.cookie, s.id, editBody(1));
+
+    expect(res.status).toBe(200);
+    const calls = issueCalls(s.fetchMock).slice(before);
+    expect(calls.some((c) => c.method === "PATCH")).toBe(true);
+    expect(labelCalls(calls)).toEqual([]);
+    expect(theIssue(s)).toMatchObject({
+      title: "vouloir-modifié-1",
+      labels: ["cockpit: prête"],
+    });
+  });
+
+  it("given a published story, when it is abandoned, then only the Cockpit label it carries is removed: one DELETE, not one per possible status", async () => {
+    const s = await published();
+    s.fetchMock.addLabel(REPO, "cockpit: abandonnée");
+    const before = issueCalls(s.fetchMock).length;
+
+    await abandonStory(s.app, s.alice.cookie, s.id);
+
+    const deletes = issueCalls(s.fetchMock)
+      .slice(before)
+      .filter((c) => c.method === "DELETE");
+    expect(deletes.map((c) => decodeURIComponent(c.path))).toEqual([
+      `/repos/${REPO}/issues/${theIssue(s).number}/labels/cockpit: prête`,
+    ]);
+    expect(theIssue(s).labels).toEqual(["cockpit: abandonnée"]);
+  });
+
+  it("given the label of the new status does not exist in the repo, when a published story is abandoned, then GitHub refuses it, Cockpit creates it, then adds it again, and the issue ends with that label alone", async () => {
+    const s = await published();
+    const number = theIssue(s).number;
+    const before = issueCalls(s.fetchMock).length;
+    expect(s.fetchMock.labels(REPO)).not.toContain("cockpit: abandonnée");
+
+    const res = await abandonStory(s.app, s.alice.cookie, s.id);
+
+    expect(res.status).toBe(200);
+    const posts = issueCalls(s.fetchMock)
+      .slice(before)
+      .filter((c) => c.method === "POST")
+      .map((c) => c.path);
+    expect(posts).toEqual([
+      `/repos/${REPO}/issues/${number}/labels`,
+      `/repos/${REPO}/labels`,
+      `/repos/${REPO}/issues/${number}/labels`,
+    ]);
+    expect(s.fetchMock.labels(REPO)).toContain("cockpit: abandonnée");
+    expect(theIssue(s).labels).toEqual(["cockpit: abandonnée"]);
+    expect((await shown(s, s.id)).issue?.upToDate).toBe(true);
+  });
+});
+
+describe("review S7 and S8: the number of the issue survives a later failure", () => {
+  it("given the closing of a late issue fails after its creation, when a done story is published, then the story keeps the issue number, the error entry records the creation, and publishing again closes the same issue without creating another", async () => {
+    const s = await withStory("done");
+    s.fetchMock.update({ failOn: (c) => c.method === "PATCH" });
+
+    const first = await publish(s, s.alice.cookie, s.id);
+
+    expect(first.status).toBe(200);
+    const issue = theIssue(s);
+    expect(issue.state).toBe("open");
+    const row = await issueRow(s, s.id);
+    expect(row.issue_number).toBe(issue.number);
+    expect(row.issue_claimed_at).toBeNull();
+    const [failed] = await syncs(s);
+    expect(failed).toMatchObject({
+      result: "error",
+      detail: { reason: "error" },
+      story_id: s.id,
+      github_effects: { issueNumber: issue.number, created: true },
+    });
+    expect(await historyText(s.db)).not.toContain("github-boom-message");
+    expect((await shown(s, s.id)).issue).toMatchObject({
+      number: issue.number,
+      upToDate: false,
+    });
+
+    s.fetchMock.update({ failOn: undefined });
+    const second = await publish(s, s.alice.cookie, s.id);
+
+    expect(second.status).toBe(200);
+    expect(creations(s)).toHaveLength(1);
+    expect(theIssue(s)).toMatchObject({
+      state: "closed",
+      stateReason: "completed",
+      labels: ["cockpit: terminée"],
+    });
+    expect((await syncs(s)).map((e) => e.result)).toEqual(["error", "ok"]);
+    expect((await syncs(s))[1]?.github_effects).toEqual({
+      issueNumber: issue.number,
+      created: false,
+      closed: true,
+    });
+    expect((await shown(s, s.id)).issue?.upToDate).toBe(true);
+  });
+});
+
+describe("review S7: a refused decision does not reach GitHub", () => {
+  it("given a ready story that has no issue, when it is validated, then 409 wrong_status, GitHub is not called and no sync entry is written", async () => {
+    const s = await withStory("ready");
+
+    const res = await validate(s.app, s.alice.cookie, s.id);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "wrong_status" });
+    expect(issueCalls(s.fetchMock)).toEqual([]);
+    expect(await syncs(s)).toEqual([]);
+    expect((await issueRow(s, s.id)).issue_number).toBeNull();
   });
 });

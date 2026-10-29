@@ -123,7 +123,9 @@ export function failOnUnexpectedFetch() {
  * creates it: the server must create it first). A GET of an issue is not served. The returned mock reads and seeds that
  * state: `issues(fullName)`, `labels(fullName)`, `addLabel(fullName, name)` and `addIssueLabel(fullName, number, name)`.
  * `issuesStatus` fails every call on an issue or a label with that status (body message `github-boom-message`),
- * `issuesDelay` makes each of them wait that many milliseconds; set or clear them with `update(...)`.
+ * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
+ * with 500 every call it returns true for, to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
+ * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
  */
 export function stubGitHub(initial: {
   account: number | null;
@@ -145,6 +147,7 @@ export function stubGitHub(initial: {
   installations?: number[];
   issuesStatus?: number;
   issuesDelay?: number;
+  failOn?: (call: { method: string; path: string }) => boolean;
 }) {
   // Mutable on purpose: `update` changes it between two calls.
   const options = { ...initial };
@@ -422,6 +425,17 @@ export function stubGitHub(initial: {
           return reply(options.issuesStatus, {
             message: "github-boom-message",
           });
+        if (options.failOn?.({ method: verb as string, path: url.pathname }))
+          return reply(500, { message: "github-boom-message" });
+        // GitHub's limits, in characters (here UTF-16 units).
+        const tooLong = () =>
+          (typeof sent.title === "string" && sent.title.length > 256) ||
+          (typeof sent.body === "string" && sent.body.length > 65_536)
+            ? reply(422, {
+                message: "Validation Failed",
+                errors: [{ resource: "Issue", code: "custom" }],
+              })
+            : undefined;
         const labelNames = () =>
           Array.isArray(sent.labels)
             ? (sent.labels as unknown[]).map((l) =>
@@ -452,6 +466,8 @@ export function stubGitHub(initial: {
           const names = labelNames();
           const absent = unknown(names);
           if (absent !== undefined) return missing(absent);
+          const refused = tooLong();
+          if (refused) return refused;
           const number = repo.issues.length + 1;
           const issue: FakeIssue = {
             number,
@@ -469,6 +485,8 @@ export function stubGitHub(initial: {
         if (rawNumber !== undefined && !issue)
           return reply(404, { message: "Not Found" });
         if (issue && !issueLabels && verb === "PATCH") {
+          const refused = tooLong();
+          if (refused) return refused;
           if (typeof sent.title === "string") issue.title = sent.title;
           if (typeof sent.body === "string") issue.body = sent.body;
           if (sent.state === "open" || sent.state === "closed")
