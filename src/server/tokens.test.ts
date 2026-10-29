@@ -762,6 +762,121 @@ describe("purgeRevokedTokens", () => {
     expect(still.status).toBe(409);
     expect(await still.json()).toEqual({ error: "already_revoked" });
   });
+
+  // Decision 021 E: an OAuth row whose refresh token expired is dead; the purge deletes it 3 months after that, like a revoked row.
+  // NOW is 2026-10-25, so the cutoff is 2026-07-25: the 24th is more than 3 months ago, the 26th is less.
+  const TOO_OLD = new Date("2026-07-24T12:00:00Z");
+  const NOT_OLD_ENOUGH = new Date("2026-07-26T12:00:00Z");
+
+  /** An OAuth connection written directly in SQL; returns its id. */
+  async function seedOAuth(
+    db: TestDb,
+    userId: number,
+    name: string,
+    over: { refreshExpiresAt: Date; revokedAt?: Date },
+  ) {
+    const result = await db.execute(
+      sql`insert into mcp_tokens
+        (user_id, name, token_hash, last_four, client_id, refresh_hash, expires_at, refresh_expires_at, revoked_at)
+        values (${userId}, ${name}, ${sha256(`access-${name}`)}, 'abcd',
+          'https://claude.ai/oauth/mcp-client-metadata.json', ${sha256(`refresh-${name}`)},
+          ${days(-200).toISOString()}::timestamptz, ${over.refreshExpiresAt.toISOString()}::timestamptz,
+          ${over.revokedAt ? over.revokedAt.toISOString() : null}::timestamptz)
+        returning id`,
+    );
+    const [row] = (result as { rows: { id: number }[] }).rows;
+    assert(row);
+    return row.id;
+  }
+
+  it("given a non-revoked OAuth row whose refresh_expires_at is more than 3 months ago, when the purge runs, then it is deleted and 1 is returned", async () => {
+    const { db } = await setup();
+    const alice = await userWithSession(db, 5);
+    await seedOAuth(db, alice.id, "mort", { refreshExpiresAt: TOO_OLD });
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(1);
+    expect(await remainingIds(db)).toEqual([]);
+    expect(await purgeEntries(db)).toHaveLength(1);
+  });
+
+  it("given a non-revoked OAuth row whose refresh_expires_at is less than 3 months ago, when the purge runs, then it is kept", async () => {
+    const { db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const id = await seedOAuth(db, alice.id, "mort récent", {
+      refreshExpiresAt: NOT_OLD_ENOUGH,
+    });
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(0);
+    expect(await remainingIds(db)).toEqual([id]);
+  });
+
+  it("given a live OAuth row whose refresh_expires_at is in the future, when the purge runs, then it is kept", async () => {
+    const { db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const id = await seedOAuth(db, alice.id, "vivant", {
+      refreshExpiresAt: days(60),
+    });
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(0);
+    expect(await remainingIds(db)).toEqual([id]);
+  });
+
+  it("given a revoked OAuth row whose refresh_expires_at is in the future, when it was revoked more than 3 months ago, then the purge deletes it", async () => {
+    const { db } = await setup();
+    const alice = await userWithSession(db, 5);
+    await seedOAuth(db, alice.id, "révoqué ancien", {
+      refreshExpiresAt: days(60),
+      revokedAt: TOO_OLD,
+    });
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(1);
+    expect(await remainingIds(db)).toEqual([]);
+  });
+
+  it("given a revoked OAuth row whose refresh_expires_at is in the future, when it was revoked less than 3 months ago, then the purge keeps it", async () => {
+    const { db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const id = await seedOAuth(db, alice.id, "révoqué récent", {
+      refreshExpiresAt: days(60),
+      revokedAt: NOT_OLD_ENOUGH,
+    });
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(0);
+    expect(await remainingIds(db)).toEqual([id]);
+  });
+
+  it("given manual tokens next to OAuth rows, when the purge runs, then manual tokens behave as before: only the old revoked one goes, with the dead OAuth row", async () => {
+    const { app, db } = await setup();
+    const alice = await userWithSession(db, 5);
+    const oldRevoked = await created(app, alice.cookie, "manuel révoqué");
+    const live = await created(app, alice.cookie, "manuel actif");
+    const recentRevoked = await created(app, alice.cookie, "manuel récent");
+    await setRevokedAt(db, oldRevoked.token.id, TOO_OLD);
+    await setRevokedAt(db, recentRevoked.token.id, NOT_OLD_ENOUGH);
+    await seedOAuth(db, alice.id, "mort", { refreshExpiresAt: TOO_OLD });
+    const liveOAuth = await seedOAuth(db, alice.id, "vivant", {
+      refreshExpiresAt: days(60),
+    });
+
+    const count = await purgeRevokedTokens(db, NOW);
+
+    expect(count).toBe(2);
+    expect(await remainingIds(db)).toEqual([
+      live.token.id,
+      recentRevoked.token.id,
+      liveOAuth,
+    ]);
+  });
 });
 
 describe("schedulePurge", () => {

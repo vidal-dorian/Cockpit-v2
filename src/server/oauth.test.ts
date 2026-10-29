@@ -1722,7 +1722,7 @@ describe("review 2: abuse of the CIMD fetch", () => {
     },
   );
 
-  it("given a failed CIMD read, when the document is fixed, then it is read again only after the short delay, and the next request works", async () => {
+  it("given a failed CIMD read, when the document is fixed, then it is read again only after 60 seconds (59 s: no new fetch, 61 s: a new one), and that request works", async () => {
     let broken = true;
     const ctx = await setup({
       docs: {
@@ -1738,13 +1738,13 @@ describe("review 2: abuse of the CIMD fetch", () => {
       (await authorizeRequest(ctx, request().params, alice.cookie)).status,
     ).toBe(400);
     broken = false;
-    ctx.clock.now += 10_000;
+    ctx.clock.now += 59_000;
     expect(
       (await authorizeRequest(ctx, request().params, alice.cookie)).status,
     ).toBe(400);
     expect(ctx.fetchClientMetadata).toHaveBeenCalledTimes(1);
 
-    ctx.clock.now += 11 * 60_000;
+    ctx.clock.now += 2_000;
     const res = await authorizeRequest(ctx, request().params, alice.cookie);
 
     expect(res.status).toBe(302);
@@ -1823,59 +1823,126 @@ describe("review 3: an OAuth row past its refresh_expires_at is dead", () => {
   });
 });
 
-describe("review 5: a long next", () => {
-  const authorizeQuery = (size: number) => {
-    const head = query({ ...request().params, state: undefined });
-    return `${head}&state=${"s".repeat(size - head.length - "&state=".length)}`;
+describe("review 5: a long state must fit the login cookie", () => {
+  // The next value travels in a cookie, and browsers drop one over about 4 KB: safeNext keeps a next only if its
+  // encodeURIComponent form is at most 4000 characters, and the authorize state is limited to 2048 characters.
+  const encodedLength = (next: string) => encodeURIComponent(next).length;
+  /** A /autoriser next whose encoded form is exactly `size` characters. */
+  const nextOfEncodedLength = (size: number) => {
+    const head = "/autoriser?";
+    return `${head}${"s".repeat(size - encodedLength(head))}`;
   };
 
-  it("given a next of /autoriser? and a 4000-character state, when GitHub sends the user back, then the user lands on that URL", async () => {
+  it("given a 1000-character state, when the user goes through authorize, the login, /autoriser, the page's read and the approval, then the state is given back as is", async () => {
     const ctx = await setup();
-    const next = `/autoriser?${query(request({ state: "s".repeat(4000) }).params)}`;
+    const alice = await userWithSession(ctx.db, 1);
+    const state = "s".repeat(1000);
+    const { params } = request({ state });
+
+    const authorized = await authorizeRequest(ctx, params);
+    expect(authorized.status).toBe(302);
+    const next = new URL(
+      authorized.headers.get("location") ?? "",
+      PUBLIC_URL,
+    ).searchParams.get("next");
+    assert(next, "login carries next");
+    const back = await loginThroughGitHub(ctx, next);
+    expect(back.headers.get("location")).toBe(next);
+    const landed = new URL(next, PUBLIC_URL);
+    expect(landed.pathname).toBe("/autoriser");
+    const landedParams = Object.fromEntries(landed.searchParams);
+    const asked = await ctx.app.request(
+      `/api/oauth/request?${query(landedParams)}`,
+      { headers: { cookie: alice.cookie } },
+    );
+    const approvedRes = await approveRequest(ctx, alice.cookie, landedParams);
+
+    expect([asked.status, approvedRes.status]).toEqual([200, 200]);
+    const { redirectUrl } = (await approvedRes.json()) as {
+      redirectUrl: string;
+    };
+    expect(new URL(redirectUrl).searchParams.get("state")).toBe(state);
+  });
+
+  it("given a 2048-character state, when /oauth/authorize is requested, then it is accepted: that is the limit", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+
+    const res = await authorizeRequest(
+      ctx,
+      request({ state: "s".repeat(2048) }).params,
+      alice.cookie,
+    );
+
+    expect(res.status).toBe(302);
+  });
+
+  const longState = () => request({ state: "s".repeat(2049) }).params;
+  const refusedRoutes = {
+    "/oauth/authorize": (ctx: Ctx, cookie: string) =>
+      authorizeRequest(ctx, longState(), cookie),
+    "/api/oauth/request": (ctx: Ctx, cookie: string) =>
+      ctx.app.request(`/api/oauth/request?${query(longState())}`, {
+        headers: { cookie },
+      }),
+    "/api/oauth/approve": (ctx: Ctx, cookie: string) =>
+      approveRequest(ctx, cookie, longState()),
+  };
+
+  it.each(Object.keys(refusedRoutes))(
+    "given a 2049-character state, when %s is requested, then 400 invalid_request and no Location: it is refused, never silently lost",
+    async (route) => {
+      const ctx = await setup();
+      const alice = await userWithSession(ctx.db, 1);
+
+      const res = await refusedRoutes[route as keyof typeof refusedRoutes](
+        ctx,
+        alice.cookie,
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get("location")).toBeNull();
+    },
+  );
+
+  it("given a 2049-character state and no session, when /oauth/authorize is requested, then 400 and no redirect to the login", async () => {
+    const ctx = await setup();
+
+    const res = await authorizeRequest(ctx, longState());
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get("location")).toBeNull();
+    expect(await res.text()).toContain("Demande d'autorisation invalide");
+  });
+
+  it("given a next whose encoded form is exactly 4000 characters, when the login ends, then it is kept", async () => {
+    const ctx = await setup();
+    const next = nextOfEncodedLength(4000);
+    expect(encodedLength(next)).toBe(4000);
 
     const res = await loginThroughGitHub(ctx, next);
 
     expect(res.headers.get("location")).toBe(next);
   });
 
-  it("given a next whose query is exactly 8192 characters, when the login ends, then it is kept", async () => {
+  it("given a next whose encoded form is 4001 characters, when the login ends, then it is dropped and the user lands on /", async () => {
     const ctx = await setup();
-    const next = `/autoriser?${authorizeQuery(8192)}`;
-    expect(next.length).toBe("/autoriser?".length + 8192);
-
-    const res = await loginThroughGitHub(ctx, next);
-
-    expect(res.headers.get("location")).toBe(next);
-  });
-
-  it("given a next whose query is 8193 characters, when the login ends, then it is dropped and the user lands on /", async () => {
-    const ctx = await setup();
-    const next = `/autoriser?${authorizeQuery(8193)}`;
+    const next = nextOfEncodedLength(4001);
 
     const res = await loginThroughGitHub(ctx, next);
 
     expect(res.headers.get("location")).toBe("/");
   });
 
-  it("given a 4000-character state, when it goes through authorize, the page's read and the approval, then it is given back as is (the page it travels in is no longer refused)", async () => {
+  it("given a next of 1500 raw characters that encode to more than 4000, when the login ends, then it is dropped: the encoded form is what the cookie holds", async () => {
     const ctx = await setup();
-    const alice = await userWithSession(ctx.db, 1);
-    const state = "s".repeat(4000);
-    const { params } = request({ state });
+    const next = `/autoriser?${"%".repeat(1500)}`;
+    expect(next.length).toBeLessThan(4000);
+    expect(encodedLength(next)).toBeGreaterThan(4000);
 
-    const authorized = await authorizeRequest(ctx, params, alice.cookie);
-    const asked = await ctx.app.request(`/api/oauth/request?${query(params)}`, {
-      headers: { cookie: alice.cookie },
-    });
-    const approvedRes = await approveRequest(ctx, alice.cookie, params);
+    const res = await loginThroughGitHub(ctx, next);
 
-    expect([authorized.status, asked.status, approvedRes.status]).toEqual([
-      302, 200, 200,
-    ]);
-    const { redirectUrl } = (await approvedRes.json()) as {
-      redirectUrl: string;
-    };
-    expect(new URL(redirectUrl).searchParams.get("state")).toBe(state);
+    expect(res.headers.get("location")).toBe("/");
   });
 });
 
@@ -1888,14 +1955,46 @@ describe("review 6: frame protection", () => {
     expect(res.headers.get("x-frame-options")).toBe("DENY");
   };
 
-  it.each(["/autoriser", `/autoriser?${query(request().params)}`])(
-    "given the page %s, when it is requested, then it forbids being framed",
+  it.each([
+    "/autoriser",
+    `/autoriser?${query(request().params)}`,
+    "/autoriser/",
+    "/AUTORISER",
+    "/Autoriser?x=1",
+    "/autoriser//",
+    "/",
+    "/projets/1",
+    "/api/me",
+    "/api/health",
+    "/.well-known/oauth-authorization-server",
+    "/oauth/authorize",
+    "/does/not/exist",
+  ])(
+    "given the path %s, when it is requested, then every response of Cockpit forbids being framed",
     async (path) => {
       const ctx = await setup();
 
       expectFramed(await ctx.app.request(path));
     },
   );
+
+  it("given no token, when /mcp is requested, then the 401 forbids being framed", async () => {
+    const ctx = await setup();
+
+    const res = await rpc(ctx.app, "tools/list", {});
+
+    expect(res.status).toBe(401);
+    expectFramed(res);
+  });
+
+  it("given the token endpoint, when it answers an error, then it forbids being framed", async () => {
+    const ctx = await setup();
+
+    const res = await tokenRequest(ctx, { grant_type: "nope" });
+
+    expect(res.status).toBe(400);
+    expectFramed(res);
+  });
 
   it("given a valid request, when /oauth/authorize redirects, then the redirect forbids being framed", async () => {
     const ctx = await setup();
@@ -1957,5 +2056,51 @@ describe("review 7: /api/me/connect says which client is connected", () => {
     });
 
     expect(await clientOf(ctx, alice.cookie)).toBe("Claude Code");
+  });
+});
+
+describe("review 8: dead rows and the order of the /mcp checks", () => {
+  it("given 19 manual tokens and 1 dead OAuth row, when a manual token is created, then 201: the dead row does not count in the 20", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await seedManualTokens(ctx.db, alice.id, 19);
+    await connect(ctx, alice);
+    await ctx.db.execute(
+      sql`update mcp_tokens set refresh_expires_at = now() - interval '1 minute' where client_id is not null`,
+    );
+
+    const res = await ctx.app.request("/api/me/tokens", {
+      method: "POST",
+      headers: { cookie: alice.cookie, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Le vingtième" }),
+    });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("given a revoked OAuth token whose access token has also expired, when Claude calls /mcp, then 401 and a refused mcp_auth entry with reason revoked_token: revoked is checked before expired", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    const issued = await connect(ctx, alice);
+    const [row] = await tokenRows(ctx.db);
+    assert(row);
+    expect((await revokeRoute(ctx, alice.cookie, row.id)).status).toBe(204);
+    await ctx.db.execute(
+      sql`update mcp_tokens set expires_at = now() - interval '1 minute'`,
+    );
+
+    const res = await rpc(
+      ctx.app,
+      "tools/list",
+      {},
+      `Bearer ${issued.access_token}`,
+    );
+
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toBe(AUTH_REQUIRED);
+    const found = await rows(ctx.db, sql`action = 'mcp_auth'`);
+    expect(found.map((r) => [r.result, r.token_id, r.detail])).toEqual([
+      ["refused", row.id, { reason: "revoked_token" }],
+    ]);
   });
 });
