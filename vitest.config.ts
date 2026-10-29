@@ -5,7 +5,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
-    // Each test starts its own PGlite (a PostgreSQL in WASM), which takes seconds on a slow machine.
+    globalSetup: ["src/server/db/test-db-setup.ts"],
+    // The first test of a file loads its PGlite (a PostgreSQL in WASM), which takes seconds on a slow machine.
     testTimeout: 30_000,
     hookTimeout: 30_000,
   },

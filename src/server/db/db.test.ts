@@ -50,3 +50,33 @@ describe("first migration", () => {
     expect(user.githubId).toBe(3_000_000_000);
   });
 });
+
+// openTestDatabase hands every test the same database, emptied (test-db.ts).
+describe("openTestDatabase", () => {
+  it("given a test that leaves a user behind, when the next test opens the database, then it is empty again", async () => {
+    const db = await openTestDatabase();
+    await db.insert(users).values({ githubId: 7, login: "left-behind" });
+  });
+
+  it("given the previous test left a user, when a user is inserted, then it is the only one and gets id 1", async () => {
+    const db = await openTestDatabase();
+
+    const [user] = await db
+      .insert(users)
+      .values({ githubId: 8, login: "fresh" })
+      .returning();
+
+    expect(user?.id).toBe(1);
+    expect(await db.select().from(users)).toHaveLength(1);
+  });
+
+  it("given a database already open in this test, when a second one is opened, then it is separate and empty", async () => {
+    const first = await openTestDatabase();
+    await first.insert(users).values({ githubId: 9, login: "first" });
+
+    const second = await openTestDatabase();
+
+    expect(await second.select().from(users)).toEqual([]);
+    expect(await first.select().from(users)).toHaveLength(1);
+  });
+});

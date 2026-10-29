@@ -39,5 +39,5 @@ Only then open the pull request.
 - UI text in French; code, comments, commit messages and prompts in English.
 - Colors and fonts are the tokens of `src/web/styles.css` (decision 003). Never hard-code a color.
 - Components: Tailwind + shadcn/ui (decision 003).
-- Tests never call Claude or the real GitHub. Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite); screens with Testing Library and a stubbed `fetch`.
+- Tests never call Claude or the real GitHub. Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite: migrated once per run, one database per test file, emptied at the start of each test, so never `it.concurrent` on it); screens with Testing Library and a stubbed `fetch`.
 - Every PR has a "Notions TS utilisées ici" section, in French, for Dorian who is learning TypeScript.
