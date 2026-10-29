@@ -18,7 +18,7 @@ Le brief (§6.3) veut un tableau par projet : à valider, prêtes, en cours, en 
 | B | Quelles colonnes ? | Cinq, dans cet ordre : **À valider** (`to_validate` et `to_rewrite`, cette dernière marquée « à réécrire »), **Prêtes** (`ready`), **En cours** (`in_progress`), **En revue** (`in_review`), **Terminées** (`done`). Les US abandonnées n'apparaissent pas : elles restent sur la page de leur ticket |
 | C | Une carte ? | Le « je veux » de l'US, le titre de son ticket, et pour une US à réécrire le libellé « à réécrire ». Toute la carte est un lien vers `/us/:id`. **Aucun bouton** sur la carte : on ne déplace rien, on ouvre l'US (brief §6.3) |
 | D | Où ? | Une section « Kanban » sur `/projets/:id`, au-dessus des tickets. Chaque colonne est une section avec un titre et son compte (« À valider (3) ») et une liste, ou « Aucune » quand elle est vide. Les colonnes sont dans une région focalisable au clavier (« Colonnes du Kanban »), pour pouvoir les faire défiler sans souris ; pour un lecteur d'écran, le titre du ticket sur une carte est précédé de « Ticket : ». En largeur téléphone, les colonnes s'empilent ; sinon elles sont côte à côte et défilent horizontalement si besoin. Couleurs des jetons seulement (003) |
-| E | Fraîcheur ? | Les décisions (018) invalident aussi la requête du Kanban, pour qu'il reflète l'état réel au retour sur le projet |
+| E | Fraîcheur ? | Les décisions (018), l'abandon et le renommage d'un ticket invalident aussi la requête du Kanban, pour qu'il reflète l'état réel au retour sur le projet |
 
 ## Ce qui est repoussé
 
