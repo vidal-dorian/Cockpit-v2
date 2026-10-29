@@ -111,6 +111,9 @@ function TicketView({ ticket, stories }: Loaded) {
         queryClient.invalidateQueries({
           queryKey: ["tickets", String(ticket.projectId)],
         }),
+        queryClient.invalidateQueries({
+          queryKey: ["stories", String(ticket.projectId)],
+        }),
       ]);
     },
     // Abandoned meanwhile (another tab): show it.
