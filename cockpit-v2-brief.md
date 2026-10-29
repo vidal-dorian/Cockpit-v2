@@ -268,6 +268,7 @@ L'accueil répond à une question : **qu'est-ce qui m'attend ?**
 - Un seul passage à la fois par utilisateur. Un passage sans nouvelles après un délai est compté en échec.
 - Chaque passage est suivi : durée, résultat, message d'erreur, lien vers le journal filtré sur ce qu'il a fait.
 - Claude peut gérer les routines, mais une routine qu'il crée **naît en pause**, et seul l'humain l'active. Un passage de routine ne peut modifier aucune routine (protection contre l'injection de consignes par un ticket ou une pièce jointe).
+- **Demande de Dorian (2026-10-29) : l'écriture des US en routine, configurée toute seule.** Depuis Cockpit, l'utilisateur programme le lancement automatique de `/write-us` sur un projet. Il **choisit seulement la fréquence** : à la demande par API, tous les jours, toutes les semaines, etc. Cockpit configure tout le reste sans qu'il ait à le faire : la consigne, le repo, le modèle par défaut, l'accès de Claude à Cockpit (le jeton ou la connexion) et le serveur MCP de la tâche. Les routines natives de Claude Code (« tâches planifiées » : planning, API ou événement GitHub, modèle au choix, [doc](https://code.claude.com/docs/en/routines)) sont le support le plus probable ; reste à vérifier que Cockpit peut les créer et les modifier lui-même (aucune API publique de création n'est connue à ce jour), sinon Cockpit garde son propre planning et appelle le déclencheur API de la tâche. Les US écrites ainsi arrivent « à valider » : rien ne part en développement sans l'humain.
 
 ### 6.15 Automatisations — ajouté ensuite, désactivées par défaut
 

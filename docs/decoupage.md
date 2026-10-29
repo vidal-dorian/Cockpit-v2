@@ -166,7 +166,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 - **Plusieurs utilisateurs** : invitations, administration, plusieurs membres par projet (008).
 - **Service payant** : passage chez un hébergeur ; facturation, offre gratuite et offre payante, fonctions payantes bloquées côté serveur (008). Idées d'offres et de prix : [`offres.md`](offres.md).
 - **Connexion OAuth** : Cockpit devient un connecteur claude.ai, disponible en local, dans le cloud et sur le téléphone sans jeton à copier ; démo : j'ajoute Cockpit sur claude.ai, je me connecte, « liste mes projets » marche depuis le téléphone. Voir [`decisions/006-connexion-oauth.md`](decisions/006-connexion-oauth.md). À faire avant ou avec le cloud.
-- **Cloud** : sessions cloud, routines.
+- **Cloud** : sessions cloud, routines. Première routine voulue : l'écriture des US, configurée par Cockpit, l'utilisateur ne choisissant que la fréquence (API, chaque jour, chaque semaine…) ; voir le brief §6.14, demande du 2026-10-29.
 - **Automatisations** : file d'attente ; la relance automatique est peut-être remplacée par l'Auto-fix natif de Claude Code (à étudier).
 - **Coût et budget** (télémétrie OpenTelemetry), **notifications** sur le téléphone, **CI/CD proposée par Claude** (« brancher un PC en une commande » est couvert par la connexion OAuth).
 - **Ergonomie** : raccourcis clavier, recherche globale, thème clair/sombre, version mobile (PWA).
