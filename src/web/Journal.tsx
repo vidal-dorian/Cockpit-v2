@@ -35,7 +35,11 @@ export const ACTIONS: Record<string, string> = {
   update_user_story: "User story réécrite",
   sync_issue: "Issue GitHub synchronisée",
 };
-const ORIGINS: Record<string, string> = { ui: "Interface", mcp: "Claude" };
+const ORIGINS: Record<string, string> = {
+  ui: "Interface",
+  mcp: "Claude",
+  system: "Cockpit",
+};
 // The word always comes with the color, so the result never relies on color alone (decision 003).
 export const RESULTS: Record<string, { label: string; style: string }> = {
   ok: { label: "Réussie", style: "bg-done-soft text-done-text" },

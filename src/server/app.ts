@@ -22,12 +22,19 @@ export type AppOptions = {
   setupCode: string;
   /** How many repos' health check the memory cache keeps (decision 013); 1000 when absent. */
   healthCacheSize?: number;
+  /** After how many milliseconds a ticket abandon starts no new GitHub issue sync (decision 020 F); 30,000 when absent. */
+  issueSyncBudgetMs?: number;
 };
 
 export function createApp(
   db: Db,
   version: string,
-  { encryptionKey, setupCode, healthCacheSize = 1000 }: AppOptions,
+  {
+    encryptionKey,
+    setupCode,
+    healthCacheSize = 1000,
+    issueSyncBudgetMs = 30_000,
+  }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);
   const readGitHub = githubReader(readInstance);
@@ -45,7 +52,7 @@ export function createApp(
       .route("/", accountRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize))
       // After projectRoutes: its gate covers the ticket and story routes.
-      .route("/", ticketRoutes(db, readGitHub))
+      .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, version))

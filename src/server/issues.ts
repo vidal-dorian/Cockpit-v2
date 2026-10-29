@@ -94,6 +94,7 @@ async function sync(
     storyId: story.id,
   };
   let number = story.issueNumber;
+  let closed = false;
   try {
     const ready = await readGitHub();
     if (!ready) throw new Error("The GitHub App is not configured");
@@ -101,41 +102,51 @@ async function sync(
       project.installationId,
       project.fullName,
     );
-    await issues.ensureLabel(rendered.label);
-    number = story.issueNumber ?? (await issues.create(rendered));
-    const n = number;
-    if (!created) {
-      // Only the Cockpit labels are swapped; shortcut: the previous status is not kept, so the four others are removed (404 ignored), upgrade if the calls ever weigh.
-      await issues.addLabel(n, rendered.label);
-      await Promise.all(
-        COCKPIT_LABELS.filter((name) => name !== rendered.label).map((name) =>
-          issues.removeLabel(n, name),
-        ),
-      );
+    let labels: string[] = [];
+    if (number === null) {
+      ({ number, labels } = await issues.create(rendered));
+      // Saved at once and alone: whatever fails next, the next sync updates this issue instead of creating another.
+      await db
+        .update(userStories)
+        .set({ issueNumber: number })
+        .where(eq(userStories.id, story.id));
     }
+    const n = number;
     // A new issue is open: only a story published late (done, abandoned) must be closed at once.
-    if (!created || rendered.state === "closed")
-      await issues.update(n, rendered);
+    if (!created || rendered.state === "closed") {
+      labels = await issues.update(n, rendered);
+      closed = rendered.state === "closed";
+    }
+    // Only a missing label is added, and only the other Cockpit labels the issue carries are removed (decision 020 C).
+    if (!labels.includes(rendered.label))
+      labels = await issues.addLabel(n, rendered.label);
+    await Promise.all(
+      COCKPIT_LABELS.filter(
+        (name) => name !== rendered.label && labels.includes(name),
+      ).map((name) => issues.removeLabel(n, name)),
+    );
   } catch (error) {
-    // The history only gets a closed value (decision 010 D), the log the rest. An issue created before the failure keeps its number, so the next sync updates it instead of creating another.
+    // The history only gets a closed value (decision 010 D), the log the rest.
     console.error(`Action ${entry.action} failed:`, error);
     if (created)
       await db
         .update(userStories)
-        .set({ issueClaimedAt: null, ...(number && { issueNumber: number }) })
+        .set({ issueClaimedAt: null })
         .where(eq(userStories.id, story.id));
-    await db
-      .insert(history)
-      .values({ ...entry, result: "error", detail: { reason: "error" } });
+    await db.insert(history).values({
+      ...entry,
+      result: "error",
+      detail: { reason: "error" },
+      ...(created &&
+        number !== null && {
+          githubEffects: { issueNumber: number, created, closed },
+        }),
+    });
     return;
   }
   const saved = number;
   await act(db, entry, async (tx) => {
-    entry.githubEffects = {
-      issueNumber: saved,
-      created,
-      closed: rendered.state === "closed",
-    };
+    entry.githubEffects = { issueNumber: saved, created, closed };
     await tx
       .update(userStories)
       .set({
@@ -161,13 +172,15 @@ export async function syncIssue(
   }
 }
 
-/** The stories of an abandoned ticket that have an issue, one after the other (decision 020 F). */
+/** The stories of an abandoned ticket that have an issue, one after the other; once `budgetMs` is spent no new sync starts and the rest stay not up to date (decision 020 F). */
 export async function syncTicketIssues(
   db: Db,
   readGitHub: ReadGitHub,
   userId: number,
   ticketId: number,
+  budgetMs: number,
 ) {
+  const deadline = Date.now() + budgetMs;
   const published = await db
     .select({ id: userStories.id })
     .from(userStories)
@@ -178,5 +191,8 @@ export async function syncTicketIssues(
       ),
     )
     .orderBy(asc(userStories.position), asc(userStories.id));
-  for (const { id } of published) await syncIssue(db, readGitHub, userId, id);
+  for (const { id } of published) {
+    if (Date.now() >= deadline) return;
+    await syncIssue(db, readGitHub, userId, id);
+  }
 }

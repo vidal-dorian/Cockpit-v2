@@ -122,7 +122,11 @@ export function refusal(c: Context, error: unknown) {
 }
 
 /** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/tickets/*. */
-export function ticketRoutes(db: Db, readGitHub: ReadGitHub) {
+export function ticketRoutes(
+  db: Db,
+  readGitHub: ReadGitHub,
+  issueSyncBudgetMs: number,
+) {
   const entryOf = (userId: number, action: string): Entry => ({
     userId,
     actor: "human",
@@ -327,7 +331,13 @@ export function ticketRoutes(db: Db, readGitHub: ReadGitHub) {
           if (!row) throw new Refused("not_found");
           return row;
         });
-        await syncTicketIssues(db, readGitHub, user.userId, ticket.id);
+        await syncTicketIssues(
+          db,
+          readGitHub,
+          user.userId,
+          ticket.id,
+          issueSyncBudgetMs,
+        );
         // An abandoned ticket is abandoned whatever its stories say.
         return c.json({ ticket: present(abandoned, []) });
       } catch (error) {

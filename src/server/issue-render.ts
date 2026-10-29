@@ -23,6 +23,32 @@ export const COCKPIT_LABELS = Object.values(BY_STATUS).map(
   ({ french }) => `cockpit: ${french}`,
 );
 
+// GitHub's limits, in UTF-16 units (decision 020 B).
+const TITLE_MAX = 256;
+const BODY_MAX = 65_536;
+const CUT_MENTION = "(tronqué : la version complète est dans Cockpit)";
+const FOOTER =
+  "Géré par Cockpit : modifie cette user story dans Cockpit, pas ici.";
+
+/** The first `max` characters of a text, never ending in half of a surrogate pair. */
+const clip = (text: string, max: number) =>
+  /[\uD800-\uDBFF]/.test(text.charAt(max - 1))
+    ? text.slice(0, max - 1)
+    : text.slice(0, max);
+
+/**
+ * User text, made inert on GitHub: a mention would notify someone, and a comment (`<!--`) or its end could hide the footer or forge the marker, so
+ * `@` gets a zero-width space after it and `<!--` and `-->` become HTML entities. Nothing else can trigger anything.
+ */
+const inert = (text: string) =>
+  text
+    .replaceAll("@", "@\u200B")
+    .replaceAll("<!--", "&lt;!--")
+    .replaceAll("-->", "--&gt;");
+
+/** User text for a one-line place (a criterion): the newlines become spaces, so it cannot open a title or another checkbox. */
+const oneLine = (text: string) => inert(text).replace(/\s*[\r\n]+\s*/g, " ");
+
 /** The issue of a story (decision 020 B to D): a pure function, so the same story always gives the same body and hash. */
 export function renderIssue(story: {
   id: number;
@@ -35,14 +61,15 @@ export function renderIssue(story: {
   dependsOn: { id: number; issueNumber: number | null }[];
 }) {
   const { french, closedAs } = BY_STATUS[story.status];
-  const sections = [
-    `En tant que ${story.asA}, je veux ${story.iWant}, afin de ${story.soThat}.`,
+  const head = [
+    `En tant que ${inert(story.asA)}, je veux ${inert(story.iWant)}, afin de ${inert(story.soThat)}.`,
     `**Statut** : ${french}`,
-    story.notesMd && `## Notes\n\n${story.notesMd}`,
+  ];
+  const tail = [
     `## Critères d'acceptation\n\n${story.criteria
       .map(
         (k) =>
-          `- [ ] **Étant donné** ${k.given} **quand** ${k.when} **alors** ${k.then}`,
+          `- [ ] **Étant donné** ${oneLine(k.given)} **quand** ${oneLine(k.when)} **alors** ${oneLine(k.then)}`,
       )
       .join("\n")}`,
     story.dependsOn.length > 0 &&
@@ -52,12 +79,34 @@ export function renderIssue(story: {
             `- Dépend de ${d.issueNumber ? `#${d.issueNumber}` : `US ${d.id}`}`,
         )
         .join("\n")}`,
-    "Géré par Cockpit : modifie cette user story dans Cockpit, pas ici.",
-    `<!-- cockpit:story:${story.id} -->`,
   ];
+  const end = [FOOTER, `<!-- cockpit:story:${story.id} -->`];
+  const join = (parts: (string | false)[]) =>
+    parts.filter(Boolean).join("\n\n");
+  const notes = inert(story.notesMd);
+  const withNotes = (text: string) => text && `## Notes\n\n${text}`;
+  let body = join([...head, withNotes(notes), ...tail, ...end]);
+  if (body.length > BODY_MAX) {
+    // The notes give way first; the footer and the marker always stay.
+    const over = body.length - BODY_MAX + CUT_MENTION.length + 2;
+    body = join([
+      ...head,
+      withNotes(clip(notes, Math.max(0, notes.length - over))),
+      ...tail,
+      CUT_MENTION,
+      ...end,
+    ]);
+    // shortcut: when the criteria alone are over the limit they are cut mid-line, upgrade if a story ever has 60,000 characters of criteria.
+    if (body.length > BODY_MAX) {
+      const kept = join([...head, ...tail]);
+      const room = BODY_MAX - join([CUT_MENTION, ...end]).length - 2;
+      body = join([`${clip(kept, room - 1)}…`, CUT_MENTION, ...end]);
+    }
+  }
+  const title = inert(story.iWant);
   return {
-    title: story.iWant,
-    body: sections.filter(Boolean).join("\n\n"),
+    title: title.length > TITLE_MAX ? `${clip(title, TITLE_MAX - 1)}…` : title,
+    body,
     label: `cockpit: ${french}`,
     state: closedAs ? ("closed" as const) : ("open" as const),
     stateReason: closedAs,
