@@ -37,14 +37,14 @@ const clip = (text: string, max: number) =>
     : text.slice(0, max);
 
 /**
- * User text, made inert on GitHub: a mention would notify someone, and a comment (`<!--`) or its end could hide the footer or forge the marker, so
- * `@` gets a zero-width space after it and `<!--` and `-->` become HTML entities. Nothing else can trigger anything.
+ * User text, made less dangerous on GitHub: a mention would notify someone, and a comment (`<!--`) could hide the footer or forge the marker.
+ * Only a `@` where GitHub sees a mention (start of text, after a space or punctuation) gets a zero-width space, so `/package/@scope` links and
+ * `a@b` stay intact; a lone `-->` closes nothing once every `<!--` is escaped, so Mermaid arrows stay. `#12` links and open code fences remain.
  */
 const inert = (text: string) =>
   text
-    .replaceAll("@", "@\u200B")
-    .replaceAll("<!--", "&lt;!--")
-    .replaceAll("-->", "--&gt;");
+    .replace(/(^|[\s([{"'<>,;:!?*_~])@(?=[\p{L}\p{N}])/gu, "$1@\u200B")
+    .replaceAll("<!--", "&lt;!--");
 
 /** User text for a one-line place (a criterion): the newlines become spaces, so it cannot open a title or another checkbox. */
 const oneLine = (text: string) => inert(text).replace(/\s*[\r\n]+\s*/g, " ");
@@ -103,7 +103,8 @@ export function renderIssue(story: {
       body = join([`${clip(kept, room - 1)}…`, CUT_MENTION, ...end]);
     }
   }
-  const title = inert(story.iWant);
+  // A title is plain text on GitHub: nothing in it notifies or hides anything, so it is only cut.
+  const title = story.iWant;
   return {
     title: title.length > TITLE_MAX ? `${clip(title, TITLE_MAX - 1)}…` : title,
     body,

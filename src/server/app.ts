@@ -33,7 +33,7 @@ export function createApp(
     encryptionKey,
     setupCode,
     healthCacheSize = 1000,
-    issueSyncBudgetMs = 30_000,
+    issueSyncBudgetMs = 20_000,
   }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);

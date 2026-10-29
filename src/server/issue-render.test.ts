@@ -268,7 +268,7 @@ describe("review S5: the text of the user triggers nothing on GitHub", () => {
 
     expect(body.split("<!-- cockpit:story:")).toHaveLength(2);
     expect(body.endsWith(MARKER)).toBe(true);
-    expect(body).not.toContain("cockpit:story:999 -->");
+    expect(body).not.toContain("<!-- cockpit:story:999");
   });
 
   it.each(["given", "when", "then"] as const)(
