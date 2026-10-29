@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the Then field of a Given/When/Then criterion (decision 017)
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { client } from "./api.ts";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
 import { decisionError } from "./tickets.ts";
@@ -32,10 +32,13 @@ export function StoryDecisions({
   story,
   projectId,
   archived,
+  statusRef,
 }: {
   story: DecidedStory;
   projectId: number;
   archived: boolean;
+  /** The status of the story on the page (tabIndex -1): where the focus goes when the button that was used is gone. */
+  statusRef: RefObject<HTMLElement | null>;
 }) {
   const queryClient = useQueryClient();
   const id = String(story.id);
@@ -44,14 +47,18 @@ export function StoryDecisions({
   );
   const [comment, setComment] = useState("");
   const [form, setForm] = useState(() => draftOf(story));
-  // The form or the confirmation is gone with the button that opened it: the focus goes back to a button, not to <body>.
+  // The form, the confirmation or the button used is gone: the focus goes back to a button that exists, or to the status, not to <body>.
   const openers = useRef<Record<string, HTMLButtonElement | null>>({});
-  const focusAfter = useRef<string | null>(null);
+  // State, not a ref: Valider leaves `mode` at null, so only a new value runs the effect.
+  const [focusAfter, setFocusAfter] = useState<string | null>(null);
   useEffect(() => {
-    if (mode !== null || !focusAfter.current) return;
-    openers.current[focusAfter.current]?.focus();
-    focusAfter.current = null;
-  }, [mode]);
+    if (mode !== null || !focusAfter) return;
+    (focusAfter === "status"
+      ? statusRef.current
+      : openers.current[focusAfter]
+    )?.focus();
+    setFocusAfter(null);
+  }, [mode, focusAfter, statusRef]);
 
   const run = useMutation({
     mutationFn: async (send: () => Promise<Response>) => {
@@ -69,16 +76,20 @@ export function StoryDecisions({
         }),
         queryClient.invalidateQueries({ queryKey: ["story-history", id] }),
       ]);
-      focusAfter.current = mode;
+      // Saving keeps the status, so Modifier stays; any other decision changes it and removes the button that was used.
+      setFocusAfter(mode === "edit" ? "edit" : "status");
       setMode(null);
     },
+    // Refused because the story changed meanwhile (wrong_status): show its real state.
+    onError: () => queryClient.invalidateQueries({ queryKey: ["story"] }),
   });
   const close = () => {
-    focusAfter.current = mode;
+    setFocusAfter(mode);
     setMode(null);
     run.reset();
   };
   const open = (next: "edit" | "sendBack" | "abandon") => {
+    run.reset();
     setComment("");
     setForm(draftOf(story));
     setMode(next);
@@ -97,11 +108,12 @@ export function StoryDecisions({
             <button
               type="button"
               disabled={archived || run.isPending}
-              onClick={() =>
+              onClick={() => {
+                run.reset();
                 run.mutate(() =>
                   client.api.stories[":id"].validate.$post({ param: { id } }),
-                )
-              }
+                );
+              }}
               className={primary}
             >
               Valider
@@ -182,32 +194,38 @@ export function StoryDecisions({
         </form>
       )}
       {mode === "abandon" && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={run.isPending}
-            onClick={() =>
-              run.mutate(() =>
-                client.api.stories[":id"].abandon.$post({ param: { id } }),
-              )
-            }
-            className={danger}
-          >
-            Confirmer l'abandon
-          </button>
-          <button
-            // A key of its own: without it React would reuse the button of the row above and autoFocus would not run.
-            key="cancel-abandon"
-            type="button"
-            // The Abandonner button is gone: keep the keyboard focus on the safe choice.
-            // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-            autoFocus
-            onClick={close}
-            className={button}
-          >
-            Annuler
-          </button>
-        </div>
+        <>
+          <p>
+            On abandonne cette user story : c'est définitif, elle ne se rouvre
+            pas.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={run.isPending}
+              onClick={() =>
+                run.mutate(() =>
+                  client.api.stories[":id"].abandon.$post({ param: { id } }),
+                )
+              }
+              className={danger}
+            >
+              Confirmer l'abandon
+            </button>
+            <button
+              // A key of its own: without it React would reuse the button of the row above and autoFocus would not run.
+              key="cancel-abandon"
+              type="button"
+              // The Abandonner button is gone: keep the keyboard focus on the safe choice.
+              // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+              autoFocus
+              onClick={close}
+              className={button}
+            >
+              Annuler
+            </button>
+          </div>
+        </>
       )}
       {mode === "edit" && (
         <form
@@ -393,7 +411,7 @@ export function StoryHistory({ id }: { id: number }) {
         <ul className="mt-2 grid gap-2">
           {entries.data.map((entry) => (
             <li
-              key={`${entry.at}-${entry.action}`}
+              key={entry.id}
               className="flex flex-wrap items-baseline gap-x-3 rounded-xl bg-card p-3"
             >
               <span className="font-semibold">

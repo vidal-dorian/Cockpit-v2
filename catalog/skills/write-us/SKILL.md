@@ -34,7 +34,7 @@ The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, t
 `stories_to_rewrite` (from step 1) lists the stories the user sent back, each with their `rewrite_comment`.
 
 1. Read the story with `mcp__cockpit__get_user_story`: its narrative, notes, criteria and the user's `rewrite_comment`. Answer that comment; change nothing it does not ask for.
-2. Call `mcp__cockpit__update_user_story` with `story_id`, `as_a`, `i_want`, `so_that`, `notes_md` (optional) and the **complete list of criteria** (1 to 20): it replaces the old list as a whole, so repeat the criteria that were right as they were and change only the others. Dependencies are kept.
+2. Call `mcp__cockpit__update_user_story` with `story_id`, `as_a`, `i_want`, `so_that`, `notes_md` (optional: send it only to change the notes, left out they are kept) and the **complete list of criteria** (1 to 20): it replaces the old list as a whole, so repeat the criteria that were right as they were and change only the others. Dependencies are kept.
 3. Apply the same sizing and similarity rules as for a new story (below). If the comment asks for a split or a merge you cannot do in one story, rewrite this story for what it should keep and tell the user the rest needs new stories or another ticket.
 4. The story goes back to the user as `to_validate`. Send one call per story, and tell the user which stories you rewrote.
 

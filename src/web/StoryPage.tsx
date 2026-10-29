@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the Then field of a Given/When/Then criterion (decision 017)
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
@@ -26,6 +27,7 @@ export function StoryPage() {
     queryKey: ["story", id],
     queryFn: () => fetchStory(id),
   });
+  const statusRef = useRef<HTMLSpanElement>(null);
   const found = result.data && result.data !== "not_found" && result.data;
 
   return (
@@ -76,7 +78,11 @@ export function StoryPage() {
               User story {found.story.position}
             </h1>
             <p className="mt-2">
-              <span className="rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text">
+              <span
+                ref={statusRef}
+                tabIndex={-1}
+                className={`rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text ${focusRing}`}
+              >
                 {STORY_STATUSES[found.story.status] ?? found.story.status}
               </span>
               <span className="ml-3 text-muted-foreground">
@@ -97,6 +103,7 @@ export function StoryPage() {
               story={found.story}
               projectId={found.project.id}
               archived={found.project.archived}
+              statusRef={statusRef}
             />
             <div className="mt-4 grid gap-1">
               <p>

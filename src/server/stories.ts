@@ -141,7 +141,7 @@ export async function updateStory(
   return row;
 }
 
-/** Replaces the narrative, the notes and the whole list of criteria of a locked story (decisions 018 C and E). Omitted notes are emptied: the list is replaced, not merged. */
+/** Replaces the narrative, the notes and the whole list of criteria of a locked story (decisions 018 C and E). Omitted notes are kept, an empty string empties them; the criteria are replaced, not merged. */
 export async function rewriteStory(
   tx: Tx,
   id: number,
@@ -170,7 +170,7 @@ export async function rewriteStory(
       asA: fields.asA,
       iWant: fields.iWant,
       soThat: fields.soThat,
-      notesMd: fields.notesMd ?? "",
+      notesMd: fields.notesMd, // undefined: drizzle leaves the column alone
     })
     .where(eq(userStories.id, id));
   return updateStory(tx, id, set);
@@ -283,6 +283,7 @@ export function storyRoutes(db: Db) {
       // One query (no N+1): the story's own entries, minus the reads (only get_user_story carries a story id), and the writes of its ticket that concern all its stories (decisions 018 I and 017).
       const entries = await db
         .select({
+          id: history.id,
           at: history.at,
           action: history.action,
           result: history.result,

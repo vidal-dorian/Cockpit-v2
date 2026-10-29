@@ -38,15 +38,27 @@ function TicketView({ ticket, stories }: Loaded) {
   const [title, setTitle] = useState(ticket.title);
   const [descriptionMd, setDescriptionMd] = useState(ticket.descriptionMd);
   const id = String(ticket.id);
+  const unfinished = stories.filter(
+    (s) => s.status !== "done" && s.status !== "abandoned",
+  ).length;
   // The form or the confirmation is gone and so is the button that opened it: the focus goes back to a new one, not to <body>.
   const modifier = useRef<HTMLButtonElement>(null);
   const supprimer = useRef<HTMLButtonElement>(null);
   const abandonner = useRef<HTMLButtonElement>(null);
-  const focusAfter = useRef<"edit" | "delete" | "abandon" | null>(null);
+  // The title stands in when every button is gone, after the abandon.
+  const heading = useRef<HTMLHeadingElement>(null);
+  const focusAfter = useRef<"edit" | "delete" | "abandon" | "heading" | null>(
+    null,
+  );
   useEffect(() => {
     if (mode !== "view" || !focusAfter.current) return;
-    const buttons = { edit: modifier, delete: supprimer, abandon: abandonner };
-    buttons[focusAfter.current].current?.focus();
+    const targets = {
+      edit: modifier,
+      delete: supprimer,
+      abandon: abandonner,
+      heading,
+    };
+    targets[focusAfter.current].current?.focus();
     focusAfter.current = null;
   }, [mode]);
 
@@ -100,9 +112,21 @@ function TicketView({ ticket, stories }: Loaded) {
           queryKey: ["tickets", String(ticket.projectId)],
         }),
       ]);
-      setMode("view");
     },
   });
+  // The confirmation closes together with the buttons it leaves, once the page holds the abandoned ticket: not before, or the old buttons would show for a moment.
+  useEffect(() => {
+    if (!ticket.abandonedAt || mode !== "abandon") return;
+    focusAfter.current = "heading";
+    setMode("view");
+  }, [ticket.abandonedAt, mode]);
+  // A previous error does not follow into the next form or confirmation.
+  const open = (next: "edit" | "delete" | "abandon") => {
+    save.reset();
+    remove.reset();
+    abandon.reset();
+    setMode(next);
+  };
   const cancel = () => {
     if (mode !== "view") focusAfter.current = mode;
     setMode("view");
@@ -172,7 +196,11 @@ function TicketView({ ticket, stories }: Loaded) {
         </form>
       ) : (
         <>
-          <h1 className="mt-4 font-heading text-3xl font-extrabold">
+          <h1
+            ref={heading}
+            tabIndex={-1}
+            className={`mt-4 font-heading text-3xl font-extrabold ${focusRing}`}
+          >
             {ticket.title}
           </h1>
           <p className="mt-2">
@@ -215,18 +243,26 @@ function TicketView({ ticket, stories }: Loaded) {
               </ol>
             </section>
           )}
+          {mode === "abandon" && (
+            <p className="mt-6">
+              Attention :{" "}
+              {unfinished > 0 &&
+                `${unfinished} user ${unfinished === 1 ? "story non terminée sera abandonnée" : "stories non terminées seront abandonnées"} avec lui. `}
+              Un ticket abandonné ne se rouvre pas.
+            </p>
+          )}
           <div className="mt-6 flex gap-2">
             {mode === "view" && (
               <>
                 {/* An abandoned ticket is not modified any more (decision 018 D). */}
-                {ticket.step !== "abandoned" && (
+                {!ticket.abandonedAt && (
                   <button
                     ref={modifier}
                     type="button"
                     onClick={() => {
                       setTitle(ticket.title);
                       setDescriptionMd(ticket.descriptionMd);
-                      setMode("edit");
+                      open("edit");
                     }}
                     className={button}
                   >
@@ -238,17 +274,17 @@ function TicketView({ ticket, stories }: Loaded) {
                   <button
                     ref={supprimer}
                     type="button"
-                    onClick={() => setMode("delete")}
+                    onClick={() => open("delete")}
                     className={button}
                   >
                     Supprimer
                   </button>
                 )}
-                {ticket.step !== "abandoned" && (
+                {!ticket.abandonedAt && (
                   <button
                     ref={abandonner}
                     type="button"
-                    onClick={() => setMode("abandon")}
+                    onClick={() => open("abandon")}
                     className={button}
                   >
                     Abandonner le ticket
