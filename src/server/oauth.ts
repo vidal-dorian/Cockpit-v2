@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { createMiddleware } from "hono/factory";
@@ -10,7 +10,7 @@ import { currentUser, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { mcpTokens, users } from "./db/schema.ts";
 import type { ReadInstance } from "./instance.ts";
-import { MAX_ACTIVE_TOKENS } from "./tokens.ts";
+import { liveToken, MAX_ACTIVE_TOKENS } from "./tokens.ts";
 
 // Decisions 021 and 006: Cockpit as a connector of claude.ai (OAuth 2.1 with PKCE, clients known by a CIMD document).
 const CLIENT_HOST = "claude.ai";
@@ -19,6 +19,9 @@ const CLAUDE_CODE_CLIENT =
 const CIMD_TIMEOUT_MS = 5_000;
 const CIMD_MAX_BYTES = 64 * 1024;
 const CIMD_CACHE_MS = 10 * 60_000;
+// A failed read is kept too, so a client_id that never answers cannot make us fetch at every request.
+const CIMD_FAILURE_CACHE_MS = 60_000;
+const CIMD_CACHE_MAX = 300;
 const CODE_MS = 60_000;
 const ACCESS_SECONDS = 3_600;
 const REFRESH_MS = 90 * 24 * 3_600_000;
@@ -38,7 +41,8 @@ const authorizeRequest = z.object({
   redirect_uri: z.string().max(2048),
   code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   code_challenge_method: z.literal("S256"),
-  state: z.string().max(2048).optional(),
+  // Up to what a `next` of /autoriser can carry through the login (auth.ts safeNext).
+  state: z.string().max(4096).optional(),
   resource: z.string().max(2048).optional(),
 });
 const approveBody = authorizeRequest.extend({
@@ -79,10 +83,11 @@ const isLoopback = (url: URL) =>
   url.protocol === "http:" &&
   (url.hostname === "localhost" || url.hostname === "127.0.0.1");
 
-/** Listed as is, or a loopback address on another port (RFC 8252 7.3: Claude Code picks a free port each time). */
+/** Listed as is, or a loopback address on another port (RFC 8252 7.3: Claude Code picks a free port each time). Only https, or http on loopback: a document may list `javascript:` or `data:`. */
 function redirectAllowed(requested: string, listed: string[]) {
   const url = URL.parse(requested);
   if (!url || url.hash) return false;
+  if (url.protocol !== "https:" && !isLoopback(url)) return false;
   return listed.some((entry) => {
     if (entry === requested) return true;
     const other = URL.parse(entry);
@@ -146,27 +151,57 @@ export function oauthRoutes(
 ) {
   // In memory, as decision 006 says: a restart only makes a connection in progress start again. Keyed by the hash of the code.
   const codes = new Map<string, AuthorizationCode>();
-  const documents = new Map<string, { redirectUris: string[]; at: number }>();
+  // Read results by client_id, null for a failed read; the oldest go first past CIMD_CACHE_MAX.
+  const documents = new Map<
+    string,
+    { redirectUris: string[] | null; at: number }
+  >();
+  const reading = new Map<string, Promise<string[] | null>>();
 
   /** The redirect URIs of a client's CIMD document, or null when it cannot be trusted. */
   async function clientRedirects(clientId: string) {
     const cached = documents.get(clientId);
-    if (cached && now() - cached.at < CIMD_CACHE_MS) return cached.redirectUris;
+    if (
+      cached &&
+      now() - cached.at <
+        (cached.redirectUris ? CIMD_CACHE_MS : CIMD_FAILURE_CACHE_MS)
+    )
+      return cached.redirectUris;
+    // One fetch per address at a time: concurrent requests wait for it.
+    let pending = reading.get(clientId);
+    if (!pending) {
+      pending = readClientDocument(clientId)
+        .then((redirectUris) => {
+          documents.delete(clientId);
+          documents.set(clientId, { redirectUris, at: now() });
+          for (const key of documents.keys()) {
+            if (documents.size <= CIMD_CACHE_MAX) break;
+            documents.delete(key);
+          }
+          return redirectUris;
+        })
+        .finally(() => reading.delete(clientId));
+      reading.set(clientId, pending);
+    }
+    return pending;
+  }
+
+  /** Fetches and checks the document: its redirect URIs, or null. Never throws. */
+  async function readClientDocument(clientId: string) {
     try {
       const res = await fetchClientMetadata(clientId, {
         signal: AbortSignal.timeout(CIMD_TIMEOUT_MS),
         // A redirect could lead anywhere: the document is at this address or nowhere.
         redirect: "error",
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        await res.body?.cancel();
+        return null;
+      }
       const text = await readCapped(res, CIMD_MAX_BYTES);
       if (text === null) return null;
       const parsed = clientDocument.safeParse(JSON.parse(text));
       if (!parsed.success || parsed.data.client_id !== clientId) return null;
-      documents.set(clientId, {
-        redirectUris: parsed.data.redirect_uris,
-        at: now(),
-      });
       return parsed.data.redirect_uris;
     } catch (error) {
       // Names only, never the document nor its address.
@@ -230,7 +265,16 @@ export function oauthRoutes(
     });
   }
 
+  // The consent page and what leads to it must not be framed (clickjacking of the Autoriser button), whatever the status.
+  const noFraming = createMiddleware(async (c, next) => {
+    c.header("Content-Security-Policy", "frame-ancestors 'none'");
+    c.header("X-Frame-Options", "DENY");
+    await next();
+  });
+
   return new Hono<Env>()
+    .use("/autoriser", noFraming)
+    .use("/oauth/authorize", noFraming)
     .get("/.well-known/oauth-protected-resource", protectedResource)
     .get("/.well-known/oauth-protected-resource/mcp", protectedResource)
     .get("/.well-known/oauth-authorization-server", async (c) => {
@@ -315,13 +359,16 @@ export function oauthRoutes(
       const config = await readInstance();
       if (!config) return c.json({ error: "Not found" }, 404);
       const [latest] = await db
-        .select({ createdAt: mcpTokens.createdAt })
+        .select({
+          createdAt: mcpTokens.createdAt,
+          clientId: mcpTokens.clientId,
+        })
         .from(mcpTokens)
         .where(
           and(
             eq(mcpTokens.userId, user.userId),
             isNotNull(mcpTokens.clientId),
-            isNull(mcpTokens.revokedAt),
+            liveToken,
           ),
         )
         .orderBy(desc(mcpTokens.createdAt), desc(mcpTokens.id))
@@ -330,6 +377,11 @@ export function oauthRoutes(
         mcpUrl: `${config.publicUrl}/mcp`,
         connected: latest !== undefined,
         connectedAt: latest?.createdAt ?? null,
+        client: latest
+          ? latest.clientId === CLAUDE_CODE_CLIENT
+            ? ("Claude Code" as const)
+            : ("claude.ai" as const)
+          : null,
       });
     })
     .post(
@@ -399,12 +451,7 @@ export function oauthRoutes(
               const [{ active } = { active: 0 }] = await tx
                 .select({ active: sql<number>`count(*)::int` })
                 .from(mcpTokens)
-                .where(
-                  and(
-                    eq(mcpTokens.userId, issued.userId),
-                    isNull(mcpTokens.revokedAt),
-                  ),
-                );
+                .where(and(eq(mcpTokens.userId, issued.userId), liveToken));
               if (active >= MAX_ACTIVE_TOKENS)
                 throw new Refused("too_many_tokens");
               const [inserted] = await tx

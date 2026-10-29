@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validator } from "hono/validator";
@@ -33,10 +33,19 @@ const present = (t: typeof mcpTokens.$inferSelect) => ({
   revokedAt: t.revokedAt,
 });
 
+/** Not revoked, and not an OAuth connection whose refresh token has expired: that one can never be used again (decision 021 E). */
+export const liveToken = and(
+  isNull(mcpTokens.revokedAt),
+  or(
+    isNull(mcpTokens.refreshExpiresAt),
+    sql`${mcpTokens.refreshExpiresAt} > now()`,
+  ),
+);
+
 const PURGE_EVERY_MS = 24 * 3_600_000;
 
 /**
- * Deletes the tokens revoked more than 3 calendar months before `now`, and only those (decision 015 G).
+ * Deletes the tokens revoked, or dead by the expiry of their refresh token, more than 3 calendar months before `now`, and only those (decision 015 G).
  * The history entry is written in the same transaction, only when something was deleted.
  */
 export async function purgeRevokedTokens(
@@ -47,7 +56,7 @@ export async function purgeRevokedTokens(
     const deleted = await tx
       .delete(mcpTokens)
       .where(
-        sql`${mcpTokens.revokedAt} < ${now.toISOString()}::timestamptz - interval '3 months'`,
+        sql`least(${mcpTokens.revokedAt}, ${mcpTokens.refreshExpiresAt}) < ${now.toISOString()}::timestamptz - interval '3 months'`,
       )
       .returning({ id: mcpTokens.id });
     if (deleted.length > 0)
@@ -92,9 +101,7 @@ export function tokenRoutes(db: Db) {
       const rows = await db
         .select()
         .from(mcpTokens)
-        .where(
-          and(eq(mcpTokens.userId, user.userId), isNull(mcpTokens.revokedAt)),
-        )
+        .where(and(eq(mcpTokens.userId, user.userId), liveToken))
         .orderBy(desc(mcpTokens.id));
       return c.json({ tokens: rows.map(present) });
     })
@@ -130,9 +137,7 @@ export function tokenRoutes(db: Db) {
             const [{ active } = { active: 0 }] = await tx
               .select({ active: sql<number>`count(*)::int` })
               .from(mcpTokens)
-              .where(
-                and(eq(mcpTokens.userId, userId), isNull(mcpTokens.revokedAt)),
-              );
+              .where(and(eq(mcpTokens.userId, userId), liveToken));
             if (active >= MAX_ACTIVE_TOKENS)
               throw new Refused("too_many_tokens");
             const [inserted] = await tx

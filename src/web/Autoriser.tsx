@@ -8,7 +8,7 @@ const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
 async function fetchMe() {
   const res = await client.api.me.$get();
   if (res.status === 401) return null;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
 }
 
@@ -52,7 +52,8 @@ export function Autoriser() {
         {me.isPending && <p className="text-muted-foreground">Chargement…</p>}
         {me.isError && (
           <p role="alert" className={errorBox}>
-            Impossible de lire ton compte : {me.error.message}
+            Impossible de lire ton compte. Recharge la page ; si cela continue,
+            réessaie plus tard.
           </p>
         )}
         {me.isSuccess && !me.data && (
@@ -83,6 +84,9 @@ export function Autoriser() {
             <p className="mt-2 text-muted-foreground">
               Après ton choix, ton navigateur retourne vers{" "}
               <strong>{request.data.returnHost}</strong>.
+            </p>
+            <p className="mt-2 font-semibold">
+              N'autorise que si tu viens de lancer la connexion toi-même.
             </p>
             <div className="mt-4 flex gap-2">
               <button

@@ -803,8 +803,11 @@ export function mcpRoutes(
       .post("/mcp", async (c) => {
         const caller = await authenticate(db, c.req.header("authorization"));
         if ("reason" in caller) {
-          // Nothing was presented: no entry, or anyone could grow the history for free (decision 010 E).
-          if (caller.reason !== "missing_token") {
+          // Nothing was presented: no entry, or anyone could grow the history for free (decision 010 E). Nor for an expired access token: the client refreshes it every hour, as expected (decision 021 F).
+          if (
+            caller.reason !== "missing_token" &&
+            caller.reason !== "expired_token"
+          ) {
             const entry: Entry = {
               userId: null,
               tokenId: caller.tokenId ?? null,

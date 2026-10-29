@@ -20,7 +20,7 @@ export const ACTIONS: Record<string, string> = {
   revoke_token: "Jeton révoqué",
   purge_revoked_tokens: "Jetons révoqués supprimés",
   mcp_auth: "Connexion MCP refusée",
-  oauth_authorize: "Autorisation du connecteur Claude",
+  oauth_authorize: "Demande de connexion de Claude",
   oauth_token: "Jeton du connecteur Claude émis",
   list_projects: "Projets listés",
   get_project: "Projet consulté",

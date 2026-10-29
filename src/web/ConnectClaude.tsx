@@ -8,7 +8,7 @@ const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semib
 
 async function fetchConnect() {
   const res = await client.api.me.connect.$get();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
 }
 
@@ -36,16 +36,17 @@ export function ConnectClaude() {
             role="alert"
             className="rounded-xl bg-destructive-soft p-4 text-destructive"
           >
-            Impossible de lire l'adresse du connecteur : {connect.error.message}
+            Impossible de lire l'adresse du connecteur. Recharge la page ; si
+            cela continue, réessaie plus tard.
           </p>
         )}
         {connect.isSuccess && (
           <>
             {connect.data.connected && connect.data.connectedAt && (
               <p className="mb-4 rounded-xl bg-done-soft p-4 font-semibold text-done-text">
-                Connecté depuis claude.ai, le {day(connect.data.connectedAt)}.
-                C'est fait : Claude voit tes projets partout, y compris dans les
-                tâches planifiées.
+                Connecté depuis {connect.data.client}, le{" "}
+                {day(connect.data.connectedAt)}. C'est fait : Claude voit tes
+                projets partout, y compris dans les tâches planifiées.
               </p>
             )}
             <ol className="grid gap-3">
