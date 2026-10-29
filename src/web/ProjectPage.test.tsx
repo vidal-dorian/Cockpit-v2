@@ -107,6 +107,24 @@ function stubApi(options: {
           answers[Math.min(healthPaths.length - 1, answers.length - 1)];
         return Response.json(next?.body, { status: next?.status });
       }
+      // Decision 022: the section « Écrire les US automatiquement » has its own tests (RoutineSettings.test.tsx): nothing connected here.
+      if (path === "/api/me/routine" && method === "GET")
+        return Response.json({
+          connected: false,
+          fireUrl: null,
+          needsReconnect: false,
+          prompt: "This task is started by Cockpit.",
+        });
+      // Decision 022: the section « Écriture automatique des US » has its own tests (ProjectRoutine.test.tsx): off here.
+      if (/^\/api\/projects\/[^/]+\/routine$/.test(path) && method === "GET")
+        return Response.json({
+          frequency: "off",
+          hour: null,
+          weekday: null,
+          timeZone: "Europe/Paris",
+          nextRunAt: null,
+          lastRun: null,
+        });
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     },
   );
