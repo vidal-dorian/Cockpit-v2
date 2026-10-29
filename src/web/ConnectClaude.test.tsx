@@ -22,6 +22,7 @@ type Connect = {
   mcpUrl: string;
   connected: boolean;
   connectedAt: string | null;
+  client: "claude.ai" | "Claude Code" | null;
 };
 
 const MCP_URL = "https://cockpit.example.com/mcp";
@@ -30,6 +31,7 @@ const NOT_CONNECTED: Connect = {
   mcpUrl: MCP_URL,
   connected: false,
   connectedAt: null,
+  client: null,
 };
 const CONNECTED_AT = "2026-10-28T10:00:00.000Z";
 
@@ -47,7 +49,7 @@ function renderAt(path: string) {
 }
 
 /** A small fake server behind fetch; `isAdmin` shows the Utilisateurs section too. */
-function stubApi(connect: Connect, isAdmin = false) {
+function stubApi(connect: Connect | "fails", isAdmin = false) {
   const paths: string[] = [];
   vi.stubGlobal(
     "fetch",
@@ -90,7 +92,9 @@ function stubApi(connect: Connect, isAdmin = false) {
       if (path === "/api/me/tokens" && method === "GET")
         return Response.json({ tokens: [] });
       if (path === "/api/me/connect" && method === "GET")
-        return Response.json(connect);
+        return connect === "fails"
+          ? Response.json({ error: "boom" }, { status: 500 })
+          : Response.json(connect);
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     }),
   );
@@ -213,7 +217,12 @@ describe("Réglages page, the section Connecter Claude", () => {
   });
 
   it("given a connection, when the section loads, then it says « Connecté depuis claude.ai » with the date", async () => {
-    stubApi({ mcpUrl: MCP_URL, connected: true, connectedAt: CONNECTED_AT });
+    stubApi({
+      mcpUrl: MCP_URL,
+      connected: true,
+      connectedAt: CONNECTED_AT,
+      client: "claude.ai",
+    });
 
     renderAt("/reglages");
 
@@ -238,5 +247,33 @@ describe("Réglages page, the section Connecter Claude", () => {
     expect((details as HTMLDetailsElement).open).toBe(false);
     expect(details?.textContent).toContain(COMMAND);
     expect(details?.textContent).toMatch(/jetons? manuels?/i);
+  });
+
+  it("given a Claude Code connection, when the section loads, then it says « Connecté depuis Claude Code » and not claude.ai", async () => {
+    stubApi({
+      mcpUrl: MCP_URL,
+      connected: true,
+      connectedAt: CONNECTED_AT,
+      client: "Claude Code",
+    });
+
+    renderAt("/reglages");
+
+    const { section } = await connectSection();
+    await waitFor(() =>
+      expect(section.textContent).toContain("Connecté depuis Claude Code"),
+    );
+    expect(section.textContent).not.toContain("Connecté depuis claude.ai");
+  });
+
+  it("given the connection cannot be read (server error), when the section loads, then the alert is in French and shows neither HTTP nor the status", async () => {
+    stubApi("fails");
+
+    renderAt("/reglages");
+
+    const { section } = await connectSection();
+    const alert = await within(section).findByRole("alert");
+    expect(alert.textContent?.trim()).not.toBe("");
+    expect(alert.textContent).not.toMatch(/HTTP|500/);
   });
 });

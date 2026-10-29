@@ -34,6 +34,8 @@ const DENIED_URL =
 
 type Options = {
   session?: boolean;
+  /** Makes /api/me answer a server error. */
+  meFails?: boolean;
   /** What GET /api/oauth/request answers. */
   request?: Response;
   /** What POST /api/oauth/approve answers. */
@@ -95,6 +97,8 @@ function stubApi(options: Options = {}) {
         });
       if (url.pathname === "/api/health")
         return Response.json({ status: "ok", version: "0.1.0" });
+      if (url.pathname === "/api/me" && options.meFails)
+        return Response.json({ error: "boom" }, { status: 500 });
       if (url.pathname === "/api/me")
         return options.session === false
           ? Response.json({ error: "Unauthorized" }, { status: 401 })
@@ -227,5 +231,26 @@ describe("/autoriser page", () => {
       `/api/auth/login?next=${encodeURIComponent(`/autoriser${SEARCH}`)}`,
     );
     expect(screen.queryByRole("button", { name: "Autoriser" })).toBeNull();
+  });
+
+  it("given a valid request, when the page loads, then it warns to authorize only after starting the connection oneself", async () => {
+    stubApi();
+
+    renderAt(`/autoriser${SEARCH}`);
+
+    await screen.findByRole("button", { name: "Autoriser" });
+    expect(text().replaceAll("\u2019", "'")).toContain(
+      "N'autorise que si tu viens de lancer la connexion toi-même",
+    );
+  });
+
+  it("given the account cannot be read (server error), when the page loads, then the alert is in French and shows neither HTTP nor the status", async () => {
+    stubApi({ meFails: true });
+
+    renderAt(`/autoriser${SEARCH}`);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent?.trim()).not.toBe("");
+    expect(alert.textContent).not.toMatch(/HTTP|500/);
   });
 });

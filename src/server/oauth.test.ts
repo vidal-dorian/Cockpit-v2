@@ -1364,7 +1364,7 @@ describe("criterion 7: /mcp with an OAuth access token", () => {
     ]);
   });
 
-  it("given an access token past expires_at, when Claude calls /mcp, then 401 with the WWW-Authenticate header and one refused mcp_auth entry", async () => {
+  it("given an access token past expires_at, when Claude calls /mcp, then 401 with the WWW-Authenticate header and no history entry (the client refreshes on 401 every hour)", async () => {
     const ctx = await setup();
     const alice = await userWithSession(ctx.db, 1);
     const issued = await connect(ctx, alice);
@@ -1381,8 +1381,7 @@ describe("criterion 7: /mcp with an OAuth access token", () => {
 
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toBe(AUTH_REQUIRED);
-    const refused = await rows(ctx.db, sql`action = 'mcp_auth'`);
-    expect(refused.map((r) => r.result)).toEqual(["refused"]);
+    expect(await rows(ctx.db, sql`action = 'mcp_auth'`)).toEqual([]);
     expect(await historyText(ctx.db)).not.toContain(issued.access_token);
   });
 
@@ -1605,6 +1604,7 @@ describe("criterion 10: GET /api/me/connect, what the Réglages section reads", 
       mcpUrl: MCP_URL,
       connected: false,
       connectedAt: null,
+      client: null,
     });
   });
 
@@ -1640,5 +1640,322 @@ describe("criterion 10: GET /api/me/connect, what the Réglages section reads", 
     const res = await connectInfo(ctx, alice.cookie);
 
     expect(await json(res)).toMatchObject({ connected: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hardening after the security review (decision 021 amended)
+// ---------------------------------------------------------------------------
+
+describe("review 1: the scheme of a redirect_uri", () => {
+  // A CIMD document may list any string: only https, or http on localhost / 127.0.0.1, may be requested.
+  const refusedUris = [
+    "javascript:alert(1)",
+    "data:text/html,x",
+    "http://example.com/cb",
+    "ftp://x/cb",
+  ];
+  const listing = (uri: string): Docs => ({
+    [CLIENT_ID]: () =>
+      Response.json(cimdDocument(CLIENT_ID, { redirect_uris: [uri] })),
+  });
+  const routes = {
+    "/oauth/authorize": (ctx: Ctx, cookie: string, params: Params) =>
+      authorizeRequest(ctx, params, cookie),
+    "/api/oauth/request": (ctx: Ctx, cookie: string, params: Params) =>
+      ctx.app.request(`/api/oauth/request?${query(params)}`, {
+        headers: { cookie },
+      }),
+    "/api/oauth/approve": (ctx: Ctx, cookie: string, params: Params) =>
+      approveRequest(ctx, cookie, params),
+  };
+
+  it.each(
+    Object.keys(routes).flatMap((route) =>
+      refusedUris.map((uri): [string, string] => [route, uri]),
+    ),
+  )(
+    "given a CIMD document that lists a redirect_uri, when %s is requested with %j, then 400 and no Location",
+    async (route, uri) => {
+      const ctx = await setup({ docs: listing(uri) });
+      const alice = await userWithSession(ctx.db, 1);
+      const { params } = request({ redirect_uri: uri });
+
+      const res = await routes[route as keyof typeof routes](
+        ctx,
+        alice.cookie,
+        params,
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get("location")).toBeNull();
+      expect(await res.text()).not.toContain("redirectUrl");
+    },
+  );
+});
+
+describe("review 2: abuse of the CIMD fetch", () => {
+  const failing: [string, Docs][] = [
+    ["a 404", { [CLIENT_ID]: () => new Response("", { status: 404 }) }],
+    ["a 500", { [CLIENT_ID]: () => new Response("", { status: 500 }) }],
+    ["a document that is not JSON", { [CLIENT_ID]: () => new Response("<p>") }],
+    [
+      "a document without redirect_uris",
+      {
+        [CLIENT_ID]: () =>
+          Response.json(cimdDocument(CLIENT_ID, { redirect_uris: undefined })),
+      },
+    ],
+  ];
+
+  it.each(failing)(
+    "given a CIMD read that failed with %s, when the same client_id is requested twice, then both are 400 and the document is fetched once",
+    async (_name, docs) => {
+      const ctx = await setup({ docs });
+
+      const first = await authorizeRequest(ctx, request().params);
+      ctx.clock.now += 10_000;
+      const second = await authorizeRequest(ctx, request().params);
+
+      expect([first.status, second.status]).toEqual([400, 400]);
+      expect(ctx.fetchClientMetadata).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("given a failed CIMD read, when the document is fixed, then it is read again only after the short delay, and the next request works", async () => {
+    let broken = true;
+    const ctx = await setup({
+      docs: {
+        [CLIENT_ID]: () =>
+          broken
+            ? new Response("", { status: 500 })
+            : Response.json(cimdDocument()),
+      },
+    });
+    const alice = await userWithSession(ctx.db, 1);
+
+    expect(
+      (await authorizeRequest(ctx, request().params, alice.cookie)).status,
+    ).toBe(400);
+    broken = false;
+    ctx.clock.now += 10_000;
+    expect(
+      (await authorizeRequest(ctx, request().params, alice.cookie)).status,
+    ).toBe(400);
+    expect(ctx.fetchClientMetadata).toHaveBeenCalledTimes(1);
+
+    ctx.clock.now += 11 * 60_000;
+    const res = await authorizeRequest(ctx, request().params, alice.cookie);
+
+    expect(res.status).toBe(302);
+    expect(ctx.fetchClientMetadata).toHaveBeenCalledTimes(2);
+  });
+
+  it("given two concurrent requests for the same uncached client_id, when they run together, then both work and the document is fetched once", async () => {
+    const ctx = await setup({
+      docs: {
+        [CLIENT_ID]: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return Response.json(cimdDocument());
+        },
+      },
+    });
+    const alice = await userWithSession(ctx.db, 1);
+
+    const answers = await Promise.all([
+      authorizeRequest(ctx, request().params, alice.cookie),
+      authorizeRequest(ctx, request().params, alice.cookie),
+    ]);
+
+    expect(answers.map((a) => a.status)).toEqual([302, 302]);
+    expect(ctx.fetchClientMetadata).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("review 3: an OAuth row past its refresh_expires_at is dead", () => {
+  const kill = (ctx: Ctx) =>
+    ctx.db.execute(
+      sql`update mcp_tokens set refresh_expires_at = now() - interval '1 minute' where client_id is not null`,
+    );
+
+  it("given 19 manual tokens and 1 dead OAuth row, when a code is exchanged, then it works: the dead row does not count in the 20", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await seedManualTokens(ctx.db, alice.id, 19);
+    await connect(ctx, alice);
+    await kill(ctx);
+    const a = await approved(ctx, alice);
+
+    const res = await exchange(ctx, a);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("given a dead OAuth row as the only connection, when /api/me/connect is requested, then connected is false", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await connect(ctx, alice);
+    await kill(ctx);
+
+    const res = await ctx.app.request("/api/me/connect", {
+      headers: { cookie: alice.cookie },
+    });
+
+    expect(await json(res)).toMatchObject({
+      connected: false,
+      connectedAt: null,
+    });
+  });
+
+  it("given a dead OAuth row and a live manual token, when the tokens are listed, then only the manual one is listed", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await seedManualTokens(ctx.db, alice.id, 1);
+    await connect(ctx, alice);
+    await kill(ctx);
+
+    const res = await ctx.app.request("/api/me/tokens", {
+      headers: { cookie: alice.cookie },
+    });
+
+    const { tokens } = (await res.json()) as { tokens: Listed[] };
+    expect(tokens.map((t) => t.kind)).toEqual(["manual"]);
+  });
+});
+
+describe("review 5: a long next", () => {
+  const authorizeQuery = (size: number) => {
+    const head = query({ ...request().params, state: undefined });
+    return `${head}&state=${"s".repeat(size - head.length - "&state=".length)}`;
+  };
+
+  it("given a next of /autoriser? and a 4000-character state, when GitHub sends the user back, then the user lands on that URL", async () => {
+    const ctx = await setup();
+    const next = `/autoriser?${query(request({ state: "s".repeat(4000) }).params)}`;
+
+    const res = await loginThroughGitHub(ctx, next);
+
+    expect(res.headers.get("location")).toBe(next);
+  });
+
+  it("given a next whose query is exactly 8192 characters, when the login ends, then it is kept", async () => {
+    const ctx = await setup();
+    const next = `/autoriser?${authorizeQuery(8192)}`;
+    expect(next.length).toBe("/autoriser?".length + 8192);
+
+    const res = await loginThroughGitHub(ctx, next);
+
+    expect(res.headers.get("location")).toBe(next);
+  });
+
+  it("given a next whose query is 8193 characters, when the login ends, then it is dropped and the user lands on /", async () => {
+    const ctx = await setup();
+    const next = `/autoriser?${authorizeQuery(8193)}`;
+
+    const res = await loginThroughGitHub(ctx, next);
+
+    expect(res.headers.get("location")).toBe("/");
+  });
+
+  it("given a 4000-character state, when it goes through authorize, the page's read and the approval, then it is given back as is (the page it travels in is no longer refused)", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    const state = "s".repeat(4000);
+    const { params } = request({ state });
+
+    const authorized = await authorizeRequest(ctx, params, alice.cookie);
+    const asked = await ctx.app.request(`/api/oauth/request?${query(params)}`, {
+      headers: { cookie: alice.cookie },
+    });
+    const approvedRes = await approveRequest(ctx, alice.cookie, params);
+
+    expect([authorized.status, asked.status, approvedRes.status]).toEqual([
+      302, 200, 200,
+    ]);
+    const { redirectUrl } = (await approvedRes.json()) as {
+      redirectUrl: string;
+    };
+    expect(new URL(redirectUrl).searchParams.get("state")).toBe(state);
+  });
+});
+
+describe("review 6: frame protection", () => {
+  // The SPA file (dist/web) may not exist in tests: the headers are checked whatever the status of /autoriser.
+  const expectFramed = (res: Response) => {
+    expect(res.headers.get("content-security-policy") ?? "").toContain(
+      "frame-ancestors 'none'",
+    );
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  };
+
+  it.each(["/autoriser", `/autoriser?${query(request().params)}`])(
+    "given the page %s, when it is requested, then it forbids being framed",
+    async (path) => {
+      const ctx = await setup();
+
+      expectFramed(await ctx.app.request(path));
+    },
+  );
+
+  it("given a valid request, when /oauth/authorize redirects, then the redirect forbids being framed", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+
+    const res = await authorizeRequest(ctx, request().params, alice.cookie);
+
+    expect(res.status).toBe(302);
+    expectFramed(res);
+  });
+
+  it("given a refused request, when /oauth/authorize answers its error page, then the page forbids being framed", async () => {
+    const ctx = await setup();
+
+    const res = await authorizeRequest(
+      ctx,
+      request({ code_challenge_method: "plain" }).params,
+    );
+
+    expect(res.status).toBe(400);
+    expectFramed(res);
+  });
+});
+
+describe("review 7: /api/me/connect says which client is connected", () => {
+  const clientOf = async (ctx: Ctx, cookie: string) =>
+    (
+      (await json(
+        await ctx.app.request("/api/me/connect", { headers: { cookie } }),
+      )) as { client: unknown }
+    ).client;
+
+  it("given a claude.ai connection, when it is requested, then client is claude.ai", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await connect(ctx, alice);
+
+    expect(await clientOf(ctx, alice.cookie)).toBe("claude.ai");
+  });
+
+  it("given a Claude Code connection, when it is requested, then client is Claude Code", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await connect(ctx, alice, {
+      client_id: CODE_CLIENT_ID,
+      redirect_uri: CODE_REDIRECT_URI,
+    });
+
+    expect(await clientOf(ctx, alice.cookie)).toBe("Claude Code");
+  });
+
+  it("given a claude.ai connection then a newer Claude Code one, when it is requested, then client is the latest: Claude Code", async () => {
+    const ctx = await setup();
+    const alice = await userWithSession(ctx.db, 1);
+    await connect(ctx, alice);
+    await connect(ctx, alice, {
+      client_id: CODE_CLIENT_ID,
+      redirect_uri: CODE_REDIRECT_URI,
+    });
+
+    expect(await clientOf(ctx, alice.cookie)).toBe("Claude Code");
   });
 });
