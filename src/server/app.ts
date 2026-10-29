@@ -45,8 +45,8 @@ export function createApp(
       .route("/", accountRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize))
       // After projectRoutes: its gate covers the ticket and story routes.
-      .route("/", ticketRoutes(db))
-      .route("/", storyRoutes(db))
+      .route("/", ticketRoutes(db, readGitHub))
+      .route("/", storyRoutes(db, readGitHub))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, version))
       // OAuth discovery (006, after the MVP) is not offered yet: a JSON 404, not the page, tells a client so.

@@ -142,6 +142,8 @@ describe("criterion 10: the demo flow", () => {
       ["human", "ui", "send_back_story", "ok"],
       ["claude", "mcp", "update_user_story", "ok"],
       ["human", "ui", "validate_story", "ok"],
+      // The validated story is published as an issue right after (decision 020).
+      ["system", "system", "sync_issue", "ok"],
       ["claude", "mcp", "validate_user_story", "refused"],
       ["claude", "mcp", "abandon_user_story", "refused"],
       ["claude", "mcp", "update_user_story", "refused"],
@@ -154,6 +156,7 @@ describe("criterion 10: the demo flow", () => {
     };
     expect(shown.entries.map((e) => [e.actor, e.action, e.result])).toEqual([
       ["claude", "update_user_story", "refused"],
+      ["system", "sync_issue", "ok"],
       ["human", "validate_story", "ok"],
       ["claude", "update_user_story", "ok"],
       ["human", "send_back_story", "ok"],

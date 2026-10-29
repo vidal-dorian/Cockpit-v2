@@ -133,7 +133,7 @@ const STORY_STATUSES = [
   "abandoned",
 ] as const;
 
-/** A user story of a ticket (decisions 002 and 017 A); the branch, PR and issue columns come with their slices. */
+/** A user story of a ticket (decisions 002 and 017 A); the branch and PR columns come with their slices. */
 export const userStories = pgTable(
   "user_stories",
   {
@@ -149,6 +149,13 @@ export const userStories = pgTable(
     notesMd: text("notes_md").notNull().default(""),
     status: text("status", { enum: STORY_STATUSES }).notNull(),
     rewriteComment: text("rewrite_comment"),
+    // The GitHub issue of the story (decision 020 E): its number, the SHA-256 of the last body published, and the claim of a creation in flight (G).
+    issueNumber: integer("issue_number"),
+    issueBodyHash: text("issue_body_hash"),
+    issueClaimedAt: timestamp("issue_claimed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -232,6 +239,12 @@ export const history = pgTable(
     args: jsonb("args").notNull().default({}).$type<HistoryArgs>(),
     result: text("result", { enum: ["ok", "error", "refused"] }).notNull(),
     detail: jsonb("detail").$type<Record<string, string>>(),
+    // What a sync_issue did on GitHub (decisions 002 and 020 H).
+    githubEffects: jsonb("github_effects").$type<{
+      issueNumber: number;
+      created: boolean;
+      closed: boolean;
+    }>(),
   },
   (t) => [
     check(

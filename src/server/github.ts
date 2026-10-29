@@ -65,7 +65,15 @@ export type RepoFiles = {
 const isNotFound = (error: unknown) =>
   (error as { status?: number }).status === 404;
 
-/** Reads GitHub with the identity of the App only, never a user's token (decision 011). Errors are left to the caller. */
+const ignoreStatus = async (status: number, call: Promise<unknown>) => {
+  try {
+    await call;
+  } catch (error) {
+    if ((error as { status?: number }).status !== status) throw error;
+  }
+};
+
+/** Talks to GitHub with the identity of the App only, never a user's token (decision 011). Errors are left to the caller. */
 export function githubClient(config: GitHubAppConfig) {
   const app = new App({
     Octokit: TimedOctokit,
@@ -257,6 +265,71 @@ export function githubClient(config: GitHubAppConfig) {
       );
       const file = contentsSchema.parse(data);
       return file ? Buffer.from(file.content, "base64").toString("utf8") : "";
+    },
+
+    /** Writes the issues of a repo and the one label Cockpit puts on them (decision 020), as the installation. */
+    async issues(installationId: number, fullName: string) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      return {
+        /** Creates the issue, with its label already on it (the label must exist), and returns its number. */
+        async create(issue: { title: string; body: string; label: string }) {
+          const { data } = await octokit.request(
+            "POST /repos/{owner}/{repo}/issues",
+            {
+              owner,
+              repo,
+              title: issue.title,
+              body: issue.body,
+              labels: [issue.label],
+            },
+          );
+          return z.object({ number: z.number().int() }).parse(data).number;
+        },
+        update: (
+          number: number,
+          issue: {
+            title: string;
+            body: string;
+            state: "open" | "closed";
+            stateReason: "completed" | "not_planned" | null;
+          },
+        ) =>
+          octokit.request("PATCH /repos/{owner}/{repo}/issues/{issue_number}", {
+            owner,
+            repo,
+            issue_number: number,
+            title: issue.title,
+            body: issue.body,
+            state: issue.state,
+            // GitHub reopens with no reason; sending null would be refused.
+            ...(issue.stateReason && { state_reason: issue.stateReason }),
+          }),
+        /** 422 is "already exists". */
+        ensureLabel: (name: string) =>
+          ignoreStatus(
+            422,
+            octokit.request("POST /repos/{owner}/{repo}/labels", {
+              owner,
+              repo,
+              name,
+            }),
+          ),
+        addLabel: (number: number, name: string) =>
+          octokit.request(
+            "POST /repos/{owner}/{repo}/issues/{issue_number}/labels",
+            { owner, repo, issue_number: number, labels: [name] },
+          ),
+        /** 404 is "the issue does not carry it". */
+        removeLabel: (number: number, name: string) =>
+          ignoreStatus(
+            404,
+            octokit.request(
+              "DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{name}",
+              { owner, repo, issue_number: number, name },
+            ),
+          ),
+      };
     },
   };
 }
