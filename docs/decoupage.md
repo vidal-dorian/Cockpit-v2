@@ -29,7 +29,8 @@
 - **En cours** : tranche 4.4 (décisions humaines sur une US, [décision 018](decisions/018-decisions-humaines.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.5 (Kanban par projet, [décision 019](decisions/019-kanban.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.6 (publication en issue GitHub, [décision 020](decisions/020-issues-github.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 5.1.
+- **En cours** : tranche 4.7 (connecter Claude en un minimum de clics, [décision 021](decisions/021-connecter-claude.md), qui met en œuvre la [006](decisions/006-connexion-oauth.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 4.8, puis 5.1.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -110,6 +111,8 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 4.4 | **Décisions humaines sur une US** : valider, modifier, renvoyer avec commentaire obligatoire, abandonner ; outil `update_user_story` pour la réécriture ; **table des droits** (qui peut faire quelle transition) testée ligne par ligne ; historique de l'US (Claude et humain distingués) | Je renvoie une US, Claude la réécrit, je la valide ; Claude ne peut ni valider ni abandonner (refus journalisé) |
 | 4.5 | **Kanban par projet** : colonnes à valider, prêtes, en cours, en revue, terminées ; sans glisser-déposer | Le tableau reflète l'état réel des US |
 | 4.6 | **Publication en issue GitHub** : à la validation, l'US devient une issue (gabarit unique, label de statut), tenue à jour | Je valide une US, l'issue apparaît sur GitHub ; je modifie l'US, l'issue suit |
+| 4.7 | **Connecter Claude en un minimum de clics** ([021](decisions/021-connecter-claude.md)) : Cockpit devient un connecteur claude.ai (métadonnées OAuth, client reconnu par son document CIMD, page `/autoriser`, `/oauth/token` avec rotation), section « Connecter Claude » en trois étapes dans « Réglages », ligne MCP du bilan de santé qui accepte l'absence de Cockpit dans le `.mcp.json` | J'ajoute l'adresse de Cockpit comme connecteur sur claude.ai, je clique « Autoriser », et Claude liste mes projets, sans jeton à copier |
+| 4.8 | **Programmer l'écriture des US** (routine) : depuis Cockpit, créer une routine Claude qui écrit les US des tickets en attente, avec les connecteurs du compte (brief §6.14) | Je programme la routine depuis Cockpit ; à l'heure dite, les US des tickets « Nouveau » apparaissent « à valider » |
 
 ## Phase 5 — Webhooks GitHub
 

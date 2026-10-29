@@ -19,7 +19,17 @@ Chaque personne crée son compte Cockpit en se connectant avec GitHub ; si elle 
 
 ## Connecter Claude Code
 
-Claude Code parle à Cockpit par le serveur MCP, à l'adresse `<adresse publique>/mcp` (en local : `http://localhost:3000/mcp`). Il lui faut un jeton : le créer dans « Réglages » (« Nouveau jeton »), puis le mettre dans une variable d'environnement sans le laisser dans l'historique du shell, jamais dans un fichier du repo :
+Cockpit se branche à Claude comme un **connecteur claude.ai**, en trois étapes et sans jeton à copier. Ouvre « Réglages » : la section « Connecter Claude » les reprend.
+
+1. **Copier l'adresse** du connecteur, `<adresse publique>/mcp` (en local : `http://localhost:3000/mcp`).
+2. **Ouvrir claude.ai** ([claude.ai/customize/connectors](https://claude.ai/customize/connectors)), choisir « Ajouter un connecteur personnalisé » et coller l'adresse.
+3. **Se connecter** : claude.ai ouvre Cockpit ; connecte-toi avec GitHub si besoin, puis clique « Autoriser ».
+
+C'est fait : Claude voit tes projets partout (Claude Code en local et dans le cloud, claude.ai, le téléphone, les tâches planifiées). La connexion apparaît dans « Jetons MCP », où tu peux la révoquer. Sans compte claude.ai, Claude Code fait la même connexion au premier usage : `claude mcp add --transport http cockpit <adresse publique>/mcp`. Pour que claude.ai joigne Cockpit, l'adresse doit être publique : en local, seul Claude Code sur ton PC peut se connecter. Un `.mcp.json` qui déclare Cockpit masque le connecteur : mieux vaut ne pas l'y mettre. Détails dans la décision [021](docs/decisions/021-connecter-claude.md) (et la [006](docs/decisions/006-connexion-oauth.md)).
+
+### Plan B : un jeton créé à la main
+
+Pour Claude Code avec une clé API (donc sans connecteur), ou si la connexion ci-dessus ne marche pas, les jetons manuels restent possibles. Il faut un jeton : le créer dans « Réglages » (« Nouveau jeton »), puis le mettre dans une variable d'environnement sans le laisser dans l'historique du shell, jamais dans un fichier du repo :
 
 ```sh
 read -rs COCKPIT_MCP_TOKEN; export COCKPIT_MCP_TOKEN   # coller le jeton, puis Entrée

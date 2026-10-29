@@ -9,6 +9,7 @@ import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
 import { instanceReader } from "./instance.ts";
 import { mcpRoutes } from "./mcp.ts";
+import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
@@ -24,6 +25,10 @@ export type AppOptions = {
   healthCacheSize?: number;
   /** After how many milliseconds a ticket abandon starts no new GitHub issue sync (decision 020 F); 30,000 when absent. */
   issueSyncBudgetMs?: number;
+  /** How a client's CIMD document is read (decision 021 B); the global fetch when absent. Cockpit adds the abort signal and enforces the size limit itself. */
+  fetchClientMetadata?: (url: string, init?: RequestInit) => Promise<Response>;
+  /** The clock in milliseconds, for the life of authorization codes and of the CIMD cache; Date.now when absent. */
+  now?: () => number;
 };
 
 export function createApp(
@@ -34,12 +39,20 @@ export function createApp(
     setupCode,
     healthCacheSize = 1000,
     issueSyncBudgetMs = 20_000,
+    fetchClientMetadata = (url, init) => fetch(url, init),
+    now = Date.now,
   }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);
   const readGitHub = githubReader(readInstance);
   return (
     new Hono()
+      // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
+      .use("*", async (c, next) => {
+        await next();
+        c.res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+        c.res.headers.set("X-Frame-Options", "DENY");
+      })
       // A JSON body is read whole in memory: 256 KiB at most on every API route, before the session and the validation (decision 014).
       .use("/api/*", bodyLimit({ maxSize: 256 * 1024 }))
       .get("/api/health", async (c) => {
@@ -55,8 +68,9 @@ export function createApp(
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
       .route("/", tokenRoutes(db))
-      .route("/", mcpRoutes(db, readGitHub, version))
-      // OAuth discovery (006, after the MVP) is not offered yet: a JSON 404, not the page, tells a client so.
+      .route("/", mcpRoutes(db, readGitHub, readInstance, version))
+      .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))
+      // The three discovery paths of decision 021 A are served above; any other one is a JSON 404, not the page.
       .all("/.well-known/*", (c) => c.json({ error: "Not found" }, 404))
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))

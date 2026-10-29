@@ -1,6 +1,6 @@
 # Architecture de Cockpit
 
-> L'état d'ensemble, à jour au **2026-10-25**. Il résume les décisions de [`decisions/`](decisions/), qui gardent le détail et le pourquoi de chaque choix. En cas de désaccord, c'est la décision la plus récente qui fait foi, et ce document doit être corrigé.
+> L'état d'ensemble, à jour au **2026-10-29**. Il résume les décisions de [`decisions/`](decisions/), qui gardent le détail et le pourquoi de chaque choix. En cas de désaccord, c'est la décision la plus récente qui fait foi, et ce document doit être corrigé.
 
 ## En une phrase
 
@@ -32,7 +32,7 @@ flowchart LR
 ```
 
 - **Le navigateur** ouvre Claude Desktop sur le PC avec un lien `claude://code/new` ([005](decisions/005-lancement-local.md)). Cockpit ne voit jamais le PC.
-- **Claude Code** s'identifie avec un jeton MCP ([004](decisions/004-outils-mcp.md)), et plus tard par OAuth, comme connecteur claude.ai ([006](decisions/006-connexion-oauth.md)).
+- **Claude** s'identifie comme connecteur claude.ai, par OAuth ([006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md)), ou avec un jeton MCP créé à la main ([004](decisions/004-outils-mcp.md)).
 - **GitHub** reste la source de vérité du code, des PR et de la CI. Cockpit n'en garde qu'une copie de cache, tenue à jour par les webhooks ([002](decisions/002-modele-donnees.md)).
 
 ## Les briques
@@ -48,6 +48,7 @@ flowchart LR
 | GitHub | Une seule GitHub App, **créée par l'assistant de démarrage** à partir d'un manifeste ([012](decisions/012-configuration-automatique.md)), installée par chaque utilisateur ; connexion par son flux web, en `fetch` ; Octokit (`@octokit/app`) pour l'API des repos, avec l'identité de l'App seule (2.1) | [001](decisions/001-stack.md), [002](decisions/002-modele-donnees.md), [009](decisions/009-connexion-github.md), [011](decisions/011-import-projets.md) |
 | Sessions | Cookie aléatoire de 30 jours, seule son empreinte SHA-256 en base ; aucun jeton GitHub de l'utilisateur gardé | [009](decisions/009-connexion-github.md) |
 | MCP | SDK officiel (`@modelcontextprotocol/sdk`), transport HTTP en mode sans session et réponses JSON, à l'adresse `/mcp` ; jeton vérifié avant le SDK | [004](decisions/004-outils-mcp.md), [016](decisions/016-serveur-mcp.md) |
+| OAuth | Cockpit est le serveur d'autorisation de son connecteur : métadonnées RFC 9728 et 8414, client reconnu par son document CIMD (`https://claude.ai/…` seulement), PKCE `S256`, code de 60 secondes en mémoire, jetons dans `mcp_tokens` (accès d'une heure, rafraîchissement de 90 jours remplacé sur la même ligne) | [006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md) |
 | Tests | Vitest, Testing Library, **PGlite** (PostgreSQL en mémoire), faux GitHub | [001](decisions/001-stack.md), [008](decisions/008-service-en-ligne.md) |
 | Qualité | Biome (lint et format), `tsc` ; la CI lance lint, typecheck, tests et build | [001](decisions/001-stack.md) |
 | Exposition | Cloudflare Tunnel, sur le domaine de Dorian | [008](decisions/008-service-en-ligne.md) |
@@ -74,13 +75,13 @@ Le modèle complet est dans la [002](decisions/002-modele-donnees.md), modifiée
 
 | Domaine | Tables |
 |---|---|
-| Comptes | `users` (dont `is_admin` et `blocked_at`, 1.6), `sessions`, `mcp_tokens` (4.1 ; seule l'empreinte SHA-256 est stockée ; `history.token_id` depuis la 4.2) |
+| Comptes | `users` (dont `is_admin` et `blocked_at`, 1.6), `sessions`, `mcp_tokens` (4.1 ; seule l'empreinte SHA-256 est stockée ; `history.token_id` depuis la 4.2 ; `client_id`, `refresh_hash`, `expires_at` et `refresh_expires_at` pour les connexions OAuth, 4.7) |
 | Instance | `instance_settings` : une seule ligne, remplie par l'assistant de démarrage ([012](decisions/012-configuration-automatique.md)) |
 | Projets | `projects` (un repo GitHub = un projet), `project_members` |
 | Travail | `tickets` (3.1 ; `history.ticket_id`, sans clé étrangère), `user_stories`, `acceptance_criteria`, `story_dependencies` (4.3 ; `history.story_id`, sans clé étrangère) |
 | Développement | `runs`, `run_steps`, `questions` |
 | Trace | `history`, sans clé étrangère, inaltérable |
-| Après le MVP | `code_maps`, `findings`, `code_sources` et les colonnes `kind`, `reasoning` et `object_names` pour l'analyse et la reprise ([007](decisions/007-reprise-app-existante.md)) ; colonnes OAuth sur `mcp_tokens` ([006](decisions/006-connexion-oauth.md)) ; livraisons de webhooks enregistrées (5.1) |
+| Après le MVP | `code_maps`, `findings`, `code_sources` et les colonnes `kind`, `reasoning` et `object_names` pour l'analyse et la reprise ([007](decisions/007-reprise-app-existante.md)) ; livraisons de webhooks enregistrées (5.1) |
 
 Conventions : dates en `timestamptz`, JSON en `jsonb`, identifiants entiers `identity`, identifiants GitHub en `bigint`, valeurs fermées en texte avec `CHECK`. Les migrations sont générées par drizzle-kit, appliquées au démarrage, et ne sont jamais modifiées une fois appliquées.
 
@@ -101,7 +102,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 ## Montée en charge
 
 - **La charge est faible par nature** : Cockpit ne fait tourner aucun modèle d'IA. Mille runs en parallèle représentent de l'ordre de cent écritures par seconde, ce qu'un seul serveur tient.
-- **Une seule instance d'abord.** La règle : ce qui doit survivre à un redémarrage va en base. Quatre choses restent en mémoire et devront passer en base avant une deuxième instance : connexions SSE (par `LISTEN` / `NOTIFY`), codes OAuth, sessions MCP (mode sans session) ([008](decisions/008-service-en-ligne.md)), et les créations de GitHub App en cours de l'assistant, valables une heure ([012](decisions/012-configuration-automatique.md)).
+- **Une seule instance d'abord.** La règle : ce qui doit survivre à un redémarrage va en base. Cinq choses restent en mémoire et devront passer en base avant une deuxième instance : connexions SSE (par `LISTEN` / `NOTIFY`), codes d'autorisation OAuth et documents CIMD lus (021), sessions MCP (mode sans session) ([008](decisions/008-service-en-ligne.md)), et les créations de GitHub App en cours de l'assistant, valables une heure ([012](decisions/012-configuration-automatique.md)).
 - **Webhooks : enregistrés d'abord, traités ensuite**, sans doublon grâce à `X-GitHub-Delivery` (5.1).
 - **La connexion à la base survit à un redémarrage de PostgreSQL** : le pool de connexions écoute ses erreurs au lieu de faire tomber le serveur (1.1 bis).
 
@@ -127,6 +128,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Décisions humaines sur une US : routes `POST /api/stories/:id/validate`, `PATCH /api/stories/:id`, `POST /api/stories/:id/send-back` (commentaire obligatoire), `POST /api/stories/:id/abandon` et `POST /api/tickets/:id/abandon` (ses US non terminées passent `abandoned`), chacune dans un `act` après `assertActive`, l'US relue `FOR UPDATE` puis son statut vérifié (409 `wrong_status`, `project_archived`, `ticket_abandoned`), outil MCP `update_user_story` (seulement `to_rewrite` → `to_validate`), table des droits testée ligne par ligne (par ce qui n'existe pas), `GET /api/stories/:id/history` (une requête, entrées de l'utilisateur, sans les lectures), page `/us/:id` avec ses boutons et son historique replié, « Abandonner le ticket » sur `/tickets/:id`, skill `/write-us` qui réécrit | Écrit et testé (4.4), en relecture |
 | Kanban par projet : `GET /api/projects/:id/stories` (une requête, les US non abandonnées avec le titre de leur ticket, sans entrée d'historique), section « Kanban » de `/projets/:id` au-dessus des tickets (cinq colonnes À valider / Prêtes / En cours / En revue / Terminées, cartes-liens vers `/us/:id`, sans bouton ni glisser-déposer), requête `["stories", projet]` invalidée par les décisions sur une US, l'abandon et le renommage d'un ticket | Écrit et testé (4.5), en relecture |
 | Publication en issue GitHub : à la validation, l'US devient une issue (`renderIssue`, fonction pure : titre, corps en cases à cocher, label `cockpit: …`, ouverte ou fermée selon le statut), synchronisée par `syncIssue` **après** la transaction de la décision (validation, modification, abandon d'une US, abandon d'un ticket) et jamais dedans ; création réservée par `issue_claimed_at`, écritures de `githubClient` avec l'installation, `issue_number` et `issue_body_hash` sur l'US, une entrée `sync_issue` par synchronisation (`github_effects`, `error` sans message GitHub), `story.issue` avec `upToDate`, `POST /api/stories/:id/publish`, « Issue #N » et « Republier » sur `/us/:id` | Écrit et testé (4.6), en relecture |
+| Connecter Claude : `GET /.well-known/oauth-protected-resource` (et `/mcp`) et `/oauth-authorization-server`, `WWW-Authenticate` sur le 401 de `/mcp`, `GET /oauth/authorize` (demande vérifiée, document CIMD lu en 5 s et 64 Kio, gardé 10 minutes), page `/autoriser` (`GET /api/oauth/request`, `POST /api/oauth/approve`), `POST /oauth/token` (`authorization_code` avec PKCE, `refresh_token` avec rotation sur la même ligne, erreurs RFC 6749), `GET /api/me/connect`, `kind` (`oauth` ou `manual`) sur les jetons listés, `/api/auth/login?next=` limité aux chemins `/autoriser`, entrées `oauth_authorize` et `oauth_token`, section « Connecter Claude » de « Réglages », ligne MCP du bilan de santé verte quand Cockpit est absent du `.mcp.json` | Écrit et testé (4.7), en relecture |
 | Tout le reste (runs, webhooks…) | À faire, dans l'ordre du [découpage](decoupage.md) |
 
 ## Index des décisions
@@ -153,6 +155,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [018](decisions/018-decisions-humaines.md) | Les décisions humaines sur une US | Proposée | Valider, modifier, renvoyer (commentaire obligatoire), abandonner une US et abandonner un ticket, `update_user_story` pour Claude, table des droits testée ligne par ligne, historique de l'US, chaque action relit l'US `FOR UPDATE` (modifie la table des droits de la 004) |
 | [019](decisions/019-kanban.md) | Le Kanban d'un projet | Proposée | `GET /api/projects/:id/stories` (US non abandonnées, ticket puis position), cinq colonnes calculées par statut, cartes-liens sans bouton, section au-dessus des tickets, invalidée par les décisions (018), l'abandon et le renommage d'un ticket |
 | [020](decisions/020-issues-github.md) | La publication d'une US en issue GitHub | Proposée | Issue créée à la validation et tenue à jour jusqu'au bout, gabarit unique (fonction pure), un label de statut `cockpit: …`, ouverte puis fermée, synchronisation hors transaction avec réservation de la création, `issue_body_hash` pour savoir si elle est à jour, entrée `sync_issue` (`github_effects`), « Republier » |
+| [021](decisions/021-connecter-claude.md) | Connecter Claude à Cockpit | Proposée | Met en œuvre la 006 avant les webhooks : connecteur claude.ai, clients `https://claude.ai/…` par CIMD, consentement derrière la connexion GitHub, jetons OAuth dans `mcp_tokens`, section « Connecter Claude » en trois étapes, Cockpit absent du `.mcp.json` accepté |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts

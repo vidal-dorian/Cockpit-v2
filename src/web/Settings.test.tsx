@@ -118,6 +118,13 @@ function stubApi(state: State) {
         );
         return new Response(null, { status: 204 });
       }
+      // The « Connecter Claude » section (decision 021 G) has its own tests (ConnectClaude.test.tsx): nothing connected here.
+      if (path === "/api/me/connect" && method === "GET")
+        return Response.json({
+          mcpUrl: "https://cockpit.example.com/mcp",
+          connected: false,
+          connectedAt: null,
+        });
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     }),
   );

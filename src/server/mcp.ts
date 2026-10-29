@@ -23,6 +23,7 @@ import {
   users,
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
+import type { ReadInstance } from "./instance.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import {
   changeStory,
@@ -784,18 +785,29 @@ async function authenticate(db: Db, header: string | undefined) {
   const { token } = found;
   if (token.revokedAt) return { reason: "revoked_token", tokenId: token.id };
   if (found.blockedAt) return { reason: "blocked_user", tokenId: token.id };
+  // An OAuth access token lives an hour (decision 021 D); the client then uses its refresh token.
+  if (token.expiresAt && token.expiresAt.getTime() <= Date.now())
+    return { reason: "expired_token", tokenId: token.id };
   return { userId: token.userId, tokenId: token.id };
 }
 
 /** The MCP server (decisions 004 and 016): one POST, one JSON-RPC request, answered as JSON. Nothing is kept between two requests, so there is no session to lose. */
-export function mcpRoutes(db: Db, readGitHub: ReadGitHub, version: string) {
+export function mcpRoutes(
+  db: Db,
+  readGitHub: ReadGitHub,
+  readInstance: ReadInstance,
+  version: string,
+) {
   return (
     new Hono()
       .post("/mcp", async (c) => {
         const caller = await authenticate(db, c.req.header("authorization"));
         if ("reason" in caller) {
-          // Nothing was presented: no entry, or anyone could grow the history for free (decision 010 E).
-          if (caller.reason !== "missing_token") {
+          // Nothing was presented: no entry, or anyone could grow the history for free (decision 010 E). Nor for an expired access token: the client refreshes it every hour, as expected (decision 021 F).
+          if (
+            caller.reason !== "missing_token" &&
+            caller.reason !== "expired_token"
+          ) {
             const entry: Entry = {
               userId: null,
               tokenId: caller.tokenId ?? null,
@@ -810,8 +822,12 @@ export function mcpRoutes(db: Db, readGitHub: ReadGitHub, version: string) {
               },
             );
           }
+          // Tells an OAuth client where to start (RFC 9728, decision 021 A).
+          const config = await readInstance();
           return c.json({ error: caller.reason }, 401, {
-            "WWW-Authenticate": "Bearer",
+            "WWW-Authenticate": config
+              ? `Bearer resource_metadata="${config.publicUrl}/.well-known/oauth-protected-resource"`
+              : "Bearer",
           });
         }
         await db

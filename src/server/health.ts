@@ -25,14 +25,15 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const ONLY_REFERENCES = /^(Bearer )?(\$\{\w+\})+$/;
 
 function mcpDetail(mcpJson: string | null, publicUrl: string): HealthDetail {
-  if (mcpJson === null) return "missing";
+  // Cockpit is a claude.ai connector (decision 021 H): not declaring it in .mcp.json is right, and only a declaration with a secret is wrong.
+  if (mcpJson === null) return "ok";
   let parsed: unknown;
   try {
     parsed = JSON.parse(mcpJson);
   } catch {
     return "invalid_json";
   }
-  if (!isObject(parsed) || !isObject(parsed.mcpServers)) return "missing";
+  if (!isObject(parsed) || !isObject(parsed.mcpServers)) return "ok";
   const cockpit = new URL(publicUrl);
   // Every entry that points at Cockpit is judged: one literal secret anywhere is red.
   const entries = Object.values(parsed.mcpServers).flatMap((server) => {
@@ -44,7 +45,7 @@ function mcpDetail(mcpJson: string | null, publicUrl: string): HealthDetail {
       { url, values: { ...(server.headers ?? {}), ...(server.env ?? {}) } },
     ];
   });
-  if (entries.length === 0) return "missing";
+  if (entries.length === 0) return "ok";
   const clean = entries.every(({ url, values }) => {
     // Cockpit's /mcp takes no query and no credentials: if there are some, they hold a secret.
     if (url.search || url.username || url.password) return false;
