@@ -195,8 +195,8 @@ export function StoryDecisions({
       )}
       {mode === "abandon" && (
         <>
-          <p>
-            On abandonne cette user story : c'est définitif, elle ne se rouvre
+          <p id="abandon-story-warning">
+            Abandonner cette user story ? C'est définitif : elle ne se rouvre
             pas.
           </p>
           <div className="mt-3 flex gap-2">
@@ -216,6 +216,7 @@ export function StoryDecisions({
               // A key of its own: without it React would reuse the button of the row above and autoFocus would not run.
               key="cancel-abandon"
               type="button"
+              aria-describedby="abandon-story-warning"
               // The Abandonner button is gone: keep the keyboard focus on the safe choice.
               // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
               autoFocus

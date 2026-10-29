@@ -38,7 +38,7 @@ The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, t
 3. Apply the same sizing and similarity rules as for a new story (below). If the comment asks for a split or a merge you cannot do in one story, rewrite this story for what it should keep and tell the user the rest needs new stories or another ticket.
 4. The story goes back to the user as `to_validate`. Send one call per story, and tell the user which stories you rewrote.
 
-A refusal `wrong_status` means the story is not (or no longer) `to_rewrite`: skip it. The other refusals are those below.
+A refusal saying the story is not `to_rewrite` ("Refused: this story is …") means it is not, or no longer, to rewrite: skip it. The other refusals are those below.
 
 ## Right-sized stories
 

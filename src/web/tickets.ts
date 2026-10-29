@@ -47,7 +47,7 @@ export async function decisionError(res: Response) {
     return new Error("Ce ticket est abandonné : il ne change plus.");
   if (error === "wrong_status")
     return new Error(
-      "Le statut de cette user story a changé entre-temps : recharge la page.",
+      "Le statut de cette user story a changé entre-temps : la page montre son statut actuel.",
     );
   return new Error("L'opération a échoué, réessaie.");
 }

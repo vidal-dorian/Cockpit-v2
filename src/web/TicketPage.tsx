@@ -113,6 +113,8 @@ function TicketView({ ticket, stories }: Loaded) {
         }),
       ]);
     },
+    // Abandoned meanwhile (another tab): show it.
+    onError: () => queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
   });
   // The confirmation closes together with the buttons it leaves, once the page holds the abandoned ticket: not before, or the old buttons would show for a moment.
   useEffect(() => {
@@ -244,8 +246,8 @@ function TicketView({ ticket, stories }: Loaded) {
             </section>
           )}
           {mode === "abandon" && (
-            <p className="mt-6">
-              Attention :{" "}
+            <p id="abandon-ticket-warning" className="mt-6">
+              Abandonner ce ticket ?{" "}
               {unfinished > 0 &&
                 `${unfinished} user ${unfinished === 1 ? "story non terminée sera abandonnée" : "stories non terminées seront abandonnées"} avec lui. `}
               Un ticket abandonné ne se rouvre pas.
@@ -310,6 +312,10 @@ function TicketView({ ticket, stories }: Loaded) {
                   // A key of its own: without it React would reuse the Supprimer button and never mount this one, so autoFocus would not run.
                   key="cancel-delete"
                   type="button"
+                  // A screen reader hears what is lost with the focused choice.
+                  aria-describedby={
+                    mode === "abandon" ? "abandon-ticket-warning" : undefined
+                  }
                   // The button that asked is gone: keep the keyboard focus on the safe choice.
                   // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
                   autoFocus
