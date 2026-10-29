@@ -279,4 +279,155 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     expect(screen.queryByRole("link", { name: /vouloir-alpha/ })).toBeNull();
     expect(within(column("À valider", 0)).getByText("Aucune")).toBeDefined();
   });
+
+  const openTicket = async () => {
+    renderWithClient();
+    const tickets = (
+      await screen.findByRole("heading", { name: "Tickets" })
+    ).closest("section") as HTMLElement;
+    fireEvent.click(
+      await within(tickets).findByRole("link", { name: "Idée A" }),
+    );
+    await screen.findByRole("heading", { level: 1, name: "Idée A" });
+  };
+
+  it("given a ticket with a story, when the ticket is abandoned from its page and the user goes back to the project, then its cards are gone from the board", async () => {
+    stub();
+    await openTicket();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abandonner le ticket" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmer l'abandon" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("main").textContent).toContain("Abandonné"),
+    );
+    await goBackToProject();
+
+    await screen.findByRole("heading", { name: "À valider (0)" });
+    expect(screen.queryByRole("link", { name: /vouloir-alpha/ })).toBeNull();
+  });
+
+  it("given a ticket with a story, when the ticket is renamed and the user goes back to the project, then the card shows the new title", async () => {
+    stub();
+    await openTicket();
+
+    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
+    fireEvent.change(screen.getByLabelText("Titre"), {
+      target: { value: "Idée renommée" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await screen.findByRole("heading", { level: 1, name: "Idée renommée" });
+    await goBackToProject();
+
+    await screen.findByRole("link", { name: /vouloir-alpha/ });
+    await waitFor(() =>
+      expect(cardOf("vouloir-alpha").textContent).toContain("Idée renommée"),
+    );
+    expect(cardOf("vouloir-alpha").textContent).not.toContain("Idée A");
+  });
+
+  it("given a story, when its Je veux is changed with Modifier and the user goes back to the project, then the card shows the new text", async () => {
+    stub();
+    renderWithClient();
+    fireEvent.click(await screen.findByRole("link", { name: /vouloir-alpha/ }));
+    await screen.findByRole("button", { name: "Modifier" });
+    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
+    fireEvent.change(screen.getAllByLabelText(/Je veux/)[0] as HTMLElement, {
+      target: { value: "vouloir-reécrit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() =>
+      expect(screen.getByRole("main").textContent).toContain("vouloir-reécrit"),
+    );
+    await goBackToProject();
+
+    await screen.findByRole("heading", { name: "À valider (1)" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("link", { name: /vouloir-reécrit/ }),
+      ).toBeDefined(),
+    );
+    expect(screen.queryByRole("link", { name: /vouloir-alpha/ })).toBeNull();
+  });
+});
+
+const storiesGets = (api: { calls: { method: string; path: string }[] }) =>
+  api.calls.filter(
+    (c) => c.method === "GET" && c.path === "/api/projects/5/stories",
+  ).length;
+
+describe("the board when the stories route refuses", () => {
+  it("given the stories route answers 401, when the page loads, then the Kanban shows no alert and either the Se connecter avec GitHub link or nothing", async () => {
+    const api = stubTicketApi(tickets, onBoard);
+    api.failStories.status = 401;
+
+    renderAt("/projets/5");
+
+    await waitFor(() => expect(screen.queryByText("Chargement…")).toBeNull());
+    expect(storiesGets(api)).toBeGreaterThan(0);
+    expect(screen.queryByRole("alert")).toBeNull();
+    const heading = screen.queryByRole("heading", { name: "Kanban" });
+    if (heading) {
+      const section = heading.closest("section") as HTMLElement;
+      const login = within(section).queryByRole("link", {
+        name: "Se connecter avec GitHub",
+      });
+      if (login) expect(login.getAttribute("href")).toBe("/api/auth/login");
+      else {
+        // Nothing but the heading.
+        expect(within(section).queryAllByRole("listitem")).toEqual([]);
+        expect(within(section).queryAllByRole("heading")).toHaveLength(1);
+        expect(section.textContent).toBe("Kanban");
+      }
+    }
+  });
+
+  it("given the stories route answers 500, when the page loads, then the Kanban shows an alert with Réessayer, and clicking it reads the route again and shows the board", async () => {
+    const api = stubTicketApi(tickets, onBoard);
+    api.failStories.status = 500;
+
+    renderAt("/projets/5");
+
+    await screen.findByRole("heading", { name: "Kanban" });
+    const alert = await within(kanban()).findByRole("alert");
+    expect(alert.textContent).toContain("Impossible de lire les user stories");
+    const retry = within(kanban()).getByRole("button", { name: "Réessayer" });
+    const before = storiesGets(api);
+    api.failStories.status = undefined;
+    fireEvent.click(retry);
+
+    await screen.findByRole("heading", { name: "À valider (2)" });
+    expect(storiesGets(api)).toBeGreaterThan(before);
+    expect(within(kanban()).queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("accessibility of the board", () => {
+  it("given a card, when the page loads, then the link's accessible name names the ticket before its title", async () => {
+    stubTicketApi(tickets, onBoard);
+
+    renderAt("/projets/5");
+
+    const link = await screen.findByRole("link", { name: /vouloir-alpha/ });
+    // The tickets list also links « Idée A », so the word « ticket » tells the card from it.
+    expect(screen.queryByRole("link", { name: /ticket.*Idée A/i })).toBe(link);
+  });
+
+  it("given the columns, when the page loads, then their scroll container is focusable by keyboard and is a named region", async () => {
+    stubTicketApi(tickets, onBoard);
+
+    renderAt("/projets/5");
+
+    await screen.findByRole("heading", { name: "À valider (2)" });
+    const scroller = column("À valider").parentElement as HTMLElement;
+    for (const name of COLUMNS)
+      expect(column(name).parentElement, name).toBe(scroller);
+    expect(scroller).not.toBe(kanban());
+    expect(scroller.tabIndex).toBe(0);
+    expect(scroller.getAttribute("role")).toBe("region");
+    expect(scroller.getAttribute("aria-label")).toMatch(/kanban|colonnes/i);
+  });
 });
