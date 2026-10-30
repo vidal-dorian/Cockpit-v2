@@ -112,6 +112,11 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                               <span className="sr-only">Ticket : </span>
                               {story.ticketTitle}
                             </span>{" "}
+                            {story.issueDiverged && (
+                              <span className="mt-1 mr-2 inline-block rounded-full bg-destructive-soft px-3 py-1 font-semibold text-destructive">
+                                Issue modifiée sur GitHub
+                              </span>
+                            )}
                             {story.status === "to_rewrite" && (
                               <span className="mt-1 inline-block rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text">
                                 {STORY_STATUSES.to_rewrite}

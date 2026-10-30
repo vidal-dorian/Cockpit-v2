@@ -42,6 +42,10 @@ export const ACTIONS: Record<string, string> = {
   fire_write_us: "Écriture des US lancée",
   change_public_url: "Adresse publique modifiée",
   receive_webhook: "Webhook reçu",
+  process_webhook: "Webhook non traité",
+  issue_diverged: "Issue modifiée sur GitHub",
+  keep_cockpit_issue: "Version de Cockpit gardée",
+  take_github_issue: "Version de GitHub reprise",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",

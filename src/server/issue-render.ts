@@ -113,3 +113,48 @@ export function renderIssue(story: {
     stateReason: closedAs,
   };
 }
+
+const quiet = (text: string) =>
+  text.replaceAll("@\u200B", "@").replaceAll("&lt;!--", "<!--");
+const NARRATIVE = /^En tant que (.+?), je veux (.+?), afin de (.+)\.(?:\n|$)/;
+const CRITERION =
+  /^- \[[ xX]\] \*\*Étant donné\*\* (.+?) \*\*quand\*\* (.+?) \*\*alors\*\* (.+)$/;
+const CRITERIA_HEADING = "\n\n## Critères d'acceptation\n\n";
+const NOTES_HEADING = "\n\n## Notes\n\n";
+
+/**
+ * The inverse of `renderIssue` (decision 025 G): the narrative, the notes and the criteria of a body, or null when it no longer follows the template
+ * or Cockpit cut it. The status line, the dependencies, the footer and the marker are not read.
+ * shortcut: a part that holds ", je veux " or ", afin de " is split at the first one, and a narrative over several lines is not read; upgrade if people hit it.
+ */
+export function parseIssue(body: string) {
+  const cut = body.lastIndexOf(CRITERIA_HEADING);
+  if (cut < 0 || body.includes("(tronqué")) return null;
+  const head = body.slice(0, cut);
+  const narrative = NARRATIVE.exec(head);
+  // The whole paragraph under the heading must be criteria: a line that is not one means the template is gone.
+  const lines =
+    body.slice(cut + CRITERIA_HEADING.length).split("\n\n")[0] ?? "";
+  const criteria = lines.split("\n").map((line) => CRITERION.exec(line));
+  const parts = [narrative, ...criteria].flatMap((m) => m?.slice(1, 4) ?? []);
+  if (
+    !narrative ||
+    criteria.includes(null) ||
+    parts.some((part) => !part.trim())
+  )
+    return null;
+  const notesAt = head.indexOf(NOTES_HEADING);
+  return {
+    asA: quiet(narrative[1] ?? ""),
+    iWant: quiet(narrative[2] ?? ""),
+    soThat: quiet(narrative[3] ?? ""),
+    notesMd:
+      notesAt < 0 ? "" : quiet(head.slice(notesAt + NOTES_HEADING.length)),
+    criteria: criteria.map((m) => ({
+      given: quiet(m?.[1] ?? ""),
+      when: quiet(m?.[2] ?? ""),
+      // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
+      then: quiet(m?.[3] ?? ""),
+    })),
+  };
+}

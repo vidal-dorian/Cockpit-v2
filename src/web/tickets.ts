@@ -49,5 +49,9 @@ export async function decisionError(res: Response) {
     return new Error(
       "Le statut de cette user story a changé entre-temps : la page montre son statut actuel.",
     );
+  if (error === "not_template")
+    return new Error(
+      "La version de GitHub ne suit plus le gabarit de Cockpit : garde la version de Cockpit, ou recopie les changements avec « Modifier ».",
+    );
   return new Error("L'opération a échoué, réessaie.");
 }

@@ -14,7 +14,7 @@ const sha256 = (text: string) =>
   createHash("sha256").update(text).digest("hex");
 
 /** The issue of a story as it should be now, with the hash of its body; null when the story has none and should have none (decision 020 A and D). */
-function renderStory(story: Story, { criteria, dependsOn }: Parts) {
+export function renderStory(story: Story, { criteria, dependsOn }: Parts) {
   if (!isIssueStatus(story.status)) return null;
   if (story.status === "abandoned" && story.issueNumber === null) return null;
   const rendered = renderIssue({
@@ -36,11 +36,21 @@ export const shouldHaveIssue = (story: Story) =>
   isIssueStatus(story.status) &&
   (story.status !== "abandoned" || story.issueNumber !== null);
 
-/** What the API says of the issue of a story (decision 020 J); `upToDate` is computed by rendering the story again. */
+/** What the API says of the issue of a story (decision 020 J); `upToDate` is computed by rendering the story again, `diverged` (decision 025 E) sets GitHub's version against the render. */
 export function issueOf(story: Story, parts: Parts, fullName: string) {
   const rendered = renderStory(story, parts);
   if (!rendered) return null;
   return {
+    diverged:
+      story.issueDivergedAt === null
+        ? null
+        : {
+            at: story.issueDivergedAt,
+            githubTitle: story.issueGithubTitle ?? "",
+            githubBody: story.issueGithubBody ?? "",
+            cockpitTitle: rendered.title,
+            cockpitBody: rendered.body,
+          },
     number: story.issueNumber,
     url:
       story.issueNumber === null
@@ -78,6 +88,8 @@ async function sync(
   const found = await memberStory(db, userId, storyId);
   if (!found) return;
   const { story, ticket, project } = found;
+  // Someone edited the issue on GitHub: nothing is written there until the user chooses (decision 025 D).
+  if (story.issueDivergedAt) return;
   const rendered = renderStory(story, await storyParts(db, story.id));
   if (!rendered || rendered.hash === story.issueBodyHash) return;
   const created = story.issueNumber === null;

@@ -111,6 +111,8 @@ const CONFLICTS = [
   "ticket_has_stories",
   "ticket_abandoned",
   "wrong_status",
+  "no_divergence",
+  "not_template",
 ];
 
 /** A refusal of `act` as an answer; any other error is not ours. */
@@ -176,6 +178,7 @@ export function ticketRoutes(
           position: userStories.position,
           iWant: userStories.iWant,
           status: userStories.status,
+          issueDiverged: sql<boolean>`${userStories.issueDivergedAt} is not null`,
         })
         .from(userStories)
         .innerJoin(tickets, eq(tickets.id, userStories.ticketId))

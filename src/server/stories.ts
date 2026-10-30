@@ -17,11 +17,13 @@ import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
   history,
+  STORY_STATUSES,
   storyDependencies,
   tickets,
   userStories,
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
+import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
 import {
@@ -198,6 +200,27 @@ export async function rewriteStory(
     .where(eq(userStories.id, id));
   return updateStory(tx, id, set);
 }
+
+/** Ends the divergence of a locked story (decision 025 F and G). The stored hash goes too, so the sync that follows writes even when the render did not change: GitHub holds someone else's text. */
+async function settleDivergence(tx: Tx, id: number) {
+  const [row] = await tx
+    .update(userStories)
+    .set({
+      issueGithubTitle: null,
+      issueGithubBody: null,
+      issueDivergedAt: null,
+      issueBodyHash: null,
+    })
+    .where(eq(userStories.id, id))
+    .returning();
+  if (!row) throw new Refused("not_found");
+  return row;
+}
+
+const diverged = (story: Story) => {
+  if (!story.issueDivergedAt) throw new Refused("no_divergence");
+  return story.issueGithubBody ?? "";
+};
 
 type Parts = Awaited<ReturnType<typeof storyParts>>;
 
@@ -390,6 +413,26 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
         "update_story",
         ["to_validate", "to_rewrite", "ready"],
         (tx, story) => rewriteStory(tx, story.id, c.req.valid("json")),
+      ),
+    )
+    .post("/api/stories/:id/issue/keep-cockpit", (c) =>
+      decide(c, "keep_cockpit_issue", [...STORY_STATUSES], (tx, story) => {
+        diverged(story);
+        return settleDivergence(tx, story.id);
+      }),
+    )
+    .post("/api/stories/:id/issue/take-github", (c) =>
+      decide(
+        c,
+        "take_github_issue",
+        ["to_validate", "to_rewrite", "ready"],
+        async (tx, story) => {
+          // The same fields and limits as « Modifier » (decision 018 C): what does not read back or does not fit is not a template.
+          const fields = editBody.safeParse(parseIssue(diverged(story)));
+          if (!fields.success) throw new Refused("not_template");
+          await rewriteStory(tx, story.id, fields.data);
+          return settleDivergence(tx, story.id);
+        },
       ),
     )
     .post("/api/stories/:id/abandon", (c) =>

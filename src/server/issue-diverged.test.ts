@@ -188,6 +188,27 @@ describe("criterion B and C: an issues.edited delivery that differs from the ren
     expect(await entriesOf(s.db, "issue_diverged")).toEqual([]);
   });
 
+  it("given GitHub's web editor sent the body with CRLF line endings, when the delivery is processed, then an unchanged body is no divergence and a changed one is kept with LF", async () => {
+    const s = await publishedStory();
+    const crlf = (text: string) => text.replaceAll("\n", "\r\n");
+
+    await editOnGitHub(s.db, {
+      number: s.number,
+      title: s.github.title,
+      body: crlf(s.github.body),
+    });
+    expect(await divergenceOf(s.db, s.id)).toMatchObject(NOT_DIVERGED);
+
+    await editOnGitHub(s.db, {
+      number: s.number,
+      title: s.github.title,
+      body: crlf(`${s.github.body}\n\nAjout humain`),
+    });
+    expect((await divergenceOf(s.db, s.id)).issue_github_body).toBe(
+      `${s.github.body}\n\nAjout humain`,
+    );
+  });
+
   it("given a diverged story, when a second edit arrives, then the kept version is replaced and a second entry is written", async () => {
     const s = await publishedStory();
     await diverge(s, { title: "Premier titre", body: "Premier corps" });

@@ -1,0 +1,123 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { client } from "./api.ts";
+import { diffLines } from "./diff.ts";
+import { decisionError } from "./tickets.ts";
+import { focusRing } from "./ui.ts";
+
+// The word always comes with the color, so a change never relies on color alone (decision 003).
+const MARKS = {
+  same: { word: "", style: "" },
+  removed: { word: "Retirée", style: "bg-destructive-soft text-destructive" },
+  added: { word: "Ajoutée", style: "bg-done-soft text-done-text" },
+};
+
+const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold disabled:opacity-50 ${focusRing}`;
+
+/** An issue edited on GitHub (decision 025 E to G): the date, the title if it changed, the line by line diff of the bodies, and the choice of the user. */
+export function StoryDiverged({
+  id,
+  diverged,
+  archived,
+}: {
+  id: number;
+  diverged: {
+    at: string;
+    githubTitle: string;
+    githubBody: string;
+    cockpitTitle: string;
+    cockpitBody: string;
+  };
+  archived: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const resolve = useMutation({
+    mutationFn: async (choice: "keep-cockpit" | "take-github") => {
+      const param = { param: { id: String(id) } };
+      const res =
+        choice === "keep-cockpit"
+          ? await client.api.stories[":id"].issue["keep-cockpit"].$post(param)
+          : await client.api.stories[":id"].issue["take-github"].$post(param);
+      if (!res.ok) throw await decisionError(res);
+    },
+    // Also after a refusal: show the real state of the story.
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["story"] }),
+        queryClient.invalidateQueries({ queryKey: ["stories"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["story-history", String(id)],
+        }),
+      ]),
+  });
+  const lines = diffLines(diverged.cockpitBody, diverged.githubBody);
+
+  return (
+    <section
+      className="mt-4 rounded-xl bg-card p-4"
+      aria-labelledby="issue-diverged"
+    >
+      <h2 id="issue-diverged" className="font-semibold">
+        Issue modifiée sur GitHub
+      </h2>
+      <p className="mt-1">
+        Modifiée le {new Date(diverged.at).toLocaleString("fr-FR")}. Cockpit
+        n'écrit plus sur cette issue tant que tu n'as pas choisi.
+      </p>
+      {diverged.githubTitle !== diverged.cockpitTitle && (
+        <p className="mt-2">
+          <span className="font-semibold">Titre</span> {diverged.githubTitle}
+        </p>
+      )}
+      {lines ? (
+        <ul className="mt-3 grid font-mono text-sm">
+          {lines.map(({ type, text }, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the lines are never reordered, and two can be equal
+            <li key={index} className={`flex gap-3 px-2 ${MARKS[type].style}`}>
+              <span className="w-16 shrink-0 font-semibold">
+                {MARKS[type].word}
+              </span>
+              <span className="whitespace-pre-wrap break-words">{text}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+            {diverged.cockpitBody}
+          </pre>
+          <h3 className="mt-3 font-semibold">Version de GitHub</h3>
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+            {diverged.githubBody}
+          </pre>
+        </>
+      )}
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={archived || resolve.isPending}
+          onClick={() => resolve.mutate("keep-cockpit")}
+          className={button}
+        >
+          Garder la version de Cockpit
+        </button>
+        <button
+          type="button"
+          disabled={archived || resolve.isPending}
+          onClick={() => resolve.mutate("take-github")}
+          className={button}
+        >
+          Reprendre la version de GitHub
+        </button>
+      </div>
+      {resolve.error && (
+        <p
+          role="alert"
+          className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
+        >
+          {resolve.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
