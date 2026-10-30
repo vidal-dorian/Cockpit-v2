@@ -127,6 +127,8 @@ export function changeStory(
   { story, ticket, project }: Found,
   from: StoryStatus[],
   change: (tx: Tx, locked: Story) => Promise<Story>,
+  // keep-cockpit may settle a divergence on a story whose ticket was abandoned afterwards: the story is not edited, only its stored GitHub text goes.
+  { allowAbandonedTicket = false } = {},
 ) {
   entry.projectId = project.id;
   entry.ticketId = ticket.id;
@@ -145,7 +147,8 @@ export function changeStory(
       .select({ abandonedAt: tickets.abandonedAt })
       .from(tickets)
       .where(eq(tickets.id, locked.ticketId));
-    if (parent?.abandonedAt) throw new Refused("ticket_abandoned");
+    if (parent?.abandonedAt && !allowAbandonedTicket)
+      throw new Refused("ticket_abandoned");
     if (!from.includes(locked.status)) throw new WrongStatus(locked.status);
     return change(tx, locked);
   });
@@ -267,6 +270,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
     action: string,
     from: StoryStatus[],
     change: (tx: Tx, locked: Story) => Promise<Story>,
+    options?: { allowAbandonedTicket: boolean },
   ) => {
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -280,7 +284,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       args: {},
     };
     try {
-      const story = await changeStory(db, entry, found, from, change);
+      const story = await changeStory(db, entry, found, from, change, options);
       await syncIssue(db, readGitHub, user.userId, story.id);
       return c.json({ story: await reread(story.id, found.project.fullName) });
     } catch (error) {
@@ -416,10 +420,16 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       ),
     )
     .post("/api/stories/:id/issue/keep-cockpit", (c) =>
-      decide(c, "keep_cockpit_issue", [...STORY_STATUSES], (tx, story) => {
-        diverged(story);
-        return settleDivergence(tx, story.id);
-      }),
+      decide(
+        c,
+        "keep_cockpit_issue",
+        [...STORY_STATUSES],
+        (tx, story) => {
+          diverged(story);
+          return settleDivergence(tx, story.id);
+        },
+        { allowAbandonedTicket: true },
+      ),
     )
     .post("/api/stories/:id/issue/take-github", (c) =>
       decide(

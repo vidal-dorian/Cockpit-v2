@@ -103,6 +103,7 @@ export function StoryPage() {
                 id={found.story.id}
                 diverged={found.story.issue.diverged}
                 archived={found.project.archived}
+                statusRef={statusRef}
               />
             )}
             {found.story.status === "to_rewrite" &&

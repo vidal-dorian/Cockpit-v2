@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type RefObject, useMemo } from "react";
 import { client } from "./api.ts";
 import { diffLines } from "./diff.ts";
 import { decisionError } from "./tickets.ts";
@@ -18,6 +19,7 @@ export function StoryDiverged({
   id,
   diverged,
   archived,
+  statusRef,
 }: {
   id: number;
   diverged: {
@@ -28,6 +30,8 @@ export function StoryDiverged({
     cockpitBody: string;
   };
   archived: boolean;
+  /** The status of the story on the page (tabIndex -1): where the focus goes once this section is gone. */
+  statusRef: RefObject<HTMLElement | null>;
 }) {
   const queryClient = useQueryClient();
   const resolve = useMutation({
@@ -39,6 +43,7 @@ export function StoryDiverged({
           : await client.api.stories[":id"].issue["take-github"].$post(param);
       if (!res.ok) throw await decisionError(res);
     },
+    onSuccess: () => statusRef.current?.focus(),
     // Also after a refusal: show the real state of the story.
     onSettled: () =>
       Promise.all([
@@ -49,7 +54,10 @@ export function StoryDiverged({
         }),
       ]),
   });
-  const lines = diffLines(diverged.cockpitBody, diverged.githubBody);
+  const lines = useMemo(
+    () => diffLines(diverged.cockpitBody, diverged.githubBody),
+    [diverged.cockpitBody, diverged.githubBody],
+  );
 
   return (
     <section
