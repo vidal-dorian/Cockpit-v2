@@ -327,6 +327,19 @@ describe("decision 024 C, the record", () => {
     });
   });
 
+  it("given a signed body whose text holds a NUL and a lone surrogate, when it is posted, then 202 and the row keeps the text with replacement characters", async () => {
+    const { app, db } = await setup();
+    const body = '{"action":"edited","issue":{"body":"a\\u0000b\\ud800c"}}';
+
+    const res = await deliver(app, { body, event: "issues" });
+
+    expect(res.status).toBe(202);
+    expect((await deliveries(db))[0]?.payload).toEqual({
+      action: "edited",
+      issue: { body: "a\uFFFDb\uFFFDc" },
+    });
+  });
+
   it("given a delivery GitHub sends twice with the same X-GitHub-Delivery, when both are posted, then both answer 202 and there is still one row and one history entry", async () => {
     const { app, db } = await setup();
     const body = JSON.stringify({ action: "opened", repository: { id: 1 } });

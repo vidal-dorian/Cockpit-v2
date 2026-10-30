@@ -31,6 +31,8 @@ L'App est créée avec son webhook actif vers `/api/webhooks/github` (012) ; jus
 
 ## Limites connues
 
-- **Une livraison de 25 Mo est lue en mémoire** : le Pi le supporte, une rafale de grosses livraisons ne le supporterait pas ; GitHub en envoie rarement de plus de quelques Kio.
+- **Une livraison de 25 Mo est lue en mémoire avant de vérifier sa signature** : un envoi sans en-tête de signature valide est refusé avant la lecture, mais quelqu'un qui en forge un peut faire lire 25 Mo au Pi à chaque requête ; quelques dizaines à la fois l'épuiseraient. Limiter le nombre de gros corps lus en même temps viendra si cela arrive. GitHub, lui, envoie rarement plus de quelques Kio.
+- **Un NUL ou un demi-caractère UTF-16 dans le texte d'une livraison** (une issue, un commentaire) est remplacé par « � » avant l'enregistrement : `jsonb` les refuse, et la livraison serait perdue (GitHub ne relance pas seul une livraison échouée).
+- **Juste après un changement d'adresse publique**, la ligne `webhook` peut rester rouge `wrong_url` jusqu'à une minute (cache).
 - **La ligne du bilan est en retard d'une minute au plus** (cache), et dit « réussie » tant que GitHub n'a encore rien envoyé.
 - **Non vérifiable ici** : de vraies livraisons de GitHub (les tests signent leurs propres corps avec le secret de test).

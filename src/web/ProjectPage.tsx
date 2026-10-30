@@ -41,7 +41,7 @@ const EXPLANATIONS: Record<string, string> = {
   "webhook.last_delivery_failed":
     "La dernière livraison du webhook a échoué : regarde les livraisons récentes dans les réglages de l'App sur GitHub.",
   "webhook.unknown":
-    "Impossible de lire le webhook sur GitHub pour l'instant, réessaie dans un instant.",
+    "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
 };
 
 const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;

@@ -32,15 +32,20 @@ export function webhookRoutes(db: Db, readInstance: ReadInstance) {
       const settings = await readInstance();
       if (!settings) return c.json({ error: NOT_CONFIGURED }, 503);
 
-      // The raw bytes, read once: the signature is over them, not over a re-serialisation.
-      const raw = Buffer.from(await c.req.arrayBuffer());
+      // A missing or malformed signature is refused before the body is read: a scanner cannot make Cockpit buffer 25 MiB for free.
       const sent = SIGNATURE.exec(
         c.req.header("x-hub-signature-256") ?? "",
       )?.[1];
+      if (!sent) {
+        console.error("Webhook refused: missing or wrong signature");
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      // The raw bytes, read once: the signature is over them, not over a re-serialisation.
+      const raw = Buffer.from(await c.req.arrayBuffer());
       const expected = createHmac("sha256", settings.githubWebhookSecret)
         .update(raw)
         .digest();
-      if (!sent || !timingSafeEqual(Buffer.from(sent, "hex"), expected)) {
+      if (!timingSafeEqual(Buffer.from(sent, "hex"), expected)) {
         console.error("Webhook refused: missing or wrong signature");
         return c.json({ error: "Unauthorized" }, 401);
       }
@@ -49,7 +54,12 @@ export function webhookRoutes(db: Db, readInstance: ReadInstance) {
       const event = c.req.header("x-github-event") ?? "";
       let body: unknown;
       try {
-        body = JSON.parse(raw.toString("utf8"));
+        // jsonb refuses NUL and lone surrogates, which GitHub's text (an issue body) may carry: replaced, so the delivery is still recorded.
+        body = JSON.parse(raw.toString("utf8"), (_key, value) =>
+          typeof value === "string"
+            ? value.replaceAll("\0", "\uFFFD").toWellFormed()
+            : value,
+        );
       } catch {
         body = null;
       }
