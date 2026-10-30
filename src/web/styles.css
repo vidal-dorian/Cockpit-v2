@@ -35,3 +35,136 @@
 body {
   @apply bg-background font-sans text-[15px] text-foreground;
 }
+
+/* Colors of the logo (Logo.tsx): the "crème sombre" palette of the mockups.
+   Plain variables, not @theme ones: Tailwind drops theme variables no utility uses.
+   The dark theme (brief §6.20) will redefine them with the others. */
+:root {
+  --logo-coral: #ff8a57;
+  --logo-coral-soft: #ffab85;
+  --logo-hand: #f6eee6;
+  --logo-hand-tint: #ffd6bf;
+  --logo-stone-light: #a99e94;
+  --logo-stone: #7a716a;
+  --logo-stone-deep: #4a433e;
+  --logo-finger: #3a3430;
+  --logo-wire: #e9dfd5;
+}
+
+/* The logo is still at rest and plays once when it is hovered:
+   the two arms slide in, the hands clasp, the fingers grip, then Claude's circuit lights up. */
+.logo {
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logo:hover .logo-human {
+    animation: logo-in-left 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.1) both;
+  }
+  .logo:hover .logo-claude {
+    animation: logo-in-right 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.1) both;
+  }
+  .logo:hover .logo-hand {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: logo-clasp 1s ease-out 0.15s both;
+  }
+  .logo:hover .logo-finger {
+    animation: logo-grip 0.45s ease-out both;
+  }
+  .logo:hover .logo-finger:nth-child(1) {
+    animation-delay: 0.55s;
+  }
+  .logo:hover .logo-finger:nth-child(2) {
+    animation-delay: 0.63s;
+  }
+  .logo:hover .logo-finger:nth-child(3) {
+    animation-delay: 0.71s;
+  }
+  .logo:hover .logo-wire {
+    stroke-dasharray: 1 2;
+    animation: logo-draw 0.55s ease-out both;
+  }
+  .logo:hover .logo-wire:nth-child(1) {
+    animation-delay: 0.75s;
+  }
+  .logo:hover .logo-wire:nth-child(2) {
+    animation-delay: 0.87s;
+  }
+  .logo:hover .logo-wire:nth-child(3) {
+    animation-delay: 0.99s;
+  }
+  .logo:hover .logo-dot {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: logo-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  }
+  .logo:hover .logo-dot:nth-child(1) {
+    animation-delay: 1.15s;
+  }
+  .logo:hover .logo-dot:nth-child(2) {
+    animation-delay: 1.27s;
+  }
+  .logo:hover .logo-dot:nth-child(3) {
+    animation-delay: 1.39s;
+  }
+}
+
+@keyframes logo-in-left {
+  0% {
+    transform: translateX(-170px);
+  }
+  70% {
+    transform: translateX(14px);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes logo-in-right {
+  0% {
+    transform: translateX(170px);
+  }
+  70% {
+    transform: translateX(-14px);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes logo-clasp {
+  0% {
+    transform: scale(0.88) rotate(-5deg);
+  }
+  55% {
+    transform: scale(1.05) rotate(1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes logo-grip {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-16px);
+  }
+}
+@keyframes logo-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes logo-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
