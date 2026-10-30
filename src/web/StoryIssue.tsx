@@ -11,7 +11,12 @@ export function StoryIssue({
   archived,
 }: {
   id: number;
-  issue: { number: number | null; url: string | null; upToDate: boolean };
+  issue: {
+    number: number | null;
+    url: string | null;
+    upToDate: boolean;
+    diverged?: unknown;
+  };
   archived: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -63,7 +68,8 @@ export function StoryIssue({
           <p className="mt-2">L'issue GitHub n'est pas à jour.</p>
         )}
       </div>
-      {!issue.upToDate && (
+      {/* While the issue is diverged the sync writes nothing: the choice is in the section below. */}
+      {!issue.upToDate && !issue.diverged && (
         <button
           type="button"
           disabled={archived || publish.isPending}

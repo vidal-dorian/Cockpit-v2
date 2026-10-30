@@ -423,7 +423,9 @@ export function StoryHistory({ id }: { id: number }) {
                   ? "Claude"
                   : entry.actor === "system"
                     ? "Cockpit"
-                    : "Toi"}
+                    : entry.actor === "github"
+                      ? "GitHub"
+                      : "Toi"}
               </span>
               <span>{ACTIONS[entry.action] ?? entry.action}</span>
               <span className="text-muted-foreground">

@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
+import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
 import { focusRing, markdownStyle } from "./ui.ts";
@@ -95,6 +96,14 @@ export function StoryPage() {
                 id={found.story.id}
                 issue={found.story.issue}
                 archived={found.project.archived}
+              />
+            )}
+            {found.story.issue?.diverged && (
+              <StoryDiverged
+                id={found.story.id}
+                diverged={found.story.issue.diverged}
+                archived={found.project.archived}
+                statusRef={statusRef}
               />
             )}
             {found.story.status === "to_rewrite" &&

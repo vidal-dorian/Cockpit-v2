@@ -32,7 +32,8 @@
 - **En cours** : tranche 4.7 (connecter Claude en un minimum de clics, [décision 021](decisions/021-connecter-claude.md), qui met en œuvre la [006](decisions/006-connexion-oauth.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.8 (programmer l'écriture des US, [décision 022](decisions/022-routine-ecriture-us.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 5.1 (recevoir les webhooks, [décision 024](decisions/024-webhooks.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 5.2.
+- **En cours** : tranche 5.2 (issue modifiée sur GitHub, [décision 025](decisions/025-issue-modifiee-sur-github.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 5.3.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

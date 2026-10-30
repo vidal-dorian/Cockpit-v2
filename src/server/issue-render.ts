@@ -113,3 +113,73 @@ export function renderIssue(story: {
     stateReason: closedAs,
   };
 }
+
+const quiet = (text: string) =>
+  text.replaceAll("@\u200B", "@").replaceAll("&lt;!--", "<!--");
+const NARRATIVE_START = "En tant que ";
+const CRITERION_START = /^- \[[ xX]\] \*\*Étant donné\*\* /;
+const CRITERIA_HEADING = "\n\n## Critères d'acceptation\n\n";
+const NOTES_HEADING = "\n\n## Notes\n\n";
+
+/** The text cut at the first of each separator, one after the other (never at 0, so no part starts empty), or null when one is missing. Linear: a regex with lazy groups backtracks on a crafted body. */
+function split(text: string, ...separators: string[]) {
+  const parts: string[] = [];
+  let rest = text;
+  for (const separator of separators) {
+    const at = rest.indexOf(separator, 1);
+    if (at < 0) return null;
+    parts.push(rest.slice(0, at));
+    rest = rest.slice(at + separator.length);
+  }
+  return [...parts, rest];
+}
+
+/**
+ * The inverse of `renderIssue` (decision 025 G): the narrative, the notes and the criteria of a body, or null when it no longer follows the template
+ * or Cockpit cut it. The status line, the dependencies, the footer and the marker are not read.
+ * shortcut: a part that holds ", je veux " or ", afin de " is split at the first one, and a narrative over several lines is not read; upgrade if people hit it.
+ */
+export function parseIssue(body: string) {
+  const cut = body.lastIndexOf(CRITERIA_HEADING);
+  if (cut < 0 || body.includes(CUT_MENTION)) return null;
+  const head = body.slice(0, cut);
+  const first = head.split("\n", 1)[0] ?? "";
+  const narrative =
+    first.startsWith(NARRATIVE_START) && first.endsWith(".")
+      ? split(
+          first.slice(NARRATIVE_START.length, -1),
+          ", je veux ",
+          ", afin de ",
+        )
+      : null;
+  // The whole paragraph under the heading must be criteria: a line that is not one means the template is gone.
+  const lines =
+    body.slice(cut + CRITERIA_HEADING.length).split("\n\n")[0] ?? "";
+  const criteria = lines.split("\n").map((line) => {
+    const start = CRITERION_START.exec(line)?.[0];
+    return start
+      ? split(line.slice(start.length), " **quand** ", " **alors** ")
+      : null;
+  });
+  const parts = [narrative, ...criteria].flatMap((m) => m ?? []);
+  if (
+    !narrative ||
+    criteria.includes(null) ||
+    parts.some((part) => !part.trim())
+  )
+    return null;
+  const notesAt = head.indexOf(NOTES_HEADING);
+  return {
+    asA: quiet(narrative[0] ?? ""),
+    iWant: quiet(narrative[1] ?? ""),
+    soThat: quiet(narrative[2] ?? ""),
+    notesMd:
+      notesAt < 0 ? "" : quiet(head.slice(notesAt + NOTES_HEADING.length)),
+    criteria: criteria.map((m) => ({
+      given: quiet(m?.[0] ?? ""),
+      when: quiet(m?.[1] ?? ""),
+      // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
+      then: quiet(m?.[2] ?? ""),
+    })),
+  };
+}

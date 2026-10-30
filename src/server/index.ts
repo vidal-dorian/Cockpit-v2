@@ -5,10 +5,11 @@ import { eq } from "drizzle-orm";
 import { createApp } from "./app.ts";
 import { openDatabase } from "./db/db.ts";
 import { instanceSettings, users } from "./db/schema.ts";
-import { checkInstanceKey } from "./instance.ts";
+import { checkInstanceKey, instanceReader } from "./instance.ts";
 import { scheduleRoutines } from "./routines.ts";
 import { loadOrCreateKey } from "./secrets.ts";
 import { schedulePurge } from "./tokens.ts";
+import { scheduleDeliveries } from "./webhooks.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -56,6 +57,7 @@ scheduleRoutines(db, {
   encryptionKey,
   fireRoutine: (url, init) => fetch(url, init),
 });
+scheduleDeliveries(db, { readInstance: instanceReader(db, encryptionKey) });
 const [settings] = await db
   .select({ id: instanceSettings.id })
   .from(instanceSettings);

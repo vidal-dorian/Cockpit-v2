@@ -171,7 +171,7 @@ export const tickets = pgTable("tickets", {
     .defaultNow(),
 });
 
-const STORY_STATUSES = [
+export const STORY_STATUSES = [
   "to_validate",
   "to_rewrite",
   "ready",
@@ -201,6 +201,13 @@ export const userStories = pgTable(
     issueNumber: integer("issue_number"),
     issueBodyHash: text("issue_body_hash"),
     issueClaimedAt: timestamp("issue_claimed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    // The issue as someone edited it on GitHub and when (decision 025 C): all null while Cockpit's render and GitHub agree.
+    issueGithubTitle: text("issue_github_title"),
+    issueGithubBody: text("issue_github_body"),
+    issueDivergedAt: timestamp("issue_diverged_at", {
       withTimezone: true,
       mode: "date",
     }),
@@ -330,8 +337,11 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
-  // Null: still to process (nothing processes them yet, decision 024 D).
+  // Null: still to process (decision 025 A).
   processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
+  // The reservation of a pass (a claim older than a minute is a pass that died), and the failures so far (decision 025 A).
+  claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
+  attempts: integer("attempts").notNull().default(0),
 });
 
 /** Ids, closed values and numbers only: never free text or personal data (decision 010 D). */
