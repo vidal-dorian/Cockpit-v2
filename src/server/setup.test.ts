@@ -147,6 +147,71 @@ describe("GET /api/setup/status", () => {
     });
   });
 
+  it.each([
+    ["Host", { host: "cockpit.example.com" }],
+    ["X-Forwarded-Host", { "x-forwarded-host": "cockpit.example.com" }],
+  ])(
+    "given CF-Visitor says https while X-Forwarded-Proto says http (a tunnel), when the status is asked with the %s, then detectedUrl is https (decision 023 A)",
+    async (_name, hostHeader) => {
+      const { app } = await freshInstance();
+
+      const res = await app.request("/api/setup/status", {
+        headers: {
+          ...hostHeader,
+          "cf-visitor": '{"scheme":"https"}',
+          "x-forwarded-proto": "http",
+        },
+      });
+
+      expect(await res.json()).toMatchObject({
+        detectedUrl: "https://cockpit.example.com",
+      });
+    },
+  );
+
+  it("given CF-Visitor says http while X-Forwarded-Proto says https, when the status is asked, then CF-Visitor wins and detectedUrl is http", async () => {
+    const { app } = await freshInstance();
+
+    const res = await app.request("/api/setup/status", {
+      headers: {
+        host: "cockpit.example.com",
+        "cf-visitor": '{"scheme":"http"}',
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    expect(await res.json()).toMatchObject({
+      detectedUrl: "http://cockpit.example.com",
+    });
+  });
+
+  // Guard: a header we cannot read changes nothing (it already holds before decision 023).
+  it.each([
+    ["not JSON", "scheme=https"],
+    ["a scheme that is neither http nor https", '{"scheme":"ftp"}'],
+    ["a JSON without scheme", "{}"],
+    ["a JSON that is not an object", "[1]"],
+    ["a scheme that is not a string", '{"scheme":42}'],
+  ])(
+    "given a malformed CF-Visitor (%s), when the status is asked, then it is ignored and X-Forwarded-Proto is used",
+    async (_name, visitor) => {
+      const { app } = await freshInstance();
+
+      const res = await app.request("/api/setup/status", {
+        headers: {
+          host: "cockpit.example.com",
+          "cf-visitor": visitor,
+          "x-forwarded-proto": "https",
+        },
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({
+        detectedUrl: "https://cockpit.example.com",
+      });
+    },
+  );
+
   it("given a configured instance without administrator, when the status is asked, then hasAdmin is false", async () => {
     const { app } = await configuredInstance();
 
@@ -326,6 +391,45 @@ describe("POST /api/setup/start", () => {
 
       expect(res.status).toBe(400);
       expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ["a domain", "http://cockpit.example.com"],
+    ["a domain with a port", "http://cockpit.example.com:3000"],
+    ["a private IP", "http://192.168.1.20:3000"],
+    ["a domain that starts like localhost", "http://localhost.example.com"],
+    ["a domain that starts like an IP", "http://127.0.0.1.example.com"],
+  ])(
+    "given the right start code and an http:// public address on %s, when the wizard starts, then it answers 400 with the https message and sets no cookie (decision 023 B)",
+    async (_name, publicUrl) => {
+      const { app } = await freshInstance();
+
+      const res = await postStart(app, { code: CODE, publicUrl });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error:
+          "L'adresse publique doit commencer par https:// : claude.ai l'exige.",
+      });
+      expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();
+    },
+  );
+
+  // Guard: developing on one's own machine keeps working (it already holds before decision 023).
+  it.each([
+    ["localhost", "http://localhost:3000"],
+    ["127.0.0.1", "http://127.0.0.1:3000"],
+    ["[::1]", "http://[::1]:3000"],
+  ])(
+    "given the right start code and an http:// public address on %s, when the wizard starts, then it is accepted",
+    async (_name, publicUrl) => {
+      const { app } = await freshInstance();
+
+      const res = await postStart(app, { code: CODE, publicUrl });
+
+      expect(res.status).toBe(200);
+      expect(cookieNamed(res, "cockpit_setup")).toBeDefined();
     },
   );
 
