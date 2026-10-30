@@ -19,7 +19,11 @@ La page « Réglages » a deux onglets : « Général » (Connecter Claude, Adre
 
 ### Corriger l'adresse publique d'une instance installée
 
-Si Cockpit a été installé avec une mauvaise adresse (par exemple en `http://` derrière un tunnel), l'administrateur ouvre « Réglages », section « Adresse publique », tape la nouvelle adresse et clique « Enregistrer l'adresse » : Cockpit l'utilise tout de suite, sans redémarrer. **Avant**, sur GitHub, dans les réglages de l'App (le lien est dans la section, `https://github.com/settings/apps/<slug>`) : ajouter l'adresse de retour `<nouvelle adresse>/api/auth/callback` (sinon la connexion GitHub échoue) et remplacer l'adresse du webhook par `<nouvelle adresse>/api/webhooks/github`. Cockpit ne peut pas les changer lui-même. Un connecteur déjà ajouté sur claude.ai avec l'ancienne adresse est à rajouter. Décision [023](docs/decisions/023-reglages-adresse-https.md).
+Si Cockpit a été installé avec une mauvaise adresse (par exemple en `http://` derrière un tunnel), l'administrateur ouvre « Réglages », section « Adresse publique », tape la nouvelle adresse et clique « Enregistrer l'adresse » : Cockpit l'utilise tout de suite, sans redémarrer. **Avant**, sur GitHub, dans les réglages de l'App (le lien est dans la section, `https://github.com/settings/apps/<slug>`) : ajouter l'adresse de retour `<nouvelle adresse>/api/auth/callback` (sinon la connexion GitHub échoue). Cockpit change lui-même l'adresse du webhook de l'App (`<nouvelle adresse>/api/webhooks/github`) ; s'il n'y arrive pas, la page le dit et demande de la changer à la main. Décision [024](docs/decisions/024-webhooks.md). Un connecteur déjà ajouté sur claude.ai avec l'ancienne adresse est à rajouter. Décision [023](docs/decisions/023-reglages-adresse-https.md).
+
+### Webhooks GitHub
+
+Cockpit reçoit les webhooks de l'App sur `POST /api/webhooks/github` : la signature (`X-Hub-Signature-256`, secret de l'App) est vérifiée sur le corps brut, la livraison est enregistrée (`webhook_deliveries`, gardée 30 jours) avec une entrée « Webhook reçu » du Journal, puis Cockpit répond 202. Rien n'est encore traité (issues, PR, CI : tranches suivantes). Le bilan de santé d'un projet a une cinquième ligne, « Webhook de Cockpit » : verte quand l'adresse du webhook de l'App est `<adresse publique>/api/webhooks/github` et que sa dernière livraison a réussi (ou qu'il n'y en a pas encore), lue sur GitHub avec l'identité de l'App et gardée une minute. Décision [024](docs/decisions/024-webhooks.md).
 
 ### Bloquer quelqu'un
 

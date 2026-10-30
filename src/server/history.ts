@@ -19,11 +19,19 @@ export function historyRoutes(db: Db) {
         origin: history.origin,
         action: history.action,
         result: history.result,
+        args: history.args,
       })
       .from(history)
       .where(eq(history.userId, user.userId))
       .orderBy(desc(history.at), desc(history.id))
       .limit(LIMIT);
-    return c.json({ entries });
+    // The Journal names a received webhook by its event; every other entry keeps to its own fields, `args` stay on the server.
+    return c.json({
+      entries: entries.map(({ args, ...entry }) =>
+        entry.action === "receive_webhook"
+          ? { ...entry, event: String(args.event) }
+          : entry,
+      ),
+    });
   });
 }

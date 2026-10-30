@@ -46,6 +46,13 @@ const repoSchema = z.object({
   default_branch: z.string().min(1),
 });
 
+/** What we read of the App's webhook (decision 024 F); `active` is only there if GitHub sends it. */
+const hookConfigSchema = z.object({
+  url: z.string(),
+  active: z.boolean().optional(),
+});
+const hookDeliveriesSchema = z.array(z.object({ status_code: z.number() }));
+
 /** What the cache (decision 013) remembers of a repo: the commit (the `sha` GitHub returns for `HEAD`) it was computed from. */
 export type KnownRoot = { etag: string; commitSha: string };
 
@@ -270,6 +277,26 @@ export function githubClient(config: GitHubAppConfig) {
       );
       const file = contentsSchema.parse(data);
       return file ? Buffer.from(file.content, "base64").toString("utf8") : "";
+    },
+
+    /** The App's webhook as GitHub holds it, read as the App (decision 024 F): its config and the status code of its last delivery, null when it has none. Errors are left to the caller. */
+    async readWebhook() {
+      // One after the other: with Promise.all a failure would leave the second request running after the call is over.
+      const config = await app.octokit.request("GET /app/hook/config");
+      const deliveries = await app.octokit.request("GET /app/hook/deliveries", {
+        per_page: 1,
+      });
+      return {
+        ...hookConfigSchema.parse(config.data),
+        lastStatus:
+          hookDeliveriesSchema.parse(deliveries.data)[0]?.status_code ?? null,
+      };
+    },
+
+    /** Points the App's webhook at `url`, as the App (decision 024 G). Errors are left to the caller. */
+    async setWebhookUrl(url: string) {
+      // `data`, not a bare `url`: Octokit would take that one for the address of the request.
+      await app.octokit.request("PATCH /app/hook/config", { data: { url } });
     },
 
     /** Writes the issues of a repo and the labels Cockpit puts on them (decision 020), as the installation. */

@@ -6,7 +6,12 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { instanceSettings, sessions, users } from "./db/schema.ts";
-import type { InstanceSettings, ReadInstance } from "./instance.ts";
+import type { ReadGitHub } from "./github.ts";
+import {
+  type InstanceSettings,
+  type ReadInstance,
+  WEBHOOK_PATH,
+} from "./instance.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
 import { checkPublicUrl } from "./setup.ts";
 
@@ -15,7 +20,11 @@ const publicUrlBody = z.object({ publicUrl: z.string() });
 type Env = { Variables: { adminId: number; settings: InstanceSettings } };
 
 /** The administrator's user list and block list (decision 012 G), and the public address (decision 023 C). */
-export function accountRoutes(db: Db, readInstance: ReadInstance) {
+export function accountRoutes(
+  db: Db,
+  readInstance: ReadInstance,
+  readGitHub: ReadGitHub,
+) {
   /** 503 before the session check, as the other routes; then 401 without a session and 403 for a non-administrator. */
   const adminOnly = createMiddleware<Env>(async (c, next) => {
     const settings = await readInstance();
@@ -113,7 +122,16 @@ export function accountRoutes(db: Db, readInstance: ReadInstance) {
           .where(eq(instanceSettings.id, 1));
       });
       readInstance.forget();
-      return c.json({ publicUrl: checked.origin });
+      // The new address is already in use; if GitHub is not told, the page asks for it by hand (decision 024 G).
+      let webhookUpdated = false;
+      try {
+        const ready = await readGitHub();
+        await ready?.github.setWebhookUrl(`${checked.origin}${WEBHOOK_PATH}`);
+        webhookUpdated = ready !== null;
+      } catch (error) {
+        console.error("GitHub webhook update failed:", error);
+      }
+      return c.json({ publicUrl: checked.origin, webhookUpdated });
     })
     .post("/api/settings/users/:id/block", (c) => setBlocked(c, true))
     .post("/api/settings/users/:id/unblock", (c) => setBlocked(c, false));

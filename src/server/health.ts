@@ -1,13 +1,17 @@
 import type { RepoFiles } from "./github.ts";
+import { WEBHOOK_PATH } from "./instance.ts";
 
 /** The fixed codes of decision 013; the page turns them into French. */
 export type HealthDetail =
   | "ok"
   | "missing"
   | "invalid_json"
-  | "secret_in_clear";
+  | "secret_in_clear"
+  | "wrong_url"
+  | "last_delivery_failed"
+  | "unknown";
 export type HealthLine = {
-  key: "claude_md" | "ci" | "mcp" | "agents";
+  key: "claude_md" | "ci" | "mcp" | "agents" | "webhook";
   ok: boolean;
   detail: HealthDetail;
 };
@@ -75,4 +79,21 @@ export function healthLines(files: RepoFiles, publicUrl: string): HealthLine[] {
         : "missing",
     ),
   ];
+}
+
+/** The fifth line (decision 024 F): the webhook reads are the App's, the same for every project; null when GitHub could not be asked. */
+export function webhookLine(
+  hook: { url: string; active?: boolean; lastStatus: number | null } | null,
+  publicUrl: string,
+): HealthLine {
+  if (!hook) return line("webhook", "unknown");
+  if (hook.url !== `${publicUrl}${WEBHOOK_PATH}` || hook.active === false)
+    return line("webhook", "wrong_url");
+  const { lastStatus } = hook;
+  return line(
+    "webhook",
+    lastStatus === null || (lastStatus >= 200 && lastStatus < 300)
+      ? "ok"
+      : "last_delivery_failed",
+  );
 }

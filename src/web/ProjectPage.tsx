@@ -7,7 +7,7 @@ import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
 import { focusRing } from "./ui.ts";
 
-/** The four lines of the health check, or why there are none (decision 013); null when the server answers 401. */
+/** The lines of the health check, or why there are none (decision 013); null when the server answers 401. */
 async function fetchHealth(id: string) {
   const res = await client.api.projects[":id"].health.$get({ param: { id } });
   if (res.status === 401) return null;
@@ -22,6 +22,7 @@ const LABELS: Record<string, string> = {
   ci: "CI",
   mcp: "Serveur MCP de Cockpit",
   agents: "Agents et skill de développement",
+  webhook: "Webhook de Cockpit",
 };
 
 // One sentence per red line, by "key.detail"; the codes of the server are never shown.
@@ -35,6 +36,12 @@ const EXPLANATIONS: Record<string, string> = {
     "Le .mcp.json contient un secret en clair pour Cockpit : utilise une référence à une variable d'environnement.",
   "agents.missing":
     "Il manque au moins un des agents test-writer, developer, reviewer, ou la skill dev-us, dans le dossier .claude/.",
+  "webhook.wrong_url":
+    "L'adresse du webhook de l'App sur GitHub n'est pas celle de Cockpit, ou le webhook est désactivé : corrige-la dans les réglages de l'App.",
+  "webhook.last_delivery_failed":
+    "La dernière livraison du webhook a échoué : regarde les livraisons récentes dans les réglages de l'App sur GitHub.",
+  "webhook.unknown":
+    "Impossible de lire le webhook sur GitHub pour l'instant, réessaie dans un instant.",
 };
 
 const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;

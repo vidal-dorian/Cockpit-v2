@@ -41,10 +41,12 @@ export const ACTIONS: Record<string, string> = {
   schedule_routine: "Planning d'écriture des US modifié",
   fire_write_us: "Écriture des US lancée",
   change_public_url: "Adresse publique modifiée",
+  receive_webhook: "Webhook reçu",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",
   mcp: "Claude",
+  webhook: "GitHub",
   system: "Cockpit",
 };
 // The word always comes with the color, so the result never relies on color alone (decision 003).
@@ -102,6 +104,7 @@ export function Journal() {
                   <span className="font-semibold">
                     {ACTIONS[entry.action] ??
                       (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
+                    {"event" in entry && ` (${entry.event})`}
                   </span>
                   <span
                     className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}

@@ -8,7 +8,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
 import type { githubClient, ReadGitHub } from "./github.ts";
-import { type HealthLine, healthLines } from "./health.ts";
+import { type HealthLine, healthLines, webhookLine } from "./health.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -77,6 +77,7 @@ export function projectRoutes(
   db: Db,
   readGitHub: ReadGitHub,
   healthCacheSize: number,
+  now: () => number,
 ) {
   // Decision 013: the health lines of the repos shown lately, by installation and repo, with the commit they were computed from. Least recently used out first (a Map keeps insertion order).
   type HealthEntry = {
@@ -93,6 +94,19 @@ export function projectRoutes(
     for (const oldest of healthCache.keys()) {
       if (healthCache.size <= healthCacheSize) break;
       healthCache.delete(oldest);
+    }
+  };
+
+  // Decision 024 F: the App's webhook reads are the same for every project, so they are kept one minute, apart from the per-commit cache above. Only successful reads are kept.
+  let hook: { at: number; read: Awaited<ReturnType<GitHub["readWebhook"]>> };
+  const readWebhook = async (github: GitHub) => {
+    if (hook && now() - hook.at <= 60_000) return hook.read;
+    try {
+      hook = { at: now(), read: await github.readWebhook() };
+      return hook.read;
+    } catch (error) {
+      console.error("GitHub webhook read failed:", error);
+      return null;
     }
   };
 
@@ -245,6 +259,8 @@ export function projectRoutes(
       const found = healthCache.get(key);
       // Lines judged against another address are not valid any more.
       const cached = found?.publicUrl === publicUrl ? found : undefined;
+      const webhook = async () =>
+        webhookLine(await readWebhook(c.get("github")), publicUrl);
       try {
         const read = await c
           .get("github")
@@ -254,7 +270,7 @@ export function projectRoutes(
           // Only asked for with a cached entry, so there is one.
           const entry = { ...(cached as HealthEntry), etag: read.etag };
           remember(key, entry);
-          return c.json({ lines: entry.lines });
+          return c.json({ lines: [...entry.lines, await webhook()] });
         }
         const lines = healthLines(read.files, publicUrl);
         // An empty repository has no ETag: nothing to remember.
@@ -265,7 +281,7 @@ export function projectRoutes(
             publicUrl,
             lines,
           });
-        return c.json({ lines });
+        return c.json({ lines: [...lines, await webhook()] });
       } catch (error) {
         console.error("GitHub request failed:", error);
         return c.json({ error: "github_unavailable" }, 502);
