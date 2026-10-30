@@ -11,6 +11,7 @@ import { instanceReader } from "./instance.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
+import { type FireRoutine, routineRoutes } from "./routines.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
 import { ticketRoutes } from "./tickets.ts";
@@ -27,7 +28,9 @@ export type AppOptions = {
   issueSyncBudgetMs?: number;
   /** How a client's CIMD document is read (decision 021 B); the global fetch when absent. Cockpit adds the abort signal and enforces the size limit itself. */
   fetchClientMetadata?: (url: string, init?: RequestInit) => Promise<Response>;
-  /** The clock in milliseconds, for the life of authorization codes and of the CIMD cache; Date.now when absent. */
+  /** The call to a Claude Code routine's `/fire` address (decision 022 E); the global fetch when absent. Cockpit adds the abort signal itself. */
+  fireRoutine?: FireRoutine;
+  /** The clock in milliseconds, for the life of authorization codes, of the CIMD cache and the next run of a schedule; Date.now when absent. */
   now?: () => number;
 };
 
@@ -40,6 +43,7 @@ export function createApp(
     healthCacheSize = 1000,
     issueSyncBudgetMs = 20_000,
     fetchClientMetadata = (url, init) => fetch(url, init),
+    fireRoutine = (url, init) => fetch(url, init),
     now = Date.now,
   }: AppOptions,
 ) {
@@ -67,6 +71,7 @@ export function createApp(
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
+      .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))

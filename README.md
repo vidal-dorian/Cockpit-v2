@@ -51,6 +51,16 @@ Dans le repo, un fichier `.mcp.json` ne garde que le nom de la variable (le type
 
 Sans fichier : `claude mcp add --transport http cockpit https://cockpit.example.com/mcp --header 'Authorization: Bearer ${COCKPIT_MCP_TOKEN}'`. Source : la [documentation de Claude Code sur MCP](https://code.claude.com/docs/en/mcp). Puis demander à Claude « liste mes projets » ou « note cette idée sur X » (ou « écris les user stories de mes tickets » : `create_user_stories`, avec le skill `/write-us` du dossier `catalog/skills/write-us/`, à copier dans `.claude/skills/` du repo ; les stories attendent ta validation, que tu donnes sur la page de la story ; si tu en renvoies une avec un commentaire, Claude la réécrit avec `update_user_story`, toujours avec le skill `/write-us`, et ne valide jamais rien lui-même) : chaque appel apparaît dans le Journal. Un faux jeton est refusé et inscrit dans l'historique, mais cette ligne n'a pas d'utilisateur et n'est donc visible par personne pour l'instant ; elle le sera avec l'administration (010 G). La décision [016](docs/decisions/016-serveur-mcp.md) donne le détail).
 
+## Écrire les US automatiquement
+
+Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que tu choisis pour chaque projet. Il faut d'abord relier une tâche planifiée de claude.ai, une seule fois : « Réglages » (section « Écrire les US automatiquement ») donne les étapes.
+
+1. **Créer la tâche** sur [claude.ai/code/routines](https://claude.ai/code/routines) : déclencheur « API » seulement, le modèle de ton choix, seulement le connecteur Cockpit coché (claude.ai les coche tous : retire les autres ; voir « Connecter Claude Code »), et la consigne fournie par le bouton « Copier la consigne ».
+2. **Coller dans Cockpit** l'« Adresse de lancement » et le « Jeton » que claude.ai affiche une seule fois, puis « Enregistrer ». Le jeton est chiffré avec la clé de l'instance et n'est plus jamais affiché. Si claude.ai le refuse un jour, Cockpit l'indique (« à reconnecter ») : clique « Régénérer » sur la tâche et recolle le jeton.
+3. **Choisir la fréquence** sur la page du projet (« Écriture automatique des US ») : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Au planning, rien n'est lancé s'il n'y a aucune US à écrire.
+
+Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pas dans les tests, qui le simulent. Détails dans la décision [022](docs/decisions/022-routine-ecriture-us.md).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :

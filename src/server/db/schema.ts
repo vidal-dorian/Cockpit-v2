@@ -65,14 +65,62 @@ export const sessions = pgTable("sessions", {
     .defaultNow(),
 });
 
-export const projects = pgTable("projects", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  // One repo, one project for the whole instance (decision 008); GitHub ids can exceed 2^31.
-  githubRepoId: bigint("github_repo_id", { mode: "number" }).notNull().unique(),
-  fullName: text("full_name").notNull(),
-  defaultBranch: text("default_branch").notNull(),
-  installationId: bigint("installation_id", { mode: "number" }).notNull(),
-  archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+const FREQUENCIES = ["off", "on_demand", "daily", "weekly"] as const;
+
+export const projects = pgTable(
+  "projects",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    // One repo, one project for the whole instance (decision 008); GitHub ids can exceed 2^31.
+    githubRepoId: bigint("github_repo_id", { mode: "number" })
+      .notNull()
+      .unique(),
+    fullName: text("full_name").notNull(),
+    defaultBranch: text("default_branch").notNull(),
+    installationId: bigint("installation_id", { mode: "number" }).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+    // The schedule of the writing of the user stories (decision 022 D): the hour and weekday are local to the time zone; `routineUserId` is the user whose routine fires it.
+    routineFrequency: text("routine_frequency", { enum: FREQUENCIES })
+      .notNull()
+      .default("off"),
+    routineHour: integer("routine_hour"),
+    routineWeekday: integer("routine_weekday"),
+    routineTimeZone: text("routine_time_zone").notNull().default("UTC"),
+    routineNextRunAt: timestamp("routine_next_run_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    routineUserId: integer("routine_user_id").references(() => users.id),
+    routineLastRunAt: timestamp("routine_last_run_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    routineLastRunResult: text("routine_last_run_result", {
+      enum: ["ok", "error"],
+    }),
+    // Only a https://claude.ai address: the page makes it a link.
+    routineLastRunSessionUrl: text("routine_last_run_session_url"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "projects_routine_frequency_check",
+      sql`${t.routineFrequency} in ('off', 'on_demand', 'daily', 'weekly')`,
+    ),
+  ],
+);
+
+/** The scheduled task of a user on claude.ai (decision 022 C): its launch address and its token, encrypted with the instance key (secrets.ts); the token never leaves the server. */
+export const writeUsRoutines = pgTable("write_us_routines", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  fireUrl: text("fire_url").notNull(),
+  token: text("token").notNull(),
+  // Set when /fire refuses the token (401, 403 or 404): nothing is launched until a new one is saved (decision 022 G).
+  needsReconnect: boolean("needs_reconnect").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),

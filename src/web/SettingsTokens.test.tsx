@@ -140,6 +140,14 @@ function stubApi(state: State) {
           connected: false,
           connectedAt: null,
         });
+      // Decision 022: the section « Écrire les US automatiquement » has its own tests (RoutineSettings.test.tsx): nothing connected here.
+      if (path === "/api/me/routine" && method === "GET")
+        return Response.json({
+          connected: false,
+          fireUrl: null,
+          needsReconnect: false,
+          prompt: "This task is started by Cockpit.",
+        });
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     }),
   );

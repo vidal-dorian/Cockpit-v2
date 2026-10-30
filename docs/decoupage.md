@@ -30,7 +30,8 @@
 - **En cours** : tranche 4.5 (Kanban par projet, [décision 019](decisions/019-kanban.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.6 (publication en issue GitHub, [décision 020](decisions/020-issues-github.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 4.7 (connecter Claude en un minimum de clics, [décision 021](decisions/021-connecter-claude.md), qui met en œuvre la [006](decisions/006-connexion-oauth.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 4.8, puis 5.1.
+- **En cours** : tranche 4.8 (programmer l'écriture des US, [décision 022](decisions/022-routine-ecriture-us.md)) : écrite et testée, en relecture.
+- **Ensuite** : tranche 5.1.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
