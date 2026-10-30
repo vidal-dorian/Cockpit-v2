@@ -1,7 +1,7 @@
-export type Window = { kind: string; percentUsed: number; resetsAt?: string }
+export type Window = { kind: string; percentUsed: number; resetsAt?: string };
 
-declare module 'claude-code' {
+declare module "claude-code" {
   interface PluginState {
-    'usage-band': { windows: Window[] }
+    "usage-band": { windows: Window[] };
   }
 }
