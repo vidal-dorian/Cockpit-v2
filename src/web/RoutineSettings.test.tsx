@@ -11,6 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
+// Decision 023 E moved the section to the tab /reglages/ecriture-us.
 // Decision 022 A, C, G: the section « Écrire les US automatiquement » of Réglages, where the user connects the
 // scheduled task of claude.ai (its launch address and its token), and the journal labels of the four new actions.
 //
@@ -190,7 +191,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
   it("given a user, when /reglages loads, then the section has its heading and a link to the routines of claude.ai that opens in a new tab with rel noreferrer", async () => {
     stubApi({ routine: NOT_CONNECTED });
 
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
 
     const section = await loadedSection();
     const link = within(section)
@@ -207,7 +208,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
   it("given a user, when the section loads, then the first step tells to keep only the Cockpit connector and remove the others (022 A)", async () => {
     stubApi({ routine: NOT_CONNECTED });
 
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
 
     const section = await loadedSection();
     expect(section.textContent).toMatch(
@@ -218,7 +219,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
   it("given nothing connected, when the section loads, then the prompt is shown and « Copier la consigne » writes exactly the prompt of the server to the clipboard", async () => {
     const writeText = stubClipboard();
     stubApi({ routine: NOT_CONNECTED });
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
     const section = await loadedSection();
 
     fireEvent.click(
@@ -240,7 +241,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
   it("given nothing connected, when the section loads, then it has the fields Adresse de lancement and Jeton (a password field) and an Enregistrer button, and does not claim to be connected", async () => {
     stubApi({ routine: NOT_CONNECTED });
 
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
 
     const section = await loadedSection();
     expect(
@@ -259,7 +260,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
 
   it("given the fields filled, when Enregistrer is clicked, then the address and the token are sent with PUT /api/me/routine and the section says Connectée with a Retirer button", async () => {
     const calls = stubApi({ routine: NOT_CONNECTED });
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
     const section = await loadedSection();
     fireEvent.change(within(section).getByLabelText("Adresse de lancement"), {
       target: { value: FIRE_URL },
@@ -289,7 +290,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
 
   it("given a token just saved, when the section is connected, then the token is shown nowhere: not in the text and not in any field", async () => {
     stubApi({ routine: NOT_CONNECTED });
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
     const section = await loadedSection();
     fireEvent.change(within(section).getByLabelText("Adresse de lancement"), {
       target: { value: FIRE_URL },
@@ -312,7 +313,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
   it("given a connected routine, when the section loads, then it says Connectée and offers Retirer", async () => {
     stubApi({ routine: CONNECTED });
 
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
 
     const section = await loadedSection();
     await waitFor(() =>
@@ -326,7 +327,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
 
   it("given a connected routine, when Retirer is clicked, then DELETE /api/me/routine is sent at once and the section offers the fields again", async () => {
     const calls = stubApi({ routine: CONNECTED });
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
     const section = await loadedSection();
 
     fireEvent.click(
@@ -351,7 +352,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
   it("given a routine that needs reconnecting, when the section loads, then it says to reconnect (new token, « Régénérer » on claude.ai), shows the fields to paste it and no longer says Connectée", async () => {
     stubApi({ routine: { ...CONNECTED, needsReconnect: true } });
 
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
 
     const section = await loadedSection();
     await waitFor(() => expect(section.textContent).toMatch(/à reconnecter/));
@@ -377,7 +378,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
         routine: NOT_CONNECTED,
         putAnswer: Response.json({ error: code }, { status }),
       });
-      renderAt("/reglages");
+      renderAt("/reglages/ecriture-us");
       const section = await loadedSection();
       fireEvent.change(within(section).getByLabelText("Adresse de lancement"), {
         target: { value: "https://example.com/x" },
@@ -407,7 +408,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
       getAnswer: Response.json({ error: "boom" }, { status: 500 }),
     });
 
-    renderAt("/reglages");
+    renderAt("/reglages/ecriture-us");
 
     const section = await routineSection();
     const alert = await within(section).findByRole("alert");

@@ -277,6 +277,7 @@ export function App() {
         />
         <Route path="/journal" element={<Journal />} />
         <Route path="/reglages" element={<Settings />} />
+        <Route path="/reglages/ecriture-us" element={<Settings routine />} />
         <Route path="/bienvenue" element={<Welcome />} />
         <Route path="/autoriser" element={<Autoriser />} />
         {/* The wizard's address: once it is done, nothing to show there. */}

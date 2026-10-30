@@ -118,6 +118,14 @@ function stubApi(state: State) {
         );
         return new Response(null, { status: 204 });
       }
+      // Decision 023: the administrator's section « Adresse publique » has its own tests (SettingsTabs.test.tsx).
+      if (path === "/api/settings/public-url" && method === "GET")
+        return state.isAdmin
+          ? Response.json({
+              publicUrl: "https://cockpit.example.com",
+              appSettingsUrl: "https://github.com/settings/apps/cockpit-test",
+            })
+          : Response.json({ error: "Forbidden" }, { status: 403 });
       // The « Connecter Claude » section (decision 021 G) has its own tests (ConnectClaude.test.tsx): nothing connected here.
       if (path === "/api/me/connect" && method === "GET")
         return Response.json({

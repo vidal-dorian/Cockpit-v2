@@ -189,3 +189,40 @@ describe("start-up wizard", () => {
     ).toBeNull();
   });
 });
+
+// Decision 023 B: the wizard shows the sentence of the server, not a generic one.
+describe("start-up wizard, refused address", () => {
+  const submitWith400 = async (body: unknown) => {
+    const submit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => {});
+    stubApi({
+      configured: false,
+      start: () => Response.json(body, { status: 400 }),
+    });
+    renderAt("/");
+    fireEvent.change(await screen.findByLabelText("Code de démarrage"), {
+      target: { value: "the-code" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Créer l'App GitHub" }));
+    return { alert: await screen.findByRole("alert"), submit };
+  };
+
+  it("given the server answers 400 that the address must start with https://, when the form is submitted, then the alert shows that exact message and nothing is posted to GitHub", async () => {
+    const message =
+      "L'adresse publique doit commencer par https:// : claude.ai l'exige.";
+
+    const { alert, submit } = await submitWith400({ error: message });
+
+    expect(alert.textContent).toContain(message);
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("given the server answers 400 with another error, when the form is submitted, then the alert shows a French message about the address", async () => {
+    const { alert } = await submitWith400({
+      error: "Adresse publique invalide",
+    });
+
+    expect(alert.textContent).toMatch(/adresse publique/i);
+  });
+});

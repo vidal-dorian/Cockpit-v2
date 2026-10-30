@@ -55,8 +55,15 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
         json: { code: code.trim(), publicUrl: publicUrl.trim() },
       });
       if (res.status === 403) throw new Error("Code de démarrage incorrect.");
-      if (res.status === 400)
-        throw new Error("L'adresse publique n'est pas une adresse web valide.");
+      if (res.status === 400) {
+        // The server's 400 is already a French sentence.
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(
+          body?.error || "L'adresse publique n'est pas une adresse web valide.",
+        );
+      }
       if (!res.ok) throw new Error(`Le serveur a répondu ${res.status}.`);
       const { action, manifest } = await res.json();
       postToGitHub(action, manifest);

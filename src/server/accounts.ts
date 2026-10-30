@@ -1,24 +1,30 @@
 import { asc, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { sessions, users } from "./db/schema.ts";
-import type { ReadInstance } from "./instance.ts";
+import { instanceSettings, sessions, users } from "./db/schema.ts";
+import type { InstanceSettings, ReadInstance } from "./instance.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
+import { checkPublicUrl } from "./setup.ts";
 
-type Env = { Variables: { adminId: number } };
+const publicUrlBody = z.object({ publicUrl: z.string() });
 
-/** The administrator's user list and block list (decision 012 G). */
+type Env = { Variables: { adminId: number; settings: InstanceSettings } };
+
+/** The administrator's user list and block list (decision 012 G), and the public address (decision 023 C). */
 export function accountRoutes(db: Db, readInstance: ReadInstance) {
   /** 503 before the session check, as the other routes; then 401 without a session and 403 for a non-administrator. */
   const adminOnly = createMiddleware<Env>(async (c, next) => {
-    if (!(await readInstance())) return c.json({ error: NOT_CONFIGURED }, 503);
+    const settings = await readInstance();
+    if (!settings) return c.json({ error: NOT_CONFIGURED }, 503);
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
     if (!user.isAdmin) return c.json({ error: "Forbidden" }, 403);
     c.set("adminId", user.userId);
+    c.set("settings", settings);
     await next();
   });
 
@@ -76,6 +82,38 @@ export function accountRoutes(db: Db, readInstance: ReadInstance) {
         .from(users)
         .orderBy(asc(users.id));
       return c.json({ users: all });
+    })
+    .get("/api/settings/public-url", async (c) => {
+      const { publicUrl, githubAppSlug } = c.get("settings");
+      return c.json({
+        publicUrl,
+        appSettingsUrl: `https://github.com/settings/apps/${githubAppSlug}`,
+      });
+    })
+    .put("/api/settings/public-url", async (c) => {
+      const body = publicUrlBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!body.success) return c.json({ error: "Bad request" }, 400);
+      const checked = checkPublicUrl(body.data.publicUrl);
+      if (checked.error !== undefined)
+        return c.json({ error: checked.error }, 400);
+      // Neither address in the entry (decision 010 D).
+      const entry: Entry = {
+        userId: c.get("adminId"),
+        actor: "human",
+        origin: "ui",
+        action: "change_public_url",
+        args: {},
+      };
+      await act(db, entry, async (tx) => {
+        await tx
+          .update(instanceSettings)
+          .set({ publicUrl: checked.origin })
+          .where(eq(instanceSettings.id, 1));
+      });
+      readInstance.forget();
+      return c.json({ publicUrl: checked.origin });
     })
     .post("/api/settings/users/:id/block", (c) => setBlocked(c, true))
     .post("/api/settings/users/:id/unblock", (c) => setBlocked(c, false));

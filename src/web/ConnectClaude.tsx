@@ -109,7 +109,7 @@ export function ConnectClaude() {
             </ol>
             <details className="mt-4">
               <summary className={`cursor-pointer font-semibold ${focusRing}`}>
-                Claude Code sans compte claude.ai
+                Connecter Claude depuis le CLI Claude Code
               </summary>
               <p className="mt-2">
                 Dans un terminal, Claude Code fait la même connexion au premier

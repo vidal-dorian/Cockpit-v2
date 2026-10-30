@@ -6,6 +6,7 @@
 - **Dépend de** : [008 — Service en ligne](008-service-en-ligne.md), [009 — Connexion avec GitHub](009-connexion-github.md), [011 — Importer un projet](011-import-projets.md)
 - **Revient sur** : la configuration par variables d'environnement de la 009 (G) et de la 011 (H), la liste de comptes autorisés en configuration (009 A), et la permission unique de la 011 (I). Dorian l'a demandé : « je ne veux pas avoir à renseigner des valeurs dans le .env, c'est super dur à maintenir »
 - **Rouverte (choix G, 1.6)** : la liste de comptes autorisés devient une inscription ouverte et une liste de comptes bloqués. Dorian l'a demandé : « je ne veux pas avoir à accepter ou non des gens … je veux que chaque personne puisse créer son compte cockpit depuis son compte github »
+- **Modifiée par** : [023 — Réglages en onglets, adresse publique en https](023-reglages-adresse-https.md) : le choix C (détection de l'adresse) lit `CF-Visitor` d'abord et exige `https://`, et l'administrateur peut changer l'adresse dans Réglages
 
 ## Contexte
 

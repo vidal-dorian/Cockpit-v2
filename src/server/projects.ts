@@ -79,7 +79,13 @@ export function projectRoutes(
   healthCacheSize: number,
 ) {
   // Decision 013: the health lines of the repos shown lately, by installation and repo, with the commit they were computed from. Least recently used out first (a Map keeps insertion order).
-  type HealthEntry = { etag: string; commitSha: string; lines: HealthLine[] };
+  type HealthEntry = {
+    etag: string;
+    commitSha: string;
+    /** The address the lines were judged against (decision 023 C). */
+    publicUrl: string;
+    lines: HealthLine[];
+  };
   const healthCache = new Map<string, HealthEntry>();
   const remember = (key: string, entry: HealthEntry) => {
     healthCache.delete(key);
@@ -235,7 +241,10 @@ export function projectRoutes(
       if (!project) return c.json({ error: "Not found" }, 404);
       // The root (the commit of HEAD) is read on each call; the rest only when it changed (decision 013). A failure leaves the cache as it was.
       const key = `${project.installationId}/${project.fullName}`;
-      const cached = healthCache.get(key);
+      const publicUrl = c.get("publicUrl");
+      const found = healthCache.get(key);
+      // Lines judged against another address are not valid any more.
+      const cached = found?.publicUrl === publicUrl ? found : undefined;
       try {
         const read = await c
           .get("github")
@@ -247,10 +256,15 @@ export function projectRoutes(
           remember(key, entry);
           return c.json({ lines: entry.lines });
         }
-        const lines = healthLines(read.files, c.get("publicUrl"));
+        const lines = healthLines(read.files, publicUrl);
         // An empty repository has no ETag: nothing to remember.
         if (read.etag)
-          remember(key, { etag: read.etag, commitSha: read.commitSha, lines });
+          remember(key, {
+            etag: read.etag,
+            commitSha: read.commitSha,
+            publicUrl,
+            lines,
+          });
         return c.json({ lines });
       } catch (error) {
         console.error("GitHub request failed:", error);

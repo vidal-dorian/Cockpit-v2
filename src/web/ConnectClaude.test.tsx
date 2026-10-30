@@ -257,6 +257,20 @@ describe("Réglages page, the section Connecter Claude", () => {
     expect(details?.textContent).toMatch(/jetons? manuels?/i);
   });
 
+  it("given the section, when it loads, then the title of the collapsed part is exactly « Connecter Claude depuis le CLI Claude Code » (decision 023 F)", async () => {
+    stubApi(NOT_CONNECTED);
+
+    renderAt("/reglages");
+
+    const { section } = await connectSection();
+    await within(section).findByRole("button", { name: "Copier l'adresse" });
+    const summary = section.querySelector("details > summary");
+    expect(summary, "a <summary> in the <details>").not.toBeNull();
+    expect(summary?.textContent?.trim()).toBe(
+      "Connecter Claude depuis le CLI Claude Code",
+    );
+  });
+
   it("given a Claude Code connection, when the section loads, then it says « Connecté depuis Claude Code » and not claude.ai", async () => {
     stubApi({
       mcpUrl: MCP_URL,

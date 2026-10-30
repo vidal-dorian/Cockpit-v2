@@ -73,6 +73,32 @@ function originOf(value: string | undefined) {
   return null;
 }
 
+export const HTTPS_ONLY =
+  "L'adresse publique doit commencer par https:// : claude.ai l'exige.";
+const LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
+
+/** The origin of an address Cockpit may announce: https, or http on this machine only (decision 023 B); otherwise the error to answer. */
+export function checkPublicUrl(
+  value: string | undefined,
+):
+  | { origin: string; error?: undefined }
+  | { origin?: undefined; error: string } {
+  const origin = originOf(value);
+  if (!origin) return { error: "Adresse publique invalide" };
+  const { protocol, hostname } = new URL(origin);
+  if (protocol === "https:" || LOOPBACK.includes(hostname)) return { origin };
+  return { error: HTTPS_ONLY };
+}
+
+/** The scheme CF-Visitor reports (`{"scheme":"https"}`), or undefined when absent or unreadable. */
+function visitorScheme(header: string | undefined) {
+  try {
+    const { scheme } = JSON.parse(header ?? "");
+    if (scheme === "http" || scheme === "https") return scheme;
+  } catch {}
+  return undefined;
+}
+
 /** Equal-length digests of the code without case, spaces or dashes, so a copy typed loosely still matches and the comparison takes the same time whatever the guess. */
 function sameCode(given: string, expected: string) {
   const digest = (value: string) =>
@@ -113,8 +139,10 @@ export function setupRoutes(
 
   return new Hono()
     .get("/api/setup/status", async (c) => {
-      // The proxy (Cloudflare) tells the address the visitor typed; the administrator confirms it.
-      const proto = c.req.header("x-forwarded-proto")?.split(",")[0]?.trim();
+      // The proxy (Cloudflare) tells the address the visitor typed; the administrator confirms it. CF-Visitor is the visitor's scheme, X-Forwarded-Proto may be the one behind the tunnel (decision 023 A).
+      const proto =
+        visitorScheme(c.req.header("cf-visitor")) ??
+        c.req.header("x-forwarded-proto")?.split(",")[0]?.trim();
       const host = (
         c.req.header("x-forwarded-host") ??
         (proto ? c.req.header("host") : undefined)
@@ -169,9 +197,10 @@ export function setupRoutes(
       if (!body.success) return c.json({ error: "Bad request" }, 400);
       if (!sameCode(body.data.code, setupCode))
         return c.json({ error: "Code de démarrage incorrect" }, 403);
-      const publicUrl = originOf(body.data.publicUrl);
-      if (!publicUrl)
-        return c.json({ error: "Adresse publique invalide" }, 400);
+      const checked = checkPublicUrl(body.data.publicUrl);
+      if (checked.error !== undefined)
+        return c.json({ error: checked.error }, 400);
+      const publicUrl = checked.origin;
 
       const now = Date.now();
       for (const [state, entry] of pending)

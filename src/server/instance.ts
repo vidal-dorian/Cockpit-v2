@@ -14,10 +14,10 @@ export type InstanceSettings = {
   githubWebhookSecret: string;
 };
 
-/** Reads the settings on demand: null until the wizard has run. They never change once set, so the first successful read is kept. */
+/** Reads the settings on demand: null until the wizard has run. The first successful read is kept until `forget()`, which the change of the public address calls (decision 023 C). */
 export function instanceReader(db: Db, encryptionKey: Buffer) {
   let cached: InstanceSettings | null = null;
-  return async () => {
+  const read = async () => {
     if (cached) return cached;
     const [row] = await db
       .select()
@@ -35,6 +35,11 @@ export function instanceReader(db: Db, encryptionKey: Buffer) {
     };
     return cached;
   };
+  return Object.assign(read, {
+    forget: () => {
+      cached = null;
+    },
+  });
 }
 
 export type ReadInstance = ReturnType<typeof instanceReader>;
