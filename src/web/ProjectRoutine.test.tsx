@@ -509,7 +509,7 @@ describe("Project page, the section Écriture automatique des US", () => {
 
     const section = await routineSection();
     const link = await within(section).findByRole("link", { name: /Réglages/ });
-    expect(link.getAttribute("href")).toBe("/reglages");
+    expect(link.getAttribute("href")).toBe("/reglages/ecriture-us");
     const button = within(section).queryByRole("button", {
       name: "Écrire les US maintenant",
     });
@@ -532,7 +532,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       within(section)
         .getByRole("link", { name: /Réglages/ })
         .getAttribute("href"),
-    ).toBe("/reglages");
+    ).toBe("/reglages/ecriture-us");
     const button = within(section).queryByRole("button", {
       name: "Écrire les US maintenant",
     });
