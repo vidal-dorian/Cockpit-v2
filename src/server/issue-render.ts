@@ -134,9 +134,6 @@ function split(text: string, ...separators: string[]) {
   return [...parts, rest];
 }
 
-// What `.` did not match in the old regexes: a body with CRLF lines is not the template.
-const hasLineBreak = (text: string) => /[\r\u2028\u2029]/.test(text);
-
 /**
  * The inverse of `renderIssue` (decision 025 G): the narrative, the notes and the criteria of a body, or null when it no longer follows the template
  * or Cockpit cut it. The status line, the dependencies, the footer and the marker are not read.
@@ -148,9 +145,7 @@ export function parseIssue(body: string) {
   const head = body.slice(0, cut);
   const first = head.split("\n", 1)[0] ?? "";
   const narrative =
-    first.startsWith(NARRATIVE_START) &&
-    first.endsWith(".") &&
-    !hasLineBreak(first)
+    first.startsWith(NARRATIVE_START) && first.endsWith(".")
       ? split(
           first.slice(NARRATIVE_START.length, -1),
           ", je veux ",
@@ -162,7 +157,7 @@ export function parseIssue(body: string) {
     body.slice(cut + CRITERIA_HEADING.length).split("\n\n")[0] ?? "";
   const criteria = lines.split("\n").map((line) => {
     const start = CRITERION_START.exec(line)?.[0];
-    return start && !hasLineBreak(line)
+    return start
       ? split(line.slice(start.length), " **quand** ", " **alors** ")
       : null;
   });

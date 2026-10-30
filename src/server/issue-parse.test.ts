@@ -101,6 +101,10 @@ describe("criterion G: parseIssue is the inverse of renderIssue", () => {
         ],
       },
     ],
+    [
+      "a line or paragraph separator and a carriage return in the narrative (the template splits on \\n only)",
+      { asA: "a\u2028b", iWant: "c\u2029d", soThat: "e\rf" },
+    ],
   ] as [string, Partial<Input>][])(
     "given %s, when it is rendered and read back, then the fields are the ones of the story",
     (_name, over) => {
