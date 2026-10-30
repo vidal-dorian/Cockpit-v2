@@ -20,7 +20,8 @@ import {
 // Slice 4.5 (decision 019): the Kanban of a project, read from one route.
 //
 // Pinned shape (camelCase like the ticket routes):
-// - GET /api/projects/:id/stories -> { stories: [{ id, ticketId, ticketTitle, position, iWant, status }] }
+// - GET /api/projects/:id/stories -> { stories: [{ id, ticketId, ticketTitle, position, iWant, status, issueDiverged }] }
+//   (`issueDiverged`: boolean, added by decision 025 J, slice 5.2: the issue of the story was edited on GitHub)
 //   the non-abandoned stories of the project, ordered by ticket id then position; a read, so no history entry.
 // - The 404 tests always read the project of the caller first: a route that does not exist answers 404 too.
 
@@ -35,6 +36,7 @@ type Card = {
   position: number;
   iWant: string;
   status: string;
+  issueDiverged: boolean;
 };
 
 const listStories = (app: App, cookie: string, projectId: number | string) =>
@@ -79,6 +81,7 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           position: 1,
           iWant: "s1p1",
           status: "to_rewrite",
+          issueDiverged: false,
         },
         {
           id: s1p2,
@@ -87,6 +90,7 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           position: 2,
           iWant: "s1p2",
           status: "in_review",
+          issueDiverged: false,
         },
         {
           id: s2p1,
@@ -95,6 +99,7 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           position: 1,
           iWant: "s2p1",
           status: "ready",
+          issueDiverged: false,
         },
       ],
     });
