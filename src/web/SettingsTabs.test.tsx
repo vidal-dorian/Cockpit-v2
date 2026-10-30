@@ -18,8 +18,11 @@ import { App } from "./App.tsx";
 //   open one has aria-current="page", the other has no aria-current.
 // - The section « Adresse publique » is a <section aria-labelledby> (role region) with one text field and a button
 //   whose name contains « Enregistrer ». The field is empty at first: the current address is shown as text.
-// - The GitHub steps (link to appSettingsUrl, `<typed>/api/auth/callback`, `<typed>/api/webhooks/github`) and the
+// - The GitHub steps (link to appSettingsUrl, `<typed>/api/auth/callback`) and the
 //   note about the claude.ai connector sit in that section, before the button, and follow what is typed.
+//   Decision 024 G: the webhook is no longer one of the steps (the server changes it): the section does not say
+//   « webhook » at all until a save answers webhookUpdated: false, then it asks, in a message, to change the address of
+//   the webhook by hand on GitHub (« à la main »), giving `<saved address>/api/webhooks/github`.
 // - After a save, the page reads the address again (GET) and shows it in place of the old one.
 // - A 400 shows the `error` text of the server, in French, in an alert.
 
@@ -34,6 +37,8 @@ type State = {
   publicUrl: string;
   /** What PUT answers instead of saving. */
   putAnswer?: Response;
+  /** What the saving PUT says of the webhook (decision 024 G); true when absent. */
+  webhookUpdated?: boolean;
 };
 type Call = { method: string; path: string; body: string };
 
@@ -126,7 +131,10 @@ function stubApi(state: State) {
           if (state.putAnswer) return state.putAnswer.clone();
           const sent = JSON.parse(body) as { publicUrl: string };
           state.publicUrl = new URL(sent.publicUrl).origin;
-          return Response.json({ publicUrl: state.publicUrl });
+          return Response.json({
+            publicUrl: state.publicUrl,
+            webhookUpdated: state.webhookUpdated ?? true,
+          });
         }
       }
       throw new Error(`Unexpected fetch ${method} ${raw}`);
@@ -311,7 +319,7 @@ describe("Réglages, the section Adresse publique (decision 023 C)", () => {
     expect(section.getByRole("button", { name: /Enregistrer/ })).toBeDefined();
   });
 
-  it("given an address typed, when the section is read, then before the save button it links to the settings of the App and gives the callback and webhook addresses built on what is typed", async () => {
+  it("given an address typed, when the section is read, then before the save button it links to the settings of the App and gives the callback address built on what is typed, and says nothing of the webhook (decision 024 G)", async () => {
     stubApi({ isAdmin: true, publicUrl: OLD_URL });
     renderAt("/reglages");
     const section = await addressSection();
@@ -323,18 +331,14 @@ describe("Réglages, the section Adresse publique (decision 023 C)", () => {
       name: (_name, element) => element.getAttribute("href") === APP_SETTINGS,
     });
     const callback = elementHolding(`${NEW_URL}/api/auth/callback`);
-    const webhook = elementHolding(`${NEW_URL}/api/webhooks/github`);
     const save = section.getByRole("button", { name: /Enregistrer/ });
     expect(precedes(link, save)).toBe(true);
     expect(precedes(callback, save)).toBe(true);
-    expect(precedes(webhook, save)).toBe(true);
+    expect(addressElement().textContent).not.toMatch(/webhook/i);
     // Not a constant: the steps follow the typed address.
     fireEvent.change(field, { target: { value: "https://other.example.net" } });
     expect(addressElement().textContent).toContain(
       "https://other.example.net/api/auth/callback",
-    );
-    expect(addressElement().textContent).toContain(
-      "https://other.example.net/api/webhooks/github",
     );
     expect(addressElement().textContent).not.toContain(
       `${NEW_URL}/api/auth/callback`,
@@ -406,5 +410,52 @@ describe("Réglages, the section Adresse publique (decision 023 C)", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain(HTTPS_ONLY);
     expect(addressElement().textContent).toContain(OLD_URL);
+  });
+});
+
+describe("Réglages, the webhook after a save (decision 024 G)", () => {
+  async function saveAddress(state: State) {
+    const calls = stubApi(state);
+    renderAt("/reglages");
+    const section = await addressSection();
+    await waitFor(() =>
+      expect(addressElement().textContent).toContain(OLD_URL),
+    );
+    fireEvent.change(section.getByRole("textbox"), {
+      target: { value: NEW_URL },
+    });
+    fireEvent.click(section.getByRole("button", { name: /Enregistrer/ }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1),
+    );
+    await waitFor(() =>
+      expect(addressElement().textContent).not.toContain(OLD_URL),
+    );
+  }
+
+  it("given the server changed the webhook (webhookUpdated true), when the address is saved, then the section never mentions the webhook", async () => {
+    await saveAddress({ isAdmin: true, publicUrl: OLD_URL });
+
+    expect(addressElement().textContent).not.toMatch(/webhook/i);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("given the server could not change the webhook (webhookUpdated false), when the address is saved, then a message asks to change the address of the webhook by hand on GitHub and gives <new address>/api/webhooks/github", async () => {
+    await saveAddress({
+      isAdmin: true,
+      publicUrl: OLD_URL,
+      webhookUpdated: false,
+    });
+
+    await waitFor(() =>
+      expect(addressElement().textContent).toMatch(/webhook/i),
+    );
+    const message = elementHolding(`${NEW_URL}/api/webhooks/github`);
+    const text = addressElement().textContent ?? "";
+    expect(text).toMatch(/à la main/);
+    expect(text).toMatch(/GitHub/);
+    expect(message.textContent).toContain(`${NEW_URL}/api/webhooks/github`);
+    // The address itself was saved: the section shows it.
+    expect(text).toContain(NEW_URL);
   });
 });

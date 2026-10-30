@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { history, instanceSettings, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { stubGitHub } from "./test-github.ts";
 import {
   configureTestInstance,
   createAdminWithSession,
@@ -27,7 +28,13 @@ const HTTPS_ONLY =
 type App = ReturnType<typeof createApp>;
 type TestDb = Awaited<ReturnType<typeof openTestDatabase>>;
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 async function setup() {
+  // Decision 024 G: a change of address also tells GitHub; its answers have their own tests (public-url-webhook.test.ts).
+  stubGitHub({ account: null });
   const db = await openTestDatabase();
   await configureTestInstance(db, TEST_KEY, {
     publicUrl: OLD_URL,
