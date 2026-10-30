@@ -6,12 +6,14 @@ import { focusRing } from "./ui.ts";
 const field = `mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 font-mono ${focusRing}`;
 const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
 
-/** The origin the server will keep, to show the GitHub steps while the address is typed; a placeholder until it parses. */
+/** The origin the server will keep, to show the GitHub steps while the address is typed; the typed text itself until it parses. */
 function originOf(typed: string) {
   try {
-    return new URL(typed).origin;
+    // "null" is the origin of a URL such as mailto:x or data:x.
+    const { origin } = new URL(typed);
+    return origin === "null" ? typed : origin;
   } catch {
-    return "<adresse saisie>";
+    return typed || "<adresse saisie>";
   }
 }
 

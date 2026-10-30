@@ -348,29 +348,23 @@ export function githubClient(config: GitHubAppConfig) {
   };
 }
 
-/** The client, the App's install page and the instance's public URL, built once the wizard has run (null before): the settings never change after that, so the client keeps its installation tokens. */
+/** The client, the App's install page and the instance's public URL, null before the wizard has run. The client is built once and keeps its installation tokens; the public URL is read each time, as the administrator can change it (decision 023 C). */
 export function githubReader(readInstance: ReadInstance) {
-  let ready:
-    | {
-        github: ReturnType<typeof githubClient>;
-        installUrl: string;
-        publicUrl: string;
-      }
+  let built:
+    | { github: ReturnType<typeof githubClient>; installUrl: string }
     | undefined;
   return async () => {
-    if (ready) return ready;
     const settings = await readInstance();
     if (!settings) return null;
-    ready = {
+    built ??= {
       github: githubClient({
         githubAppId: settings.githubAppId,
         githubAppSlug: settings.githubAppSlug,
         githubAppPrivateKey: settings.githubPrivateKey,
       }),
       installUrl: `https://github.com/apps/${settings.githubAppSlug}/installations/new`,
-      publicUrl: settings.publicUrl,
     };
-    return ready;
+    return { ...built, publicUrl: settings.publicUrl };
   };
 }
 
