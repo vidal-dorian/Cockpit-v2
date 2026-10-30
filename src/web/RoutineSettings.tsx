@@ -90,7 +90,8 @@ export function RoutineSettings() {
               <p className="font-semibold">1. Créer la tâche sur claude.ai</p>
               <p className="mt-1">
                 Choisis le déclencheur « API » seulement (ni planning, ni repo),
-                le modèle que tu veux, et coche le connecteur Cockpit.
+                le modèle que tu veux, et garde seulement le connecteur Cockpit
+                : retire les autres (claude.ai les coche tous par défaut).
               </p>
               <a
                 href="https://claude.ai/code/routines"

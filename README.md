@@ -55,9 +55,9 @@ Sans fichier : `claude mcp add --transport http cockpit https://cockpit.example.
 
 Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que tu choisis pour chaque projet. Il faut d'abord relier une tâche planifiée de claude.ai, une seule fois : « Réglages » (section « Écrire les US automatiquement ») donne les étapes.
 
-1. **Créer la tâche** sur [claude.ai/code/routines](https://claude.ai/code/routines) : déclencheur « API » seulement, le modèle de ton choix, le connecteur Cockpit coché (voir « Connecter Claude Code »), et la consigne fournie par le bouton « Copier la consigne ».
+1. **Créer la tâche** sur [claude.ai/code/routines](https://claude.ai/code/routines) : déclencheur « API » seulement, le modèle de ton choix, seulement le connecteur Cockpit coché (claude.ai les coche tous : retire les autres ; voir « Connecter Claude Code »), et la consigne fournie par le bouton « Copier la consigne ».
 2. **Coller dans Cockpit** l'« Adresse de lancement » et le « Jeton » que claude.ai affiche une seule fois, puis « Enregistrer ». Le jeton est chiffré avec la clé de l'instance et n'est plus jamais affiché. Si claude.ai le refuse un jour, Cockpit l'indique (« à reconnecter ») : clique « Régénérer » sur la tâche et recolle le jeton.
-3. **Choisir la fréquence** sur la page du projet (« Écriture automatique des US ») : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Rien n'est lancé quand il n'y a aucune US à écrire.
+3. **Choisir la fréquence** sur la page du projet (« Écriture automatique des US ») : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Au planning, rien n'est lancé s'il n'y a aucune US à écrire.
 
 Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pas dans les tests, qui le simulent. Détails dans la décision [022](docs/decisions/022-routine-ecriture-us.md).
 

@@ -228,8 +228,8 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
               </button>
             </form>
             <p className="text-muted-foreground">
-              L'heure est celle du fuseau de ton navigateur. Rien n'est lancé
-              s'il n'y a aucune US à écrire.
+              L'heure est celle du fuseau de ton navigateur. Au planning, rien
+              n'est lancé s'il n'y a aucune US à écrire.
             </p>
             {saved.nextRunAt && (
               <p>
