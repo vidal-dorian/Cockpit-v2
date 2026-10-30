@@ -1,4 +1,5 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the name of a Given/When/Then field of the API (decision 017)
+import { Worker } from "node:worker_threads";
 import { describe, expect, it } from "vitest";
 import { parseIssue, renderIssue } from "./issue-render.ts";
 
@@ -269,4 +270,73 @@ describe("criterion G: a body that no longer follows the template is not read", 
 
     expect(parseIssue(body)).toBeNull();
   });
+});
+
+// Decision 025 G: the body of an issue is typed by anyone on GitHub, so a body crafted to make a regex backtrack must be refused fast.
+// A catastrophic regex blocks the thread and a Vitest timeout cannot interrupt it, so parseIssue runs in a worker that is
+// terminated after 2,000 ms: a hang fails the test instead of freezing the suite.
+describe("criterion G: parseIssue stays fast on a crafted body", () => {
+  const SIZE = 65_536;
+  const LIMIT_MS = 200;
+  const GIVE_UP_MS = 2_000;
+
+  /** The time parseIssue takes on `body` (measured in the worker), or null when it did not answer within 2,000 ms. */
+  const timed = (body: string) =>
+    new Promise<{ read: unknown; ms: number } | null>((resolve, reject) => {
+      const worker = new Worker(
+        `const { parentPort, workerData } = require("node:worker_threads");
+         import(workerData.module).then(({ parseIssue }) => {
+           const start = performance.now();
+           const read = parseIssue(workerData.body);
+           parentPort.postMessage({ read, ms: performance.now() - start });
+         });`,
+        {
+          eval: true,
+          workerData: {
+            body,
+            module: new URL("./issue-render.ts", import.meta.url).href,
+          },
+        },
+      );
+      const giveUp = setTimeout(() => {
+        void worker.terminate();
+        resolve(null);
+      }, GIVE_UP_MS);
+      worker.once("message", (m) => {
+        clearTimeout(giveUp);
+        void worker.terminate();
+        resolve(m);
+      });
+      worker.once("error", (e) => {
+        clearTimeout(giveUp);
+        reject(e);
+      });
+    });
+
+  it("given a 65,536-character narrative made of « , je veux , afin de x » repeated with no closing full stop, when it is read, then it is null in under 200 ms", async () => {
+    const attack = `En tant que a${", je veux , afin de x".repeat(Math.ceil(SIZE / 21))}`;
+    const body = bodyOf().replace(/^En tant que .*$/m, attack.slice(0, SIZE));
+    expect(body.length).toBeGreaterThanOrEqual(SIZE);
+
+    const result = await timed(body);
+
+    expect(result, "parseIssue did not answer within 2,000 ms").not.toBeNull();
+    expect(result?.read).toBeNull();
+    expect(result?.ms).toBeLessThan(LIMIT_MS);
+  }, 5_000);
+
+  it("given a 65,536-character criterion line made of « **quand** x » repeated, when it is read, then it is null in under 200 ms", async () => {
+    const attack = `- [ ] **Étant donné** g${" **quand** x".repeat(Math.ceil(SIZE / 12))}`;
+    const body = bodyOf().replace(
+      /^- \[ \] \*\*Étant donné\*\* donné-alpha.*$/m,
+      attack.slice(0, SIZE),
+    );
+    expect(body.length).toBeGreaterThanOrEqual(SIZE);
+
+    const result = await timed(body);
+
+    expect(result, "parseIssue did not answer within 2,000 ms").not.toBeNull();
+    expect(result?.read).toBeNull();
+    expect(result?.ms).toBeLessThan(LIMIT_MS);
+  }, 5_000);
 });

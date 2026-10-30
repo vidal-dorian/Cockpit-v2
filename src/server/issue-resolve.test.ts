@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import { openTestDatabase } from "./db/test-db.ts";
-import { bobsStory, send, snapshot } from "./test-decisions.ts";
+import { abandonTicket, bobsStory, send, snapshot } from "./test-decisions.ts";
 import { issueCalls } from "./test-github.ts";
 import { testAppOptions } from "./test-instance.ts";
 import {
@@ -463,4 +463,49 @@ describe("criterion H: taking GitHub's version needs a story that can be edited"
       await expectRefusedEntry(s, "take_github_issue", "wrong_status");
     },
   );
+});
+
+describe("criterion F and H: a diverged story whose ticket was abandoned afterwards", () => {
+  it("given a published story that diverged and whose ticket was then abandoned, when Cockpit's version is kept, then 200, the divergence is cleared, the issue gets Cockpit's render and is closed as not_planned, and one keep_cockpit_issue entry is ok", async () => {
+    const s = await publishedStory();
+    await editedByHand(s, (b) => `${b}\n\nUne ligne de trop`);
+    expect(
+      (await abandonTicket(s.app, s.alice.cookie, s.ticketId)).status,
+    ).toBe(200);
+    expect((await snapshot(s.db, s.id)).status).toBe("abandoned");
+    expect((await divergenceOf(s.db, s.id)).issue_diverged_at).not.toBeNull();
+    const calls = patches(s).length;
+
+    const res = await keepCockpit(s, s.alice.cookie, s.id);
+
+    expect(res.status).toBe(200);
+    expect(await divergenceOf(s.db, s.id)).toMatchObject(NOT_DIVERGED);
+    expect(patches(s).length).toBeGreaterThan(calls);
+    expect(s.github.body).not.toContain("Une ligne de trop");
+    expect(s.github.body).toContain("abandonnée");
+    expect(s.github.state).toBe("closed");
+    expect(s.github.stateReason).toBe("not_planned");
+    expect(await entriesOf(s.db, "keep_cockpit_issue")).toEqual([
+      expect.objectContaining({ result: "ok", story_id: s.id }),
+    ]);
+  });
+
+  it("given a published story that diverged and whose ticket was then abandoned, when GitHub's version is taken, then 409 ticket_abandoned (the code path today), nothing changes and the story stays diverged", async () => {
+    const s = await publishedStory();
+    await editedByHand(s, (b) =>
+      b.replace("**alors** t2", "**alors** t2-modifié"),
+    );
+    await abandonTicket(s.app, s.alice.cookie, s.ticketId);
+    const before = await snapshot(s.db, s.id);
+    const kept = await divergenceOf(s.db, s.id);
+    const calls = issueCalls(s.fetchMock).length;
+
+    const res = await takeGitHub(s, s.alice.cookie, s.id);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "ticket_abandoned" });
+    expect(await snapshot(s.db, s.id)).toEqual(before);
+    expect(await divergenceOf(s.db, s.id)).toEqual(kept);
+    expect(issueCalls(s.fetchMock)).toHaveLength(calls);
+  });
 });
