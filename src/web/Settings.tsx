@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude } from "./ConnectClaude.tsx";
 import { RoutineSettings } from "./RoutineSettings.tsx";
+import { PublicUrl } from "./SettingsPublicUrl.tsx";
 import { Tokens } from "./SettingsTokens.tsx";
 import { focusRing } from "./ui.ts";
 
@@ -135,7 +137,11 @@ function UserList() {
   );
 }
 
-export function Settings() {
+const tab = ({ isActive }: { isActive: boolean }) =>
+  `inline-flex min-h-10 items-center rounded-lg px-4 font-semibold ${focusRing} ${isActive ? "bg-card" : "text-muted-foreground"}`;
+
+/** The two tabs of the page (decision 023 E): « Général » and the routine of decision 022. */
+export function Settings({ routine = false }: { routine?: boolean }) {
   // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
   const me = useQuery({
     queryKey: ["me"],
@@ -151,29 +157,43 @@ export function Settings() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-heading text-3xl font-extrabold">Réglages</h1>
-      <div className="mt-6">
-        <ConnectClaude />
-      </div>
-      <div className="mt-8">
-        <RoutineSettings />
-      </div>
-      {me.data?.isAdmin && (
-        <section className="mt-8" aria-labelledby="utilisateurs">
-          <h2 id="utilisateurs" className="font-heading text-xl font-bold">
-            Utilisateurs
-          </h2>
-          <p className="mt-1 text-muted-foreground">
-            Toute personne avec un compte GitHub peut se connecter à Cockpit. Un
-            compte bloqué ne peut plus se connecter.
-          </p>
-          <div className="mt-4" aria-live="polite">
-            <UserList />
+      <nav aria-label="Réglages" className="mt-4 flex gap-2">
+        <NavLink to="/reglages" end className={tab}>
+          Général
+        </NavLink>
+        <NavLink to="/reglages/ecriture-us" className={tab}>
+          Écriture automatique des US
+        </NavLink>
+      </nav>
+      {routine ? (
+        <div className="mt-8">
+          <RoutineSettings />
+        </div>
+      ) : (
+        <>
+          <div className="mt-8">
+            <ConnectClaude />
           </div>
-        </section>
+          {me.data?.isAdmin && <PublicUrl />}
+          {me.data?.isAdmin && (
+            <section className="mt-8" aria-labelledby="utilisateurs">
+              <h2 id="utilisateurs" className="font-heading text-xl font-bold">
+                Utilisateurs
+              </h2>
+              <p className="mt-1 text-muted-foreground">
+                Toute personne avec un compte GitHub peut se connecter à
+                Cockpit. Un compte bloqué ne peut plus se connecter.
+              </p>
+              <div className="mt-4" aria-live="polite">
+                <UserList />
+              </div>
+            </section>
+          )}
+          <section className="mt-8" aria-labelledby="jetons">
+            <Tokens />
+          </section>
+        </>
       )}
-      <section className="mt-8" aria-labelledby="jetons">
-        <Tokens />
-      </section>
     </main>
   );
 }

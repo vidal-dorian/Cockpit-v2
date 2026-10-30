@@ -151,7 +151,10 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
                 {routine.data.needsReconnect
                   ? "La tâche de claude.ai est à reconnecter : colle un nouveau jeton dans "
                   : "Aucune tâche n'est connectée : connecte-la dans "}
-                <Link to="/reglages" className={`underline ${focusRing}`}>
+                <Link
+                  to="/reglages/ecriture-us"
+                  className={`underline ${focusRing}`}
+                >
                   Réglages
                 </Link>
                 .

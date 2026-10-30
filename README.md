@@ -7,11 +7,19 @@ Service en ligne de pilotage des repos GitHub développés avec Claude Code. Le 
 Rien à faire à la main : Cockpit crée lui-même sa GitHub App au premier lancement, avec ton accord ([décision 012](docs/decisions/012-configuration-automatique.md)). L'assistant « Installer Cockpit » s'ouvre tout seul à l'adresse de Cockpit tant que l'App n'existe pas :
 
 1. Entrer le **code de démarrage** que le serveur affiche dans ses logs (`Cockpit setup code: …`).
-2. Vérifier l'**adresse publique**, détectée à partir de ta requête : c'est celle que GitHub utilisera pour renvoyer vers Cockpit.
+2. Vérifier l'**adresse publique**, détectée à partir de ta requête (derrière un tunnel Cloudflare, l'en-tête `CF-Visitor` donne le bon protocole) : c'est celle que GitHub utilisera pour renvoyer vers Cockpit. Elle doit commencer par `https://` (claude.ai l'exige) ; seul `http://localhost` (ou `127.0.0.1`, `[::1]`) est accepté pour développer sur sa machine.
 3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos, des PR et de la CI ; écriture du contenu et des issues).
 4. Cliquer sur « Create GitHub App » sur GitHub. Cockpit récupère l'App, chiffre ses secrets en base et te renvoie vers la connexion GitHub : **le premier compte qui se connecte devient administrateur**.
 
 Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account ») et l'inscription est ouverte : tout compte GitHub qui se connecte à Cockpit obtient un compte non administrateur, sans que l'administrateur ait rien à accepter.
+
+### Réglages
+
+La page « Réglages » a deux onglets : « Général » (Connecter Claude, Adresse publique et Utilisateurs pour l'administrateur, Jetons MCP) et « Écriture automatique des US » (voir plus bas).
+
+### Corriger l'adresse publique d'une instance installée
+
+Si Cockpit a été installé avec une mauvaise adresse (par exemple en `http://` derrière un tunnel), l'administrateur ouvre « Réglages », section « Adresse publique », tape la nouvelle adresse et clique « Enregistrer l'adresse » : Cockpit l'utilise tout de suite, sans redémarrer. **Avant**, sur GitHub, dans les réglages de l'App (le lien est dans la section, `https://github.com/settings/apps/<slug>`) : ajouter l'adresse de retour `<nouvelle adresse>/api/auth/callback` (sinon la connexion GitHub échoue) et remplacer l'adresse du webhook par `<nouvelle adresse>/api/webhooks/github`. Cockpit ne peut pas les changer lui-même. Un connecteur déjà ajouté sur claude.ai avec l'ancienne adresse est à rajouter. Décision [023](docs/decisions/023-reglages-adresse-https.md).
 
 ### Bloquer quelqu'un
 
@@ -53,7 +61,7 @@ Sans fichier : `claude mcp add --transport http cockpit https://cockpit.example.
 
 ## Écrire les US automatiquement
 
-Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que tu choisis pour chaque projet. Il faut d'abord relier une tâche planifiée de claude.ai, une seule fois : « Réglages » (section « Écrire les US automatiquement ») donne les étapes.
+Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que tu choisis pour chaque projet. Il faut d'abord relier une tâche planifiée de claude.ai, une seule fois : « Réglages », onglet « Écriture automatique des US » (section « Écrire les US automatiquement »), donne les étapes.
 
 1. **Créer la tâche** sur [claude.ai/code/routines](https://claude.ai/code/routines) : déclencheur « API » seulement, le modèle de ton choix, seulement le connecteur Cockpit coché (claude.ai les coche tous : retire les autres ; voir « Connecter Claude Code »), et la consigne fournie par le bouton « Copier la consigne ».
 2. **Coller dans Cockpit** l'« Adresse de lancement » et le « Jeton » que claude.ai affiche une seule fois, puis « Enregistrer ». Le jeton est chiffré avec la clé de l'instance et n'est plus jamais affiché. Si claude.ai le refuse un jour, Cockpit l'indique (« à reconnecter ») : clique « Régénérer » sur la tâche et recolle le jeton.

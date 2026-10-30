@@ -40,6 +40,7 @@ export const ACTIONS: Record<string, string> = {
   disconnect_routine: "Tâche d'écriture des US retirée",
   schedule_routine: "Planning d'écriture des US modifié",
   fire_write_us: "Écriture des US lancée",
+  change_public_url: "Adresse publique modifiée",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",
