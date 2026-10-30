@@ -588,6 +588,8 @@ describe("GET /api/projects/:id/health", () => {
     { key: "ci", ok: true, detail: OK },
     { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: true, detail: OK },
+    // Decision 024 F: the stub's webhook is the one of the test instance, with no failed delivery.
+    { key: "webhook", ok: true, detail: OK },
   ];
 
   type Line = { key: string; ok: boolean; detail: string };
@@ -605,7 +607,12 @@ describe("GET /api/projects/:id/health", () => {
   // What the server asked of the repo (not the installation token), as "METHOD path?query", sorted: the reads run in parallel. Every read but the root is pinned to the commit sha the root returned (decision 013).
   const repoCalls = (fetchMock: ReturnType<typeof stubGitHub>) =>
     githubCalls(fetchMock)
-      .filter((c) => !c.path.startsWith("/app/installations/"))
+      // Nor the App's own reads of the webhook (decision 024 F), which no repo owns.
+      .filter(
+        (c) =>
+          !c.path.startsWith("/app/installations/") &&
+          !c.path.startsWith("/app/hook/"),
+      )
       // The commit sha the root returned shows as SHA; the tests below check which sha it is.
       .map((c) =>
         `${c.method} ${decodeURIComponent(c.path)}${c.search}`.replace(
@@ -625,6 +632,7 @@ describe("GET /api/projects/:id/health", () => {
     { key: "ci", ok: false, detail: "missing" },
     { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: false, detail: "missing" },
+    { key: "webhook", ok: true, detail: OK },
   ];
 
   /** A user A with one project user1000/app, and the stubbed GitHub holding `files`. */
@@ -649,7 +657,7 @@ describe("GET /api/projects/:id/health", () => {
     return { fetchMock, app, db, a, id };
   }
 
-  it("given a repo with everything in place, when the health is requested, then 200 with the four lines in order, all ok", async () => {
+  it("given a repo with everything in place, when the health is requested, then 200 with the five lines in order, all ok", async () => {
     const { app, a, id } = await withRepo(readyRepo());
 
     const res = await health(app, a.cookie, id);
@@ -812,6 +820,7 @@ describe("GET /api/projects/:id/health", () => {
           READY_LINES[1],
           { key: "mcp", ok: false, detail: "invalid_json" },
           READY_LINES[3],
+          READY_LINES[4],
         ],
       });
     },
@@ -1222,6 +1231,7 @@ describe("GET /api/projects/:id/health", () => {
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: OK },
         READY_LINES[3],
+        READY_LINES[4],
       ],
     });
     expect(repoCalls(fetchMock)).toEqual(
@@ -1250,6 +1260,7 @@ describe("GET /api/projects/:id/health", () => {
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: OK },
         { key: "agents", ok: false, detail: "missing" },
+        READY_LINES[4],
       ],
     });
   });
@@ -1762,6 +1773,7 @@ describe("GET /api/projects/:id/health", () => {
       READY_LINES[1],
       READY_LINES[2],
       { key: "agents", ok: false, detail: "missing" },
+      READY_LINES[4],
     ]);
     const [oldSha] = fetchMock.served;
     expect(pinnedShas(fetchMock)).toEqual([oldSha, oldSha, oldSha]);

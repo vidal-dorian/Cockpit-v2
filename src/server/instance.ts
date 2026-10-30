@@ -3,6 +3,9 @@ import type { Db } from "./db/db.ts";
 import { instanceSettings } from "./db/schema.ts";
 import { decrypt } from "./secrets.ts";
 
+/** Where GitHub delivers its webhooks (decision 024 A); the App's webhook address is the public address followed by it. */
+export const WEBHOOK_PATH = "/api/webhooks/github";
+
 /** What the start-up wizard stored, secrets decrypted (decision 012). */
 export type InstanceSettings = {
   publicUrl: string;

@@ -24,6 +24,23 @@ export type GitHubRepo = {
 
 export const INSTALLATION_ID = 77;
 
+/** The address of the App's webhook the stub starts with: the one of `configureTestInstance` (decision 024 F). */
+export const DEFAULT_WEBHOOK_URL =
+  "https://cockpit.example.com/api/webhooks/github";
+
+/** The App's webhook as the stub holds it (decision 024 F, G); read and change it between two calls. */
+export type FakeWebhook = {
+  url: string;
+  /** Sent in the answer of `GET /app/hook/config` only when set. */
+  active?: boolean;
+  /** Newest first, as GitHub lists them. */
+  deliveries: { status_code: number }[];
+  /** Fails the given call with that status (body message `github-boom-message`). */
+  configStatus?: number;
+  deliveriesStatus?: number;
+  patchStatus?: number;
+};
+
 /** An issue as the fake holds it (slice 4.6, decision 020); `labels` are names. */
 export type FakeIssue = {
   number: number;
@@ -126,6 +143,12 @@ export function failOnUnexpectedFetch() {
  * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
  * with 500 every call it returns true for, to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
  * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
+ *
+ * The webhook of the App (decisions 002 and 024), read and written as the App itself (a JWT, never an installation token: 401 otherwise):
+ * `GET /app/hook/config` (`{ url, content_type, insecure_ssl }`, plus `active` when the test set it), `GET /app/hook/deliveries?per_page=n` (the `n` newest
+ * deliveries, each `{ id, guid, status_code, event, action }`) and `PATCH /app/hook/config` (`{ url }`, which changes the url the next read answers).
+ * It starts at DEFAULT_WEBHOOK_URL with no delivery, so a health check reads it green. The returned mock holds it as `webhook` (a live object: assign
+ * its fields between two calls, `initial.webhook` seeds them); `configStatus`, `deliveriesStatus` and `patchStatus` fail one of the three calls.
  */
 export function stubGitHub(initial: {
   account: number | null;
@@ -148,9 +171,15 @@ export function stubGitHub(initial: {
   issuesStatus?: number;
   issuesDelay?: number;
   failOn?: (call: { method: string; path: string }) => boolean;
+  webhook?: Partial<FakeWebhook>;
 }) {
   // Mutable on purpose: `update` changes it between two calls.
   const options = { ...initial };
+  const webhook: FakeWebhook = {
+    url: DEFAULT_WEBHOOK_URL,
+    deliveries: [],
+    ...initial.webhook,
+  };
   let etagSalt = 0;
   let afterRoot: (() => void) | undefined;
   const served: string[] = [];
@@ -403,6 +432,47 @@ export function stubGitHub(initial: {
         if (file === undefined) throw unexpectedFetch(`${route}${url.search}`);
         return Response.json(contentsFile(path, file));
       }
+      if (/^(GET|PATCH) https:\/\/api\.github\.com\/app\/hook\//.test(route)) {
+        // Only the App itself (a JWT) may read or write its webhook.
+        if (!/^bearer eyJ/i.test(headers.get("authorization") ?? ""))
+          return Response.json({ message: "Bad credentials" }, { status: 401 });
+        const boom = (status: number | undefined) =>
+          status
+            ? Response.json({ message: "github-boom-message" }, { status })
+            : undefined;
+        const config = () =>
+          Response.json({
+            content_type: "json",
+            insecure_ssl: "0",
+            url: webhook.url,
+            ...(webhook.active !== undefined && { active: webhook.active }),
+          });
+        if (route === "GET https://api.github.com/app/hook/config")
+          return boom(webhook.configStatus) ?? config();
+        if (route === "PATCH https://api.github.com/app/hook/config") {
+          const failure = boom(webhook.patchStatus);
+          if (failure) return failure;
+          const sent = JSON.parse(String(init?.body ?? "{}")) as {
+            url?: string;
+          };
+          if (typeof sent.url === "string") webhook.url = sent.url;
+          return config();
+        }
+        if (route === "GET https://api.github.com/app/hook/deliveries") {
+          const failure = boom(webhook.deliveriesStatus);
+          if (failure) return failure;
+          const perPage = Number(url.searchParams.get("per_page") ?? 30);
+          return Response.json(
+            webhook.deliveries.slice(0, perPage).map((d, i) => ({
+              id: 1000 - i,
+              guid: `guid-${i}`,
+              event: "push",
+              action: null,
+              ...d,
+            })),
+          );
+        }
+      }
       const issueRoute =
         /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:(labels)|issues(?:\/(\d+)(?:\/(labels)(?:\/(.+))?)?)?)$/.exec(
           route,
@@ -523,6 +593,8 @@ export function stubGitHub(initial: {
   );
   vi.stubGlobal("fetch", fetchMock);
   return Object.assign(fetchMock, {
+    /** The App's webhook as GitHub holds it now (live object: assign its fields to change it between two calls). */
+    webhook,
     /** The issues of a repo, as GitHub holds them now (live objects: read them after the call under test). */
     issues: (fullName: string) => repoOf(fullName).issues,
     /** The names of the labels that exist in a repo. */

@@ -45,6 +45,7 @@ export function PublicUrl() {
         );
       }
       setTyped("");
+      return res.json();
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["public-url"] }),
@@ -108,12 +109,7 @@ export function PublicUrl() {
                   <li>
                     ajoute l'adresse de retour{" "}
                     <code className="font-mono">{`${origin}/api/auth/callback`}</code>{" "}
-                    (sans elle, la connexion GitHub échoue) ;
-                  </li>
-                  <li>
-                    remplace l'adresse du webhook par{" "}
-                    <code className="font-mono">{`${origin}/api/webhooks/github`}</code>
-                    .
+                    (sans elle, la connexion GitHub échoue).
                   </li>
                 </ul>
                 <p className="mt-2">
@@ -130,6 +126,15 @@ export function PublicUrl() {
               </button>
             </form>
           </>
+        )}
+        {save.data?.webhookUpdated === false && (
+          <p role="alert" className={errorBox}>
+            L'adresse est enregistrée, mais Cockpit n'a pas pu changer celle du
+            webhook sur GitHub : change-la à la main, dans les réglages de
+            l'App, pour{" "}
+            <code className="font-mono">{`${save.data.publicUrl}/api/webhooks/github`}</code>
+            .
+          </p>
         )}
         {save.error && (
           <p role="alert" className={errorBox}>

@@ -318,5 +318,21 @@ export const history = pgTable(
   ],
 );
 
+/** What GitHub delivered at /api/webhooks/github, recorded before any processing (decisions 008 and 024 C). Purged after 30 days. */
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  // The X-GitHub-Delivery header: GitHub resends a delivery with the same one.
+  id: text("id").primaryKey(),
+  event: text("event").notNull(),
+  action: text("action"),
+  installationId: bigint("installation_id", { mode: "number" }),
+  repoId: bigint("repo_id", { mode: "number" }),
+  payload: jsonb("payload").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  // Null: still to process (nothing processes them yet, decision 024 D).
+  processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
+});
+
 /** Ids, closed values and numbers only: never free text or personal data (decision 010 D). */
 export type HistoryArgs = Record<string, string | number | boolean | null>;

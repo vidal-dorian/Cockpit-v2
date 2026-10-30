@@ -122,7 +122,9 @@ describe("the health of a project follows the new address (decision 023 C)", () 
 });
 
 describe("the login and the 401 of /mcp follow the new address (decision 023 C)", () => {
+  // Decision 024 G: a change of address also tells GitHub (the stub serves it).
   it("given the address was changed, when the user asks to log in, then GitHub is given redirect_uri <new>/api/auth/callback", async () => {
+    stubGitHub({ account: null });
     const { app, admin } = await setup();
     const before = await app.request("/api/auth/login");
     expect(
@@ -143,6 +145,7 @@ describe("the login and the 401 of /mcp follow the new address (decision 023 C)"
   });
 
   it("given the address was changed, when POST /mcp is called without a token, then 401 and WWW-Authenticate names <new>/.well-known/oauth-protected-resource", async () => {
+    stubGitHub({ account: null });
     const { app, admin } = await setup();
     const call = () =>
       app.request("/mcp", {
