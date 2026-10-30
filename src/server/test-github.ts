@@ -24,6 +24,18 @@ export type GitHubRepo = {
 
 export const INSTALLATION_ID = 77;
 
+/** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
+export type FakeGitRepoOptions = {
+  /** Default: "main". */
+  defaultBranch?: string;
+  /** The files of the first commit (all of mode 100644). */
+  files?: Record<string, string>;
+  /** No commit at all: reading the default branch answers 409. */
+  empty?: boolean;
+  unreachable?: boolean;
+  refUpdateFailure?: { status: number; message: string };
+};
+
 /** The address of the App's webhook the stub starts with: the one of `configureTestInstance` (decision 024 F). */
 export const DEFAULT_WEBHOOK_URL =
   "https://cockpit.example.com/api/webhooks/github";
@@ -149,6 +161,16 @@ export function failOnUnexpectedFetch() {
  * deliveries, each `{ id, guid, status_code, event, action }`) and `PATCH /app/hook/config` (`{ url }`, which changes the url the next read answers).
  * It starts at DEFAULT_WEBHOOK_URL with no delivery, so a health check reads it green. The returned mock holds it as `webhook` (a live object: assign
  * its fields between two calls, `initial.webhook` seeds them); `configStatus`, `deliveriesStatus` and `patchStatus` fail one of the three calls.
+ *
+ * Writing into a repo (slice 6.1, decision 026): `gitRepos` names the repos (`owner/repo`) that keep a real Git history, which the stub serves instead of the snapshots above:
+ * `GET /repos/{o}/{r}` (`default_branch`), `GET .../git/ref/heads/{branch}` (only the default branch exists; 409 on an empty repo), `GET .../git/commits/{sha}`,
+ * `GET .../contents/{path}?ref={sha}` (404 when the file is absent at that commit), `POST .../git/trees` (needs a known `base_tree`, blobs of mode 100644 with a string `content`),
+ * `POST .../git/commits` (known tree and parents) and `PATCH .../git/refs/heads/{branch}` (`{ sha, force }`: like GitHub, 422 "not a fast forward" when the current head is not
+ * an ancestor of `sha` and `force` is not `true`). Any other call on such a repo fails loudly. `git(fullName)` is the live state of one of them: `head`, `commit(sha)`, `filesAt(sha)`,
+ * `created` (what the code under test sent: `trees`, `commits`, `refUpdates` with their `force`, every attempt included), `push(files)` (another person's push on the default branch:
+ * adds or replaces files in a new commit on the head, returns its sha), `beforeRefUpdate(fn)` (runs `fn` once, right before the next ref update is judged: a push landing at that moment),
+ * and the fields `unreachable` (every call on the repo answers 404, the App lost access) and `refUpdateFailure` (`{ status, message }`, fails every ref update, to play a protected branch).
+ * `failOn` applies to these repos too. A tree that would replace a file is accepted, as GitHub does: it is the caller's job not to send it.
  */
 export function stubGitHub(initial: {
   account: number | null;
@@ -172,6 +194,7 @@ export function stubGitHub(initial: {
   issuesDelay?: number;
   failOn?: (call: { method: string; path: string }) => boolean;
   webhook?: Partial<FakeWebhook>;
+  gitRepos?: Record<string, FakeGitRepoOptions>;
 }) {
   // Mutable on purpose: `update` changes it between two calls.
   const options = { ...initial };
@@ -248,6 +271,106 @@ export function stubGitHub(initial: {
     repos.set(fullName, created);
     return created;
   };
+  // The repos that keep a Git history (decision 026): commits, trees and the default branch, changed by the code under test or by `push`.
+  const sha1 = (text: string) => createHash("sha1").update(text).digest("hex");
+  const gitRepos = new Map(
+    Object.entries(initial.gitRepos ?? {}).map(([fullName, opts]) => {
+      const commits = new Map<
+        string,
+        {
+          tree: string;
+          parents: string[];
+          message: string;
+          files: Record<string, string>;
+        }
+      >();
+      const trees = new Map<string, Record<string, string>>();
+      let counter = 0;
+      const addTree = (files: Record<string, string>) => {
+        const sha = sha1(JSON.stringify(Object.entries(files).sort()));
+        trees.set(sha, files);
+        return sha;
+      };
+      const addCommit = (
+        files: Record<string, string>,
+        parents: string[],
+        message: string,
+      ) => {
+        const tree = addTree(files);
+        const sha = sha1(
+          `${fullName}\0${counter++}\0${tree}\0${parents}\0${message}`,
+        );
+        commits.set(sha, { tree, parents, message, files });
+        return sha;
+      };
+      let current: string | null = opts.empty
+        ? null
+        : addCommit(opts.files ?? {}, [], "initial commit");
+      let before: (() => void) | undefined;
+      const git = {
+        defaultBranch: opts.defaultBranch ?? "main",
+        unreachable: opts.unreachable ?? false,
+        refUpdateFailure: opts.refUpdateFailure,
+        /** What the code under test sent. */
+        created: {
+          trees: [] as {
+            baseTree: unknown;
+            entries: {
+              path: string;
+              mode: string;
+              type: string;
+              content: string;
+            }[];
+          }[],
+          commits: [] as {
+            sha: string;
+            message: string;
+            parents: string[];
+            tree: string;
+          }[],
+          refUpdates: [] as { branch: string; sha: string; force: unknown }[],
+        },
+        /** The sha of the default branch. */
+        get head() {
+          if (current === null) throw new Error(`${fullName} has no commit`);
+          return current;
+        },
+        commit: (sha: string) => commits.get(sha),
+        filesAt: (sha: string) => commits.get(sha)?.files,
+        /** Another person's push on the default branch; returns the new head. */
+        push(
+          files: Record<string, string>,
+          message = "a push by someone else",
+        ) {
+          const parent = git.head;
+          current = addCommit(
+            { ...commits.get(parent)?.files, ...files },
+            [parent],
+            message,
+          );
+          return current;
+        },
+        beforeRefUpdate(fn: () => void) {
+          before = fn;
+        },
+        // The stub's handlers of the git routes, below.
+        _trees: trees,
+        _commits: commits,
+        _addTree: addTree,
+        _addCommit: addCommit,
+        _runBefore() {
+          const hook = before;
+          before = undefined;
+          hook?.();
+        },
+        _setHead(sha: string) {
+          current = sha;
+        },
+        _head: () => current,
+      };
+      return [fullName, git] as const;
+    }),
+  );
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -311,6 +434,152 @@ export function stubGitHub(initial: {
           total_count: repositories.length,
           repositories,
         });
+      }
+      const gitRoute =
+        /^(GET|POST|PATCH) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)((?:\/.*)?)$/.exec(
+          route,
+        );
+      const git = gitRoute && gitRepos.get(gitRoute[2] as string);
+      if (gitRoute && git) {
+        const verb = gitRoute[1] as string;
+        const rest = gitRoute[3] as string;
+        const reply = (status: number, body: unknown) =>
+          Response.json(body, { status });
+        const sent = (() => {
+          const raw = init?.body;
+          return typeof raw === "string" && raw ? JSON.parse(raw) : {};
+        })() as Record<string, unknown>;
+        if (options.failOn?.({ method: verb, path: url.pathname }))
+          return reply(500, { message: "github-boom-message" });
+        if (git.unreachable) return reply(404, { message: "Not Found" });
+        const empty = git._head() === null;
+        const sha = /^[0-9a-f]{40}$/;
+        if (verb === "GET" && rest === "")
+          return reply(200, {
+            id: 1,
+            full_name: gitRoute[2],
+            default_branch: git.defaultBranch,
+            private: false,
+          });
+        const ref = /^\/git\/ref\/(.+)$/.exec(rest);
+        if (verb === "GET" && ref) {
+          if (empty) return reply(409, { message: "Git Repository is empty." });
+          if (
+            decodeURIComponent(ref[1] as string) !==
+            `heads/${git.defaultBranch}`
+          )
+            return reply(404, { message: "Not Found" });
+          return reply(200, {
+            ref: `refs/heads/${git.defaultBranch}`,
+            object: { sha: git.head, type: "commit" },
+          });
+        }
+        const commitRoute = /^\/git\/commits\/(.+)$/.exec(rest);
+        if (verb === "GET" && commitRoute) {
+          const found = git.commit(commitRoute[1] as string);
+          if (!found) return reply(404, { message: "Not Found" });
+          return reply(200, {
+            sha: commitRoute[1],
+            tree: { sha: found.tree },
+            parents: found.parents.map((parent) => ({ sha: parent })),
+            message: found.message,
+          });
+        }
+        const contents = /^\/contents\/(.+)$/.exec(rest);
+        if (verb === "GET" && contents) {
+          const at = url.searchParams.get("ref");
+          if (!at || !sha.test(at))
+            throw unexpectedFetch(`${route}${url.search}`);
+          const text =
+            git.filesAt(at)?.[decodeURIComponent(contents[1] as string)];
+          if (text === undefined) return reply(404, { message: "Not Found" });
+          return reply(
+            200,
+            contentsFile(decodeURIComponent(contents[1] as string), text),
+          );
+        }
+        if (verb === "POST" && rest === "/git/trees") {
+          const entries = Array.isArray(sent.tree) ? sent.tree : [];
+          const base =
+            typeof sent.base_tree === "string"
+              ? git._trees.get(sent.base_tree)
+              : undefined;
+          const valid = entries.every(
+            (e: Record<string, unknown>) =>
+              typeof e.path === "string" &&
+              e.mode === "100644" &&
+              e.type === "blob" &&
+              typeof e.content === "string",
+          );
+          if (!base || !valid)
+            return reply(422, { message: "Validation Failed" });
+          git.created.trees.push({ baseTree: sent.base_tree, entries });
+          const files = { ...base };
+          for (const e of entries) files[e.path] = e.content;
+          const tree = git._addTree(files);
+          return reply(201, { sha: tree, truncated: false, tree: [] });
+        }
+        if (verb === "POST" && rest === "/git/commits") {
+          const parents = Array.isArray(sent.parents) ? sent.parents : [];
+          const files =
+            typeof sent.tree === "string"
+              ? git._trees.get(sent.tree)
+              : undefined;
+          if (
+            !files ||
+            typeof sent.message !== "string" ||
+            !parents.every((p) => typeof p === "string" && git.commit(p))
+          )
+            return reply(422, { message: "Validation Failed" });
+          const created = git._addCommit(files, parents, sent.message);
+          git.created.commits.push({
+            sha: created,
+            message: sent.message,
+            parents,
+            tree: sent.tree as string,
+          });
+          return reply(201, {
+            sha: created,
+            tree: { sha: sent.tree },
+            parents: parents.map((parent) => ({ sha: parent })),
+            message: sent.message,
+          });
+        }
+        const refs = /^\/git\/refs\/(.+)$/.exec(rest);
+        if (verb === "PATCH" && refs) {
+          git._runBefore();
+          const name = decodeURIComponent(refs[1] as string);
+          git.created.refUpdates.push({
+            branch: name.replace(/^heads\//, ""),
+            sha: String(sent.sha),
+            force: sent.force,
+          });
+          if (name !== `heads/${git.defaultBranch}` || empty)
+            return reply(422, { message: "Reference does not exist" });
+          if (typeof sent.sha !== "string" || !git.commit(sent.sha))
+            return reply(422, { message: "Object does not exist" });
+          if (git.refUpdateFailure)
+            return reply(git.refUpdateFailure.status, {
+              message: git.refUpdateFailure.message,
+            });
+          // Fast forward: the current head is the new commit or one of its ancestors.
+          const seen = new Set<string>();
+          const todo = [sent.sha];
+          while (todo.length > 0) {
+            const next = todo.pop() as string;
+            if (seen.has(next)) continue;
+            seen.add(next);
+            todo.push(...(git.commit(next)?.parents ?? []));
+          }
+          if (sent.force !== true && !seen.has(git.head))
+            return reply(422, { message: "Update is not a fast forward" });
+          git._setHead(sent.sha);
+          return reply(200, {
+            ref: `refs/${name}`,
+            object: { sha: sent.sha, type: "commit" },
+          });
+        }
+        throw unexpectedFetch(route);
       }
       const repoRoute =
         /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)(?:\/contents\/(.+)|\/git\/trees\/(.+))$/.exec(
@@ -608,6 +877,12 @@ export function stubGitHub(initial: {
       const repo = repoOf(fullName);
       repo.labels.add(name);
       repo.issues.find((i) => i.number === number)?.labels.push(name);
+    },
+    /** The live Git state of a repo named in `gitRepos` (decision 026), see the stub's comment. */
+    git(fullName: string) {
+      const git = gitRepos.get(fullName);
+      if (!git) throw new Error(`${fullName} is not in gitRepos`);
+      return git;
     },
     /** The commit sha of each root answer 200, in order. */
     served,
