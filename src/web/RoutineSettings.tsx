@@ -157,7 +157,15 @@ export function RoutineSettings() {
                     <p className={`mt-2 ${errorBox}`}>
                       La tâche est à reconnecter : claude.ai a refusé le jeton.
                       Clique « Régénérer » sur la tâche, puis colle le nouveau
-                      jeton ici.
+                      jeton ici.{" "}
+                      <button
+                        type="button"
+                        onClick={() => remove.mutate()}
+                        disabled={remove.isPending}
+                        className={button}
+                      >
+                        Retirer
+                      </button>
                     </p>
                   )}
                   <p className="mt-1">

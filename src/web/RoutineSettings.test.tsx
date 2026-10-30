@@ -361,6 +361,10 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
       within(section).getByRole("button", { name: "Enregistrer" }),
     ).toBeDefined();
     expect(within(section).queryByText("Connectée")).toBeNull();
+    // 022 C: « Retirer » stays reachable when the task is gone from claude.ai.
+    expect(
+      within(section).getByRole("button", { name: "Retirer" }),
+    ).toBeDefined();
   });
 
   it.each([

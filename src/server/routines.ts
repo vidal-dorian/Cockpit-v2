@@ -157,7 +157,9 @@ const presentSchedule = (p: typeof projects.$inferSelect) => ({
 
 type Fired =
   | { ok: true; sessionId: string | null; sessionUrl: string | null }
-  | { ok: false; reconnect: boolean };
+  | { ok: false; reconnect: false }
+  // The sealed token that was refused: a token saved meanwhile must not be marked.
+  | { ok: false; reconnect: true; token: string };
 
 /** Calls `/fire` for a project and never throws. A 401, 403 or 404 (task deleted on claude.ai) is the token to renew (`reconnect`); any other failure is for the next pass to retry. */
 async function fire(
@@ -180,7 +182,7 @@ async function fire(
       signal: AbortSignal.timeout(FIRE_TIMEOUT_MS),
     });
     if (res.status === 401 || res.status === 403 || res.status === 404)
-      return { ok: false, reconnect: true };
+      return { ok: false, reconnect: true, token: routine.token };
     if (!res.ok) return { ok: false, reconnect: false };
     const answer: Record<string, unknown> | null = await res
       .json()
@@ -240,7 +242,12 @@ async function recordFire(
       await tx
         .update(writeUsRoutines)
         .set({ needsReconnect: true })
-        .where(eq(writeUsRoutines.userId, entry.userId));
+        .where(
+          and(
+            eq(writeUsRoutines.userId, entry.userId),
+            eq(writeUsRoutines.token, fired.token),
+          ),
+        );
     await tx.insert(history).values({
       ...entry,
       projectId,

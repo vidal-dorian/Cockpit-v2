@@ -1592,6 +1592,28 @@ describe("the button, POST /api/projects/:id/routine/run", () => {
 });
 
 describe("errors of /fire", () => {
+  it("given a new token is saved while a fire with the old one is in flight, when the old call gets a 401, then the new token is not marked as needing reconnection", async () => {
+    let app: App | undefined;
+    let cookie = "";
+    const ctx = await setup(async () => {
+      if (app)
+        await connectRoutine(
+          app,
+          cookie,
+          connectBody({ token: `${TOKEN}-new` }),
+        );
+      return Response.json({ error: "stub failure" }, { status: 401 });
+    });
+    await connected(ctx);
+    app = ctx.app;
+    cookie = ctx.alice.cookie;
+
+    const res = await runNow(ctx.app, ctx.alice.cookie, ctx.projectId);
+
+    expect(res.status).toBe(409);
+    expect((await readRoutine(ctx)).needsReconnect).toBe(false);
+  });
+
   it.each([401, 403, 404])(
     "given /fire answers %i to the tick, when it runs, then the routine needs reconnecting, an error entry is written, later ticks fire nothing and the button answers 409 routine_needs_reconnect",
     async (status) => {

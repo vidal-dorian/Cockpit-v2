@@ -119,7 +119,7 @@ export const writeUsRoutines = pgTable("write_us_routines", {
     .references(() => users.id),
   fireUrl: text("fire_url").notNull(),
   token: text("token").notNull(),
-  // Set when /fire refuses the token (401 or 403): nothing is launched until a new one is saved (decision 022 G).
+  // Set when /fire refuses the token (401, 403 or 404): nothing is launched until a new one is saved (decision 022 G).
   needsReconnect: boolean("needs_reconnect").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
