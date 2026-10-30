@@ -224,13 +224,17 @@ describe("criterion B and C: an issues.edited delivery that differs from the ren
 
   it("given a diverged story, when an edit equal to the render arrives, then the divergence is cleared and no new issue_diverged entry is written", async () => {
     const s = await publishedStory();
-    await diverge(s, { title: "Premier titre", body: "Premier corps" });
+    // `diverge` changes the fake issue, so the render is what GitHub held before it.
+    const { before } = await diverge(s, {
+      title: "Premier titre",
+      body: "Premier corps",
+    });
     expect(await entriesOf(s.db, "issue_diverged")).toHaveLength(1);
 
     await editOnGitHub(s.db, {
       number: s.number,
-      title: s.github.title,
-      body: s.github.body,
+      title: before.title,
+      body: before.body,
     });
 
     expect(await divergenceOf(s.db, s.id)).toMatchObject(NOT_DIVERGED);
