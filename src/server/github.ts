@@ -126,6 +126,10 @@ function checkWriteFiles(files: WriteFile[]) {
     paths.add(path);
     bytes += Buffer.byteLength(content);
   }
+  // One tree cannot hold a file and a directory of the same name.
+  for (const path of paths)
+    if ([...paths].some((other) => other.startsWith(`${path}/`)))
+      throw new Error(`Path is also a directory: ${path}`);
   if (bytes > MAX_WRITE_BYTES)
     throw new Error(`At most ${MAX_WRITE_BYTES} bytes per write`);
 }
@@ -182,44 +186,27 @@ export function githubClient(config: GitHubAppConfig) {
           throw error;
         }
       },
-      /** What is at a path of a commit, from the Git tree of its directory (Contents fails on anything but a regular file): null when absent (`create`), `{ text }` for a regular file (mode 100644 or 100755) that can be read, `{}` for anything else, which must not be written over: a directory, a symlink, a submodule, a file too large to read, or a path under a parent that is not a real directory. A missing directory is absent, as long as the nearest one that exists is a real directory. */
+      /** What is at a path of a commit: null when absent (`create`), `{ text }` for a regular file (mode 100644 or 100755) that can be read, `{}` for anything else, which must not be written over: a directory, a symlink, a submodule, a file too large to read, or a path under a parent that is not a real directory. Walks down from the root through entries of type `tree` only, so what GitHub answers for a submodule's path (404, 422 or even 200) never matters. */
       async inspect(path: string, sha: string) {
         const segments = path.split("/");
-        const last = segments.length - 1;
-        // The tree of a directory at the commit, the root being the commit itself: null when it is missing (404), "other" when it is a file, a symlink or a submodule (422).
+        // A directory that its parent lists as a tree (the root being the commit itself): any other answer is GitHub lagging behind or changing under us, never an empty place to write into.
         const readDir = async (dir: string) => {
-          try {
-            const { data } = await octokit.request(
-              "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
-              {
-                owner,
-                repo: name,
-                tree_sha: dir ? `${sha}:${dir}` : sha,
-              },
-            );
-            return treeSchema.parse(data);
-          } catch (error) {
-            const status = (error as { status?: number }).status;
-            if (status === 404) return null;
-            if (status === 422) return "other" as const;
-            throw error;
-          }
+          const { data } = await octokit.request(
+            "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+            { owner, repo: name, tree_sha: dir ? `${sha}:${dir}` : sha },
+          );
+          return treeSchema.parse(data);
         };
-        // Walks up from the directory of the file to the first one that exists, at most the depth of the path.
-        for (let depth = last; depth >= 0; depth--) {
-          const tree = await readDir(segments.slice(0, depth).join("/"));
-          if (tree === "other") return {};
-          // The root tree of a commit just read is never absent: a 404 there is GitHub lagging behind, not an empty place to write into.
-          if (!tree && depth === 0)
-            throw new Error(`No root tree for commit ${sha}`);
-          if (!tree) continue;
-          // The first directory that exists must not hold the next segment at all: a submodule may answer 404 as well as 422 (decision 013 H).
-          if (depth < last)
-            return tree.tree.some((e) => e.path === segments[depth])
-              ? {}
-              : null;
-          const entry = tree.tree.find((e) => e.path === segments[last]);
+        let tree = await readDir("");
+        for (let depth = 0; ; depth++) {
+          const entry = tree.tree.find((e) => e.path === segments[depth]);
+          // shortcut: a truncated listing could hide the entry; GitHub only truncates recursive reads, upgrade if a directory ever holds 100,000 entries.
           if (!entry) return null;
+          if (depth < segments.length - 1) {
+            if (entry.type !== "tree") return {};
+            tree = await readDir(segments.slice(0, depth + 1).join("/"));
+            continue;
+          }
           if (entry.type !== "blob" || !/^100(644|755)$/.test(entry.mode))
             return {};
           const { data } = await octokit.request(
@@ -230,7 +217,6 @@ export function githubClient(config: GitHubAppConfig) {
           if (!file || file.encoding === "none") return {};
           return { text: Buffer.from(file.content, "base64").toString("utf8") };
         }
-        return null;
       },
     };
   };

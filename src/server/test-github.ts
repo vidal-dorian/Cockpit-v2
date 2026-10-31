@@ -33,8 +33,8 @@ export const INSTALLATION_ID = 77;
 export type FakeGitEntry =
   | { kind: "executable"; content: string }
   | { kind: "symlink" }
-  // GitHub answers 422 or 404 to the tree of a submodule (decision 013 H did not verify which): `treeStatus` picks it, 422 by default.
-  | { kind: "submodule"; treeStatus?: 404 }
+  // GitHub answers 422 or 404 to the tree of a submodule (decision 013 H did not verify which), or even 200 with the tree of its commit when that commit is in the repo's objects: `treeStatus` picks it, 422 by default.
+  | { kind: "submodule"; treeStatus?: 404 | 200 }
   | { kind: "large" };
 
 /** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
@@ -574,6 +574,19 @@ export function stubGitHub(initial: {
           const all = { ...snap.files, ...snap.entries };
           if (dir in all) {
             const at = snap.entries[dir];
+            if (at?.kind === "submodule" && at.treeStatus === 200)
+              return reply(200, {
+                sha: sha1(`${wanted[1]}:${dir}`),
+                truncated: false,
+                tree: [
+                  {
+                    path: "README.md",
+                    mode: "100644",
+                    type: "blob",
+                    sha: sha1(`${dir}/README.md`),
+                  },
+                ],
+              });
             return at?.kind === "submodule" && at.treeStatus === 404
               ? reply(404, { message: "Not Found" })
               : reply(422, { message: "not a tree" });

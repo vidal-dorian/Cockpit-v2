@@ -323,6 +323,11 @@ describe("planRepoWrite with an invalid plan", () => {
     ],
     ["a path given twice", [small("a.txt"), small("a.txt")]],
     [
+      "a path that is the directory of another",
+      [small("docs"), small("docs/a.md")],
+    ],
+    ["a path under another, listed first", [small("docs/a.md"), small("docs")]],
+    [
       "a path given twice with two contents",
       [small("a.txt"), { path: "a.txt", content: "y" }],
     ],
@@ -520,6 +525,17 @@ const BAD_PARENT: [string, FakeGitRepoOptions][] = [
   [
     "a submodule as the first parent whose tree answers 404",
     { entries: { ".claude": { kind: "submodule", treeStatus: 404 } } },
+  ],
+  [
+    "a submodule as the first parent whose tree answers 200 (its commit is in the repo)",
+    { entries: { ".claude": { kind: "submodule", treeStatus: 200 } } },
+  ],
+  [
+    "a submodule answering 200 as a deeper parent under a real directory",
+    {
+      files: { ".claude/settings.json": "{}\n" },
+      entries: { ".claude/agents": { kind: "submodule", treeStatus: 200 } },
+    },
   ],
   [
     "a symlink as the first parent",
