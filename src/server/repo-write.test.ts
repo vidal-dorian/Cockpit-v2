@@ -8,8 +8,10 @@
 // - The plan is `{ baseSha, files }` (it may carry more); `files` keeps the order of the input, and each entry is
 //   `{ path, content, status }` with `content` the proposed text and `status` `create`, `same` or `exists`; an `exists` entry also holds `current`, the text in the repo.
 // - `applyRepoWrite` returns `{ commitSha, created }` and nothing else, `created` being the paths of the `create` entries in plan order.
-// - Which endpoints are called is the one the decision names (B), as the fake serves them: the repo (default branch), `git/ref/heads/<branch>`, `git/commits/<sha>`, `contents/<path>?ref=<sha>`,
-//   `git/trees`, `git/commits`, `git/refs/heads/<branch>`; any other call fails the test as "Unexpected fetch".
+// - Which endpoints are called is the one the decision names (B), as the fake serves them: the repo (default branch), `git/ref/heads/<branch>`, `git/commits/<sha>`, `git/trees/<commit sha>:<dir>` (the root is
+//   `<commit sha>` or `<commit sha>:`), `contents/<path>?ref=<sha>` (regular files only), `git/trees`, `git/commits`, `git/refs/heads/<branch>`; any other call fails the test as "Unexpected fetch".
+// - Anything at the path that is not a plain file (a directory, a symlink, a submodule, a file too large to read) or under a parent that is not a real directory is `exists` WITHOUT `current` (decision 026 A, B);
+//   `applyRepoWrite` re-reads every `create` file at the head, even when the head did not move, with the same rules (C).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { githubClient } from "./github.ts";
 import {
@@ -238,13 +240,14 @@ describe("applyRepoWrite when the repo changed since the plan", () => {
     const result = await apply(planned);
 
     expect(result).toEqual({ commitSha: git.head, created: CREATED });
+    // Decision 026 C: the create files are read again (their directories, now), the same and exists files never.
     const reread = githubCalls(fetchMock)
       .slice(callsBefore)
-      .filter((call) => call.path.includes("/contents/"))
+      .filter((call) => /\/(contents|git\/trees)\//.test(call.path))
       .map((call) => decodeURIComponent(call.path));
     expect(reread.length).toBeGreaterThan(0);
     for (const path of ["same.txt", "mine.txt"])
-      expect(reread.some((read) => read.endsWith(`/${path}`))).toBe(false);
+      expect(reread.some((read) => read.includes(path))).toBe(false);
     expect(git.filesAt(git.head)).toMatchObject({
       "same.txt": "changed\n",
       "mine.txt": "changed too\n",
@@ -296,6 +299,8 @@ describe("planRepoWrite with an invalid plan", () => {
     ["a .. segment inside", [small("a/../b")]],
     ["a path under .git", [small(".git/config")]],
     ["a nested .git segment", [small("x/.git/y")]],
+    ["an upper case .GIT segment", [small(".GIT/x")]],
+    ["a mixed case nested .Git segment", [small("x/.Git/y")]],
     ["a NUL character", [small("a\u0000b")]],
     ["a newline in the path", [small("a\nb")]],
     ["a DEL character", [small("a\u007fb")]],
@@ -404,6 +409,14 @@ describe("refusals", () => {
   it.each([
     [403, "Protected branch update failed for refs/heads/trunk."],
     [
+      403,
+      "Repository rule violations found\n\nChanges must be made through a pull request.\n\n",
+    ],
+    [
+      422,
+      "Repository rule violations found\n\nChanges must be made through a pull request.\n\n",
+    ],
+    [
       422,
       "Protected branch update failed for refs/heads/trunk: changes must be made through a pull request.",
     ],
@@ -473,4 +486,243 @@ describe("refusals", () => {
       expect(git.head).toBe(base);
     },
   );
+});
+
+/** An entry of the repo that is not a plain file, or a plain file, at `path` (a directory is a file under it). */
+const NOT_A_FILE: [string, FakeGitRepoOptions][] = [
+  ["a directory", { files: { "target/inner.md": "x\n" } }],
+  ["a symlink", { entries: { target: { kind: "symlink" } } }],
+  ["a submodule", { entries: { target: { kind: "submodule" } } }],
+  ["a file too large to read", { entries: { target: { kind: "large" } } }],
+];
+const AGENT = ".claude/agents/developer.md";
+/** A repo where a parent of `AGENT` is not a real directory. */
+const BAD_PARENT: [string, FakeGitRepoOptions][] = [
+  [
+    "a submodule as the first parent",
+    { entries: { ".claude": { kind: "submodule" } } },
+  ],
+  [
+    "a symlink as the first parent",
+    { entries: { ".claude": { kind: "symlink" } } },
+  ],
+  [
+    "a regular file as the first parent",
+    { files: { ".claude": "not a dir\n" } },
+  ],
+  [
+    "a symlink as a deeper parent under a real directory",
+    {
+      files: { ".claude/settings.json": "{}\n" },
+      entries: { ".claude/agents": { kind: "symlink" } },
+    },
+  ],
+  [
+    "a submodule as a deeper parent under a real directory",
+    {
+      files: { ".claude/settings.json": "{}\n" },
+      entries: { ".claude/agents": { kind: "submodule" } },
+    },
+  ],
+];
+
+/** What a plan says of one path: `exists`, and no `current` key at all. */
+function expectExistsWithoutCurrent(file: { status: string } | undefined) {
+  expect(file).toMatchObject({ status: "exists" });
+  expect(Object.keys(file ?? {})).not.toContain("current");
+}
+
+describe("planRepoWrite on entries that are not plain files (decision 026 A, B)", () => {
+  it.each(NOT_A_FILE)(
+    "given %s at the path, when it is planned, then it is exists without current",
+    async (_name, repo) => {
+      const { plan } = setup({ files: INITIAL, ...repo });
+
+      const result = await plan([{ path: "target", content: "ours\n" }]);
+
+      expectExistsWithoutCurrent(result.files[0]);
+    },
+  );
+
+  it.each(NOT_A_FILE)(
+    "given %s at the path whose text equals the proposed one, when it is planned, then it is still exists, never same",
+    async (_name, repo) => {
+      const { plan } = setup({ files: INITIAL, ...repo });
+
+      const result = await plan([{ path: "target", content: "" }]);
+
+      expectExistsWithoutCurrent(result.files[0]);
+    },
+  );
+
+  it.each(BAD_PARENT)(
+    "given %s, when a file under it is planned, then it is exists without current",
+    async (_name, repo) => {
+      const { plan } = setup({ ...repo, files: { ...INITIAL, ...repo.files } });
+
+      const result = await plan([{ path: AGENT, content: "agent\n" }]);
+
+      expectExistsWithoutCurrent(result.files[0]);
+    },
+  );
+
+  it("given a bad parent for one file and a good place for another, when they are planned, then only the first is exists", async () => {
+    const { plan } = setup({ entries: { ".claude": { kind: "symlink" } } });
+
+    const result = await plan([
+      { path: AGENT, content: "agent\n" },
+      { path: "docs/new.md", content: "# new\n" },
+    ]);
+
+    expect(result.files).toMatchObject([
+      { path: AGENT, status: "exists" },
+      { path: "docs/new.md", status: "create" },
+    ]);
+  });
+
+  it("given a missing parent whose nearest existing ancestor is a real directory, when a file under it is planned, then it is create", async () => {
+    const { plan } = setup({
+      files: { ...INITIAL, ".claude/settings.json": "{}\n" },
+    });
+
+    const result = await plan([{ path: AGENT, content: "agent\n" }]);
+
+    expect(result.files).toMatchObject([{ path: AGENT, status: "create" }]);
+  });
+
+  it("given a parent chain missing up to the root, when a file under it is planned, then it is create", async () => {
+    const { plan } = setup();
+
+    const result = await plan([{ path: "a/b/c/d.md", content: "d\n" }]);
+
+    expect(result.files).toMatchObject([
+      { path: "a/b/c/d.md", status: "create" },
+    ]);
+  });
+
+  it("given an executable file (mode 100755), when it is planned with the same or another text, then it is a plain file: same, or exists with its current text", async () => {
+    const { plan } = setup({
+      entries: { "run.sh": { kind: "executable", content: "#!/bin/sh\n" } },
+    });
+
+    const result = await plan([
+      { path: "run.sh", content: "#!/bin/sh\n" },
+      { path: "run.sh.bak", content: "x" },
+    ]);
+    const other = await plan([{ path: "run.sh", content: "echo\n" }]);
+
+    expect(result.files).toMatchObject([
+      { path: "run.sh", status: "same" },
+      { path: "run.sh.bak", status: "create" },
+    ]);
+    expect(other.files).toMatchObject([
+      { path: "run.sh", status: "exists", current: "#!/bin/sh\n" },
+    ]);
+  });
+});
+
+describe("applyRepoWrite re-reads every create file, even when the head did not move (decision 026 C)", () => {
+  /** A plan whose `files` are all sent back as `create`, as a caller that relabelled them would. */
+  const relabelled = (
+    base: string,
+    files: { path: string; content: string }[],
+  ) => ({
+    baseSha: base,
+    files: files.map((file) => ({ ...file, status: "create" as const })),
+  });
+
+  const cases: [string, string, FakeGitRepoOptions][] = [
+    ...NOT_A_FILE.map(([name, repo]): [string, string, FakeGitRepoOptions] => [
+      name,
+      "target",
+      repo,
+    ]),
+    ...BAD_PARENT.map(([name, repo]): [string, string, FakeGitRepoOptions] => [
+      name,
+      AGENT,
+      repo,
+    ]),
+    ["a different regular file", "mine.txt", {}],
+    ["an identical regular file", "same.txt", {}],
+  ];
+  it.each(cases)(
+    "given %s relabelled create by a caller, when it is applied on an unmoved head, then it is refused repo_changed and nothing is written",
+    async (_name, path, repo) => {
+      const { fetchMock, git, apply } = setup({
+        ...repo,
+        files: { ...INITIAL, ...repo.files },
+      });
+      const base = git.head;
+
+      const result = await apply(
+        relabelled(base, [
+          { path, content: "ours\n" },
+          { path: "docs/new.md", content: "# new\n" },
+        ]),
+      );
+
+      expect(result).toEqual({ refused: "repo_changed" });
+      expect(writeCalls(fetchMock)).toEqual([]);
+      expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
+      expect(git.head).toBe(base);
+    },
+  );
+
+  it.each(NOT_A_FILE)(
+    "given %s relabelled create by a caller, when it is applied after an unrelated push, then it is refused repo_changed and nothing is written",
+    async (_name, repo) => {
+      const { fetchMock, git, apply } = setup({
+        files: { ...INITIAL, ...repo.files },
+        entries: repo.entries,
+      });
+      const base = git.head;
+      git.push({ "other/unrelated.txt": "not ours\n" });
+
+      const result = await apply(
+        relabelled(base, [{ path: "target", content: "ours\n" }]),
+      );
+
+      expect(result).toEqual({ refused: "repo_changed" });
+      expect(writeCalls(fetchMock)).toEqual([]);
+    },
+  );
+
+  it.each([
+    ["a symlink", { kind: "symlink" }],
+    ["a submodule", { kind: "submodule" }],
+  ] as const)(
+    "given a push after the plan that makes a parent of a create file %s, when it is applied, then it is refused repo_changed and nothing is written",
+    async (_name, entry) => {
+      const { fetchMock, git, plan, apply } = setup();
+      const planned = await plan([{ path: AGENT, content: "agent\n" }]);
+      expect(planned.files[0]?.status).toBe("create");
+      const pushed = git.push({}, "swap the parent", { ".claude": entry });
+
+      const result = await apply(planned);
+
+      expect(result).toEqual({ refused: "repo_changed" });
+      expect(writeCalls(fetchMock)).toEqual([]);
+      expect(git.head).toBe(pushed);
+    },
+  );
+
+  it("given create files whose parents are missing or real directories, when it is applied on an unmoved head, then the commit is made", async () => {
+    const { git, apply } = setup({
+      files: { ...INITIAL, ".claude/settings.json": "{}\n" },
+    });
+    const base = git.head;
+
+    const result = await apply(
+      relabelled(base, [
+        { path: AGENT, content: "agent\n" },
+        { path: "a/b/c.md", content: "c\n" },
+      ]),
+    );
+
+    expect(result).toEqual({
+      commitSha: git.head,
+      created: [AGENT, "a/b/c.md"],
+    });
+    expect(git.commit(git.head)?.parents).toEqual([base]);
+  });
 });

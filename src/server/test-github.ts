@@ -24,12 +24,26 @@ export type GitHubRepo = {
 
 export const INSTALLATION_ID = 77;
 
+/**
+ * What a path of a fake Git repo can be besides a regular file of mode 100644 (`files`); a directory is never listed, it exists when a path is under it (decision 026).
+ * - `executable`: a regular file of mode 100755, Contents serves it like any file.
+ * - `symlink`: mode 120000 (a blob). `submodule`: a gitlink, tree entry of type `commit`, mode 160000.
+ * - `large`: a regular file (100644) too large for Contents, which answers 200 with `content: ""` and `encoding: "none"`.
+ */
+export type FakeGitEntry =
+  | { kind: "executable"; content: string }
+  | { kind: "symlink" }
+  | { kind: "submodule" }
+  | { kind: "large" };
+
 /** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
 export type FakeGitRepoOptions = {
   /** Default: "main". */
   defaultBranch?: string;
-  /** The files of the first commit (all of mode 100644). */
+  /** The regular files of the first commit (all of mode 100644). */
   files?: Record<string, string>;
+  /** The other kinds of entries of the first commit, by path. */
+  entries?: Record<string, FakeGitEntry>;
   /** No commit at all: reading the default branch answers 409. */
   empty?: boolean;
   unreachable?: boolean;
@@ -164,13 +178,19 @@ export function failOnUnexpectedFetch() {
  *
  * Writing into a repo (slice 6.1, decision 026): `gitRepos` names the repos (`owner/repo`) that keep a real Git history, which the stub serves instead of the snapshots above:
  * `GET /repos/{o}/{r}` (`default_branch`), `GET .../git/ref/heads/{branch}` (only the default branch exists; 409 on an empty repo), `GET .../git/commits/{sha}`,
- * `GET .../contents/{path}?ref={sha}` (404 when the file is absent at that commit), `POST .../git/trees` (needs a known `base_tree`, blobs of mode 100644 with a string `content`),
+ * `GET .../git/trees/{sha}:{dir}` (the tree of a directory at a commit; the root is `{sha}` or `{sha}:`; nothing else is served, no query string, no `HEAD`, no branch name; entries are
+ * `{ path, mode, type, sha }` with `path` the name inside the directory, `040000`/`tree` for a directory, `100644`/`100755`/`120000` blobs, `160000`/`commit` for a submodule;
+ * 404 when the directory is missing, also when one of its parents is a file, a symlink or a submodule; 422 when the path itself is a file, a symlink or a submodule, as GitHub does),
+ * `GET .../contents/{path}?ref={sha}` (a regular file, or a file too large to read: `content: ""`, `encoding: "none"`; 404 when the path is absent at that commit; a directory, a symlink or a submodule at the path is not served,
+ * the code under test must have read the tree to know it: "Unexpected fetch"), `POST .../git/trees` (needs a known `base_tree`, blobs of mode 100644 with a string `content`),
  * `POST .../git/commits` (known tree and parents) and `PATCH .../git/refs/heads/{branch}` (`{ sha, force }`: like GitHub, 422 "not a fast forward" when the current head is not
  * an ancestor of `sha` and `force` is not `true`). Any other call on such a repo fails loudly. `git(fullName)` is the live state of one of them: `head`, `commit(sha)`, `filesAt(sha)`,
  * `created` (what the code under test sent: `trees`, `commits`, `refUpdates` with their `force`, every attempt included), `push(files)` (another person's push on the default branch:
  * adds or replaces files in a new commit on the head, returns its sha), `beforeRefUpdate(fn)` (runs `fn` once, right before the next ref update is judged: a push landing at that moment),
  * and the fields `unreachable` (every call on the repo answers 404, the App lost access) and `refUpdateFailure` (`{ status, message }`, fails every ref update, to play a protected branch).
- * `failOn` applies to these repos too. A tree that would replace a file is accepted, as GitHub does: it is the caller's job not to send it.
+ * `failOn` applies to these repos too. A tree that would replace anything is accepted, as GitHub does: it is the caller's job not to send it. A blob sent over a directory, a symlink, a submodule or a file replaces it (and
+ * everything under a directory), and a blob under a path that is a file, a symlink or a submodule replaces that parent by a directory.
+ * `gitRepos` entries take `entries` (see `FakeGitEntry`) next to `files`; `push(files, message, entries)` takes them as its third argument, and `git(...).entriesAt(sha)` reads them.
  */
 export function stubGitHub(initial: {
   account: number | null;
@@ -275,37 +295,56 @@ export function stubGitHub(initial: {
   const sha1 = (text: string) => createHash("sha1").update(text).digest("hex");
   const gitRepos = new Map(
     Object.entries(initial.gitRepos ?? {}).map(([fullName, opts]) => {
+      type Snap = {
+        files: Record<string, string>;
+        entries: Record<string, FakeGitEntry>;
+      };
       const commits = new Map<
         string,
-        {
-          tree: string;
-          parents: string[];
-          message: string;
-          files: Record<string, string>;
-        }
+        Snap & { tree: string; parents: string[]; message: string }
       >();
-      const trees = new Map<string, Record<string, string>>();
+      const trees = new Map<string, Snap>();
       let counter = 0;
-      const addTree = (files: Record<string, string>) => {
-        const sha = sha1(JSON.stringify(Object.entries(files).sort()));
-        trees.set(sha, files);
+      const addTree = (snap: Snap) => {
+        const sha = sha1(
+          JSON.stringify([
+            Object.entries(snap.files).sort(),
+            Object.entries(snap.entries).sort(),
+          ]),
+        );
+        trees.set(sha, snap);
         return sha;
       };
-      const addCommit = (
-        files: Record<string, string>,
-        parents: string[],
-        message: string,
-      ) => {
-        const tree = addTree(files);
+      const addCommit = (snap: Snap, parents: string[], message: string) => {
+        const tree = addTree(snap);
         const sha = sha1(
           `${fullName}\0${counter++}\0${tree}\0${parents}\0${message}`,
         );
-        commits.set(sha, { tree, parents, message, files });
+        commits.set(sha, { ...snap, tree, parents, message });
         return sha;
+      };
+      /** `snap` with `path` set to `put`, GitHub's way: whatever was at the path, under it or as one of its parents is replaced. */
+      const place = (snap: Snap, path: string, put: Partial<Snap>): Snap => {
+        const clashes = (key: string) =>
+          key === path ||
+          key.startsWith(`${path}/`) ||
+          path.startsWith(`${key}/`);
+        const keep = <T>(record: Record<string, T>) =>
+          Object.fromEntries(
+            Object.entries(record).filter(([key]) => !clashes(key)),
+          );
+        return {
+          files: { ...keep(snap.files), ...put.files },
+          entries: { ...keep(snap.entries), ...put.entries },
+        };
       };
       let current: string | null = opts.empty
         ? null
-        : addCommit(opts.files ?? {}, [], "initial commit");
+        : addCommit(
+            { files: opts.files ?? {}, entries: opts.entries ?? {} },
+            [],
+            "initial commit",
+          );
       let before: (() => void) | undefined;
       const git = {
         defaultBranch: opts.defaultBranch ?? "main",
@@ -336,18 +375,23 @@ export function stubGitHub(initial: {
           return current;
         },
         commit: (sha: string) => commits.get(sha),
+        /** The regular files (mode 100644) of a commit. */
         filesAt: (sha: string) => commits.get(sha)?.files,
-        /** Another person's push on the default branch; returns the new head. */
+        /** The other entries of a commit (executables, symlinks, submodules, files too large). */
+        entriesAt: (sha: string) => commits.get(sha)?.entries,
+        /** Another person's push on the default branch (files, then other entries, each replacing what is there); returns the new head. */
         push(
           files: Record<string, string>,
           message = "a push by someone else",
+          entries: Record<string, FakeGitEntry> = {},
         ) {
           const parent = git.head;
-          current = addCommit(
-            { ...commits.get(parent)?.files, ...files },
-            [parent],
-            message,
-          );
+          let snap = commits.get(parent) as Snap;
+          for (const [path, text] of Object.entries(files))
+            snap = place(snap, path, { files: { [path]: text } });
+          for (const [path, entry] of Object.entries(entries))
+            snap = place(snap, path, { entries: { [path]: entry } });
+          current = addCommit(snap, [parent], message);
           return current;
         },
         beforeRefUpdate(fn: () => void) {
@@ -358,6 +402,7 @@ export function stubGitHub(initial: {
         _commits: commits,
         _addTree: addTree,
         _addCommit: addCommit,
+        _place: place,
         _runBefore() {
           const hook = before;
           before = undefined;
@@ -490,13 +535,69 @@ export function stubGitHub(initial: {
           const at = url.searchParams.get("ref");
           if (!at || !sha.test(at))
             throw unexpectedFetch(`${route}${url.search}`);
+          const path = decodeURIComponent(contents[1] as string);
+          const atCommit = git.commit(at);
+          const entry = atCommit?.entries[path];
           const text =
-            git.filesAt(at)?.[decodeURIComponent(contents[1] as string)];
-          if (text === undefined) return reply(404, { message: "Not Found" });
-          return reply(
-            200,
-            contentsFile(decodeURIComponent(contents[1] as string), text),
+            atCommit?.files[path] ??
+            (entry?.kind === "executable" ? entry.content : undefined);
+          if (text !== undefined) return reply(200, contentsFile(path, text));
+          if (entry?.kind === "large")
+            return reply(200, {
+              ...contentsFile(path, ""),
+              size: 2_000_000,
+              encoding: "none",
+              content: "",
+            });
+          // A directory, a symlink or a submodule: only the tree tells them, the code under test must have read it.
+          const under = [
+            ...Object.keys(atCommit?.files ?? {}),
+            ...Object.keys(atCommit?.entries ?? {}),
+          ].some((key) => key.startsWith(`${path}/`));
+          if (entry || under) throw unexpectedFetch(`${route}${url.search}`);
+          return reply(404, { message: "Not Found" });
+        }
+        const treeRoute = /^\/git\/trees\/(.+)$/.exec(rest);
+        if (verb === "GET" && treeRoute) {
+          const wanted = /^([0-9a-f]{40})(?::(.*))?$/.exec(
+            decodeURIComponent(treeRoute[1] as string),
           );
+          if (!wanted || url.search !== "")
+            throw unexpectedFetch(`${route}${url.search}`);
+          const snap = git.commit(wanted[1] as string);
+          const dir = wanted[2] ?? "";
+          if (!snap) return reply(404, { message: "Not Found" });
+          const all = { ...snap.files, ...snap.entries };
+          if (dir in all) return reply(422, { message: "not a tree" });
+          const prefix = dir === "" ? "" : `${dir}/`;
+          const children = new Map<string, string>();
+          for (const path of Object.keys(all))
+            if (path.startsWith(prefix)) {
+              const [name, ...more] = path.slice(prefix.length).split("/");
+              children.set(name as string, more.length > 0 ? "" : path);
+            }
+          if (dir !== "" && children.size === 0)
+            return reply(404, { message: "Not Found" });
+          const kinds = {
+            symlink: { mode: "120000", type: "blob" },
+            submodule: { mode: "160000", type: "commit" },
+            executable: { mode: "100755", type: "blob" },
+            large: { mode: "100644", type: "blob" },
+          };
+          return reply(200, {
+            sha: sha1(`${wanted[1]}:${dir}`),
+            truncated: false,
+            tree: [...children].map(([name, leaf]) => ({
+              path: name,
+              ...(leaf === ""
+                ? { mode: "040000", type: "tree" }
+                : (kinds[snap.entries[leaf]?.kind as keyof typeof kinds] ?? {
+                    mode: "100644",
+                    type: "blob",
+                  })),
+              sha: sha1(`${prefix}${name}:${wanted[1]}`),
+            })),
+          });
         }
         if (verb === "POST" && rest === "/git/trees") {
           const entries = Array.isArray(sent.tree) ? sent.tree : [];
@@ -514,24 +615,25 @@ export function stubGitHub(initial: {
           if (!base || !valid)
             return reply(422, { message: "Validation Failed" });
           git.created.trees.push({ baseTree: sent.base_tree, entries });
-          const files = { ...base };
-          for (const e of entries) files[e.path] = e.content;
-          const tree = git._addTree(files);
+          let snap = base;
+          for (const e of entries)
+            snap = git._place(snap, e.path, { files: { [e.path]: e.content } });
+          const tree = git._addTree(snap);
           return reply(201, { sha: tree, truncated: false, tree: [] });
         }
         if (verb === "POST" && rest === "/git/commits") {
           const parents = Array.isArray(sent.parents) ? sent.parents : [];
-          const files =
+          const snap =
             typeof sent.tree === "string"
               ? git._trees.get(sent.tree)
               : undefined;
           if (
-            !files ||
+            !snap ||
             typeof sent.message !== "string" ||
             !parents.every((p) => typeof p === "string" && git.commit(p))
           )
             return reply(422, { message: "Validation Failed" });
-          const created = git._addCommit(files, parents, sent.message);
+          const created = git._addCommit(snap, parents, sent.message);
           git.created.commits.push({
             sha: created,
             message: sent.message,
