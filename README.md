@@ -8,10 +8,14 @@ Rien à faire à la main : Cockpit crée lui-même sa GitHub App au premier lanc
 
 1. Entrer le **code de démarrage** que le serveur affiche dans ses logs (`Cockpit setup code: …`).
 2. Vérifier l'**adresse publique**, détectée à partir de ta requête (derrière un tunnel Cloudflare, l'en-tête `CF-Visitor` donne le bon protocole) : c'est celle que GitHub utilisera pour renvoyer vers Cockpit. Elle doit commencer par `https://` (claude.ai l'exige) ; seul `http://localhost` (ou `127.0.0.1`, `[::1]`) est accepté pour développer sur sa machine.
-3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos, des PR et de la CI ; écriture du contenu et des issues).
+3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos et de la CI ; écriture du contenu, des issues et des PR).
 4. Cliquer sur « Create GitHub App » sur GitHub. Cockpit récupère l'App, chiffre ses secrets en base et te renvoie vers la connexion GitHub : **le premier compte qui se connecte devient administrateur**.
 
 Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account ») et l'inscription est ouverte : tout compte GitHub qui se connecte à Cockpit obtient un compte non administrateur, sans que l'administrateur ait rien à accepter.
+
+### Donner « Pull requests » en écriture à une App déjà créée
+
+Une App créée avant la [décision 026](docs/decisions/026-ecrire-dans-un-repo.md) n'a que la lecture des PR, et Cockpit ne peut alors pas ouvrir de PR quand la branche par défaut d'un repo est protégée. Sur GitHub : réglages de l'App → Permissions → Pull requests : **Read and write**, puis, en tant que propriétaire de l'installation, accepter la nouvelle permission sur l'installation (GitHub envoie un message à ce sujet).
 
 ### Réglages
 

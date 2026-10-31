@@ -35,4 +35,4 @@ La 6.2 (« Préparer pour Claude en un clic ») ajoutera à un repo le skill `/d
 - **Un fichier `exists` est laissé tel quel** même s'il n'a qu'une fin de ligne de différence : c'est le prix de « sans rien écraser ».
 - **Entre la relecture (C) et l'avance de la branche**, un push peut ajouter un des fichiers : GitHub refuse alors l'avance (elle n'est plus rapide), et le refus est `repo_changed`. Aucun fichier n'est jamais écrasé.
 - **La branche par défaut est relue à chaque appel** : après un renommage entre le plan et l'écriture, le commit va sur la nouvelle branche par défaut ; un renommage pendant l'écriture même fait échouer l'avance de la branche (une erreur, rien n'est écrit).
-- **Non vérifiable ici** : le statut exact que GitHub rend à un push refusé par une règle de protection (403 ou 422 selon le type de règle) ; les deux sont traités comme `branch_protected` quand le corps parle de protection.
+- **Non vérifiable ici** : le statut exact que GitHub rend à un push refusé par une règle de protection (403 ou 422 selon le type de règle) ; les deux mènent à la pull request (G) quand le corps parle de protection.

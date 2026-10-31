@@ -459,7 +459,8 @@ describe("refusals", () => {
     await expect(
       plan([{ path: "README.md", content: "ours\n" }]),
     ).rejects.toThrow();
-    await expect(apply(planned)).rejects.toThrow();
+    // Unsigned, so apply takes the re-read of C, the only path that still reads (H).
+    await expect(apply({ ...planned, signature: undefined })).rejects.toThrow();
     expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
   });
 
@@ -480,7 +481,10 @@ describe("refusals", () => {
       await expect(
         plan([{ path: AGENT, content: "agent\n" }]),
       ).rejects.toThrow();
-      await expect(apply(planned)).rejects.toThrow();
+      // Unsigned, so apply takes the re-read of C, the only path that still reads (H).
+      await expect(
+        apply({ ...planned, signature: undefined }),
+      ).rejects.toThrow();
       expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
     },
   );

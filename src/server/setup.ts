@@ -47,7 +47,7 @@ function manifest(publicUrl: string) {
       metadata: "read",
       contents: "write",
       issues: "write",
-      pull_requests: "read",
+      pull_requests: "write",
       checks: "read",
       statuses: "read",
       actions: "read",
