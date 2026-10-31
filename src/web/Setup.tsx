@@ -23,7 +23,7 @@ const PERMISSIONS = [
   [
     "Pull requests",
     "lecture et écriture",
-    "suivre l'avancement des PR de Claude et, si la branche principale est protégée, ouvrir une PR au lieu d'y écrire.",
+    "suivre l'avancement des PR de Claude et, si la branche par défaut est protégée, ouvrir une PR au lieu d'y écrire.",
   ],
   [
     "Vérifications et statuts",

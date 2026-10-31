@@ -555,7 +555,8 @@ export function githubClient(config: GitHubAppConfig) {
       const commitSha = shaSchema.parse(commit).sha;
       try {
         await octokit.request(
-          `PATCH /repos/{owner}/{repo}/git/refs/heads/${head.branch}`,
+          // The branch is in the URL itself, each segment encoded: a {ref} would encode its slashes, and a raw `#` or `{` would change the URL.
+          `PATCH /repos/{owner}/{repo}/git/refs/heads/${head.branch.split("/").map(encodeURIComponent).join("/")}`,
           { owner, repo: name, sha: commitSha, force: false },
         );
       } catch (error) {
@@ -576,8 +577,9 @@ export function githubClient(config: GitHubAppConfig) {
             ref: `refs/heads/${branch}`,
             sha: commitSha,
           });
+          let data: unknown;
           try {
-            const { data } = await octokit.request(
+            ({ data } = await octokit.request(
               "POST /repos/{owner}/{repo}/pulls",
               {
                 owner,
@@ -587,13 +589,7 @@ export function githubClient(config: GitHubAppConfig) {
                 title: message,
                 body: `${created.map((path) => `- ${path}`).join("\n")}\n\nOuverte par Cockpit`,
               },
-            );
-            const pull = pullRequestSchema.parse(data);
-            return {
-              commitSha,
-              created,
-              pullRequest: { number: pull.number, url: pull.html_url },
-            };
+            ));
           } catch (pullError) {
             // Best effort: a branch left behind is harmless, and the refusal below matters more.
             await octokit
@@ -608,10 +604,25 @@ export function githubClient(config: GitHubAppConfig) {
               .catch((deleteError) =>
                 console.error(`Could not delete branch ${branch}`, deleteError),
               );
-            if ((pullError as { status?: number }).status === 403)
+            const { status: pullStatus, message: pullReason } = pullError as {
+              status?: number;
+              message: string;
+            };
+            // The App lacks Pull requests: write; any other 403 (a rate limit) is not a refusal.
+            if (
+              pullStatus === 403 &&
+              /not accessible by integration/i.test(pullReason)
+            )
               return { refused: "pull_request_forbidden" };
             throw pullError;
           }
+          // Parsed once the pull request exists: a parse error must not delete its branch.
+          const pull = pullRequestSchema.parse(data);
+          return {
+            commitSha,
+            created,
+            pullRequest: { number: pull.number, url: pull.html_url },
+          };
         }
         // GitHub refuses what is not a fast forward: someone pushed meanwhile, and we do not retry.
         if (status === 422 && /fast.forward/i.test(reason))

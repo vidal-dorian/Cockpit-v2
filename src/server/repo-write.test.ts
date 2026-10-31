@@ -169,6 +169,24 @@ describe("applyRepoWrite", () => {
     expect(git.head).toMatch(/^[0-9a-f]{40}$/);
   });
 
+  it.each(["release#1", "feat{owner}", "dev/next"])(
+    "given a default branch named %s, when a plan is applied, then that very branch is advanced and no other",
+    async (branch) => {
+      const { git, plan, apply } = setup({ defaultBranch: branch });
+
+      const result = await apply(await plan());
+
+      expect(result).toMatchObject({ created: CREATED });
+      expect(git.created.refUpdates).toEqual([
+        {
+          branch,
+          sha: "commitSha" in result ? result.commitSha : "",
+          force: false,
+        },
+      ]);
+    },
+  );
+
   it("given a plan with files to create, when it is applied, then the branch is advanced with force false, once", async () => {
     const { git, plan, apply } = setup();
 
@@ -923,6 +941,30 @@ describe("applyRepoWrite on a protected default branch opens a pull request (dec
       writeCalls(fetchMock).filter((call) => call.method === "DELETE"),
     ).toMatchObject([{ path: `/repos/octocat/app/git/refs/heads/${branch}` }]);
   });
+
+  it.each([
+    [403, "You have exceeded a secondary rate limit"],
+    [422, "Validation Failed"],
+  ])(
+    "given a default branch that refuses the push and the pull request failing with %i %s, when it is applied, then the new branch is deleted and the error propagates (not a missing permission)",
+    async (status, message) => {
+      const { git, plan, apply } = setup({
+        ...protectedBy(
+          403,
+          "Protected branch update failed for refs/heads/trunk.",
+        ),
+        pullRequestFailure: { status, message },
+      });
+      const base = git.head;
+
+      await expect(apply(await plan())).rejects.toMatchObject({ status });
+
+      const sha = git.created.commits[0]?.sha as string;
+      expect(git.refsDeleted).toEqual([`cockpit/${sha.slice(0, 7)}`]);
+      expect(git.pullRequests).toEqual([]);
+      expect(git.head).toBe(base);
+    },
+  );
 
   it("given a successful direct push, when it is applied, then it returns exactly { commitSha, created } and no branch and no pull request is made", async () => {
     const { fetchMock, git, plan, apply } = setup();
