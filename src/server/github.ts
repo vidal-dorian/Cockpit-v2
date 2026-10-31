@@ -591,7 +591,7 @@ export function githubClient(config: GitHubAppConfig) {
               },
             ));
           } catch (pullError) {
-            // Best effort: a branch left behind is harmless, and the refusal below matters more.
+            // Best effort: a branch left behind is harmless, and the refusal below matters more. After a timeout GitHub may have opened the pull request anyway: deleting the branch closes it, which beats a duplicate on the next try.
             await octokit
               // The branch is in the URL itself: a {ref} would have its slash encoded.
               .request(
