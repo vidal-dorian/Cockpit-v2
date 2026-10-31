@@ -33,7 +33,8 @@ export const INSTALLATION_ID = 77;
 export type FakeGitEntry =
   | { kind: "executable"; content: string }
   | { kind: "symlink" }
-  | { kind: "submodule" }
+  // GitHub answers 422 or 404 to the tree of a submodule (decision 013 H did not verify which): `treeStatus` picks it, 422 by default.
+  | { kind: "submodule"; treeStatus?: 404 }
   | { kind: "large" };
 
 /** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
@@ -167,7 +168,7 @@ export function failOnUnexpectedFetch() {
  * state: `issues(fullName)`, `labels(fullName)`, `addLabel(fullName, name)` and `addIssueLabel(fullName, number, name)`.
  * `issuesStatus` fails every call on an issue or a label with that status (body message `github-boom-message`),
  * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
- * with 500 every call it returns true for, to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
+ * with 500 every call it returns true for (or with the status it returns), to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
  * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
  *
  * The webhook of the App (decisions 002 and 024), read and written as the App itself (a JWT, never an installation token: 401 otherwise):
@@ -212,7 +213,7 @@ export function stubGitHub(initial: {
   installations?: number[];
   issuesStatus?: number;
   issuesDelay?: number;
-  failOn?: (call: { method: string; path: string }) => boolean;
+  failOn?: (call: { method: string; path: string }) => boolean | number;
   webhook?: Partial<FakeWebhook>;
   gitRepos?: Record<string, FakeGitRepoOptions>;
 }) {
@@ -494,8 +495,11 @@ export function stubGitHub(initial: {
           const raw = init?.body;
           return typeof raw === "string" && raw ? JSON.parse(raw) : {};
         })() as Record<string, unknown>;
-        if (options.failOn?.({ method: verb, path: url.pathname }))
-          return reply(500, { message: "github-boom-message" });
+        const failed = options.failOn?.({ method: verb, path: url.pathname });
+        if (failed)
+          return reply(failed === true ? 500 : failed, {
+            message: "github-boom-message",
+          });
         if (git.unreachable) return reply(404, { message: "Not Found" });
         const empty = git._head() === null;
         const sha = /^[0-9a-f]{40}$/;
@@ -568,7 +572,12 @@ export function stubGitHub(initial: {
           const dir = wanted[2] ?? "";
           if (!snap) return reply(404, { message: "Not Found" });
           const all = { ...snap.files, ...snap.entries };
-          if (dir in all) return reply(422, { message: "not a tree" });
+          if (dir in all) {
+            const at = snap.entries[dir];
+            return at?.kind === "submodule" && at.treeStatus === 404
+              ? reply(404, { message: "Not Found" })
+              : reply(422, { message: "not a tree" });
+          }
           const prefix = dir === "" ? "" : `${dir}/`;
           const children = new Map<string, string>();
           for (const path of Object.keys(all))
@@ -866,8 +875,14 @@ export function stubGitHub(initial: {
           return reply(options.issuesStatus, {
             message: "github-boom-message",
           });
-        if (options.failOn?.({ method: verb as string, path: url.pathname }))
-          return reply(500, { message: "github-boom-message" });
+        const failed = options.failOn?.({
+          method: verb as string,
+          path: url.pathname,
+        });
+        if (failed)
+          return reply(failed === true ? 500 : failed, {
+            message: "github-boom-message",
+          });
         // GitHub's limits, in characters (here UTF-16 units).
         const tooLong = () =>
           (typeof sent.title === "string" && sent.title.length > 256) ||

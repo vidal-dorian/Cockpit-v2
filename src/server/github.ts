@@ -209,8 +209,15 @@ export function githubClient(config: GitHubAppConfig) {
         for (let depth = last; depth >= 0; depth--) {
           const tree = await readDir(segments.slice(0, depth).join("/"));
           if (tree === "other") return {};
+          // The root tree of a commit just read is never absent: a 404 there is GitHub lagging behind, not an empty place to write into.
+          if (!tree && depth === 0)
+            throw new Error(`No root tree for commit ${sha}`);
           if (!tree) continue;
-          if (depth < last) return null;
+          // The first directory that exists must not hold the next segment at all: a submodule may answer 404 as well as 422 (decision 013 H).
+          if (depth < last)
+            return tree.tree.some((e) => e.path === segments[depth])
+              ? {}
+              : null;
           const entry = tree.tree.find((e) => e.path === segments[last]);
           if (!entry) return null;
           if (entry.type !== "blob" || !/^100(644|755)$/.test(entry.mode))
@@ -459,7 +466,7 @@ export function githubClient(config: GitHubAppConfig) {
       return { baseSha: head.sha, files: planned };
     },
 
-    /** Adds the `create` files of the plan in ONE commit on the default branch, and nothing else (decision 026 A to C). If the branch moved since the plan, the files to create are read again at the new head: `repo_changed` when one appeared. The branch is advanced without force, once. With nothing to create nothing is called and `commitSha` is the plan's base. */
+    /** Adds the `create` files of the plan in ONE commit on the default branch, and nothing else (decision 026 A to C). The files to create are always read again at the head of the branch, whatever the plan says: `repo_changed` when one is no longer absent. The branch is advanced without force, once. With nothing to create nothing is called and `commitSha` is the plan's base. */
     async applyRepoWrite(
       installationId: number,
       fullName: string,

@@ -468,6 +468,21 @@ describe("refusals", () => {
     },
   );
 
+  it("given every tree read answering 404 (a replica behind the push just read), when it is planned or applied, then it fails and nothing is written: the root tree of a known commit is never absent", async () => {
+    const { fetchMock, git, plan, apply } = setup();
+    const planned = await plan();
+    fetchMock.update({
+      failOn: (call) =>
+        call.method === "GET" && /\/git\/trees\//.test(call.path) && 404,
+    });
+
+    await expect(
+      plan([{ path: "README.md", content: "ours\n" }]),
+    ).rejects.toThrow();
+    await expect(apply(planned)).rejects.toThrow();
+    expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
+  });
+
   it.each([
     ["the tree", "POST", /\/git\/trees$/],
     ["the commit", "POST", /\/git\/commits$/],
@@ -501,6 +516,10 @@ const BAD_PARENT: [string, FakeGitRepoOptions][] = [
   [
     "a submodule as the first parent",
     { entries: { ".claude": { kind: "submodule" } } },
+  ],
+  [
+    "a submodule as the first parent whose tree answers 404",
+    { entries: { ".claude": { kind: "submodule", treeStatus: 404 } } },
   ],
   [
     "a symlink as the first parent",
