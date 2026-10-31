@@ -3,15 +3,21 @@
 //
 // What these tests pin, where the decision leaves it open:
 // - A refusal (decision 026 C and E) is RETURNED, never thrown, like the other "not there" answers of the client (`null`, `{ unchanged: true }`):
-//   `planRepoWrite` and `applyRepoWrite` return `{ refused: "<code>" }` with the code `empty_repo`, `repo_unreachable`, `repo_changed` or `branch_protected`.
+//   `planRepoWrite` and `applyRepoWrite` return `{ refused: "<code>" }` with the code `empty_repo`, `repo_unreachable`, `repo_changed` or `pull_request_forbidden` (decision 026 E, G;
+//   the old `branch_protected` refusal is gone: a protected default branch now leads to a pull request).
 //   A success has no `refused` key. The caller (6.2) turns it into a `Refused` of its own. An invalid plan (D) or any other GitHub error is a thrown error.
 // - The plan is `{ baseSha, files }` (it may carry more); `files` keeps the order of the input, and each entry is
 //   `{ path, content, status }` with `content` the proposed text and `status` `create`, `same` or `exists`; an `exists` entry also holds `current`, the text in the repo.
-// - `applyRepoWrite` returns `{ commitSha, created }` and nothing else, `created` being the paths of the `create` entries in plan order.
+// - `applyRepoWrite` returns `{ commitSha, created }` and nothing else, `created` being the paths of the `create` entries in plan order,
+//   plus `pullRequest: { number, url }` when and only when the default branch refused the push for a protection and the commit went through a pull request (decision 026 F, G): then `commitSha` is the commit
+//   on the branch `cockpit/<first 7 characters of commitSha>`, and the default branch is untouched.
+// - The plan carries `signature` (a non-empty string, decision 026 H), an HMAC the caller must hand back untouched. The key is drawn when a `githubClient(config)` is built, so it is scoped PER CLIENT INSTANCE
+//   (the server builds one client for its whole life, `githubReader`, so that is "drawn at Cockpit's start-up"): a plan signed by one client is not trusted by another one ("Cockpit restarted"), it is re-read as in C.
+//   A plan is trusted only if its signature is valid for its base, its paths, statuses and contents AND the branch is still at the base; trusted, `applyRepoWrite` makes no tree and no contents read at all.
 // - Which endpoints are called is the one the decision names (B), as the fake serves them: the repo (default branch), `git/ref/heads/<branch>`, `git/commits/<sha>`, `git/trees/<commit sha>:<dir>` (the root is
 //   `<commit sha>` or `<commit sha>:`), `contents/<path>?ref=<sha>` (regular files only), `git/trees`, `git/commits`, `git/refs/heads/<branch>`; any other call fails the test as "Unexpected fetch".
 // - Anything at the path that is not a plain file (a directory, a symlink, a submodule, a file too large to read) or under a parent that is not a real directory is `exists` WITHOUT `current` (decision 026 A, B);
-//   `applyRepoWrite` re-reads every `create` file at the head, even when the head did not move, with the same rules (C).
+//   `applyRepoWrite` re-reads every `create` file at the head, with the same rules (C), unless the plan is signed and intact and the head did not move (H); every directory tree is read at most once per call (H).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { githubClient } from "./github.ts";
 import {
@@ -411,37 +417,6 @@ describe("refusals", () => {
     expect(writeCalls(fetchMock)).toEqual([]);
   });
 
-  it.each([
-    [403, "Protected branch update failed for refs/heads/trunk."],
-    [
-      403,
-      "Repository rule violations found\n\nChanges must be made through a pull request.\n\n",
-    ],
-    [
-      422,
-      "Repository rule violations found\n\nChanges must be made through a pull request.\n\n",
-    ],
-    [
-      422,
-      "Protected branch update failed for refs/heads/trunk: changes must be made through a pull request.",
-    ],
-  ])(
-    "given a default branch that refuses direct pushes (%s), when it is applied, then it is refused branch_protected and the branch is untouched",
-    async (status, message) => {
-      const { git, plan, apply } = setup({
-        refUpdateFailure: { status, message },
-      });
-      const planned = await plan();
-      const base = git.head;
-
-      const result = await apply(planned);
-
-      expect(result).toEqual({ refused: "branch_protected" });
-      expect(git.created.refUpdates).toHaveLength(1);
-      expect(git.head).toBe(base);
-    },
-  );
-
   it("given a 403 on the update of the branch that does not speak of protection, when it is applied, then the GitHub error propagates", async () => {
     const { git, plan, apply } = setup({
       refUpdateFailure: {
@@ -808,5 +783,501 @@ describe("applyRepoWrite re-reads every create file, even when the head did not 
       created: [AGENT, "a/b/c.md"],
     });
     expect(git.commit(git.head)?.parents).toEqual([base]);
+  });
+});
+
+/** What the default branch answers when it is protected (decision 026 G): both statuses, both texts. */
+const PROTECTED: [number, string][] = [
+  [403, "Protected branch update failed for refs/heads/trunk."],
+  [
+    403,
+    "Repository rule violations found\n\nChanges must be made through a pull request.\n\n",
+  ],
+  [
+    422,
+    "Repository rule violations found\n\nChanges must be made through a pull request.\n\n",
+  ],
+  [
+    422,
+    "Protected branch update failed for refs/heads/trunk: changes must be made through a pull request.",
+  ],
+];
+const protectedBy = (status: number, message: string) => ({
+  refUpdateFailure: { status, message },
+});
+
+describe("applyRepoWrite on a protected default branch opens a pull request (decision 026 G)", () => {
+  it.each(PROTECTED)(
+    "given a default branch that refuses the push (%s), when it is applied, then it returns { commitSha, created, pullRequest: { number, url } } with the url GitHub gave, and the default branch is untouched",
+    async (status, message) => {
+      const { git, plan, apply } = setup(protectedBy(status, message));
+      const planned = await plan();
+      const base = git.head;
+
+      const result = await apply(planned);
+
+      const [commit] = git.created.commits;
+      expect(git.created.commits).toHaveLength(1);
+      expect(result).toEqual({
+        commitSha: commit?.sha,
+        created: CREATED,
+        pullRequest: {
+          number: 1,
+          url: "https://github.com/octocat/app/pull/1",
+        },
+      });
+      // One refused attempt on the default branch, never retried; the default branch did not move.
+      expect(git.created.refUpdates).toEqual([
+        { branch: "trunk", sha: commit?.sha, force: false },
+      ]);
+      expect(git.head).toBe(base);
+      expect(git.filesAt(git.head)).toEqual(INITIAL);
+    },
+  );
+
+  it.each(PROTECTED)(
+    "given a default branch that refuses the push (%s), when it is applied, then a new branch cockpit/<first 7 characters of the commit> points at the commit, created by POST git/refs and never forced",
+    async (status, message) => {
+      const { git, plan, apply } = setup(protectedBy(status, message));
+      const planned = await plan();
+      const base = git.head;
+
+      await apply(planned);
+
+      const sha = git.created.commits[0]?.sha as string;
+      const branch = `cockpit/${sha.slice(0, 7)}`;
+      expect(git.refsCreated).toHaveLength(1);
+      expect(git.refsCreated[0]).toMatchObject({ branch, sha });
+      expect(git.refsCreated[0]?.force).toBeFalsy();
+      expect(git.branch(branch)).toBe(sha);
+      expect(git.commit(sha)?.parents).toEqual([base]);
+      expect(git.filesAt(sha)).toEqual({
+        ...INITIAL,
+        [SKILL]: "skill é ✓\n",
+        "docs/new.md": "# new\n",
+      });
+      expect(git.refsDeleted).toEqual([]);
+    },
+  );
+
+  it.each(PROTECTED)(
+    "given a default branch that refuses the push (%s), when it is applied, then ONE pull request is opened from that branch to the default branch, titled with the commit message, whose body lists the created paths and says « Ouverte par Cockpit »",
+    async (status, message) => {
+      const { fetchMock, git, plan, apply } = setup(
+        protectedBy(status, message),
+      );
+      const planned = await plan();
+
+      await apply(planned);
+
+      const sha = git.created.commits[0]?.sha as string;
+      expect(git.pullRequests).toHaveLength(1);
+      expect(git.pullRequests[0]).toMatchObject({
+        head: `cockpit/${sha.slice(0, 7)}`,
+        base: "trunk",
+        title: MESSAGE,
+      });
+      const body = git.pullRequests[0]?.body ?? "";
+      for (const path of CREATED) expect(body).toContain(path);
+      // The same and exists files are not written, so they are not listed.
+      expect(body).not.toContain("same.txt");
+      expect(body).not.toContain("mine.txt");
+      expect(body).toContain("Ouverte par Cockpit");
+      expect(
+        writeCalls(fetchMock).filter(
+          (call) => call.method === "POST" && call.path.endsWith("/pulls"),
+        ),
+      ).toHaveLength(1);
+    },
+  );
+
+  it("given a default branch that refuses the push and an App without Pull requests: write (the pull request answers 403), when it is applied, then the new branch is deleted and it is refused pull_request_forbidden", async () => {
+    const { fetchMock, git, plan, apply } = setup({
+      ...protectedBy(
+        403,
+        "Protected branch update failed for refs/heads/trunk.",
+      ),
+      pullRequestFailure: {
+        status: 403,
+        message: "Resource not accessible by integration",
+      },
+    });
+    const planned = await plan();
+    const base = git.head;
+
+    const result = await apply(planned);
+
+    const sha = git.created.commits[0]?.sha as string;
+    const branch = `cockpit/${sha.slice(0, 7)}`;
+    expect(result).toEqual({ refused: "pull_request_forbidden" });
+    expect(git.refsCreated).toHaveLength(1);
+    expect(git.refsDeleted).toEqual([branch]);
+    expect(git.branch(branch)).toBeUndefined();
+    expect(git.pullRequests).toEqual([]);
+    expect(git.head).toBe(base);
+    expect(
+      writeCalls(fetchMock).filter((call) => call.method === "DELETE"),
+    ).toMatchObject([{ path: `/repos/octocat/app/git/refs/heads/${branch}` }]);
+  });
+
+  it("given a successful direct push, when it is applied, then it returns exactly { commitSha, created } and no branch and no pull request is made", async () => {
+    const { fetchMock, git, plan, apply } = setup();
+
+    const result = await apply(await plan());
+
+    expect(Object.keys(result).sort()).toEqual(["commitSha", "created"]);
+    expect(result).not.toHaveProperty("pullRequest");
+    expect(git.refsCreated).toEqual([]);
+    expect(git.pullRequests).toEqual([]);
+    expect(
+      writeCalls(fetchMock).filter(
+        (call) =>
+          call.method === "POST" && /\/(pulls|git\/refs)$/.test(call.path),
+      ),
+    ).toEqual([]);
+  });
+
+  it("given a 403 on the update of the default branch that does not speak of protection, when it is applied, then the error propagates and no branch and no pull request is made", async () => {
+    const { git, plan, apply } = setup(
+      protectedBy(403, "Resource not accessible by integration"),
+    );
+    const planned = await plan();
+
+    await expect(apply(planned)).rejects.toMatchObject({ status: 403 });
+    expect(git.refsCreated).toEqual([]);
+    expect(git.pullRequests).toEqual([]);
+  });
+
+  it("given a push landing before the update of the default branch (not a fast forward), when it is applied, then it is refused repo_changed and no branch and no pull request is made", async () => {
+    const { git, plan, apply } = setup();
+    const planned = await plan();
+    git.beforeRefUpdate(() => {
+      git.push({ "late.txt": "too late\n" });
+    });
+
+    const result = await apply(planned);
+
+    expect(result).toEqual({ refused: "repo_changed" });
+    expect(git.refsCreated).toEqual([]);
+    expect(git.pullRequests).toEqual([]);
+  });
+});
+
+/** The reads of the calls after the `from`-th: trees as `<commit sha>[:<dir>]` (the root without the colon), contents as paths, and every other GET path. */
+function reads(fetchMock: ReturnType<typeof stubGitHub>, from = 0) {
+  const gets = githubCalls(fetchMock)
+    .slice(from)
+    .filter((call) => call.method === "GET" && call.path.startsWith("/repos/"));
+  const after = (call: { path: string }, marker: string) =>
+    decodeURIComponent(call.path.split(marker)[1] as string);
+  return {
+    trees: gets
+      .filter((call) => call.path.includes("/git/trees/"))
+      .map((call) => after(call, "/git/trees/").replace(/:$/, "")),
+    contents: gets
+      .filter((call) => call.path.includes("/contents/"))
+      .map((call) => after(call, "/contents/")),
+    others: gets
+      .filter((call) => !/\/(git\/trees|contents)\//.test(call.path))
+      .map((call) => call.path),
+  };
+}
+/** How many times each tree was read. */
+const perTree = (trees: string[]) => {
+  const counts: Record<string, number> = {};
+  for (const tree of trees) counts[tree] = (counts[tree] ?? 0) + 1;
+  return counts;
+};
+const signatureOf = (plan: object) =>
+  (plan as { signature?: unknown }).signature;
+
+describe("never read the same thing twice (decision 026 H)", () => {
+  // 10 files under .claude/agents (a directory that exists), 5 at the root: one same, one exists, three new.
+  const AGENTS = Array.from({ length: 10 }, (_, i) => ({
+    path: `.claude/agents/agent-${i}.md`,
+    content: `agent ${i}\n`,
+  }));
+  const ROOT = [
+    { path: "README.md", content: INITIAL["README.md"] },
+    { path: "mine.txt", content: "ours\n" },
+    { path: "a.md", content: "a\n" },
+    { path: "b.md", content: "b\n" },
+    { path: "c.md", content: "c\n" },
+  ];
+  const MANY = [...AGENTS, ...ROOT];
+  const MANY_CREATED = [
+    ...AGENTS.map((file) => file.path),
+    "a.md",
+    "b.md",
+    "c.md",
+  ];
+  const MANY_REPO = { files: { ...INITIAL, ".claude/agents/other.md": "x\n" } };
+
+  it("given 10 files under .claude/agents and 5 at the root, when they are planned, then the root tree, .claude and .claude/agents are each read exactly once", async () => {
+    const { fetchMock, git, plan } = setup(MANY_REPO);
+
+    const result = await plan(MANY);
+
+    expect(result.files.map((file) => file.status)).toEqual([
+      ...AGENTS.map(() => "create"),
+      "same",
+      "exists",
+      "create",
+      "create",
+      "create",
+    ]);
+    const counts = perTree(reads(fetchMock).trees);
+    expect(counts).toEqual({
+      [git.head]: 1,
+      [`${git.head}:.claude`]: 1,
+      [`${git.head}:.claude/agents`]: 1,
+    });
+  });
+
+  it("given the same plan whose branch moved, when it is applied, then the create files are read again, every tree once, at the new head, and the same and exists files are never read", async () => {
+    const { fetchMock, git, plan, apply } = setup(MANY_REPO);
+    const planned = await plan(MANY);
+    const pushed = git.push({ "other/unrelated.txt": "not ours\n" });
+    const from = githubCalls(fetchMock).length;
+
+    const result = await apply(planned);
+
+    expect(result).toEqual({ commitSha: git.head, created: MANY_CREATED });
+    const { trees, contents } = reads(fetchMock, from);
+    expect(perTree(trees)).toEqual({
+      [pushed]: 1,
+      [`${pushed}:.claude`]: 1,
+      [`${pushed}:.claude/agents`]: 1,
+    });
+    expect(contents).toEqual([]);
+  });
+
+  it("given a plan returned by planRepoWrite, when it is read, then it carries a signature (a non-empty string)", async () => {
+    const { plan } = setup();
+
+    const planned = await plan();
+
+    expect(typeof signatureOf(planned)).toBe("string");
+    expect((signatureOf(planned) as string).length).toBeGreaterThan(0);
+  });
+
+  it("given the plan just returned by planRepoWrite and a head that did not move, when it is applied, then no tree and no contents is read: only the ref (and the base commit) are read, then the three writes are made", async () => {
+    const { fetchMock, git, plan, apply } = setup(MANY_REPO);
+    const planned = await plan(MANY);
+    const base = git.head;
+    const from = githubCalls(fetchMock).length;
+
+    const result = await apply(planned);
+
+    expect(result).toEqual({ commitSha: git.head, created: MANY_CREATED });
+    expect(git.commit(git.head)?.parents).toEqual([base]);
+    const { trees, contents, others } = reads(fetchMock, from);
+    expect(trees).toEqual([]);
+    expect(contents).toEqual([]);
+    for (const path of others)
+      expect(path).toMatch(
+        /^\/repos\/octocat\/app(\/git\/ref\/.+|\/git\/commits\/[0-9a-f]{40})?$/,
+      );
+    expect(
+      writeCalls(fetchMock).map(
+        (call) => `${call.method} ${call.path.split("/").slice(4).join("/")}`,
+      ),
+    ).toEqual([
+      "POST git/trees",
+      "POST git/commits",
+      "PATCH git/refs/heads/trunk",
+    ]);
+  });
+
+  /** A plan of the trusted kind, then what a hand (or a bug) did to it on the way. */
+  const tampered: [
+    string,
+    (plan: Awaited<ReturnType<ReturnType<typeof setup>["plan"]>>) => object,
+  ][] = [
+    [
+      "a status relabelled (exists to create)",
+      (plan) => ({
+        ...plan,
+        files: plan.files.map((file) =>
+          file.path === "mine.txt" ? { ...file, status: "create" } : file,
+        ),
+      }),
+    ],
+    [
+      "a status relabelled (same to create)",
+      (plan) => ({
+        ...plan,
+        files: plan.files.map((file) =>
+          file.path === "README.md" ? { ...file, status: "create" } : file,
+        ),
+      }),
+    ],
+    [
+      "a content changed",
+      (plan) => ({
+        ...plan,
+        files: plan.files.map((file) =>
+          file.path === "a.md" ? { ...file, content: "changed\n" } : file,
+        ),
+      }),
+    ],
+    [
+      "a path added (a file that exists, labelled create)",
+      (plan) => ({
+        ...plan,
+        files: [
+          ...plan.files,
+          { path: "same.txt", content: "ours\n", status: "create" },
+        ],
+      }),
+    ],
+    [
+      "a file removed",
+      (plan) => ({
+        ...plan,
+        files: plan.files.filter((file) => file.path !== "c.md"),
+      }),
+    ],
+    [
+      "the signature removed",
+      (plan) => {
+        const { signature: _signature, ...rest } = plan as typeof plan & {
+          signature?: string;
+        };
+        return rest;
+      },
+    ],
+    [
+      "the signature altered",
+      (plan) => ({
+        ...plan,
+        signature: `${String(signatureOf(plan)).slice(0, -1)}${String(signatureOf(plan)).endsWith("0") ? "1" : "0"}`,
+      }),
+    ],
+    ["the signature emptied", (plan) => ({ ...plan, signature: "" })],
+    ["the signature a number", (plan) => ({ ...plan, signature: 42 })],
+  ];
+
+  it.each(tampered)(
+    "given a signed plan with %s, when it is applied on a head that did not move, then it is not trusted: the create files are read again",
+    async (_name, change) => {
+      const { fetchMock, git, plan, apply } = setup(MANY_REPO);
+      const planned = await plan(MANY);
+      expect(git.head).toBe(planned.baseSha);
+      const from = githubCalls(fetchMock).length;
+
+      await apply(change(planned) as typeof planned);
+
+      const { trees, contents } = reads(fetchMock, from);
+      expect(trees.length + contents.length).toBeGreaterThan(0);
+      // Never more than once per tree, even then.
+      for (const count of Object.values(perTree(trees))) expect(count).toBe(1);
+    },
+  );
+
+  it("given a signed plan whose base was changed to a new head the branch really is at, when it is applied, then it is not trusted and the create files are read again", async () => {
+    const { fetchMock, git, plan, apply } = setup(MANY_REPO);
+    const planned = await plan(MANY);
+    const pushed = git.push({ "other/unrelated.txt": "not ours\n" });
+    const from = githubCalls(fetchMock).length;
+
+    const result = await apply({ ...planned, baseSha: pushed });
+
+    expect(result).toEqual({ commitSha: git.head, created: MANY_CREATED });
+    expect(reads(fetchMock, from).trees.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["exists to create", "mine.txt"],
+    ["same to create", "README.md"],
+  ])(
+    "given a signed plan with a status relabelled (%s), when it is applied on a head that did not move, then it is refused repo_changed and nothing is written",
+    async (_name, path) => {
+      const { fetchMock, git, plan, apply } = setup(MANY_REPO);
+      const planned = await plan(MANY);
+      const base = git.head;
+
+      const result = await apply({
+        ...planned,
+        files: planned.files.map((file) =>
+          file.path === path ? { ...file, status: "create" as const } : file,
+        ),
+      });
+
+      expect(result).toEqual({ refused: "repo_changed" });
+      expect(writeCalls(fetchMock)).toEqual([]);
+      expect(git.head).toBe(base);
+    },
+  );
+
+  it("given a signed plan with a path added that exists, when it is applied on a head that did not move, then it is refused repo_changed and nothing is written", async () => {
+    const { fetchMock, git, plan, apply } = setup(MANY_REPO);
+    const planned = await plan(MANY);
+
+    const result = await apply({
+      ...planned,
+      files: [
+        ...planned.files,
+        { path: "same.txt", content: "ours\n", status: "create" },
+      ],
+    });
+
+    expect(result).toEqual({ refused: "repo_changed" });
+    expect(writeCalls(fetchMock)).toEqual([]);
+    expect(git.filesAt(git.head)).toEqual(MANY_REPO.files);
+  });
+
+  it("given a plan signed by one client and applied by a fresh one (Cockpit restarted), when the head did not move, then it is not trusted: the create files are read again, then the commit is made", async () => {
+    const { fetchMock, git, plan } = setup(MANY_REPO);
+    const planned = await plan(MANY);
+    const restarted = githubClient(githubAppConfig);
+    const from = githubCalls(fetchMock).length;
+
+    const result = await restarted.applyRepoWrite(
+      INSTALLATION_ID,
+      REPO,
+      planned,
+      MESSAGE,
+    );
+
+    expect(result).toEqual({ commitSha: git.head, created: MANY_CREATED });
+    const { trees, contents } = reads(fetchMock, from);
+    expect(trees.length + contents.length).toBeGreaterThan(0);
+    for (const count of Object.values(perTree(trees))) expect(count).toBe(1);
+  });
+
+  it("given a relabelled plan signed by another client, when it is applied by a fresh one, then it is refused repo_changed (a signature of another key is worth nothing)", async () => {
+    const { fetchMock, git, plan } = setup(MANY_REPO);
+    const planned = await plan(MANY);
+    const restarted = githubClient(githubAppConfig);
+
+    const result = await restarted.applyRepoWrite(
+      INSTALLATION_ID,
+      REPO,
+      {
+        ...planned,
+        files: planned.files.map((file) => ({
+          ...file,
+          status: "create" as const,
+        })),
+      },
+      MESSAGE,
+    );
+
+    expect(result).toEqual({ refused: "repo_changed" });
+    expect(writeCalls(fetchMock)).toEqual([]);
+    expect(git.filesAt(git.head)).toEqual(MANY_REPO.files);
+  });
+
+  it("given the same files planned by two clients, when their plans are read, then the signatures differ: the key is drawn per client", async () => {
+    const { plan, git } = setup();
+    const other = githubClient(githubAppConfig);
+
+    const first = await plan();
+    const second = await other.planRepoWrite(INSTALLATION_ID, REPO, FILES);
+
+    expect(git.head).toBe(first.baseSha);
+    expect(typeof signatureOf(first)).toBe("string");
+    expect(signatureOf(second)).not.toBe(signatureOf(first));
   });
 });

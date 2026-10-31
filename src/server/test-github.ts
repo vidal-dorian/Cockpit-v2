@@ -49,6 +49,8 @@ export type FakeGitRepoOptions = {
   empty?: boolean;
   unreachable?: boolean;
   refUpdateFailure?: { status: number; message: string };
+  /** Fails every `POST .../pulls` with that status and message (decision 026 G: 403 plays an App without Pull requests: write). */
+  pullRequestFailure?: { status: number; message: string };
 };
 
 /** The address of the App's webhook the stub starts with: the one of `configureTestInstance` (decision 024 F). */
@@ -189,6 +191,12 @@ export function failOnUnexpectedFetch() {
  * `created` (what the code under test sent: `trees`, `commits`, `refUpdates` with their `force`, every attempt included), `push(files)` (another person's push on the default branch:
  * adds or replaces files in a new commit on the head, returns its sha), `beforeRefUpdate(fn)` (runs `fn` once, right before the next ref update is judged: a push landing at that moment),
  * and the fields `unreachable` (every call on the repo answers 404, the App lost access) and `refUpdateFailure` (`{ status, message }`, fails every ref update, to play a protected branch).
+ * Pull request on a protected branch (decision 026 G): `POST .../git/refs` (`{ ref: "refs/heads/<name>", sha }`: creates a branch, never moves one; 422 "Reference already exists" when the name is taken, by the default branch or by another
+ * branch; 422 when the sha is no known commit; any `force` key is recorded as sent), `DELETE .../git/refs/heads/<name>` (a branch other than the default one; 204, 422 when it does not exist) and `POST .../pulls`
+ * (`{ title, head, base, body }`: `head` must be an existing branch other than the default branch and `base` the default branch, else 422; answers 201 `{ number, html_url }`, numbers start at 1, `html_url` is
+ * `https://github.com/{o}/{r}/pull/{number}`; `pullRequestFailure` fails it). They are recorded apart from `created` (which the older tests compare with `toEqual`) as `git.refsCreated` (`{ branch, sha, force }`),
+ * `git.refsDeleted` (branch names) and `git.pullRequests` (`{ number, head, base, title, body }`); `git.branch(name)` is the sha a branch points at (the default branch included), `undefined` when it does not exist.
+ * `GET .../git/ref/heads/<name>` serves these branches too.
  * `failOn` applies to these repos too. A tree that would replace anything is accepted, as GitHub does: it is the caller's job not to send it. A blob sent over a directory, a symlink, a submodule or a file replaces it (and
  * everything under a directory), and a blob under a path that is a file, a symlink or a submodule replaces that parent by a directory.
  * `gitRepos` entries take `entries` (see `FakeGitEntry`) next to `files`; `push(files, message, entries)` takes them as its third argument, and `git(...).entriesAt(sha)` reads them.
@@ -347,10 +355,30 @@ export function stubGitHub(initial: {
             "initial commit",
           );
       let before: (() => void) | undefined;
+      const otherBranches = new Map<string, string>();
       const git = {
         defaultBranch: opts.defaultBranch ?? "main",
         unreachable: opts.unreachable ?? false,
         refUpdateFailure: opts.refUpdateFailure,
+        pullRequestFailure: opts.pullRequestFailure,
+        /** The branches the code under test created (decision 026 G), in order of creation. */
+        refsCreated: [] as { branch: string; sha: string; force: unknown }[],
+        refsDeleted: [] as string[],
+        pullRequests: [] as {
+          number: number;
+          head: string;
+          base: string;
+          title: string;
+          body: string;
+        }[],
+        /** The sha a branch points at (the default branch included), `undefined` when it does not exist. */
+        branch: (name: string) =>
+          name === git.defaultBranch
+            ? current === null
+              ? undefined
+              : current
+            : otherBranches.get(name),
+        _otherBranches: otherBranches,
         /** What the code under test sent. */
         created: {
           trees: [] as {
@@ -482,7 +510,7 @@ export function stubGitHub(initial: {
         });
       }
       const gitRoute =
-        /^(GET|POST|PATCH) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)((?:\/.*)?)$/.exec(
+        /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)((?:\/.*)?)$/.exec(
           route,
         );
       const git = gitRoute && gitRepos.get(gitRoute[2] as string);
@@ -513,14 +541,14 @@ export function stubGitHub(initial: {
         const ref = /^\/git\/ref\/(.+)$/.exec(rest);
         if (verb === "GET" && ref) {
           if (empty) return reply(409, { message: "Git Repository is empty." });
-          if (
-            decodeURIComponent(ref[1] as string) !==
-            `heads/${git.defaultBranch}`
-          )
-            return reply(404, { message: "Not Found" });
+          const wanted = decodeURIComponent(ref[1] as string);
+          const at = wanted.startsWith("heads/")
+            ? git.branch(wanted.slice("heads/".length))
+            : undefined;
+          if (at === undefined) return reply(404, { message: "Not Found" });
           return reply(200, {
-            ref: `refs/heads/${git.defaultBranch}`,
-            object: { sha: git.head, type: "commit" },
+            ref: `refs/${wanted}`,
+            object: { sha: at, type: "commit" },
           });
         }
         const commitRoute = /^\/git\/commits\/(.+)$/.exec(rest);
@@ -701,6 +729,56 @@ export function stubGitHub(initial: {
           return reply(200, {
             ref: `refs/${name}`,
             object: { sha: sent.sha, type: "commit" },
+          });
+        }
+        if (verb === "POST" && rest === "/git/refs") {
+          const branch = /^refs\/heads\/(.+)$/.exec(String(sent.ref))?.[1];
+          git.refsCreated.push({
+            branch: branch ?? String(sent.ref),
+            sha: String(sent.sha),
+            force: sent.force,
+          });
+          if (!branch || typeof sent.sha !== "string" || !git.commit(sent.sha))
+            return reply(422, { message: "Object does not exist" });
+          if (git.branch(branch) !== undefined)
+            return reply(422, { message: "Reference already exists" });
+          git._otherBranches.set(branch, sent.sha);
+          return reply(201, {
+            ref: sent.ref,
+            object: { sha: sent.sha, type: "commit" },
+          });
+        }
+        const deleted = /^\/git\/refs\/heads\/(.+)$/.exec(rest);
+        if (verb === "DELETE" && deleted) {
+          const branch = decodeURIComponent(deleted[1] as string);
+          git.refsDeleted.push(branch);
+          if (!git._otherBranches.delete(branch))
+            return reply(422, { message: "Reference does not exist" });
+          return new Response(null, { status: 204 });
+        }
+        if (verb === "POST" && rest === "/pulls") {
+          if (git.pullRequestFailure)
+            return reply(git.pullRequestFailure.status, {
+              message: git.pullRequestFailure.message,
+            });
+          if (
+            typeof sent.title !== "string" ||
+            typeof sent.head !== "string" ||
+            !git._otherBranches.has(sent.head) ||
+            sent.base !== git.defaultBranch
+          )
+            return reply(422, { message: "Validation Failed" });
+          const number = git.pullRequests.length + 1;
+          git.pullRequests.push({
+            number,
+            head: sent.head,
+            base: sent.base,
+            title: sent.title,
+            body: typeof sent.body === "string" ? sent.body : "",
+          });
+          return reply(201, {
+            number,
+            html_url: `https://github.com/${gitRoute[2]}/pull/${number}`,
           });
         }
         throw unexpectedFetch(route);
