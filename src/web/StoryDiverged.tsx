@@ -1,16 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useMemo } from "react";
 import { client } from "./api.ts";
+import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { decisionError } from "./tickets.ts";
 import { focusRing } from "./ui.ts";
-
-// The word always comes with the color, so a change never relies on color alone (decision 003).
-const MARKS = {
-  same: { word: "", style: "" },
-  removed: { word: "Retirée", style: "bg-destructive-soft text-destructive" },
-  added: { word: "Ajoutée", style: "bg-done-soft text-done-text" },
-};
 
 const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold disabled:opacity-50 ${focusRing}`;
 
@@ -77,17 +71,7 @@ export function StoryDiverged({
         </p>
       )}
       {lines ? (
-        <ul className="mt-3 grid font-mono text-sm">
-          {lines.map(({ type, text }, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: the lines are never reordered, and two can be equal
-            <li key={index} className={`flex gap-3 px-2 ${MARKS[type].style}`}>
-              <span className="w-16 shrink-0 font-semibold">
-                {MARKS[type].word}
-              </span>
-              <span className="whitespace-pre-wrap break-words">{text}</span>
-            </li>
-          ))}
-        </ul>
+        <DiffList lines={lines} />
       ) : (
         <>
           <h3 className="mt-3 font-semibold">Version de Cockpit</h3>

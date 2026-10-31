@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -7,7 +8,11 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
-import type { githubClient, ReadGitHub } from "./github.ts";
+import {
+  checkWriteFiles,
+  type githubClient,
+  type ReadGitHub,
+} from "./github.ts";
 import { type HealthLine, healthLines, webhookLine } from "./health.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
@@ -15,6 +20,47 @@ const GITHUB_DOWN =
   "GitHub ne répond pas comme prévu, réessaie dans un instant.";
 
 const importBody = z.object({ githubRepoId: z.number().int() });
+
+// The plan as `planRepoWrite` served it and the page hands it back (decision 027 D); the paths are checked by `checkWriteFiles`.
+const prepareBody = z.object({
+  plan: z.object({
+    baseSha: z.string(),
+    signature: z.string().optional(),
+    files: z.array(
+      z.object({
+        path: z.string(),
+        content: z.string(),
+        status: z.enum(["create", "same", "exists"]),
+        current: z.string().optional(),
+      }),
+    ),
+  }),
+});
+
+const PREPARE_MESSAGE = "feat: prepare the repo for Claude (Cockpit)";
+/** Where each file of `catalog/` goes in a repo (decision 027 B). */
+const CATALOG_FILES = [
+  "agents/test-writer.md",
+  "agents/developer.md",
+  "agents/reviewer.md",
+  "skills/dev-us/SKILL.md",
+  "skills/write-us/SKILL.md",
+].map((file) => ({
+  path: `.claude/${file}`,
+  content: readFileSync(
+    new URL(`../../catalog/${file}`, import.meta.url),
+    "utf8",
+  ),
+}));
+const CLAUDE_MD = {
+  path: "CLAUDE.md",
+  content: readFileSync(
+    new URL("../../catalog/CLAUDE.md", import.meta.url),
+    "utf8",
+  ),
+  // Never beside a CLAUDE.md of the project (decision 013 C).
+  unlessExists: ["CLAUDE.md", ".claude/CLAUDE.md"],
+};
 
 const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
@@ -60,7 +106,12 @@ const present = (p: typeof projects.$inferSelect) => ({
 
 type GitHub = ReturnType<typeof githubClient>;
 type Env = {
-  Variables: { github: GitHub; installUrl: string; publicUrl: string };
+  Variables: {
+    github: GitHub;
+    installUrl: string;
+    appSettingsUrl: string;
+    publicUrl: string;
+  };
 };
 
 /** The repos the user opened to the App on GitHub; null when the App is not installed on their account. */
@@ -116,6 +167,7 @@ export function projectRoutes(
     if (!ready) return c.json({ error: NOT_CONFIGURED }, 503);
     c.set("github", ready.github);
     c.set("installUrl", ready.installUrl);
+    c.set("appSettingsUrl", ready.appSettingsUrl);
     c.set("publicUrl", ready.publicUrl);
     await next();
   });
@@ -285,6 +337,94 @@ export function projectRoutes(
       } catch (error) {
         console.error("GitHub request failed:", error);
         return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/projects/:id/prepare", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      if (project.archivedAt) return c.json({ error: "project_archived" }, 409);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const plan = await c
+          .get("github")
+          .planRepoWrite(project.installationId, project.fullName, [
+            ...CATALOG_FILES,
+            CLAUDE_MD,
+          ]);
+        if ("refused" in plan) return c.json({ error: plan.refused }, 409);
+        return c.json({ plan });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/projects/:id/prepare/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      // By hand, not `validator`: a missing or unreadable body must answer our JSON 400 too.
+      const parsed = prepareBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { plan } = parsed.data;
+      try {
+        checkWriteFiles(plan.files);
+      } catch {
+        return c.json({ error: "Bad request" }, 400);
+      }
+      const id = Number(c.req.param("id"));
+      const entry: Entry = {
+        userId: user.userId,
+        actor: "human",
+        origin: "ui",
+        action: "prepare_repo",
+        args: {},
+      };
+      try {
+        const done = await act(db, entry, async (tx) => {
+          const project = await memberProject(tx, user.userId, id);
+          if (!project) throw new Refused("not_found");
+          entry.projectId = id;
+          if (project.archivedAt) throw new Refused("project_archived");
+          const result = await c
+            .get("github")
+            .applyRepoWrite(
+              project.installationId,
+              project.fullName,
+              plan,
+              PREPARE_MESSAGE,
+            );
+          if ("refused" in result) throw new Refused(result.refused);
+          entry.args = { created: result.created.length };
+          entry.githubEffects = {
+            commitSha: result.commitSha,
+            pullRequest: result.pullRequest?.number ?? null,
+          };
+          return result;
+        });
+        return c.json(done);
+      } catch (error) {
+        if (!(error instanceof Refused)) {
+          // `act` has logged it.
+          return c.json({ error: "github_unavailable" }, 502);
+        }
+        if (error.message === "not_found")
+          return c.json({ error: "Not found" }, 404);
+        return error.message === "pull_request_forbidden"
+          ? c.json(
+              {
+                error: error.message,
+                appSettingsUrl: c.get("appSettingsUrl"),
+              },
+              409,
+            )
+          : c.json({ error: error.message }, 409);
       }
     })
     .post("/api/projects/:id/archive", async (c) => {

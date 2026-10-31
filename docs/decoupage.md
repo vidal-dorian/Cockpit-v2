@@ -34,6 +34,7 @@
 - **En cours** : tranche 5.1 (recevoir les webhooks, [décision 024](decisions/024-webhooks.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 5.2 (issue modifiée sur GitHub, [décision 025](decisions/025-issue-modifiee-sur-github.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 6.1 (écrire dans un repo sans rien écraser, [décision 026](decisions/026-ecrire-dans-un-repo.md)) : écrite et testée, en relecture.
+- **En cours** : tranche 6.2 (préparer un repo pour Claude en un clic, [décision 027](decisions/027-preparer-pour-claude.md)) : écrite et testée, en relecture.
 - **Ensuite** : tranche 5.3.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).

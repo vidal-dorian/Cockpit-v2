@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { ProjectKanban } from "./ProjectKanban.tsx";
+import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
@@ -137,6 +138,18 @@ export function ProjectPage() {
                 >
                   Revérifier
                 </button>
+                {project && (
+                  <ProjectPrepare
+                    projectId={id}
+                    fullName={project.fullName}
+                    archived={project.archived}
+                    red={health.data.some(
+                      (line) =>
+                        !line.ok &&
+                        (line.key === "claude_md" || line.key === "agents"),
+                    )}
+                  />
+                )}
               </>
             )}
           </div>

@@ -93,7 +93,7 @@ const MAX_PATH_LENGTH = 255;
 
 /** A file to add to a repo (decision 026). */
 export type WriteFile = { path: string; content: string };
-/** What `planRepoWrite` says of one file: `exists` is never written, `current` is then the text in the repo. */
+/** What `planRepoWrite` says of one file (a file given with `unlessExists`, a list of paths, is left out when any of them is there, decision 027 B): `exists` is never written, `current` is then the text in the repo. */
 export type RepoWritePlan = {
   baseSha: string;
   /** Proves the plan comes from `planRepoWrite` of this client and was not touched (decision 026 H). */
@@ -113,7 +113,7 @@ export type RepoWriteRefusal = {
 };
 
 /** An invalid plan is a programming error (the files come from Cockpit's catalogue), so it throws. */
-function checkWriteFiles(files: WriteFile[]) {
+export function checkWriteFiles(files: WriteFile[]) {
   if (files.length > MAX_WRITE_FILES)
     throw new Error(`At most ${MAX_WRITE_FILES} files per write`);
   const paths = new Set<string>();
@@ -202,8 +202,9 @@ export function githubClient(config: GitHubAppConfig) {
           });
           const branch = repoSchema.parse(data).default_branch;
           const ref = await octokit.request(
-            "GET /repos/{owner}/{repo}/git/ref/{ref}",
-            { owner, repo: name, ref: `heads/${branch}` },
+            // The branch is in the URL itself, each segment encoded, as for its update below: a {ref} would encode the slashes.
+            `GET /repos/{owner}/{repo}/git/ref/heads/${branch.split("/").map(encodeURIComponent).join("/")}`,
+            { owner, repo: name },
           );
           return { branch, sha: refSchema.parse(ref.data).object.sha };
         } catch (error) {
@@ -473,25 +474,38 @@ export function githubClient(config: GitHubAppConfig) {
     async planRepoWrite(
       installationId: number,
       fullName: string,
-      files: WriteFile[],
+      files: (WriteFile & { unlessExists?: string[] })[],
     ): Promise<RepoWritePlan | RepoWriteRefusal> {
       checkWriteFiles(files);
       const repo = await writeAccess(installationId, fullName);
       const head = await repo.head();
       if ("refused" in head) return head;
       const planned = await Promise.all(
-        files.map(async (file): Promise<RepoWritePlan["files"][number]> => {
-          const found = await repo.inspect(file.path, head.sha);
-          if (!found) return { ...file, status: "create" };
-          if (found.text === file.content) return { ...file, status: "same" };
-          return {
-            ...file,
-            status: "exists",
-            ...(found.text !== undefined && { current: found.text }),
-          };
-        }),
+        files.map(
+          async ({
+            unlessExists = [],
+            ...file
+          }): Promise<RepoWritePlan["files"][number] | null> => {
+            // Left out of the plan entirely (so it stays signed) when any of these paths is there, whatever it is.
+            const others = await Promise.all(
+              unlessExists.map((path) => repo.inspect(path, head.sha)),
+            );
+            if (others.some((state) => state !== null)) return null;
+            const found = await repo.inspect(file.path, head.sha);
+            if (!found) return { ...file, status: "create" };
+            if (found.text === file.content) return { ...file, status: "same" };
+            return {
+              ...file,
+              status: "exists",
+              ...(found.text !== undefined && { current: found.text }),
+            };
+          },
+        ),
       );
-      const unsigned = { baseSha: head.sha, files: planned };
+      const unsigned = {
+        baseSha: head.sha,
+        files: planned.filter((file) => file !== null),
+      };
       return { ...unsigned, signature: sign(unsigned) };
     },
 
@@ -708,10 +722,14 @@ export function githubClient(config: GitHubAppConfig) {
   };
 }
 
-/** The client, the App's install page and the instance's public URL, null before the wizard has run. The client is built once and keeps its installation tokens; the public URL is read each time, as the administrator can change it (decision 023 C). */
+/** The client, the App's install and settings pages and the instance's public URL, null before the wizard has run. The client is built once and keeps its installation tokens; the public URL is read each time, as the administrator can change it (decision 023 C). */
 export function githubReader(readInstance: ReadInstance) {
   let built:
-    | { github: ReturnType<typeof githubClient>; installUrl: string }
+    | {
+        github: ReturnType<typeof githubClient>;
+        installUrl: string;
+        appSettingsUrl: string;
+      }
     | undefined;
   return async () => {
     const settings = await readInstance();
@@ -723,6 +741,7 @@ export function githubReader(readInstance: ReadInstance) {
         githubAppPrivateKey: settings.githubPrivateKey,
       }),
       installUrl: `https://github.com/apps/${settings.githubAppSlug}/installations/new`,
+      appSettingsUrl: `https://github.com/settings/apps/${settings.githubAppSlug}`,
     };
     return { ...built, publicUrl: settings.publicUrl };
   };
