@@ -586,7 +586,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
     ],
     [
       "a baseSha in upper case",
-      { plan: { ...valid, baseSha: valid.baseSha.toUpperCase() } },
+      { plan: { ...valid, baseSha: "ABCDEF0123".repeat(4) } },
     ],
     ["a plan whose files is not a list", { plan: { ...valid, files: "x" } }],
     ["a plan with no base", { plan: { files: valid.files } }],
