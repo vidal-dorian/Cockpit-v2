@@ -31,14 +31,21 @@ const installation = z.object({
 });
 // A file as the Contents API serves it (GitHub follows a symlink to a file of the repo); any other object counts as absent.
 const contentsSchema = z.union([
-  z.object({ type: z.literal("file"), content: z.string() }),
+  z.object({
+    type: z.literal("file"),
+    content: z.string(),
+    // "none": a file too large for Contents, whose content is then "".
+    encoding: z.string(),
+  }),
   z.object({ type: z.string() }).transform(() => null),
 ]);
 // A Git tree. `truncated` is GitHub cutting a recursive answer short.
 const treeSchema = z.object({
   sha: z.string(),
   truncated: z.boolean(),
-  tree: z.array(z.object({ path: z.string(), type: z.string() })),
+  tree: z.array(
+    z.object({ path: z.string(), mode: z.string(), type: z.string() }),
+  ),
 });
 const shaSchema = z.object({ sha: z.string() });
 const refSchema = z.object({ object: shaSchema });
@@ -109,7 +116,10 @@ function checkWriteFiles(files: WriteFile[]) {
     if (
       path.length > MAX_PATH_LENGTH ||
       /\p{Cc}/u.test(path) ||
-      segments.some((s) => s === "" || s === "." || s === ".." || s === ".git")
+      segments.some(
+        (s) =>
+          s === "" || s === "." || s === ".." || s.toLowerCase() === ".git",
+      )
     )
       throw new Error(`Invalid path ${JSON.stringify(path)}`);
     if (paths.has(path)) throw new Error(`Path given twice: ${path}`);
@@ -172,20 +182,48 @@ export function githubClient(config: GitHubAppConfig) {
           throw error;
         }
       },
-      /** The text of a file at a commit, null when absent. */
-      async read(path: string, sha: string) {
-        try {
+      /** What is at a path of a commit, from the Git tree of its directory (Contents fails on anything but a regular file): null when absent (`create`), `{ text }` for a regular file (mode 100644 or 100755) that can be read, `{}` for anything else, which must not be written over: a directory, a symlink, a submodule, a file too large to read, or a path under a parent that is not a real directory. A missing directory is absent, as long as the nearest one that exists is a real directory. */
+      async inspect(path: string, sha: string) {
+        const segments = path.split("/");
+        const last = segments.length - 1;
+        // The tree of a directory at the commit, the root being the commit itself: null when it is missing (404), "other" when it is a file, a symlink or a submodule (422).
+        const readDir = async (dir: string) => {
+          try {
+            const { data } = await octokit.request(
+              "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+              {
+                owner,
+                repo: name,
+                tree_sha: dir ? `${sha}:${dir}` : sha,
+              },
+            );
+            return treeSchema.parse(data);
+          } catch (error) {
+            const status = (error as { status?: number }).status;
+            if (status === 404) return null;
+            if (status === 422) return "other" as const;
+            throw error;
+          }
+        };
+        // Walks up from the directory of the file to the first one that exists, at most the depth of the path.
+        for (let depth = last; depth >= 0; depth--) {
+          const tree = await readDir(segments.slice(0, depth).join("/"));
+          if (tree === "other") return {};
+          if (!tree) continue;
+          if (depth < last) return null;
+          const entry = tree.tree.find((e) => e.path === segments[last]);
+          if (!entry) return null;
+          if (entry.type !== "blob" || !/^100(644|755)$/.test(entry.mode))
+            return {};
           const { data } = await octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
             { owner, repo: name, path, ref: sha },
           );
-          // shortcut: a directory at the path counts as absent, so GitHub refuses the tree (422, thrown) at the write; give it its own refusal if it ever happens.
           const file = Array.isArray(data) ? null : contentsSchema.parse(data);
-          return file && Buffer.from(file.content, "base64").toString("utf8");
-        } catch (error) {
-          if (isNotFound(error)) return null;
-          throw error;
+          if (!file || file.encoding === "none") return {};
+          return { text: Buffer.from(file.content, "base64").toString("utf8") };
         }
+        return null;
       },
     };
   };
@@ -408,10 +446,14 @@ export function githubClient(config: GitHubAppConfig) {
       if ("refused" in head) return head;
       const planned = await Promise.all(
         files.map(async (file): Promise<RepoWritePlan["files"][number]> => {
-          const current = await repo.read(file.path, head.sha);
-          if (current === null) return { ...file, status: "create" };
-          if (current === file.content) return { ...file, status: "same" };
-          return { ...file, status: "exists", current };
+          const found = await repo.inspect(file.path, head.sha);
+          if (!found) return { ...file, status: "create" };
+          if (found.text === file.content) return { ...file, status: "same" };
+          return {
+            ...file,
+            status: "exists",
+            ...(found.text !== undefined && { current: found.text }),
+          };
         }),
       );
       return { baseSha: head.sha, files: planned };
@@ -431,13 +473,12 @@ export function githubClient(config: GitHubAppConfig) {
       const repo = await writeAccess(installationId, fullName);
       const head = await repo.head();
       if ("refused" in head) return head;
-      if (head.sha !== plan.baseSha) {
-        const found = await Promise.all(
-          toCreate.map((file) => repo.read(file.path, head.sha)),
-        );
-        if (found.some((content) => content !== null))
-          return { refused: "repo_changed" };
-      }
+      // Always read again, even when the head did not move: the plan may come from far and does not vouch for the repo.
+      const found = await Promise.all(
+        toCreate.map((file) => repo.inspect(file.path, head.sha)),
+      );
+      if (found.some((state) => state !== null))
+        return { refused: "repo_changed" };
       const { octokit, owner, name } = repo;
       const { data: base } = await octokit.request(
         "GET /repos/{owner}/{repo}/git/commits/{commit_sha}",
