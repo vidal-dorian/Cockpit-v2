@@ -488,6 +488,55 @@ describe("refusals", () => {
     expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
   });
 
+  it.each([404, 422])(
+    "given the tree of a directory the root lists answering %i (a lagging replica), when it is planned or applied, then it fails and nothing is written: never create under a directory that exists",
+    async (status) => {
+      const { fetchMock, git, plan, apply } = setup({
+        files: { ...INITIAL, ".claude/settings.json": "{}\n" },
+      });
+      const planned = await plan([{ path: AGENT, content: "agent\n" }]);
+      fetchMock.update({
+        failOn: (call) =>
+          call.method === "GET" &&
+          /\/git\/trees\/[0-9a-f]{40}%3A/.test(call.path) &&
+          status,
+      });
+
+      await expect(
+        plan([{ path: AGENT, content: "agent\n" }]),
+      ).rejects.toThrow();
+      await expect(apply(planned)).rejects.toThrow();
+      expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
+    },
+  );
+
+  it("given the contents of a file the tree lists answering 404 (a lagging replica), when it is planned or applied as create, then it fails and nothing is written", async () => {
+    const { fetchMock, git, client } = setup();
+    const base = git.head;
+    fetchMock.update({
+      failOn: (call) =>
+        call.method === "GET" && /\/contents\//.test(call.path) && 404,
+    });
+
+    await expect(
+      client.planRepoWrite(INSTALLATION_ID, REPO, [
+        { path: "mine.txt", content: "ours\n" },
+      ]),
+    ).rejects.toThrow();
+    await expect(
+      client.applyRepoWrite(
+        INSTALLATION_ID,
+        REPO,
+        {
+          baseSha: base,
+          files: [{ path: "mine.txt", content: "ours\n", status: "create" }],
+        },
+        MESSAGE,
+      ),
+    ).rejects.toThrow();
+    expect(git.created).toEqual({ trees: [], commits: [], refUpdates: [] });
+  });
+
   it.each([
     ["the tree", "POST", /\/git\/trees$/],
     ["the commit", "POST", /\/git\/commits$/],

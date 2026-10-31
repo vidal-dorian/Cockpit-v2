@@ -200,8 +200,14 @@ export function githubClient(config: GitHubAppConfig) {
         let tree = await readDir("");
         for (let depth = 0; ; depth++) {
           const entry = tree.tree.find((e) => e.path === segments[depth]);
-          // shortcut: a truncated listing could hide the entry; GitHub only truncates recursive reads, upgrade if a directory ever holds 100,000 entries.
-          if (!entry) return null;
+          if (!entry) {
+            // A truncated listing could hide the entry: never take it for absent.
+            if (tree.truncated)
+              throw new Error(
+                `Truncated tree at ${segments.slice(0, depth).join("/") || "/"}`,
+              );
+            return null;
+          }
           if (depth < segments.length - 1) {
             if (entry.type !== "tree") return {};
             tree = await readDir(segments.slice(0, depth + 1).join("/"));
