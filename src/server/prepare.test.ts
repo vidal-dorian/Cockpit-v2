@@ -580,6 +580,14 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
     ["a plan that is a string", { plan: "plan" }],
     ["a plan that is null", { plan: null }],
     ["a plan with no files", { plan: { baseSha: valid.baseSha } }],
+    [
+      "a baseSha that is not a commit sha (it would be stored in the history)",
+      { plan: { baseSha: "Jean Dupont, 12 rue X, ".repeat(500), files: [] } },
+    ],
+    [
+      "a baseSha in upper case",
+      { plan: { ...valid, baseSha: valid.baseSha.toUpperCase() } },
+    ],
     ["a plan whose files is not a list", { plan: { ...valid, files: "x" } }],
     ["a plan with no base", { plan: { files: valid.files } }],
     ["a plan whose base is not a string", { plan: { ...valid, baseSha: 12 } }],
@@ -697,6 +705,50 @@ describe("decision 026 D: only the catalogue goes through the apply route", () =
       expect(await prepareRows(ctx)).toEqual([]);
     },
   );
+});
+
+describe("POST /api/projects/:id/prepare/apply holds no database connection during the GitHub write (decisions 016 and 020 F)", () => {
+  it("given GitHub slow to create the commit, when a plan is applied, then another request is served meanwhile", async () => {
+    const ctx = await ready();
+    const plan = await planOf(ctx);
+    const stub = globalThis.fetch;
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reached = () => {};
+    const hit = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (!url.includes("/git/commits")) return stub(input, init);
+        reached();
+        await gate;
+        return stub(input, init);
+      },
+    );
+    const slow = apply(ctx, { plan });
+    await hit;
+
+    // PGlite has one connection: a transaction held by the apply would block this read.
+    const other = Promise.resolve(
+      ctx.app.request("/api/projects", {
+        headers: { cookie: ctx.alice.cookie },
+      }),
+    );
+    const first = await Promise.race([
+      other.then(() => "served"),
+      new Promise((resolve) => setTimeout(() => resolve("blocked"), 2000)),
+    ]);
+    release();
+    await other;
+
+    expect(first).toBe("served");
+    expect((await slow).status).toBe(200);
+  });
 });
 
 describe("decision 027 E: the history of preparing a repo", () => {

@@ -24,7 +24,8 @@ const importBody = z.object({ githubRepoId: z.number().int() });
 // The plan as `planRepoWrite` served it and the page hands it back (decision 027 D); the paths are checked by `checkWriteFiles`.
 const prepareBody = z.object({
   plan: z.object({
-    baseSha: z.string(),
+    // A commit sha only: it ends up in the history, which is never edited (010 D).
+    baseSha: z.string().regex(/^[0-9a-f]{40}$/),
     signature: z.string().optional(),
     files: z.array(
       z.object({
