@@ -739,10 +739,14 @@ describe("POST /api/projects/:id/prepare/apply holds no database connection duri
         headers: { cookie: ctx.alice.cookie },
       }),
     );
+    let timer: NodeJS.Timeout | undefined;
     const first = await Promise.race([
       other.then(() => "served"),
-      new Promise((resolve) => setTimeout(() => resolve("blocked"), 2000)),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve("blocked"), 2000);
+      }),
     ]);
+    clearTimeout(timer);
     release();
     await other;
 
