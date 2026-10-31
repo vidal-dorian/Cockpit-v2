@@ -32,4 +32,7 @@ Le brief (§6.1) veut un bouton « Préparer pour Claude en un clic » : **un se
 
 - **Le `CLAUDE.md` de départ ne remplace pas un vrai** : il fait passer la ligne au vert, mais il faut le remplir ; il le dit lui-même.
 - **Les fichiers déjà là et différents ne sont jamais mis à jour** : un agent modifié à la main reste tel quel, c'est voulu (« sans rien écraser »).
+- **`unlessExists` n'est pas revérifié à l'application** : si `.claude/CLAUDE.md` apparaît entre le plan et l'application, un `CLAUDE.md` à la racine peut encore être ajouté à côté (rien n'est écrasé).
+- **Un `.claude/CLAUDE.md` qui est un dossier** : la 013 C garde la ligne rouge alors que `CLAUDE.md` est laissé de côté, le bouton reste.
+- **Un fichier `exists` modifié à la main de plus de ~230 Ko** fait dépasser au plan la limite de corps de 256 Kio (413).
 - **Non vérifiable ici** : un vrai commit sur un vrai repo (les tests passent par le faux GitHub de la 6.1).

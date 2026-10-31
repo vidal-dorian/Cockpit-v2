@@ -490,6 +490,67 @@ describe("decision 027 F: the commit", () => {
     await waitFor(() => expect(calls.health).toBe(2));
   });
 
+  it("given a pull request opened, when the health is still red, then « Préparer pour Claude » is gone and the link of the pull request stays", async () => {
+    stubApi({
+      applies: [
+        {
+          status: 200,
+          body: {
+            commitSha: SHA,
+            created: [TEST_WRITER],
+            pullRequest: { number: 3, url: PR_URL },
+          },
+        },
+      ],
+    });
+    renderAt("/projets/5");
+    await open();
+
+    fireEvent.click(commitButton());
+
+    await screen.findByText(PROTECTED_SENTENCE);
+    expect(
+      screen.queryByRole("button", { name: "Préparer pour Claude" }),
+    ).toBeNull();
+    expect(
+      screen
+        .getAllByRole("link")
+        .some((a) => a.getAttribute("href") === PR_URL),
+    ).toBe(true);
+  });
+
+  it.each([
+    [400, { error: "Bad request" }],
+    [404, { error: "Not found" }],
+    [500, { error: "Internal Server Error" }],
+  ])(
+    "given the commit answered %s, when the answer comes, then the alert does not blame GitHub",
+    async (status, body) => {
+      stubApi({ applies: [{ status, body }] });
+      renderAt("/projets/5");
+      await open();
+
+      fireEvent.click(commitButton());
+
+      await screen.findByRole("alert");
+      expect(alertText()).not.toContain("GitHub");
+    },
+  );
+
+  it("given a session that ended, when the commit is made, then the alert offers the login", async () => {
+    stubApi({ applies: [{ status: 401, body: { error: "Unauthorized" } }] });
+    renderAt("/projets/5");
+    await open();
+
+    fireEvent.click(commitButton());
+
+    const alert = await screen.findByRole("alert");
+    expect(alertText()).not.toContain("GitHub ne répond pas");
+    expect(within(alert).getByRole("link").getAttribute("href")).toBe(
+      "/api/auth/login",
+    );
+  });
+
   it("given a commit that went straight to the branch, when it is done, then the protected-branch sentence is not shown", async () => {
     stubApi();
     renderAt("/projets/5");

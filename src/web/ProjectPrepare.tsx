@@ -20,18 +20,30 @@ const REFUSALS: Record<string, string> = {
 };
 const UNAVAILABLE =
   "GitHub ne répond pas comme prévu, réessaie dans un instant.";
+const UNAUTHORIZED = "Ta session a expiré : reconnecte-toi, puis recommence.";
+const FAILED = "Ça n'a pas marché, réessaie dans un instant.";
 
 type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
-/** What went wrong, for the page: `code` is the server's, never shown. */
-type Failure = { code: string; settingsUrl?: string };
+/** What went wrong, for the page: `code` is the server's, never shown; `status` is 0 when no answer came. */
+type Failure = { code: string; status: number; settingsUrl?: string };
 type Done = { url: string; pullRequest: boolean };
+
+function message({ code, status }: Failure) {
+  if (REFUSALS[code]) return REFUSALS[code];
+  if (status === 502) return UNAVAILABLE;
+  return status === 401 ? UNAUTHORIZED : FAILED;
+}
 
 async function failure(res: Response): Promise<Failure> {
   const body: { error?: string; appSettingsUrl?: string } | null = await res
     .json()
     .catch(() => null);
-  return { code: body?.error ?? "", settingsUrl: body?.appSettingsUrl };
+  return {
+    code: body?.error ?? "",
+    status: res.status,
+    settingsUrl: body?.appSettingsUrl,
+  };
 }
 
 async function readPlan(id: string) {
@@ -111,7 +123,7 @@ export function ProjectPrepare({
 
   const read = useMutation({
     mutationFn: () => readPlan(projectId),
-    onError: () => setProblem({ code: "" }),
+    onError: () => setProblem({ code: "", status: 0 }),
     onSuccess: (answer) => {
       setPlan(answer.plan ?? null);
       // After a repo_changed the message stays, next to the new list.
@@ -150,12 +162,12 @@ export function ProjectPrepare({
       });
       return queryClient.invalidateQueries({ queryKey: ["health", projectId] });
     },
-    onError: () => setProblem({ code: "" }),
+    onError: () => setProblem({ code: "", status: 0 }),
   });
 
   return (
     <div className="mt-3">
-      {red && (
+      {red && !done?.pullRequest && (
         <button
           type="button"
           disabled={archived || read.isPending || commit.isPending}
@@ -174,7 +186,12 @@ export function ProjectPrepare({
           role="alert"
           className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
         >
-          <p>{REFUSALS[problem.code] ?? UNAVAILABLE}</p>
+          <p>{message(problem)}</p>
+          {problem.status === 401 && (
+            <a href="/api/auth/login" className={`underline ${focusRing}`}>
+              Se connecter avec GitHub
+            </a>
+          )}
           {problem.settingsUrl && (
             <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
               Réglages de l'App sur GitHub

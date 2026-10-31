@@ -62,6 +62,9 @@ const CLAUDE_MD = {
   unlessExists: ["CLAUDE.md", ".claude/CLAUDE.md"],
 };
 
+/** Every file the prepare routes may write (decision 027 B). */
+const PREPARE_FILES = [...CATALOG_FILES, CLAUDE_MD];
+
 const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
   "Cockpit n'est pas encore installé : termine l'assistant de démarrage.";
@@ -353,10 +356,11 @@ export function projectRoutes(
         // A read is not an action: no history entry (decision 013 G).
         const plan = await c
           .get("github")
-          .planRepoWrite(project.installationId, project.fullName, [
-            ...CATALOG_FILES,
-            CLAUDE_MD,
-          ]);
+          .planRepoWrite(
+            project.installationId,
+            project.fullName,
+            PREPARE_FILES,
+          );
         if ("refused" in plan) return c.json({ error: plan.refused }, 409);
         return c.json({ plan });
       } catch (error) {
@@ -375,6 +379,15 @@ export function projectRoutes(
       const { plan } = parsed.data;
       try {
         checkWriteFiles(plan.files);
+        // Only the catalogue goes through this route (decision 026 D: "the files come from the catalogue").
+        for (const file of plan.files) {
+          const known = PREPARE_FILES.find((f) => f.path === file.path);
+          if (
+            !known ||
+            (file.status === "create" && file.content !== known.content)
+          )
+            throw new Error("Not a file of the catalogue");
+        }
       } catch {
         return c.json({ error: "Bad request" }, 400);
       }
@@ -386,46 +399,66 @@ export function projectRoutes(
         action: "prepare_repo",
         args: {},
       };
-      try {
-        const done = await act(db, entry, async (tx) => {
-          const project = await memberProject(tx, user.userId, id);
-          if (!project) throw new Refused("not_found");
-          entry.projectId = id;
-          if (project.archivedAt) throw new Refused("project_archived");
-          const result = await c
-            .get("github")
-            .applyRepoWrite(
-              project.installationId,
-              project.fullName,
-              plan,
-              PREPARE_MESSAGE,
-            );
-          if ("refused" in result) throw new Refused(result.refused);
-          entry.args = { created: result.created.length };
-          entry.githubEffects = {
-            commitSha: result.commitSha,
-            pullRequest: result.pullRequest?.number ?? null,
-          };
-          return result;
-        });
-        return c.json(done);
-      } catch (error) {
-        if (!(error instanceof Refused)) {
-          // `act` has logged it.
-          return c.json({ error: "github_unavailable" }, 502);
+      // Writes the `refused` or `error` entry on its own (`act` rethrows `error`); a failure of the entry itself propagates.
+      const record = async (error: unknown) => {
+        try {
+          await act(db, entry, async () => {
+            throw error;
+          });
+        } catch (thrown) {
+          if (thrown !== error) throw thrown;
         }
-        if (error.message === "not_found")
-          return c.json({ error: "Not found" }, 404);
-        return error.message === "pull_request_forbidden"
+      };
+      // The GitHub calls (up to ~100 s) run with no transaction open (decisions 016 and 020 F): only the entry is written in one.
+      const project = await memberProject(db, user.userId, id);
+      if (!project) {
+        await record(new Refused("not_found"));
+        return c.json({ error: "Not found" }, 404);
+      }
+      entry.projectId = id;
+      if (project.archivedAt) {
+        await record(new Refused("project_archived"));
+        return c.json({ error: "project_archived" }, 409);
+      }
+      let result: Awaited<ReturnType<GitHub["applyRepoWrite"]>>;
+      try {
+        result = await c
+          .get("github")
+          .applyRepoWrite(
+            project.installationId,
+            project.fullName,
+            plan,
+            PREPARE_MESSAGE,
+          );
+      } catch (error) {
+        await record(error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+      if ("refused" in result) {
+        await record(new Refused(result.refused));
+        return result.refused === "pull_request_forbidden"
           ? c.json(
               {
-                error: error.message,
+                error: result.refused,
                 appSettingsUrl: c.get("appSettingsUrl"),
               },
               409,
             )
-          : c.json({ error: error.message }, 409);
+          : c.json({ error: result.refused }, 409);
       }
+      await act(
+        db,
+        {
+          ...entry,
+          args: { created: result.created.length },
+          githubEffects: {
+            commitSha: result.commitSha,
+            pullRequest: result.pullRequest?.number ?? null,
+          },
+        },
+        async () => {},
+      );
+      return c.json(result);
     })
     .post("/api/projects/:id/archive", async (c) => {
       const user = await currentUser(db, c);

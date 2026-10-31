@@ -722,6 +722,10 @@ export function githubClient(config: GitHubAppConfig) {
   };
 }
 
+/** The settings page of the App on GitHub. */
+export const appSettingsUrl = (slug: string) =>
+  `https://github.com/settings/apps/${slug}`;
+
 /** The client, the App's install and settings pages and the instance's public URL, null before the wizard has run. The client is built once and keeps its installation tokens; the public URL is read each time, as the administrator can change it (decision 023 C). */
 export function githubReader(readInstance: ReadInstance) {
   let built:
@@ -741,7 +745,7 @@ export function githubReader(readInstance: ReadInstance) {
         githubAppPrivateKey: settings.githubPrivateKey,
       }),
       installUrl: `https://github.com/apps/${settings.githubAppSlug}/installations/new`,
-      appSettingsUrl: `https://github.com/settings/apps/${settings.githubAppSlug}`,
+      appSettingsUrl: appSettingsUrl(settings.githubAppSlug),
     };
     return { ...built, publicUrl: settings.publicUrl };
   };

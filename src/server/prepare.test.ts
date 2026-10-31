@@ -663,6 +663,42 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
   );
 });
 
+describe("decision 026 D: only the catalogue goes through the apply route", () => {
+  it.each([
+    [
+      "a path that is not in the catalogue",
+      (plan: Plan) => ({
+        ...plan,
+        files: [
+          ...plan.files,
+          { path: "extra.md", content: "x", status: "create" },
+        ],
+      }),
+    ],
+    [
+      "a create file whose content is not the catalogue's",
+      (plan: Plan) => ({
+        ...plan,
+        files: plan.files.map((f) =>
+          f.path === "CLAUDE.md" ? { ...f, content: "changed\n" } : f,
+        ),
+      }),
+    ],
+  ])(
+    "given a plan with %s, when it is applied, then 400, nothing is written and no entry is recorded",
+    async (_name, change) => {
+      const ctx = await ready();
+      const plan = await planOf(ctx);
+
+      const res = await apply(ctx, { plan: change(plan) });
+
+      expect(res.status).toBe(400);
+      noWrite(ctx);
+      expect(await prepareRows(ctx)).toEqual([]);
+    },
+  );
+});
+
 describe("decision 027 E: the history of preparing a repo", () => {
   it("given a plan applied, when it is done, then one ok prepare_repo entry of the human, from the UI, on the project, with the number of files created and the commit", async () => {
     const ctx = await ready();
