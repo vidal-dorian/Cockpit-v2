@@ -170,7 +170,15 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
   | R5 | **Constats de Claude** : bugs, failles, architecture, stack ; page Constats et tri | Une faille trouvée devient un ticket en un clic |
   | R6 | **Constats de GitHub et versions** : alertes Dependabot, code scanning, secret scanning ; fin de vie des runtimes | Node 20 en fin de vie est signalé sur la carte |
 - **Projets** : créer depuis un repo modèle, gérer le repo modèle.
-- **Configuration Claude** : éditer `CLAUDE.md`, règles, agents, skills et `.mcp.json` depuis Cockpit ; configuration globale (repo de plugins).
+- **Équipe d'agents** (demande du 2026-11-03) : `/dev-us` reste le défaut, mais l'utilisateur ajoute, modifie ou retire des agents dans ce schéma, et définit d'autres structures par projet. Quatre tranches, voir [`decisions/028-equipe-d-agents.md`](decisions/028-equipe-d-agents.md) :
+
+  | # | Tranche | Démo |
+  |---|---|---|
+  | E1 | **`/dev-us` lit `.claude/team.md`** (trois étapes par défaut sans fichier), règle `agents` du bilan adaptée | Un `team.md` sans `reviewer` : le bilan reste vert, `/dev-us` saute l'étape |
+  | E2 | **Éditeur d'agent** : nom, description, outils, modèle, prompt, aperçu ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
+  | E3 | **Écran « Équipe »** : étapes, ordre, boucles, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
+  | E4 | **Plusieurs équipes par projet** : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
+- **Configuration Claude** : éditer `CLAUDE.md`, règles, skills et `.mcp.json` depuis Cockpit (les agents : voir « Équipe d'agents ») ; configuration globale (repo de plugins).
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
 - **GitHub** : supprimer la branche d'une US mergée, changelog par projet.
 - **Plusieurs utilisateurs** : invitations, administration, plusieurs membres par projet (008).
