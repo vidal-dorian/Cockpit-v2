@@ -6,7 +6,7 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { instanceSettings, sessions, users } from "./db/schema.ts";
-import type { ReadGitHub } from "./github.ts";
+import { appSettingsUrl, type ReadGitHub } from "./github.ts";
 import {
   type InstanceSettings,
   type ReadInstance,
@@ -96,7 +96,7 @@ export function accountRoutes(
       const { publicUrl, githubAppSlug } = c.get("settings");
       return c.json({
         publicUrl,
-        appSettingsUrl: `https://github.com/settings/apps/${githubAppSlug}`,
+        appSettingsUrl: appSettingsUrl(githubAppSlug),
       });
     })
     .put("/api/settings/public-url", async (c) => {

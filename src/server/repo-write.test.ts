@@ -122,6 +122,37 @@ describe("planRepoWrite", () => {
   });
 });
 
+describe("planRepoWrite with unlessExists", () => {
+  it("given a file with unlessExists, when one of the paths is in the repo or not, then the file is left out of the signed plan or kept without the option", async () => {
+    const { client, apply } = setup();
+    const plan = (unlessExists: string[]) =>
+      client.planRepoWrite(INSTALLATION_ID, REPO, [
+        { path: "docs/new.md", content: "# new\n", unlessExists },
+        { path: "other.md", content: "x\n" },
+      ]);
+
+    const left = await plan(["absent.md", "mine.txt"]);
+    const kept = await plan(["absent.md", "also/absent.md"]);
+
+    expect(left).toMatchObject({
+      files: [{ path: "other.md", status: "create" }],
+    });
+    expect(kept).toMatchObject({
+      files: [
+        { path: "docs/new.md", status: "create" },
+        { path: "other.md", status: "create" },
+      ],
+    });
+    expect((kept as { files: object[] }).files[0]).not.toHaveProperty(
+      "unlessExists",
+    );
+    // Left out, the plan is still the one that was signed.
+    expect(await apply(left as Parameters<typeof apply>[0])).toMatchObject({
+      created: ["other.md"],
+    });
+  });
+});
+
 describe("applyRepoWrite", () => {
   it("given a plan with files to create, when it is applied, then ONE commit on the base adds exactly the create files, as UTF-8 blobs of mode 100644 on the base commit's tree", async () => {
     const { git, plan, apply } = setup();

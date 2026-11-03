@@ -46,6 +46,7 @@ export const ACTIONS: Record<string, string> = {
   issue_diverged: "Issue modifiée sur GitHub",
   keep_cockpit_issue: "Version de Cockpit gardée",
   take_github_issue: "Version de GitHub reprise",
+  prepare_repo: "Préparer pour Claude",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",

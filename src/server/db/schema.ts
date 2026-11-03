@@ -302,12 +302,11 @@ export const history = pgTable(
     args: jsonb("args").notNull().default({}).$type<HistoryArgs>(),
     result: text("result", { enum: ["ok", "error", "refused"] }).notNull(),
     detail: jsonb("detail").$type<Record<string, string>>(),
-    // What a sync_issue did on GitHub (decisions 002 and 020 H).
-    githubEffects: jsonb("github_effects").$type<{
-      issueNumber: number;
-      created: boolean;
-      closed: boolean;
-    }>(),
+    // What a sync_issue (decisions 002 and 020 H) or a prepare_repo (decision 027 E) did on GitHub; the pull request is its number, null when the commit went to the default branch.
+    githubEffects: jsonb("github_effects").$type<
+      | { issueNumber: number; created: boolean; closed: boolean }
+      | { commitSha: string; pullRequest: number | null }
+    >(),
   },
   (t) => [
     check(
