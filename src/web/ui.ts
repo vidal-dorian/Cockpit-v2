@@ -9,7 +9,7 @@ export const markdownStyle =
 // Shapes of decision 028 C, shared so that every screen looks the same.
 
 /** A secondary button, on the raised surface. */
-export const button = `min-h-10 rounded-xl border border-border-strong bg-raised px-4 font-semibold hover:bg-raised-hover disabled:opacity-50 ${focusRing}`;
+export const button = `min-h-10 rounded-xl border border-border bg-raised px-4 font-semibold hover:border-border-strong hover:bg-raised-hover disabled:opacity-50 ${focusRing}`;
 
 /** The one orange button of a zone (decision 003, rule 2); also fits a link. */
 export const primaryButton = `inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 ${focusRing}`;
@@ -25,4 +25,4 @@ export const field = `mt-1 block min-h-10 w-full rounded-xl border border-border
 
 /** A tab of a row of links: the open one is underlined, the others are secondary. */
 export const tabLink = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex min-h-10 items-center border-b-2 px-3 font-semibold ${focusRing} ${isActive ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
+  `inline-flex min-h-10 items-center border-b-2 px-3 font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;

@@ -183,7 +183,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                   disabled={health.isFetching}
                   className={`mt-3 ${button}`}
                 >
-                  Revérifier
+                  {health.isFetching ? "Vérification…" : "Revérifier"}
                 </button>
                 {project && (
                   <ProjectPrepare

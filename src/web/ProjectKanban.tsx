@@ -93,13 +93,16 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                   ) : (
                     <ul className="mt-2 grid gap-2">
                       {cards.map((story) => (
-                        <li key={story.id} className={`${card}`}>
+                        <li
+                          key={story.id}
+                          className={`${card} hover:border-border-strong hover:bg-raised`}
+                        >
                           <Link
                             to={`/us/${story.id}`}
                             className={`block p-4 ${focusRing}`}
                           >
                             {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
-                            <span className="block font-semibold underline">
+                            <span className="block font-semibold">
                               {story.iWant}
                             </span>{" "}
                             <span className="block text-muted-foreground">

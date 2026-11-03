@@ -238,13 +238,15 @@ function TopBar() {
         </nav>
         {account && (
           <div className="ml-auto flex items-center gap-2">
-            <Link
+            <NavLink
               to="/reglages"
               aria-label="Réglages"
-              className={`inline-flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-raised hover:text-foreground ${focusRing}`}
+              className={({ isActive }) =>
+                `inline-flex size-10 items-center justify-center rounded-full ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:bg-raised hover:text-foreground"}`
+              }
             >
               <SettingsIcon />
-            </Link>
+            </NavLink>
             {account.avatarUrl ? (
               <img
                 src={account.avatarUrl}

@@ -119,7 +119,7 @@ export function ConnectClaude() {
                   to="/reglages/jetons"
                   className={`underline ${focusRing}`}
                 >
-                  Les jetons manuels (plus bas)
+                  Les jetons manuels
                 </Link>{" "}
                 restent possibles. Un fichier <code>.mcp.json</code> qui déclare
                 Cockpit masque le connecteur. Les connexions comptent parmi les

@@ -23,7 +23,11 @@ La page « Réglages » (l'icône en forme de roue, en haut à droite) a quatre 
 
 ### La page d'un projet
 
-La page d'un projet a quatre onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude ») et « Écriture des US ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page d'un projet a quatre onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude ») et « Écriture des US ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+### Le Journal
+
+Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### Webhooks GitHub
 

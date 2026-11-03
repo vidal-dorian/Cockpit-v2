@@ -144,6 +144,19 @@ export function Settings({ tab }: { tab: SettingsTab }) {
   });
   if (me.isPending)
     return <p className="p-4 text-muted-foreground">Chargement…</p>;
+  if (me.isError)
+    return (
+      <div role="alert" className={`m-4 ${alertBox}`}>
+        <p>Impossible de lire ton compte : {me.error.message}</p>
+        <button
+          type="button"
+          onClick={() => me.refetch()}
+          className={`mt-3 ${button}`}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
   return (
     <main className="mx-auto max-w-[880px] px-4 py-8 sm:px-7">
       <h1 className="font-heading text-3xl font-extrabold">Réglages</h1>

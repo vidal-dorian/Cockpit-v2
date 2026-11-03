@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
-import { alertBox, button, card, focusRing } from "./ui.ts";
+import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -174,7 +174,7 @@ export function ProjectPrepare({
             setDone(null);
             read.mutate();
           }}
-          className={button}
+          className={primaryButton}
         >
           Préparer pour Claude
         </button>
