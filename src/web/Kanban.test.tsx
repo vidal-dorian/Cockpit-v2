@@ -72,18 +72,15 @@ const onBoard = [
 ];
 
 describe("criterion 2: the Kanban section and its five columns", () => {
-  it("given a project with stories, when /projets/:id loads, then a Kanban section sits above the Tickets section with the five columns in order, each a section with a counted heading and a list", async () => {
+  it("given a project with stories, when /projets/:id loads, then the Kanban section shows the five columns in order, each a section with a counted heading and a list, and the Tickets section is not on this tab (decision 028 G)", async () => {
     stubTicketApi(tickets, onBoard);
 
     renderAt("/projets/5");
 
     await screen.findByRole("heading", { name: "À valider (2)" });
     const heading = screen.getByRole("heading", { name: "Kanban" });
-    const ticketsHeading = screen.getByRole("heading", { name: "Tickets" });
-    expect(
-      heading.compareDocumentPosition(ticketsHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(heading).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Tickets" })).toBeNull();
     const names = within(kanban())
       .getAllByRole("heading")
       .map((h) => h.textContent ?? "")
