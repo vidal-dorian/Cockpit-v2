@@ -1,30 +1,17 @@
 import { asc, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
-import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { instanceSettings, sessions, users } from "./db/schema.ts";
-import { appSettingsUrl, type ReadGitHub } from "./github.ts";
-import {
-  type InstanceSettings,
-  type ReadInstance,
-  WEBHOOK_PATH,
-} from "./instance.ts";
+import { sessions, users } from "./db/schema.ts";
+import type { InstanceSettings, ReadInstance } from "./instance.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
-import { checkPublicUrl } from "./setup.ts";
-
-const publicUrlBody = z.object({ publicUrl: z.string() });
 
 type Env = { Variables: { adminId: number; settings: InstanceSettings } };
 
-/** The administrator's user list and block list (decision 012 G), and the public address (decision 023 C). */
-export function accountRoutes(
-  db: Db,
-  readInstance: ReadInstance,
-  readGitHub: ReadGitHub,
-) {
+/** The administrator's user list and block list (decision 012 G). */
+export function accountRoutes(db: Db, readInstance: ReadInstance) {
   /** 503 before the session check, as the other routes; then 401 without a session and 403 for a non-administrator. */
   const adminOnly = createMiddleware<Env>(async (c, next) => {
     const settings = await readInstance();
@@ -91,47 +78,6 @@ export function accountRoutes(
         .from(users)
         .orderBy(asc(users.id));
       return c.json({ users: all });
-    })
-    .get("/api/settings/public-url", async (c) => {
-      const { publicUrl, githubAppSlug } = c.get("settings");
-      return c.json({
-        publicUrl,
-        appSettingsUrl: appSettingsUrl(githubAppSlug),
-      });
-    })
-    .put("/api/settings/public-url", async (c) => {
-      const body = publicUrlBody.safeParse(
-        await c.req.json().catch(() => null),
-      );
-      if (!body.success) return c.json({ error: "Bad request" }, 400);
-      const checked = checkPublicUrl(body.data.publicUrl);
-      if (checked.error !== undefined)
-        return c.json({ error: checked.error }, 400);
-      // Neither address in the entry (decision 010 D).
-      const entry: Entry = {
-        userId: c.get("adminId"),
-        actor: "human",
-        origin: "ui",
-        action: "change_public_url",
-        args: {},
-      };
-      await act(db, entry, async (tx) => {
-        await tx
-          .update(instanceSettings)
-          .set({ publicUrl: checked.origin })
-          .where(eq(instanceSettings.id, 1));
-      });
-      readInstance.forget();
-      // The new address is already in use; if GitHub is not told, the page asks for it by hand (decision 024 G).
-      let webhookUpdated = false;
-      try {
-        const ready = await readGitHub();
-        await ready?.github.setWebhookUrl(`${checked.origin}${WEBHOOK_PATH}`);
-        webhookUpdated = ready !== null;
-      } catch (error) {
-        console.error("GitHub webhook update failed:", error);
-      }
-      return c.json({ publicUrl: checked.origin, webhookUpdated });
     })
     .post("/api/settings/users/:id/block", (c) => setBlocked(c, true))
     .post("/api/settings/users/:id/unblock", (c) => setBlocked(c, false));
