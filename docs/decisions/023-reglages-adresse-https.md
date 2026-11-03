@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md), [021 — Connecter Claude](021-connecter-claude.md), [022 — Routine d'écriture des US](022-routine-ecriture-us.md), [010 — Historique](010-historique.md)
 - **Modifie** : la [012](012-configuration-automatique.md), choix C (détection de l'adresse, et `https://` exigé)
+- **Modifiée par 028** : la section « Adresse publique » de Réglages et `GET`/`PUT /api/settings/public-url` disparaissent (choix C), Réglages a quatre onglets (choix E) — voir la [028](028-creme-sombre-onglets-journal.md)
 - **Modifiée par 024** : les choix C et G ne demandent plus à l'administrateur de changer l'adresse du webhook à la main sur GitHub : Cockpit le fait (`PATCH /app/hook/config`), et la page ne le demande que si cela échoue — voir la [024](024-webhooks.md), choix G
 - **Répond à** : la demande du 2026-10-30 : « Claude attend un lien https et tu m'en donnes un http » ; « la partie dépliante, nomme-la "Connecter Claude depuis le CLI Claude Code" » ; « la création de la routine dans un onglet de la page Réglages »
 

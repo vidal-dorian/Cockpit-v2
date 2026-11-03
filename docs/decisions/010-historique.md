@@ -4,6 +4,7 @@
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [008 — Service en ligne](008-service-en-ligne.md), [009 — Connexion avec GitHub](009-connexion-github.md)
+- **Modifiée par 028** : `GET /api/history` rend 25 entrées par page, `{ entries, hasMore }`, et `?before=<id>` pour la suivante — voir la [028](028-creme-sombre-onglets-journal.md), choix F
 - **Tranche** : 1.4 du [découpage](../decoupage.md)
 - **Règle** : le point ouvert 4 de la [008](008-service-en-ligne.md) (données personnelles dans les `args`)
 

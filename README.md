@@ -19,11 +19,11 @@ Une App créée avant la [décision 026](docs/decisions/026-ecrire-dans-un-repo.
 
 ### Réglages
 
-La page « Réglages » a deux onglets : « Général » (Connecter Claude, Adresse publique et Utilisateurs pour l'administrateur, Jetons MCP) et « Écriture automatique des US » (voir plus bas).
+La page « Réglages » (l'icône en forme de roue, en haut à droite) a quatre onglets : « Connecter Claude », « Jetons MCP », « Utilisateurs » (pour l'administrateur seulement) et « Écriture automatique des US » (voir plus bas). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
-### Corriger l'adresse publique d'une instance installée
+### La page d'un projet
 
-Si Cockpit a été installé avec une mauvaise adresse (par exemple en `http://` derrière un tunnel), l'administrateur ouvre « Réglages », section « Adresse publique », tape la nouvelle adresse et clique « Enregistrer l'adresse » : Cockpit l'utilise tout de suite, sans redémarrer. **Avant**, sur GitHub, dans les réglages de l'App (le lien est dans la section, `https://github.com/settings/apps/<slug>`) : ajouter l'adresse de retour `<nouvelle adresse>/api/auth/callback` (sinon la connexion GitHub échoue). Cockpit change lui-même l'adresse du webhook de l'App (`<nouvelle adresse>/api/webhooks/github`) ; s'il n'y arrive pas, la page le dit et demande de la changer à la main. Décision [024](docs/decisions/024-webhooks.md). Un connecteur déjà ajouté sur claude.ai avec l'ancienne adresse est à rajouter. Décision [023](docs/decisions/023-reglages-adresse-https.md).
+La page d'un projet a quatre onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude ») et « Écriture des US ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### Webhooks GitHub
 
