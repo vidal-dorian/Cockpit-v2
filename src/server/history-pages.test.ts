@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
@@ -201,7 +202,7 @@ describe("GET /api/history, the pages (decision 028 F)", () => {
 });
 
 describe("GET /api/history, an invalid cursor (decision 028 F)", () => {
-  it.each(["abc", "0", "-1"])(
+  it.each(["abc", "0", "-1", "2147483648", "9007199254740991"])(
     "given before=%s, when the history is requested, then it answers 400 invalid_cursor",
     async (before) => {
       const { app, db } = await setup();
@@ -241,5 +242,66 @@ describe("GET /api/history, an invalid cursor (decision 028 F)", () => {
     const res = await app.request("/api/history?before=1");
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe("GET /api/history, microsecond timestamps (decision 028 F)", () => {
+  /** Walks the pages with ?before and returns every page. */
+  async function walk(app: ReturnType<typeof createApp>, cookie: string) {
+    const pages: Page[] = [];
+    let query = "";
+    for (let guard = 0; guard < 6; guard++) {
+      const page = (await (await ask(app, cookie, query)).json()) as Page;
+      pages.push(page);
+      const last = page.entries.at(-1);
+      if (!page.hasMore || !last) break;
+      query = `?before=${last.id}`;
+    }
+    return pages;
+  }
+
+  /** The ids of the user in the order of the journal, read by the database itself. */
+  async function journalOrder(db: TestDb, userId: number) {
+    const rows = await db.execute(
+      sql`select id from history where user_id = ${userId} order by at desc, id desc`,
+    );
+    return (rows.rows as { id: number }[]).map((r) => r.id);
+  }
+
+  it("given 30 entries at distinct microseconds of the same millisecond, when the pages are followed, then page 1 holds 25 with hasMore true, page 2 the 5 others with hasMore false, and every entry appears once in the order of the journal", async () => {
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1);
+    await db.execute(sql`
+      insert into history (user_id, actor, origin, action, result, at)
+      select ${a.id}, 'human', 'ui', 'login', 'ok',
+        timestamptz '2026-01-01 00:00:00.123000+00' + make_interval(secs => g / 1000000.0)
+      from generate_series(1, 30) g`);
+
+    const pages = await walk(app, a.cookie);
+
+    expect(pages.map((p) => p.entries.length)).toEqual([25, 5]);
+    expect(pages.map((p) => p.hasMore)).toEqual([true, false]);
+    expect(pages.flatMap((p) => p.entries.map((e) => e.id))).toEqual(
+      await journalOrder(db, a.id),
+    );
+  });
+
+  it("given groups of entries sharing exactly the same microsecond, when the cursor sits among a group, then the pages still hold every entry once in the order of the journal", async () => {
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1);
+    // 10 instants of 3 entries each, the earliest ids on the latest instants; the page boundary (25) falls inside a group.
+    await db.execute(sql`
+      insert into history (user_id, actor, origin, action, result, at)
+      select ${a.id}, 'human', 'ui', 'login', 'ok',
+        timestamptz '2026-01-01 00:00:00.123000+00' + make_interval(secs => (30 - g) / 3 / 1000000.0)
+      from generate_series(1, 30) g`);
+
+    const pages = await walk(app, a.cookie);
+
+    expect(pages.map((p) => p.entries.length)).toEqual([25, 5]);
+    expect(pages.map((p) => p.hasMore)).toEqual([true, false]);
+    const ids = pages.flatMap((p) => p.entries.map((e) => e.id));
+    expect(new Set(ids).size).toBe(30);
+    expect(ids).toEqual(await journalOrder(db, a.id));
   });
 });

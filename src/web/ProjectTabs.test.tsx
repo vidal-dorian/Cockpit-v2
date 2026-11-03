@@ -303,3 +303,27 @@ describe("Project page, an unknown project (decision 028 G)", () => {
     },
   );
 });
+
+describe("Project page, switching tabs (decision 028 G)", () => {
+  it("given the tabs clicked one after the other, when the user goes Tickets, Santé, Écriture des US, Kanban, Santé, then the health is read exactly once", async () => {
+    const calls = stubApi();
+    renderAt("/projets/5");
+    const { find } = await tabs();
+    await screen.findByRole("heading", { level: 2, name: "Kanban" });
+
+    for (const name of [
+      "Tickets",
+      "Santé",
+      "Écriture des US",
+      "Kanban",
+      "Santé",
+    ] as const) {
+      fireEvent.click(find(name) as HTMLElement);
+      await screen.findByRole("heading", { level: 2, name: SECTIONS[name] });
+    }
+
+    expect(
+      calls.filter((c) => c === "GET /api/projects/5/health"),
+    ).toHaveLength(1);
+  });
+});
