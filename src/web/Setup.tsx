@@ -20,7 +20,11 @@ const PERMISSIONS = [
     "lecture et écriture",
     "suivre tes user stories et, plus tard, les créer.",
   ],
-  ["Pull requests", "lecture", "suivre l'avancement des PR de Claude."],
+  [
+    "Pull requests",
+    "lecture et écriture",
+    "suivre l'avancement des PR de Claude et, si la branche par défaut est protégée, ouvrir une PR au lieu d'y écrire.",
+  ],
   [
     "Vérifications et statuts",
     "lecture",

@@ -205,3 +205,74 @@ describe("stubGitHub issues (slice 4.6)", () => {
     expect((await call("PATCH", "/issues/1", { title: "u" })).status).toBe(200);
   });
 });
+
+describe("stubGitHub with a Git history (gitRepos, decision 026)", () => {
+  const api = (method: string, path: string, body?: unknown) =>
+    fetch(`https://api.github.com/repos/o/r${path}`, {
+      method,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+  it("given a push after a commit was made, when the branch is moved to that commit without force, then 422 not a fast forward; with force it moves", async () => {
+    const github = stubGitHub({
+      account: 1,
+      gitRepos: { "o/r": { files: { "a.txt": "a" } } },
+    });
+    const git = github.git("o/r");
+    const base = git.head;
+    const tree = (
+      await (
+        await api("POST", "/git/trees", {
+          base_tree: git.commit(base)?.tree,
+          tree: [{ path: "b.txt", mode: "100644", type: "blob", content: "b" }],
+        })
+      ).json()
+    ).sha;
+    const { sha } = await (
+      await api("POST", "/git/commits", {
+        message: "m",
+        tree,
+        parents: [base],
+      })
+    ).json();
+    git.push({ "c.txt": "c" });
+
+    const refused = await api("PATCH", "/git/refs/heads/main", {
+      sha,
+      force: false,
+    });
+    const forced = await api("PATCH", "/git/refs/heads/main", {
+      sha,
+      force: true,
+    });
+
+    expect(refused.status).toBe(422);
+    expect(forced.status).toBe(200);
+    expect(git.head).toBe(sha);
+    expect(git.created.refUpdates.map((u) => u.force)).toEqual([false, true]);
+  });
+
+  it("given an empty repo, a missing file and a repo the App lost, when they are read, then 409 on the ref, 404 on the file and 404 on everything", async () => {
+    const github = stubGitHub({
+      account: 1,
+      gitRepos: {
+        "o/r": { files: { "a.txt": "a" } },
+        "o/empty": { empty: true },
+      },
+    });
+    const git = github.git("o/r");
+
+    expect(
+      (await fetch("https://api.github.com/repos/o/empty/git/ref/heads/main"))
+        .status,
+    ).toBe(409);
+    expect(
+      (await api("GET", `/contents/nope.txt?ref=${git.head}`)).status,
+    ).toBe(404);
+    expect((await api("GET", `/contents/a.txt?ref=${git.head}`)).status).toBe(
+      200,
+    );
+    git.unreachable = true;
+    expect((await api("GET", "")).status).toBe(404);
+  });
+});

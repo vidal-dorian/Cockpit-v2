@@ -290,7 +290,7 @@ describe("POST /api/setup/start", () => {
     });
   });
 
-  it("given the right start code, when the wizard starts, then the manifest asks for the whole MVP permissions and events, under a name GitHub accepts", async () => {
+  it("given the right start code, when the wizard starts, then the manifest asks for the whole MVP permissions (Pull requests in write, decision 012 D amended by 026 G) and events, under a name GitHub accepts", async () => {
     const { app } = await freshInstance();
 
     const res = await postStart(app, { code: CODE, publicUrl: PUBLIC_URL });
@@ -306,7 +306,7 @@ describe("POST /api/setup/start", () => {
       metadata: "read",
       contents: "write",
       issues: "write",
-      pull_requests: "read",
+      pull_requests: "write",
       checks: "read",
       statuses: "read",
       actions: "read",

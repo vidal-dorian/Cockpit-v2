@@ -1,3 +1,4 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { App } from "@octokit/app";
 import { Octokit } from "@octokit/core";
 import { z } from "zod";
@@ -31,14 +32,27 @@ const installation = z.object({
 });
 // A file as the Contents API serves it (GitHub follows a symlink to a file of the repo); any other object counts as absent.
 const contentsSchema = z.union([
-  z.object({ type: z.literal("file"), content: z.string() }),
+  z.object({
+    type: z.literal("file"),
+    content: z.string(),
+    // "none": a file too large for Contents, whose content is then "".
+    encoding: z.string(),
+  }),
   z.object({ type: z.string() }).transform(() => null),
 ]);
 // A Git tree. `truncated` is GitHub cutting a recursive answer short.
 const treeSchema = z.object({
   sha: z.string(),
   truncated: z.boolean(),
-  tree: z.array(z.object({ path: z.string(), type: z.string() })),
+  tree: z.array(
+    z.object({ path: z.string(), mode: z.string(), type: z.string() }),
+  ),
+});
+const shaSchema = z.object({ sha: z.string() });
+const refSchema = z.object({ object: shaSchema });
+const pullRequestSchema = z.object({
+  number: z.number().int(),
+  html_url: z.string(),
 });
 const repoSchema = z.object({
   id: z.number().int(),
@@ -72,6 +86,61 @@ export type RepoFiles = {
 const isNotFound = (error: unknown) =>
   (error as { status?: number }).status === 404;
 
+// Decision 026 D: what a plan to write may hold.
+const MAX_WRITE_FILES = 50;
+const MAX_WRITE_BYTES = 1_048_576;
+const MAX_PATH_LENGTH = 255;
+
+/** A file to add to a repo (decision 026). */
+export type WriteFile = { path: string; content: string };
+/** What `planRepoWrite` says of one file: `exists` is never written, `current` is then the text in the repo. */
+export type RepoWritePlan = {
+  baseSha: string;
+  /** Proves the plan comes from `planRepoWrite` of this client and was not touched (decision 026 H). */
+  signature?: string;
+  files: (WriteFile & {
+    status: "create" | "same" | "exists";
+    current?: string;
+  })[];
+};
+/** Why a write is refused (decision 026 C, E and G); refusals are returned, not thrown. */
+export type RepoWriteRefusal = {
+  refused:
+    | "empty_repo"
+    | "repo_unreachable"
+    | "repo_changed"
+    | "pull_request_forbidden";
+};
+
+/** An invalid plan is a programming error (the files come from Cockpit's catalogue), so it throws. */
+function checkWriteFiles(files: WriteFile[]) {
+  if (files.length > MAX_WRITE_FILES)
+    throw new Error(`At most ${MAX_WRITE_FILES} files per write`);
+  const paths = new Set<string>();
+  let bytes = 0;
+  for (const { path, content } of files) {
+    const segments = path.split("/");
+    if (
+      path.length > MAX_PATH_LENGTH ||
+      /\p{Cc}/u.test(path) ||
+      segments.some(
+        (s) =>
+          s === "" || s === "." || s === ".." || s.toLowerCase() === ".git",
+      )
+    )
+      throw new Error(`Invalid path ${JSON.stringify(path)}`);
+    if (paths.has(path)) throw new Error(`Path given twice: ${path}`);
+    paths.add(path);
+    bytes += Buffer.byteLength(content);
+  }
+  // One tree cannot hold a file and a directory of the same name.
+  for (const path of paths)
+    if ([...paths].some((other) => other.startsWith(`${path}/`)))
+      throw new Error(`Path is also a directory: ${path}`);
+  if (bytes > MAX_WRITE_BYTES)
+    throw new Error(`At most ${MAX_WRITE_BYTES} bytes per write`);
+}
+
 /** The labels of an issue as GitHub answers them, reduced to their names. */
 const labelsSchema = z
   .array(z.object({ name: z.string() }))
@@ -92,6 +161,107 @@ export function githubClient(config: GitHubAppConfig) {
     appId: config.githubAppId,
     privateKey: config.githubAppPrivateKey,
   });
+
+  // Drawn with the client, so a plan signed before a restart is not trusted (decision 026 H). `current` is left out: it is only shown, never written.
+  const signingKey = randomBytes(32);
+  const sign = ({ baseSha, files }: Omit<RepoWritePlan, "signature">) =>
+    createHmac("sha256", signingKey)
+      .update(
+        JSON.stringify([
+          baseSha,
+          files.map((f) => [f.path, f.status, f.content]),
+        ]),
+      )
+      .digest("hex");
+  const isSigned = (plan: RepoWritePlan) => {
+    const expected = Buffer.from(sign(plan));
+    const given = Buffer.from(
+      typeof plan.signature === "string" ? plan.signature : "",
+    );
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  };
+
+  /** What reading and writing one repo needs (decision 026), as the installation. */
+  const writeAccess = async (installationId: number, fullName: string) => {
+    const [owner, name] = fullName.split("/") as [string, string];
+    const octokit = await app.getInstallationOctokit(installationId);
+    // Each directory tree is read once per call, the reads in flight being shared by all the files (decision 026 H).
+    const trees = new Map<string, Promise<z.infer<typeof treeSchema>>>();
+    return {
+      octokit,
+      owner,
+      name,
+      /** The default branch and the commit it points to; a refusal when the repo is out of reach (404) or has no commit (409). */
+      async head(): Promise<
+        { branch: string; sha: string } | RepoWriteRefusal
+      > {
+        try {
+          const { data } = await octokit.request("GET /repos/{owner}/{repo}", {
+            owner,
+            repo: name,
+          });
+          const branch = repoSchema.parse(data).default_branch;
+          const ref = await octokit.request(
+            "GET /repos/{owner}/{repo}/git/ref/{ref}",
+            { owner, repo: name, ref: `heads/${branch}` },
+          );
+          return { branch, sha: refSchema.parse(ref.data).object.sha };
+        } catch (error) {
+          if (isNotFound(error))
+            return { refused: "repo_unreachable" as const };
+          if ((error as { status?: number }).status === 409)
+            return { refused: "empty_repo" as const };
+          throw error;
+        }
+      },
+      /** What is at a path of a commit: null when absent (`create`), `{ text }` for a regular file (mode 100644 or 100755) that can be read, `{}` for anything else, which must not be written over: a directory, a symlink, a submodule, a file too large to read, or a path under a parent that is not a real directory. Walks down from the root through entries of type `tree` only, so what GitHub answers for a submodule's path (404, 422 or even 200) never matters. */
+      async inspect(path: string, sha: string) {
+        const segments = path.split("/");
+        // A directory that its parent lists as a tree (the root being the commit itself): any other answer is GitHub lagging behind or changing under us, never an empty place to write into.
+        const readDir = (dir: string) => {
+          const treeish = dir ? `${sha}:${dir}` : sha;
+          let read = trees.get(treeish);
+          if (!read) {
+            read = octokit
+              .request("GET /repos/{owner}/{repo}/git/trees/{tree_sha}", {
+                owner,
+                repo: name,
+                tree_sha: treeish,
+              })
+              .then(({ data }) => treeSchema.parse(data));
+            trees.set(treeish, read);
+          }
+          return read;
+        };
+        let tree = await readDir("");
+        for (let depth = 0; ; depth++) {
+          const entry = tree.tree.find((e) => e.path === segments[depth]);
+          if (!entry) {
+            // A truncated listing could hide the entry: never take it for absent.
+            if (tree.truncated)
+              throw new Error(
+                `Truncated tree at ${segments.slice(0, depth).join("/") || "/"}`,
+              );
+            return null;
+          }
+          if (depth < segments.length - 1) {
+            if (entry.type !== "tree") return {};
+            tree = await readDir(segments.slice(0, depth + 1).join("/"));
+            continue;
+          }
+          if (entry.type !== "blob" || !/^100(644|755)$/.test(entry.mode))
+            return {};
+          const { data } = await octokit.request(
+            "GET /repos/{owner}/{repo}/contents/{path}",
+            { owner, repo: name, path, ref: sha },
+          );
+          const file = Array.isArray(data) ? null : contentsSchema.parse(data);
+          if (!file || file.encoding === "none") return {};
+          return { text: Buffer.from(file.content, "base64").toString("utf8") };
+        }
+      },
+    };
+  };
 
   return {
     /** The installation of this personal account, or null when the App is not installed or the account is someone else's. */
@@ -297,6 +467,169 @@ export function githubClient(config: GitHubAppConfig) {
     async setWebhookUrl(url: string) {
       // `data`, not a bare `url`: Octokit would take that one for the address of the request.
       await app.octokit.request("PATCH /app/hook/config", { data: { url } });
+    },
+
+    /** What writing `files` into the default branch would do (decision 026 A): each file is `create`, `same` or `exists` (never overwritten). Refused when the repo is empty or out of reach. Reads only. Throws on an invalid plan and on any other GitHub error. */
+    async planRepoWrite(
+      installationId: number,
+      fullName: string,
+      files: WriteFile[],
+    ): Promise<RepoWritePlan | RepoWriteRefusal> {
+      checkWriteFiles(files);
+      const repo = await writeAccess(installationId, fullName);
+      const head = await repo.head();
+      if ("refused" in head) return head;
+      const planned = await Promise.all(
+        files.map(async (file): Promise<RepoWritePlan["files"][number]> => {
+          const found = await repo.inspect(file.path, head.sha);
+          if (!found) return { ...file, status: "create" };
+          if (found.text === file.content) return { ...file, status: "same" };
+          return {
+            ...file,
+            status: "exists",
+            ...(found.text !== undefined && { current: found.text }),
+          };
+        }),
+      );
+      const unsigned = { baseSha: head.sha, files: planned };
+      return { ...unsigned, signature: sign(unsigned) };
+    },
+
+    /** Adds the `create` files of the plan in ONE commit on the default branch, and nothing else (decision 026 A to C). The files to create are read again at the head of the branch (`repo_changed` when one is no longer absent), unless the plan is signed by this client and the branch is still at its base (decision 026 H). The branch is advanced without force, once; when it is protected, the commit goes to a branch `cockpit/<7>` and a pull request is opened (G). With nothing to create nothing is called and `commitSha` is the plan's base. */
+    async applyRepoWrite(
+      installationId: number,
+      fullName: string,
+      plan: RepoWritePlan,
+      message: string,
+    ): Promise<
+      | {
+          commitSha: string;
+          created: string[];
+          pullRequest?: { number: number; url: string };
+        }
+      | RepoWriteRefusal
+    > {
+      checkWriteFiles(plan.files);
+      const toCreate = plan.files.filter((file) => file.status === "create");
+      if (toCreate.length === 0)
+        return { commitSha: plan.baseSha, created: [] };
+      const repo = await writeAccess(installationId, fullName);
+      const head = await repo.head();
+      if ("refused" in head) return head;
+      if (!(isSigned(plan) && head.sha === plan.baseSha)) {
+        const found = await Promise.all(
+          toCreate.map((file) => repo.inspect(file.path, head.sha)),
+        );
+        if (found.some((state) => state !== null))
+          return { refused: "repo_changed" };
+      }
+      const { octokit, owner, name } = repo;
+      const { data: base } = await octokit.request(
+        "GET /repos/{owner}/{repo}/git/commits/{commit_sha}",
+        { owner, repo: name, commit_sha: head.sha },
+      );
+      const { data: tree } = await octokit.request(
+        "POST /repos/{owner}/{repo}/git/trees",
+        {
+          owner,
+          repo: name,
+          base_tree: shaSchema.parse(base.tree).sha,
+          tree: toCreate.map((file) => ({
+            path: file.path,
+            mode: "100644" as const,
+            type: "blob" as const,
+            content: file.content,
+          })),
+        },
+      );
+      const { data: commit } = await octokit.request(
+        "POST /repos/{owner}/{repo}/git/commits",
+        {
+          owner,
+          repo: name,
+          message,
+          tree: shaSchema.parse(tree).sha,
+          parents: [head.sha],
+        },
+      );
+      const commitSha = shaSchema.parse(commit).sha;
+      try {
+        await octokit.request(
+          // The branch is in the URL itself, each segment encoded: a {ref} would encode its slashes, and a raw `#` or `{` would change the URL.
+          `PATCH /repos/{owner}/{repo}/git/refs/heads/${head.branch.split("/").map(encodeURIComponent).join("/")}`,
+          { owner, repo: name, sha: commitSha, force: false },
+        );
+      } catch (error) {
+        const { status, message: reason } = error as {
+          status?: number;
+          message: string;
+        };
+        // Both the texts of a protected branch and of a ruleset; 403 or 422 depending on the rule (decision 026 G).
+        if (
+          (status === 403 || status === 422) &&
+          /protected branch|rule violation/i.test(reason)
+        ) {
+          const branch = `cockpit/${commitSha.slice(0, 7)}`;
+          const created = toCreate.map((file) => file.path);
+          await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
+            owner,
+            repo: name,
+            ref: `refs/heads/${branch}`,
+            sha: commitSha,
+          });
+          let data: unknown;
+          try {
+            ({ data } = await octokit.request(
+              "POST /repos/{owner}/{repo}/pulls",
+              {
+                owner,
+                repo: name,
+                head: branch,
+                base: head.branch,
+                title: message,
+                body: `${created.map((path) => `- ${path}`).join("\n")}\n\nOuverte par Cockpit`,
+              },
+            ));
+          } catch (pullError) {
+            // Best effort: a branch left behind is harmless, and the refusal below matters more. After a timeout GitHub may have opened the pull request anyway: deleting the branch closes it, which beats a duplicate on the next try.
+            await octokit
+              // The branch is in the URL itself: a {ref} would have its slash encoded.
+              .request(
+                `DELETE /repos/{owner}/{repo}/git/refs/heads/${branch}`,
+                {
+                  owner,
+                  repo: name,
+                },
+              )
+              .catch((deleteError) =>
+                console.error(`Could not delete branch ${branch}`, deleteError),
+              );
+            const { status: pullStatus, message: pullReason } = pullError as {
+              status?: number;
+              message: string;
+            };
+            // The App lacks Pull requests: write; any other 403 (a rate limit) is not a refusal.
+            if (
+              pullStatus === 403 &&
+              /not accessible by integration/i.test(pullReason)
+            )
+              return { refused: "pull_request_forbidden" };
+            throw pullError;
+          }
+          // Parsed once the pull request exists: a parse error must not delete its branch.
+          const pull = pullRequestSchema.parse(data);
+          return {
+            commitSha,
+            created,
+            pullRequest: { number: pull.number, url: pull.html_url },
+          };
+        }
+        // GitHub refuses what is not a fast forward: someone pushed meanwhile, and we do not retry.
+        if (status === 422 && /fast.forward/i.test(reason))
+          return { refused: "repo_changed" };
+        throw error;
+      }
+      return { commitSha, created: toCreate.map((file) => file.path) };
     },
 
     /** Writes the issues of a repo and the labels Cockpit puts on them (decision 020), as the installation. */
