@@ -181,8 +181,8 @@ describe("criterion 4: the cards", () => {
 describe("criterion 5: the board is fresh when the user comes back to the project", () => {
   // The client never considers a query stale by itself: only an invalidation (decision 019 E) makes the project page
   // read the board again when it is shown again. Without it, the old board stays on screen.
-  function renderWithClient() {
-    window.history.replaceState({}, "", "/projets/5");
+  function renderWithClient(path = "/projets/5") {
+    window.history.replaceState({}, "", path);
     render(
       <QueryClientProvider
         client={
@@ -277,8 +277,9 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     expect(within(column("À valider", 0)).getByText("Aucune")).toBeDefined();
   });
 
+  // Decision 028 G: the tickets have their own tab.
   const openTicket = async () => {
-    renderWithClient();
+    renderWithClient("/projets/5/tickets");
     const tickets = (
       await screen.findByRole("heading", { name: "Tickets" })
     ).closest("section") as HTMLElement;
