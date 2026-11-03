@@ -4,9 +4,7 @@ import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { decisionError } from "./tickets.ts";
-import { focusRing } from "./ui.ts";
-
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold disabled:opacity-50 ${focusRing}`;
+import { alertBox, button, card } from "./ui.ts";
 
 /** An issue edited on GitHub (decision 025 E to G): the date, the title if it changed, the line by line diff of the bodies, and the choice of the user. */
 export function StoryDiverged({
@@ -54,10 +52,7 @@ export function StoryDiverged({
   );
 
   return (
-    <section
-      className="mt-4 rounded-xl bg-card p-4"
-      aria-labelledby="issue-diverged"
-    >
+    <section className={`mt-4 ${card} p-4`} aria-labelledby="issue-diverged">
       <h2 id="issue-diverged" className="font-semibold">
         Issue modifiée sur GitHub
       </h2>
@@ -103,10 +98,7 @@ export function StoryDiverged({
         </button>
       </div>
       {resolve.error && (
-        <p
-          role="alert"
-          className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-3 ${alertBox}`}>
           {resolve.error.message}
         </p>
       )}

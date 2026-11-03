@@ -3,9 +3,7 @@ import { useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
-import { focusRing } from "./ui.ts";
-
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold disabled:opacity-50 ${focusRing}`;
+import { alertBox, button, card, focusRing } from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -61,7 +59,7 @@ function FileRow({ file }: { file: PlanFile }) {
     [file],
   );
   return (
-    <li className="rounded-xl bg-card p-4">
+    <li className={`${card} p-4`}>
       <p className="font-mono font-semibold">{file.path}</p>
       {file.status === "create" && (
         <>
@@ -182,10 +180,7 @@ export function ProjectPrepare({
         </button>
       )}
       {problem && (
-        <div
-          role="alert"
-          className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <div role="alert" className={`mt-3 ${alertBox}`}>
           <p>{message(problem)}</p>
           {problem.status === 401 && (
             <a href="/api/auth/login" className={`underline ${focusRing}`}>

@@ -3,11 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchRoutine } from "./RoutineSettings.tsx";
-import { focusRing } from "./ui.ts";
-
-const field = `mt-1 block rounded-lg border border-border bg-background px-3 py-2 ${focusRing}`;
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
-const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
+import { alertBox, button, field, focusRing, primaryButton } from "./ui.ts";
 
 const FREQUENCIES = {
   off: "Désactivée",
@@ -139,7 +135,7 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
           <p className="text-muted-foreground">Chargement…</p>
         )}
         {(schedule.isError || routine.isError) && (
-          <p role="alert" className={errorBox}>
+          <p role="alert" className={alertBox}>
             Impossible de lire l'écriture automatique. Recharge la page ; si
             cela continue, réessaie plus tard.
           </p>
@@ -225,7 +221,7 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
               <button
                 type="submit"
                 disabled={save.isPending}
-                className={`min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+                className={primaryButton}
               >
                 Enregistrer
               </button>
@@ -277,7 +273,7 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
           </div>
         )}
         {(save.error ?? run.error) && (
-          <p role="alert" className={`mt-3 ${errorBox}`}>
+          <p role="alert" className={`mt-3 ${alertBox}`}>
             {(save.error ?? run.error)?.message}
           </p>
         )}

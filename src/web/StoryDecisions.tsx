@@ -4,7 +4,14 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { client } from "./api.ts";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
 import { decisionError } from "./tickets.ts";
-import { focusRing } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  card,
+  field,
+  focusRing,
+  primaryButton,
+} from "./ui.ts";
 
 type Criterion = { given: string; when: string; then: string };
 export type DecidedStory = {
@@ -18,10 +25,7 @@ export type DecidedStory = {
   criteria: Criterion[];
 };
 
-const field = `mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 ${focusRing}`;
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold disabled:opacity-50 ${focusRing}`;
-const primary = `min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50 ${focusRing}`;
-const danger = `min-h-10 rounded-lg bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`;
+const danger = `min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`;
 
 // Keys of the criteria of the form: a removed row must not hand its fields to the next one.
 let nextKey = 0;
@@ -117,7 +121,7 @@ export function StoryDecisions({
                   client.api.stories[":id"].validate.$post({ param: { id } }),
                 );
               }}
-              className={primary}
+              className={primaryButton}
             >
               Valider
             </button>
@@ -186,7 +190,7 @@ export function StoryDecisions({
             <button
               type="submit"
               disabled={blank || run.isPending}
-              className={primary}
+              className={primaryButton}
             >
               Confirmer le renvoi
             </button>
@@ -288,7 +292,7 @@ export function StoryDecisions({
           <h3 className="mt-4 font-heading font-bold">Critères</h3>
           <ol className="mt-2 grid gap-2">
             {form.criteria.map((criterion, index) => (
-              <li key={criterion.key} className="rounded-xl bg-card p-3">
+              <li key={criterion.key} className={`${card} p-3`}>
                 {(
                   [
                     ["given", "Étant donné"],
@@ -348,7 +352,11 @@ export function StoryDecisions({
             Ajouter un critère
           </button>
           <div className="mt-3 flex gap-2">
-            <button type="submit" disabled={run.isPending} className={primary}>
+            <button
+              type="submit"
+              disabled={run.isPending}
+              className={primaryButton}
+            >
               Enregistrer
             </button>
             <button type="button" onClick={close} className={button}>
@@ -358,10 +366,7 @@ export function StoryDecisions({
         </form>
       )}
       {run.error && (
-        <p
-          role="alert"
-          className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-3 ${alertBox}`}>
           {run.error.message}
         </p>
       )}
@@ -416,7 +421,7 @@ export function StoryHistory({ id }: { id: number }) {
           {entries.data.map((entry) => (
             <li
               key={entry.id}
-              className="flex flex-wrap items-baseline gap-x-3 rounded-xl bg-card p-3"
+              className={`flex flex-wrap items-baseline gap-x-3 ${card} p-3`}
             >
               <span className="font-semibold">
                 {entry.actor === "claude"

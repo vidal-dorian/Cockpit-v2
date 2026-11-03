@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
+import { alertBox, card, field, primaryButton } from "./ui.ts";
 
 // What the App asks of GitHub and why (decision 012 D); the same list as the manifest of the server.
 const PERMISSIONS = [
@@ -32,8 +32,6 @@ const PERMISSIONS = [
   ],
   ["Actions", "lecture", "voir où en sont tes workflows."],
 ] as const;
-
-const field = `mt-1 block min-h-10 w-full rounded-lg border border-border bg-card px-3 ${focusRing}`;
 
 /** Makes the browser POST the manifest to GitHub, as GitHub's manifest flow requires (a fetch cannot follow its pages). */
 function postToGitHub(action: string, manifest: unknown) {
@@ -83,7 +81,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
       : null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
       <h1 className="font-heading text-4xl font-extrabold">
         Installer Cockpit
       </h1>
@@ -93,10 +91,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
       </p>
 
       {message && (
-        <p
-          role="alert"
-          className="mt-8 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-8 ${alertBox}`}>
           {message}
         </p>
       )}
@@ -151,7 +146,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
           <h2 id="setup-permissions" className="font-heading text-xl font-bold">
             Ce que l'App demandera
           </h2>
-          <ul className="mt-2 space-y-2 rounded-xl bg-card p-4">
+          <ul className={`mt-2 space-y-2 ${card} p-4`}>
             {PERMISSIONS.map(([name, access, why]) => (
               <li key={name}>
                 <strong>{name}</strong> ({access}) : {why}
@@ -169,7 +164,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
         <button
           type="submit"
           disabled={start.isPending}
-          className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+          className={primaryButton}
         >
           Créer l'App GitHub
         </button>
@@ -193,7 +188,7 @@ export function ClaimAdmin() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
       <h1 className="font-heading text-4xl font-extrabold">
         Récupérer l'administration
       </h1>
@@ -203,10 +198,7 @@ export function ClaimAdmin() {
         avec GitHub : tu deviendras administrateur.
       </p>
       {claim.isError && (
-        <p
-          role="alert"
-          className="mt-8 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-8 ${alertBox}`}>
           {claim.error.message}
         </p>
       )}
@@ -235,7 +227,7 @@ export function ClaimAdmin() {
         <button
           type="submit"
           disabled={claim.isPending}
-          className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+          className={primaryButton}
         >
           Devenir administrateur
         </button>

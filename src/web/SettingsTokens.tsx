@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
-
-const field = `mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 ${focusRing}`;
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
+import {
+  alertBox,
+  button,
+  card,
+  field,
+  focusRing,
+  primaryButton,
+} from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -31,13 +35,11 @@ async function fetchTokens() {
 
 export const day = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
 
-const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
-
 /** Shown once: the secret lives in this component's state only, never in the query cache or the URL (decision 015). */
 function NewSecret({ secret, onDone }: { secret: string; onDone: () => void }) {
   const [copy, setCopy] = useState<"idle" | "done" | "failed">("idle");
   return (
-    <div className="mt-4 rounded-xl bg-card p-4">
+    <div className={`mt-4 ${card} p-4`}>
       <p className="font-semibold">
         Voici ton jeton. Tu ne pourras plus le revoir : copie-le maintenant.
       </p>
@@ -64,11 +66,7 @@ function NewSecret({ secret, onDone }: { secret: string; onDone: () => void }) {
         >
           Copier
         </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className={`min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-        >
+        <button type="button" onClick={onDone} className={primaryButton}>
           J'ai copié le jeton
         </button>
         {/* Always there: a live region announces what changes inside it. */}
@@ -180,14 +178,14 @@ export function Tokens() {
           <button
             type="submit"
             disabled={create.isPending}
-            className={`min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+            className={primaryButton}
           >
             Créer
           </button>
         </form>
       )}
       {create.error && (
-        <p role="alert" className={`mt-3 ${errorBox}`}>
+        <p role="alert" className={`mt-3 ${alertBox}`}>
           {create.error.message}
         </p>
       )}
@@ -197,7 +195,7 @@ export function Tokens() {
           <p className="text-muted-foreground">Chargement…</p>
         )}
         {tokens.isError && (
-          <p role="alert" className={errorBox}>
+          <p role="alert" className={alertBox}>
             {tokens.error.message}
           </p>
         )}
@@ -209,7 +207,7 @@ export function Tokens() {
             {tokens.data.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
+                className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
               >
                 <span className="font-semibold">{t.name}</span>
                 <span className="font-mono">…{t.lastFour}</span>
@@ -228,7 +226,7 @@ export function Tokens() {
                         type="button"
                         onClick={() => revoke.mutate(t.id)}
                         disabled={revoke.isPending}
-                        className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                        className={`min-h-10 rounded-xl bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
                       >
                         Confirmer la révocation
                       </button>
@@ -271,7 +269,7 @@ export function Tokens() {
             role="alert"
             ref={revokeAlert}
             tabIndex={-1}
-            className={`mt-3 ${errorBox} ${focusRing}`}
+            className={`mt-3 ${alertBox} ${focusRing}`}
           >
             {revoke.error.message}
           </p>
