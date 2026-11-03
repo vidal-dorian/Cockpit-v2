@@ -265,7 +265,9 @@ describe("GET /api/history, microsecond timestamps (decision 028 F)", () => {
     const rows = await db.execute(
       sql`select id from history where user_id = ${userId} order by at desc, id desc`,
     );
-    return (rows.rows as { id: number }[]).map((r) => r.id);
+    return (rows as unknown as { rows: { id: number }[] }).rows.map(
+      (r) => r.id,
+    );
   }
 
   it("given 30 entries at distinct microseconds of the same millisecond, when the pages are followed, then page 1 holds 25 with hasMore true, page 2 the 5 others with hasMore false, and every entry appears once in the order of the journal", async () => {
