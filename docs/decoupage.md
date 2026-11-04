@@ -35,7 +35,9 @@
 - **En cours** : tranche 5.2 (issue modifiée sur GitHub, [décision 025](decisions/025-issue-modifiee-sur-github.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 6.1 (écrire dans un repo sans rien écraser, [décision 026](decisions/026-ecrire-dans-un-repo.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 6.2 (préparer un repo pour Claude en un clic, [décision 027](decisions/027-preparer-pour-claude.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 5.3.
+- **Fait** : décision 028 (style « Crème sombre », onglets) et tranche E1 (`/dev-us` lit `.claude/team.md`, [décision 029](decisions/029-equipe-d-agents.md)).
+- **En cours** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)).
+- **Ensuite** : tranche E3, ou la phase 7.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -175,7 +177,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
   | # | Tranche | Démo |
   |---|---|---|
   | E1 | **`/dev-us` lit `.claude/team.md`** (trois étapes par défaut sans fichier), règle `agents` du bilan adaptée | Un `team.md` sans `reviewer` : le bilan reste vert, `/dev-us` saute l'étape |
-  | E2 | **Éditeur d'agent** : nom, description, outils, modèle, prompt, aperçu ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
+  | E2 | **Éditeur d'agent** ([030](decisions/030-editeur-d-agent.md)) : description, outils, modèle, prompt, aperçu ; ajouter, supprimer ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
   | E3 | **Écran « Équipe »** : étapes, ordre, boucles, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
   | E4 | **Plusieurs équipes par projet** : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
 - **Configuration Claude** : éditer `CLAUDE.md`, règles, skills et `.mcp.json` depuis Cockpit (les agents : voir « Équipe d'agents ») ; configuration globale (repo de plugins).
