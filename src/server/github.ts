@@ -77,6 +77,8 @@ export type RepoFiles = {
   workflows: string[];
   /** The text of .mcp.json, null when absent. */
   mcpJson: string | null;
+  /** The text of .claude/team.md (decision 029), null when absent. */
+  teamMd: string | null;
   /** Names of the files directly in .claude/agents. */
   agents: string[];
   /** Names of the files directly in .claude/skills/dev-us. */
@@ -377,11 +379,11 @@ export function githubClient(config: GitHubAppConfig) {
         ]);
         return parts.flat();
       };
-      const readMcpJson = async () => {
+      const readFile = async (path: string) => {
         try {
           const { data } = await octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
-            { owner, repo, path: ".mcp.json", ref: root.sha },
+            { owner, repo, path, ref: root.sha },
           );
           const file = contentsSchema.parse(data);
           return file && Buffer.from(file.content, "base64").toString("utf8");
@@ -391,14 +393,18 @@ export function githubClient(config: GitHubAppConfig) {
         }
       };
       const [claude, workflows, mcpJson] = await Promise.all([
-        rootTrees.includes(".claude") ? readClaude() : [],
+        rootTrees.includes(".claude") ? readClaude() : ([] as string[]),
         rootTrees.includes(".github")
           ? readTree(at(".github/workflows")).then((t) =>
               blobs(t, ".github/workflows/"),
             )
           : [],
-        rootBlobs.includes(".mcp.json") ? readMcpJson() : null,
+        rootBlobs.includes(".mcp.json") ? readFile(".mcp.json") : null,
       ]);
+      // A second wave, only when team.md is there: it is listed by the .claude read above.
+      const teamMd = claude.includes(".claude/team.md")
+        ? await readFile(".claude/team.md")
+        : null;
       const paths = [...rootBlobs, ...claude, ...workflows];
       const filesIn = (dir: string) =>
         paths
@@ -411,6 +417,7 @@ export function githubClient(config: GitHubAppConfig) {
           paths.includes("CLAUDE.md") || paths.includes(".claude/CLAUDE.md"),
         workflows: filesIn(".github/workflows"),
         mcpJson,
+        teamMd,
         agents: filesIn(".claude/agents"),
         devUsSkill: filesIn(".claude/skills/dev-us"),
       };

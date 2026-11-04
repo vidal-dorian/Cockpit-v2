@@ -257,6 +257,25 @@ describe("Project page, the health check", () => {
     expect(row.textContent).not.toContain("invalid_json");
   });
 
+  it("given the team.md is not readable, when the page loads, then the agents line says À corriger with a French sentence and not the code invalid_team", async () => {
+    stubApi({
+      answers: [
+        answer([
+          ...OK_LINES.slice(0, 3),
+          { key: "agents", ok: false, detail: "invalid_team" },
+        ]),
+      ],
+    });
+
+    renderAt("/projets/5/sante");
+
+    await screen.findByText(LABELS.agents);
+    const row = rowOf(LABELS.agents);
+    expect(within(row).getByText(RED)).toBeDefined();
+    expect(row.textContent).toContain("team.md");
+    expect(row.textContent).not.toContain("invalid_team");
+  });
+
   it("given the Cockpit server is not declared, when the page loads, then the Serveur MCP line says À corriger with an explanation", async () => {
     stubApi({
       answers: [

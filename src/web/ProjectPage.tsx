@@ -43,7 +43,8 @@ const EXPLANATIONS: Record<string, string> = {
   "mcp.secret_in_clear":
     "Le .mcp.json contient un secret en clair pour Cockpit : utilise une référence à une variable d'environnement.",
   "agents.missing":
-    "Il manque au moins un des agents test-writer, developer, reviewer, ou la skill dev-us, dans le dossier .claude/.",
+    "Il manque la skill dev-us, ou un des agents de l'équipe (test-writer, developer, reviewer par défaut, ou ceux de .claude/team.md), dans le dossier .claude/.",
+  "agents.invalid_team": "Le fichier .claude/team.md n'est pas lisible.",
   "webhook.wrong_url":
     "L'adresse du webhook de l'App sur GitHub n'est pas celle de Cockpit, ou le webhook est désactivé : corrige-la dans les réglages de l'App.",
   "webhook.last_delivery_failed":
