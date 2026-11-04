@@ -25,7 +25,9 @@ If a check fails, stop and say why. Change nothing.
 
 ## Develop
 
-Read `CLAUDE.md` first: it holds the commands and the conventions. Then, in this order and never starting a step before the previous one is done:
+Read `CLAUDE.md` first: it holds the commands and the conventions. Then, never starting a step before the previous one is done:
+
+If `.claude/team.md` exists, follow it: its front matter lists the `steps`, each one naming an `agent` of `.claude/agents/` and saying what it `does`. Run the steps in order; a step with `loop_to` and `until` sends you back to that step until the condition holds. Without that file, the default steps are these three, in this order:
 
 1. **test-writer** writes the acceptance tests from the criteria. They must fail, for the right reason.
 2. **developer** implements until those tests pass, without touching them.
