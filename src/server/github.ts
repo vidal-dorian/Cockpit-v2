@@ -266,6 +266,121 @@ export function githubClient(config: GitHubAppConfig) {
     };
   };
 
+  /** Commits `entries` on top of `head` and advances the default branch without force, once; when it is protected, the commit goes to a branch `cockpit/<7>` and a pull request listing `paths` is opened (decision 026 G). Shared by `applyRepoWrite` and `applyRepoChanges`. */
+  const commitToHead = async (
+    { octokit, owner, name }: Awaited<ReturnType<typeof writeAccess>>,
+    head: { branch: string; sha: string },
+    entries: {
+      path: string;
+      mode: "100644";
+      type: "blob";
+      content?: string;
+      sha?: null;
+    }[],
+    message: string,
+  ): Promise<
+    | { commitSha: string; pullRequest?: { number: number; url: string } }
+    | RepoWriteRefusal
+  > => {
+    const paths = entries.map((entry) => entry.path);
+    const { data: base } = await octokit.request(
+      "GET /repos/{owner}/{repo}/git/commits/{commit_sha}",
+      { owner, repo: name, commit_sha: head.sha },
+    );
+    const { data: tree } = await octokit.request(
+      "POST /repos/{owner}/{repo}/git/trees",
+      {
+        owner,
+        repo: name,
+        base_tree: shaSchema.parse(base.tree).sha,
+        tree: entries,
+      },
+    );
+    const { data: commit } = await octokit.request(
+      "POST /repos/{owner}/{repo}/git/commits",
+      {
+        owner,
+        repo: name,
+        message,
+        tree: shaSchema.parse(tree).sha,
+        parents: [head.sha],
+      },
+    );
+    const commitSha = shaSchema.parse(commit).sha;
+    try {
+      await octokit.request(
+        // The branch is in the URL itself, each segment encoded: a {ref} would encode its slashes, and a raw `#` or `{` would change the URL.
+        `PATCH /repos/{owner}/{repo}/git/refs/heads/${head.branch.split("/").map(encodeURIComponent).join("/")}`,
+        { owner, repo: name, sha: commitSha, force: false },
+      );
+    } catch (error) {
+      const { status, message: reason } = error as {
+        status?: number;
+        message: string;
+      };
+      // Both the texts of a protected branch and of a ruleset; 403 or 422 depending on the rule (decision 026 G).
+      if (
+        (status === 403 || status === 422) &&
+        /protected branch|rule violation/i.test(reason)
+      ) {
+        const branch = `cockpit/${commitSha.slice(0, 7)}`;
+        await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
+          owner,
+          repo: name,
+          ref: `refs/heads/${branch}`,
+          sha: commitSha,
+        });
+        let data: unknown;
+        try {
+          ({ data } = await octokit.request(
+            "POST /repos/{owner}/{repo}/pulls",
+            {
+              owner,
+              repo: name,
+              head: branch,
+              base: head.branch,
+              title: message,
+              body: `${paths.map((path) => `- ${path}`).join("\n")}\n\nOuverte par Cockpit`,
+            },
+          ));
+        } catch (pullError) {
+          // Best effort: a branch left behind is harmless, and the refusal below matters more. After a timeout GitHub may have opened the pull request anyway: deleting the branch closes it, which beats a duplicate on the next try.
+          await octokit
+            // The branch is in the URL itself: a {ref} would have its slash encoded.
+            .request(`DELETE /repos/{owner}/{repo}/git/refs/heads/${branch}`, {
+              owner,
+              repo: name,
+            })
+            .catch((deleteError) =>
+              console.error(`Could not delete branch ${branch}`, deleteError),
+            );
+          const { status: pullStatus, message: pullReason } = pullError as {
+            status?: number;
+            message: string;
+          };
+          // The App lacks Pull requests: write; any other 403 (a rate limit) is not a refusal.
+          if (
+            pullStatus === 403 &&
+            /not accessible by integration/i.test(pullReason)
+          )
+            return { refused: "pull_request_forbidden" };
+          throw pullError;
+        }
+        // Parsed once the pull request exists: a parse error must not delete its branch.
+        const pull = pullRequestSchema.parse(data);
+        return {
+          commitSha,
+          pullRequest: { number: pull.number, url: pull.html_url },
+        };
+      }
+      // GitHub refuses what is not a fast forward: someone pushed meanwhile, and we do not retry.
+      if (status === 422 && /fast.forward/i.test(reason))
+        return { refused: "repo_changed" };
+      throw error;
+    }
+    return { commitSha };
+  };
+
   return {
     /** The installation of this personal account, or null when the App is not installed or the account is someone else's. */
     async findUserInstallation(login: string, githubId: number) {
@@ -538,113 +653,106 @@ export function githubClient(config: GitHubAppConfig) {
         if (found.some((state) => state !== null))
           return { refused: "repo_changed" };
       }
-      const { octokit, owner, name } = repo;
-      const { data: base } = await octokit.request(
-        "GET /repos/{owner}/{repo}/git/commits/{commit_sha}",
-        { owner, repo: name, commit_sha: head.sha },
+      const done = await commitToHead(
+        repo,
+        head,
+        toCreate.map((file) => ({
+          path: file.path,
+          mode: "100644" as const,
+          type: "blob" as const,
+          content: file.content,
+        })),
+        message,
       );
-      const { data: tree } = await octokit.request(
-        "POST /repos/{owner}/{repo}/git/trees",
-        {
-          owner,
-          repo: name,
-          base_tree: shaSchema.parse(base.tree).sha,
-          tree: toCreate.map((file) => ({
-            path: file.path,
-            mode: "100644" as const,
-            type: "blob" as const,
-            content: file.content,
-          })),
-        },
-      );
-      const { data: commit } = await octokit.request(
-        "POST /repos/{owner}/{repo}/git/commits",
-        {
-          owner,
-          repo: name,
-          message,
-          tree: shaSchema.parse(tree).sha,
-          parents: [head.sha],
-        },
-      );
-      const commitSha = shaSchema.parse(commit).sha;
+      if ("refused" in done) return done;
+      return { ...done, created: toCreate.map((file) => file.path) };
+    },
+
+    /** The regular files `<name>.md` directly in `.claude/agents` of the default branch, by name, with their text (null when GitHub does not serve it: too large). No such directory: none. Reads only (decision 030 B). */
+    async readAgentFiles(
+      installationId: number,
+      fullName: string,
+    ): Promise<
+      { agents: { name: string; text: string | null }[] } | RepoWriteRefusal
+    > {
+      const repo = await writeAccess(installationId, fullName);
+      const head = await repo.head();
+      if ("refused" in head) return head;
+      let tree: z.infer<typeof treeSchema>;
       try {
-        await octokit.request(
-          // The branch is in the URL itself, each segment encoded: a {ref} would encode its slashes, and a raw `#` or `{` would change the URL.
-          `PATCH /repos/{owner}/{repo}/git/refs/heads/${head.branch.split("/").map(encodeURIComponent).join("/")}`,
-          { owner, repo: name, sha: commitSha, force: false },
+        const { data } = await repo.octokit.request(
+          "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+          {
+            owner: repo.owner,
+            repo: repo.name,
+            tree_sha: `${head.sha}:.claude/agents`,
+          },
         );
+        tree = treeSchema.parse(data);
       } catch (error) {
-        const { status, message: reason } = error as {
-          status?: number;
-          message: string;
-        };
-        // Both the texts of a protected branch and of a ruleset; 403 or 422 depending on the rule (decision 026 G).
-        if (
-          (status === 403 || status === 422) &&
-          /protected branch|rule violation/i.test(reason)
-        ) {
-          const branch = `cockpit/${commitSha.slice(0, 7)}`;
-          const created = toCreate.map((file) => file.path);
-          await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
-            owner,
-            repo: name,
-            ref: `refs/heads/${branch}`,
-            sha: commitSha,
-          });
-          let data: unknown;
-          try {
-            ({ data } = await octokit.request(
-              "POST /repos/{owner}/{repo}/pulls",
-              {
-                owner,
-                repo: name,
-                head: branch,
-                base: head.branch,
-                title: message,
-                body: `${created.map((path) => `- ${path}`).join("\n")}\n\nOuverte par Cockpit`,
-              },
-            ));
-          } catch (pullError) {
-            // Best effort: a branch left behind is harmless, and the refusal below matters more. After a timeout GitHub may have opened the pull request anyway: deleting the branch closes it, which beats a duplicate on the next try.
-            await octokit
-              // The branch is in the URL itself: a {ref} would have its slash encoded.
-              .request(
-                `DELETE /repos/{owner}/{repo}/git/refs/heads/${branch}`,
-                {
-                  owner,
-                  repo: name,
-                },
-              )
-              .catch((deleteError) =>
-                console.error(`Could not delete branch ${branch}`, deleteError),
-              );
-            const { status: pullStatus, message: pullReason } = pullError as {
-              status?: number;
-              message: string;
-            };
-            // The App lacks Pull requests: write; any other 403 (a rate limit) is not a refusal.
-            if (
-              pullStatus === 403 &&
-              /not accessible by integration/i.test(pullReason)
-            )
-              return { refused: "pull_request_forbidden" };
-            throw pullError;
-          }
-          // Parsed once the pull request exists: a parse error must not delete its branch.
-          const pull = pullRequestSchema.parse(data);
-          return {
-            commitSha,
-            created,
-            pullRequest: { number: pull.number, url: pull.html_url },
-          };
-        }
-        // GitHub refuses what is not a fast forward: someone pushed meanwhile, and we do not retry.
-        if (status === 422 && /fast.forward/i.test(reason))
-          return { refused: "repo_changed" };
+        // 404 or 422: no such directory (or not a directory).
+        const status = (error as { status?: number }).status;
+        if (status === 404 || status === 422) return { agents: [] };
         throw error;
       }
-      return { commitSha, created: toCreate.map((file) => file.path) };
+      const names = tree.tree
+        .filter((e) => e.type === "blob" && /^100(644|755)$/.test(e.mode))
+        .flatMap((e) => /^([a-z0-9][a-z0-9-]*)\.md$/.exec(e.path)?.[1] ?? [])
+        .sort();
+      return {
+        agents: await Promise.all(
+          names.map(async (name) => ({
+            name,
+            text:
+              (await repo.inspect(`.claude/agents/${name}.md`, head.sha))
+                ?.text ?? null,
+          })),
+        ),
+      };
+    },
+
+    /** Replaces, removes or adds files in ONE commit on the default branch (decision 030 E). Each path is read again at the head of the branch with the rules of `inspect`: when one is not exactly its `before` (absent for null, a regular file of that text otherwise) nothing is written and the refusal is `repo_changed`. Then as `applyRepoWrite`: no force, a pull request when the branch is protected. */
+    async applyRepoChanges(
+      installationId: number,
+      fullName: string,
+      changes: { path: string; before: string | null; after: string | null }[],
+      message: string,
+    ): Promise<
+      | {
+          commitSha: string;
+          changed: string[];
+          pullRequest?: { number: number; url: string };
+        }
+      | RepoWriteRefusal
+    > {
+      checkWriteFiles(
+        changes.map(({ path, after }) => ({ path, content: after ?? "" })),
+      );
+      const repo = await writeAccess(installationId, fullName);
+      const head = await repo.head();
+      if ("refused" in head) return head;
+      const found = await Promise.all(
+        changes.map((change) => repo.inspect(change.path, head.sha)),
+      );
+      if (
+        changes.some(({ before }, i) =>
+          before === null ? found[i] !== null : found[i]?.text !== before,
+        )
+      )
+        return { refused: "repo_changed" };
+      const done = await commitToHead(
+        repo,
+        head,
+        changes.map(({ path, after }) => ({
+          path,
+          mode: "100644" as const,
+          type: "blob" as const,
+          ...(after === null ? { sha: null } : { content: after }),
+        })),
+        message,
+      );
+      if ("refused" in done) return done;
+      return { ...done, changed: changes.map((change) => change.path) };
     },
 
     /** Writes the issues of a repo and the labels Cockpit puts on them (decision 020), as the installation. */

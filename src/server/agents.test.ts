@@ -110,7 +110,8 @@ const agentRows = (ctx: Ctx) =>
   >;
 const anyRows = async (ctx: Ctx) =>
   (await ctx.db.execute(
-    sql`select count(*)::int as n from history`,
+    // The setup writes a create_token entry (userWithToken): only the editor's entries count.
+    sql`select count(*)::int as n from history where action in ('save_agent', 'delete_agent')`,
   )) as unknown as {
     rows: { n: number }[];
   };
