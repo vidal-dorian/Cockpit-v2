@@ -267,7 +267,7 @@ describe("Project page, the health check", () => {
       ],
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await screen.findByText(LABELS.agents);
     const row = rowOf(LABELS.agents);
