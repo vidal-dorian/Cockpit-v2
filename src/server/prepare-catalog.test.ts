@@ -93,6 +93,16 @@ describe("decision 027 A, C: the skill /dev-us", () => {
     expect(text).toMatch(/never merge/i);
   });
 
+  it("given the skill, when its Develop section is read, then it follows .claude/team.md when it exists and still lists test-writer, developer, reviewer in that order as the default", () => {
+    const text = read("catalog/skills/dev-us/SKILL.md");
+
+    expect(text).toContain(".claude/team.md");
+    const develop = text.slice(text.indexOf(".claude/team.md"));
+    expect(develop).toMatch(/default/i);
+    expect(text.indexOf("test-writer")).toBeLessThan(text.indexOf("developer"));
+    expect(text.indexOf("developer")).toBeLessThan(text.indexOf("reviewer"));
+  });
+
   it("given the skill, when it names Cockpit tools, then it names get_user_story and every tool it names is one tools/list shows", async () => {
     const text = read("catalog/skills/dev-us/SKILL.md");
     const named = [
