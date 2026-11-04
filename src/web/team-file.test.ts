@@ -100,6 +100,19 @@ describe("decision 031 G: readTeam", () => {
       "a multi-line value",
       "---\nsteps:\n  - agent: a\n    does: >\n      long\n      text\n---\n",
     ],
+    [
+      "an until without loop_to",
+      "---\nsteps:\n  - agent: a\n    until: done\n---\n",
+    ],
+    ["the same agent twice", "---\nsteps:\n  - agent: a\n  - agent: a\n---\n"],
+    [
+      "a bare value with a comment",
+      "---\nsteps:\n  - agent: a\n    does: x # y\n---\n",
+    ],
+    [
+      "a bare value starting with a flow bracket",
+      "---\nsteps:\n  - agent: a\n    does: [x]\n---\n",
+    ],
   ])(
     "given %s, when it is read, then it is not rewritable (null)",
     (_n, text) => {

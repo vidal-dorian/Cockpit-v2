@@ -680,8 +680,9 @@ export function githubClient(config: GitHubAppConfig) {
       const repo = await writeAccess(installationId, fullName);
       const head = await repo.head();
       if ("refused" in head) return head;
-      const team =
-        (await repo.inspect(".claude/team.md", head.sha))?.text ?? null;
+      // null only for no file: one that cannot be read gives "", which the page shows as not rewritable.
+      const found = await repo.inspect(".claude/team.md", head.sha);
+      const team = found === null ? null : (found.text ?? "");
       let tree: z.infer<typeof treeSchema>;
       try {
         const { data } = await repo.octokit.request(

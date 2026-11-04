@@ -48,7 +48,9 @@ export function readTeam(
   for (const line of front.slice(1)) {
     const agent = STEP.exec(line)?.[1];
     if (agent !== undefined) {
-      if (!AGENT_NAME.test(agent)) return null;
+      // Twice the same agent: `loop_to` would be ambiguous (decision 031 E).
+      if (!AGENT_NAME.test(agent) || steps.some((t) => t.agent === agent))
+        return null;
       steps.push({ agent, does: "", loopTo: null, until: "" });
       seen.clear();
       continue;
@@ -69,12 +71,14 @@ export function readTeam(
       } catch {
         return null;
       }
-    else if (/^[|>']/.test(raw)) return null; // block scalar or single quotes: not read
+    // A YAML indicator or a comment: the value would not be read as plain text.
+    else if (/^[[{&*!|>'%@`]| #/.test(raw)) return null;
     if (typeof value !== "string") return null;
     if (key === "does") step.does = value;
     else step.until = value;
   }
-  return steps.length > 0
+  // An `until` without its loop would be dropped by a rewrite.
+  return steps.length > 0 && steps.every((s) => s.loopTo || !s.until)
     ? { steps, body: lines.slice(end + 1).join("\n") }
     : null;
 }

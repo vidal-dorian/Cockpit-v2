@@ -1,18 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import {
-  Background,
-  type Connection,
-  Controls,
-  type Edge,
-  Handle,
-  type Node,
-  type NodeProps,
-  Position,
-  ReactFlow,
-  useNodesState,
-} from "@xyflow/react";
-import { useEffect, useMemo, useState } from "react";
-import { parseAgent } from "./agent-file.ts";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
@@ -36,140 +23,14 @@ import {
   primaryButton,
 } from "./ui.ts";
 
-const SESSION_MODEL = "Celui de la session";
+// React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
+const StepGraph = lazy(() => import("./ProjectTeamGraph.tsx"));
+
 const TDD_AGENTS = ["test-writer", "reviewer"];
-const COLUMN = 280;
 
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
-type CardData = {
-  step: TeamStep;
-  model: string | null;
-  absent: boolean;
-  onOpen: () => void;
-};
-type CardNode = Node<CardData, "card">;
-
-function StepCard({ data }: NodeProps<CardNode>) {
-  const { step, model, absent, onOpen } = data;
-  return (
-    <>
-      <Handle type="target" position={Position.Left} id="in" />
-      <Handle type="source" position={Position.Right} id="out" />
-      <Handle type="target" position={Position.Bottom} id="loop-in" />
-      <Handle type="source" position={Position.Bottom} id="loop-out" />
-      <button
-        type="button"
-        data-testid={`team-card-${step.agent}`}
-        onClick={onOpen}
-        className={`${card} block w-60 p-3 text-left ${focusRing}`}
-      >
-        <span className="block font-mono font-semibold">{step.agent}</span>
-        <span className="block text-sm text-muted-foreground">
-          {absent ? "Agent absent du repo" : (model ?? SESSION_MODEL)}
-        </span>
-        <span className="mt-1 block text-sm">{step.does}</span>
-      </button>
-    </>
-  );
-}
-
-const nodeTypes = { card: StepCard };
-
-function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
-  return steps.flatMap((s, i) => [
-    ...(i > 0
-      ? [
-          {
-            id: `next-${s.agent}`,
-            source: steps[i - 1]?.agent as string,
-            target: s.agent,
-            sourceHandle: "out",
-            targetHandle: "in",
-            label: "puis",
-            selectable: false,
-          },
-        ]
-      : []),
-    ...(s.loopTo !== null
-      ? [
-          {
-            id: `loop-${s.agent}`,
-            source: s.agent,
-            target: s.loopTo,
-            sourceHandle: "loop-out",
-            targetHandle: "loop-in",
-            label: `boucle : ${s.until}`,
-            style: { strokeDasharray: "6 4" },
-            selected: selected === s.agent,
-          },
-        ]
-      : []),
-  ]);
-}
-
-function StepGraph({
-  steps,
-  agents,
-  selectedLoop,
-  onOpen,
-  onLink,
-  onSelectLoop,
-}: {
-  steps: TeamStep[];
-  agents: Agent[];
-  selectedLoop: string | null;
-  onOpen: (agent: string) => void;
-  onLink: (from: string, to: string) => void;
-  onSelectLoop: (agent: string | null) => void;
-}) {
-  const laidOut = useMemo(
-    () =>
-      steps.map((step, i): CardNode => {
-        const text = agents.find((a) => a.name === step.agent)?.text;
-        return {
-          id: step.agent,
-          type: "card",
-          position: { x: i * COLUMN, y: 0 },
-          // Known size: React Flow draws the card without waiting for a measure.
-          width: 240,
-          height: 110,
-          data: {
-            step,
-            model: (text && parseAgent(text)?.model) || null,
-            absent: !agents.some((a) => a.name === step.agent),
-            onOpen: () => onOpen(step.agent),
-          },
-        };
-      }),
-    [steps, agents, onOpen],
-  );
-  // A card moved by hand is only for reading: any change of the draft puts them back in place.
-  const [nodes, setNodes, onNodesChange] = useNodesState(laidOut);
-  useEffect(() => setNodes(laidOut), [laidOut, setNodes]);
-  return (
-    <div className="mt-3 hidden h-72 sm:block">
-      <ReactFlow
-        nodes={nodes}
-        edges={edgesOf(steps, selectedLoop)}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onConnect={({ source, target }: Connection) => onLink(source, target)}
-        onEdgeClick={(_, edge) =>
-          onSelectLoop(edge.id.startsWith("loop-") ? edge.source : null)
-        }
-        onPaneClick={() => onSelectLoop(null)}
-        nodesConnectable
-        fitView
-      >
-        <Background />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-    </div>
-  );
-}
-
 function StepPanel({
   step,
   index,
@@ -177,6 +38,7 @@ function StepPanel({
   freeAgents,
   onChange,
   onRemove,
+  canEditAgent,
   onEditAgent,
 }: {
   step: TeamStep;
@@ -185,6 +47,7 @@ function StepPanel({
   freeAgents: string[];
   onChange: (next: TeamStep) => void;
   onRemove: () => void;
+  canEditAgent: boolean;
   onEditAgent: () => void;
 }) {
   return (
@@ -253,7 +116,12 @@ function StepPanel({
         <button type="button" onClick={onRemove} className={button}>
           Retirer l'étape
         </button>
-        <button type="button" onClick={onEditAgent} className={button}>
+        <button
+          type="button"
+          disabled={!canEditAgent}
+          onClick={onEditAgent}
+          className={button}
+        >
           Modifier l'agent
         </button>
       </div>
@@ -297,6 +165,7 @@ export function ProjectTeam({
   const [until, setUntil] = useState("");
   const [selectedLoop, setSelectedLoop] = useState<string | null>(null);
   const [warn, setWarn] = useState(false);
+  const [moved, setMoved] = useState<{ agent: string; dir: "up" | "down" }>();
   const [showDiff, setShowDiff] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -306,6 +175,10 @@ export function ProjectTeam({
     setDraft(initial);
     setOpen(null);
     setShowDiff(false);
+    setPending(null);
+    setSelectedLoop(null);
+    setAdding(false);
+    setWarn(false);
   }
 
   const commit = useMutation({
@@ -340,6 +213,18 @@ export function ProjectTeam({
     },
     onError: () => setProblem({ code: "", status: 0 }),
   });
+
+  // A moved row's DOM node is reinserted, which drops the focus: put it back on the button that was used (or its sibling at the end of the list).
+  useEffect(() => {
+    if (!moved) return;
+    const at = (dir: string) =>
+      document.getElementById(
+        `move-${dir}-${moved.agent}`,
+      ) as HTMLButtonElement | null;
+    const other = moved.dir === "up" ? "down" : "up";
+    const target = at(moved.dir)?.disabled ? at(other) : at(moved.dir);
+    target?.focus();
+  }, [moved]);
 
   const heading = (
     <h2 id="team" className="font-heading text-xl font-bold">
@@ -379,6 +264,10 @@ export function ProjectTeam({
       setPending({ from, to });
     } else setSteps(linkSteps(steps, from, to));
   };
+  // A selection is only kept while its loop exists.
+  const loopShown = steps.some((s) => s.agent === selectedLoop && s.loopTo)
+    ? selectedLoop
+    : null;
   const select = (agent: string) => {
     setAdding(false);
     setOpen(agent);
@@ -387,23 +276,29 @@ export function ProjectTeam({
   return (
     <section className="mt-6" aria-labelledby="team" hidden={hidden}>
       {heading}
-      <StepGraph
-        steps={steps}
-        agents={agents}
-        selectedLoop={selectedLoop}
-        onOpen={select}
-        onLink={link}
-        onSelectLoop={setSelectedLoop}
-      />
-      {selectedLoop !== null && (
+      <Suspense
+        fallback={
+          <p role="status" className="hidden text-muted-foreground sm:block">
+            Chargement du graphe…
+          </p>
+        }
+      >
+        <StepGraph
+          steps={steps}
+          agents={agents}
+          selectedLoop={loopShown}
+          onOpen={select}
+          onLink={link}
+          onSelectLoop={setSelectedLoop}
+        />
+      </Suspense>
+      {loopShown !== null && (
         <button
           type="button"
           onClick={() => {
             setSteps(
               steps.map((s) =>
-                s.agent === selectedLoop
-                  ? { ...s, loopTo: null, until: "" }
-                  : s,
+                s.agent === loopShown ? { ...s, loopTo: null, until: "" } : s,
               ),
             );
             setSelectedLoop(null);
@@ -422,6 +317,9 @@ export function ProjectTeam({
             id="link-until"
             className={field}
             value={until}
+            // The prompt just appeared after a link: the keyboard goes straight to its field.
+            // biome-ignore lint/a11y/noAutofocus: focus moves with the prompt the user just asked for
+            autoFocus
             onChange={(e) => setUntil(e.target.value)}
           />
           <button
@@ -434,6 +332,13 @@ export function ProjectTeam({
             className={`mt-3 ${button}`}
           >
             Ajouter la boucle
+          </button>
+          <button
+            type="button"
+            onClick={() => setPending(null)}
+            className={`mt-3 ml-2 ${button}`}
+          >
+            Annuler
           </button>
         </div>
       )}
@@ -454,16 +359,24 @@ export function ProjectTeam({
             <span className="flex gap-2 sm:ml-auto">
               <button
                 type="button"
+                id={`move-up-${s.agent}`}
                 disabled={i === 0}
-                onClick={() => setSteps(moveStep(steps, s.agent, "up"))}
+                onClick={() => {
+                  setSteps(moveStep(steps, s.agent, "up"));
+                  setMoved({ agent: s.agent, dir: "up" });
+                }}
                 className={button}
               >
                 Monter
               </button>
               <button
                 type="button"
+                id={`move-down-${s.agent}`}
                 disabled={i === steps.length - 1}
-                onClick={() => setSteps(moveStep(steps, s.agent, "down"))}
+                onClick={() => {
+                  setSteps(moveStep(steps, s.agent, "down"));
+                  setMoved({ agent: s.agent, dir: "down" });
+                }}
                 className={button}
               >
                 Descendre
@@ -479,27 +392,24 @@ export function ProjectTeam({
           </li>
         ))}
       </ul>
-      {warn && (
-        <p className="mt-3">
-          Le TDD du CLAUDE.md du projet s'appuie sur cette étape
-        </p>
-      )}
+      <p role="status" className="mt-3 empty:hidden">
+        {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
+      </p>
       {openStep && (
         <StepPanel
-          // One panel per step, so its fields never show another step's values.
-          key={openStep.agent}
           step={openStep}
           index={steps.indexOf(openStep)}
           steps={steps}
           freeAgents={free}
           onChange={(next) => {
+            // A renamed agent keeps the loops that pointed to it, its own included.
+            const rename = (name: string | null) =>
+              name === openStep.agent ? next.agent : name;
             setSteps(
               steps.map((s) =>
                 s === openStep
-                  ? next
-                  : s.loopTo === openStep.agent
-                    ? { ...s, loopTo: next.agent }
-                    : s,
+                  ? { ...next, loopTo: rename(next.loopTo) }
+                  : { ...s, loopTo: rename(s.loopTo) },
               ),
             );
             setOpen(next.agent);
@@ -509,6 +419,10 @@ export function ProjectTeam({
             setSteps(removeStep(steps, openStep.agent));
             setOpen(null);
           }}
+          canEditAgent={
+            typeof agents.find((a) => a.name === openStep.agent)?.text ===
+            "string"
+          }
           onEditAgent={() => onEditAgent(openStep.agent)}
         />
       )}

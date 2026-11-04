@@ -185,6 +185,10 @@ function renderAt(path: string) {
 const openTeam = async () => {
   renderAt("/projets/5/agents");
   await screen.findByRole("heading", { name: "Équipe" });
+  // The graph is loaded lazily (031 limits): wait until it has replaced its fallback.
+  await waitFor(() =>
+    expect(screen.queryByText("Chargement du graphe…")).toBeNull(),
+  );
 };
 const card = (agent: string) => screen.getByTestId(`team-card-${agent}`);
 const row = (agent: string) => {
@@ -651,5 +655,33 @@ describe("decision 029 demo: adding doc-writer after developer", () => {
       loopTo: "developer",
       until: "the verdict is ready",
     });
+  });
+});
+
+describe("decision 031 D: renaming the agent of a step", () => {
+  it("given a step looping to itself, when its agent is changed in the panel, then its loop follows the new name and the select keeps the focus", async () => {
+    const calls = stubApi({
+      team: '---\nsteps:\n  - agent: doc-writer\n    does: "writes"\n    loop_to: doc-writer\n    until: "docs build"\n---\n',
+      agents: [...REPO_AGENTS, { name: "auditor", text: agentText("auditor") }],
+    });
+    await openTeam();
+    edit("doc-writer");
+    control("Agent").focus();
+
+    fireEvent.change(control("Agent"), { target: { value: "auditor" } });
+
+    expect(control("Boucle").value).toBe("auditor");
+    expect(document.activeElement).toBe(control("Agent"));
+    review();
+    fireEvent.click(commitButton());
+    await screen.findByText(/C'est fait/);
+    expect(posted(calls).after?.steps).toEqual([
+      {
+        agent: "auditor",
+        does: "writes",
+        loopTo: "auditor",
+        until: "docs build",
+      },
+    ]);
   });
 });

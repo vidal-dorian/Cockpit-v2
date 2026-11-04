@@ -204,7 +204,6 @@ export function projectRoutes(
     }
   };
 
-  /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
   // The write of one file of the repo by a human, as the agent and team editors do it (decisions 030 E, 031 H).
   const saveFile = async (
     c: Context<Env, string>,
@@ -275,6 +274,7 @@ export function projectRoutes(
     });
   };
 
+  /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
   const gate = createMiddleware<Env>(async (c, next) => {
     const ready = await readGitHub();
     if (!ready) return c.json({ error: NOT_CONFIGURED }, 503);
