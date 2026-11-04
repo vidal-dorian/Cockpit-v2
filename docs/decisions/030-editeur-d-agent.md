@@ -38,6 +38,7 @@ Un fichier d'agent est du Markdown avec un en-tête YAML entre deux lignes `---`
 - **Un en-tête que Cockpit ne sait pas lire se modifie sur GitHub**, dont `tools` écrit en liste YAML, pourtant documenté. Lecteur ligne à ligne, comme celui de `team.md` (029 B).
 - **`description` et `tools` passent entre guillemets** dès qu'on les modifie : même valeur pour Claude Code, une ligne de diff de plus.
 - **Supprimer un agent que `team.md` nomme, ou un des trois agents par défaut sans `team.md`**, fait passer la ligne `agents` du bilan au rouge (029, limites). L'écran ne le signale pas encore.
+- **Un agent trop gros pour que GitHub rende son contenu** est listé (« Fichier trop gros ») mais ne s'ouvre ni ne se supprime depuis Cockpit : il faudrait son texte pour `before`. Idem pour un nom de plus de 237 caractères (le chemin dépasserait 255).
 - **Deux onglets ouverts sur le même agent** : le second commit est refusé (`repo_changed`), rien n'est écrasé.
 - **Une pull request ouverte (branche protégée)** : la liste relue montre encore l'ancien agent tant qu'elle n'est pas mergée ; une nouvelle modification partirait de cet ancien texte.
 - **Non vérifiable ici** : un vrai commit sur un vrai repo (les tests passent par le faux GitHub de la 6.1).
