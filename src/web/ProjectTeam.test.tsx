@@ -685,3 +685,21 @@ describe("decision 031 D: renaming the agent of a step", () => {
     ]);
   });
 });
+
+describe("decision 031 H: a team.md that Cockpit would only reformat", () => {
+  it("given a team.md with bare values, when the tab opens, then « Faire le commit » and « Voir les changements » are disabled", async () => {
+    stubApi({
+      team: "---\nsteps:\n  - agent: developer\n    does: implements\n\n  - agent: reviewer\n    does: reviews\n    loop_to: developer\n    until: the verdict is ready\n---\nBody",
+    });
+    await openTeam();
+
+    expect(commitButton().disabled).toBe(true);
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Voir les changements",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+});

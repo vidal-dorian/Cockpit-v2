@@ -72,13 +72,19 @@ export function readTeam(
         return null;
       }
     // A YAML indicator or a comment: the value would not be read as plain text.
-    else if (/^[[{&*!|>'%@`]| #/.test(raw)) return null;
+    else if (/^[#[{&*!|>'%@`]|\s#/.test(raw)) return null;
     if (typeof value !== "string") return null;
     if (key === "does") step.does = value;
     else step.until = value;
   }
-  // An `until` without its loop would be dropped by a rewrite.
-  return steps.length > 0 && steps.every((s) => s.loopTo || !s.until)
+  // An `until` without its loop, or a loop that does not go back, would be dropped by a rewrite.
+  return steps.length > 0 &&
+    steps.every(
+      (s, i) =>
+        (s.loopTo ? steps.findIndex((t) => t.agent === s.loopTo) : 0) <= i &&
+        (s.loopTo || !s.until) &&
+        (s.loopTo === null || steps.some((t) => t.agent === s.loopTo)),
+    )
     ? { steps, body: lines.slice(end + 1).join("\n") }
     : null;
 }

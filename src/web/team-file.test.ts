@@ -113,6 +113,22 @@ describe("decision 031 G: readTeam", () => {
       "a bare value starting with a flow bracket",
       "---\nsteps:\n  - agent: a\n    does: [x]\n---\n",
     ],
+    [
+      "a comment starting a bare value",
+      "---\nsteps:\n  - agent: a\n    does: # todo\n---\n",
+    ],
+    [
+      "a comment after a tab",
+      "---\nsteps:\n  - agent: a\n    does: x\t# todo\n---\n",
+    ],
+    [
+      "a loop to an unknown agent",
+      "---\nsteps:\n  - agent: a\n    loop_to: zz\n    until: x\n---\n",
+    ],
+    [
+      "a loop to a later step",
+      "---\nsteps:\n  - agent: a\n    loop_to: b\n    until: x\n  - agent: b\n---\n",
+    ],
   ])(
     "given %s, when it is read, then it is not rewritable (null)",
     (_n, text) => {

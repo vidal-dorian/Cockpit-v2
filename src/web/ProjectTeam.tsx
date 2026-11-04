@@ -243,13 +243,21 @@ export function ProjectTeam({
     );
 
   const { steps, body } = draft;
-  const setSteps = (next: TeamStep[]) => setDraft({ steps: next, body });
+  // Any change other than the pending link itself drops the link prompt: it was about the old order.
+  const setSteps = (next: TeamStep[]) => {
+    setPending(null);
+    setDraft({ steps: next, body });
+  };
   const free = agents
     .map((a) => a.name)
     .filter((name) => !steps.some((s) => s.agent === name));
   const openStep = steps.find((s) => s.agent === open);
   const after = writeTeam(steps, body);
-  const unchanged = after === (team ?? "");
+  // Compared with the draft as opened, not the file text: a file Cockpit would only reformat is not a change. Without a file the default steps are still worth a commit.
+  const unchanged =
+    team !== null &&
+    initial !== null &&
+    after === writeTeam(initial.steps, initial.body);
   const lines = showDiff ? diffLines(team ?? "", after) : null;
   const canCommit =
     !archived &&
@@ -326,7 +334,10 @@ export function ProjectTeam({
             type="button"
             disabled={until.trim() === ""}
             onClick={() => {
-              setSteps(linkSteps(steps, pending.from, pending.to, until));
+              setDraft({
+                steps: linkSteps(steps, pending.from, pending.to, until),
+                body,
+              });
               setPending(null);
             }}
             className={`mt-3 ${button}`}
