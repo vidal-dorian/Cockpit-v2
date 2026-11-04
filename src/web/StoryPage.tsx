@@ -8,7 +8,14 @@ import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
-import { focusRing, markdownStyle } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  card,
+  focusRing,
+  markdownStyle,
+  primaryButton,
+} from "./ui.ts";
 
 /** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
 async function fetchStory(id: string) {
@@ -19,7 +26,6 @@ async function fetchStory(id: string) {
   return res.json();
 }
 
-const alertBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
 const label = "font-semibold";
 
 /** The story, and the decisions of the user on it (decision 018). */
@@ -33,7 +39,7 @@ export function StoryPage() {
   const found = result.data && result.data !== "not_found" && result.data;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
       <div aria-live="polite">
         {result.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
@@ -44,17 +50,14 @@ export function StoryPage() {
             <button
               type="button"
               onClick={() => result.refetch()}
-              className={`mt-3 min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`}
+              className={`mt-3 ${button}`}
             >
               Réessayer
             </button>
           </div>
         )}
         {result.data === null && (
-          <a
-            href="/api/auth/login"
-            className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+          <a href="/api/auth/login" className={primaryButton}>
             Se connecter avec GitHub
           </a>
         )}
@@ -148,7 +151,7 @@ export function StoryPage() {
               <h2 className="font-heading text-xl font-bold">Critères</h2>
               <ol className="mt-2 grid gap-2">
                 {found.story.criteria.map((criterion) => (
-                  <li key={criterion.id} className="rounded-xl bg-card p-3">
+                  <li key={criterion.id} className={`${card} p-3`}>
                     <p>
                       <span className={label}>Étant donné</span>{" "}
                       {criterion.given}
@@ -170,7 +173,7 @@ export function StoryPage() {
                   {found.story.dependsOn.map((dependency) => (
                     <li
                       key={dependency.id}
-                      className="flex flex-wrap items-baseline gap-x-3 rounded-xl bg-card p-3"
+                      className={`flex flex-wrap items-baseline gap-x-3 ${card} p-3`}
                     >
                       <Link
                         to={`/us/${dependency.id}`}

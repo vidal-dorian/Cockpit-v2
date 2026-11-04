@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "react-router";
 import { fetchInstallation } from "./InstallBanner.tsx";
-import { focusRing } from "./ui.ts";
+import { alertBox, button, primaryButton } from "./ui.ts";
 
 /** Where a user lands after their first login when the App is not installed on their account (decision 012 H). */
 export function Welcome() {
@@ -13,7 +13,7 @@ export function Welcome() {
   if (installation.data?.installed) return <Navigate to="/" replace />;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
       <h1 className="font-heading text-3xl font-extrabold">
         Bienvenue dans Cockpit
       </h1>
@@ -38,25 +38,16 @@ export function Welcome() {
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         {installation.data && (
-          <a
-            href={installation.data.installUrl}
-            className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+          <a href={installation.data.installUrl} className={primaryButton}>
             Installer Cockpit sur mon compte GitHub
           </a>
         )}
-        <Link
-          to="/"
-          className={`inline-flex min-h-10 items-center rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`}
-        >
+        <Link to="/" className={`inline-flex items-center ${button}`}>
           Plus tard
         </Link>
       </div>
       {installation.isError && (
-        <p
-          role="alert"
-          className="mt-4 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-4 ${alertBox}`}>
           Impossible de lire l'état de ton installation, recharge la page dans
           un instant.
         </p>

@@ -83,7 +83,7 @@ afterEach(() => {
 
 describe("start-up wizard", () => {
   it.each(["/", "/projets", "/journal", "/installation"])(
-    "given the instance is not configured, when %s loads, then the wizard asks for the start code, the public address prefilled with the detected one, lists the permissions and offers to create the GitHub App",
+    "given the instance is not configured, when %s loads, then the wizard asks for the start code only (no public address field, decision 028 J), lists the permissions and offers to create the GitHub App",
     async (path) => {
       stubApi({ configured: false });
 
@@ -93,10 +93,8 @@ describe("start-up wizard", () => {
         await screen.findByRole("heading", { name: "Installer Cockpit" }),
       ).toBeDefined();
       expect(screen.getByLabelText("Code de démarrage")).toBeDefined();
-      const address = screen.getByLabelText(
-        "Adresse publique",
-      ) as HTMLInputElement;
-      expect(address.value).toBe(DETECTED);
+      expect(screen.queryByLabelText("Adresse publique")).toBeNull();
+      expect(screen.queryByText("Adresse publique")).toBeNull();
       for (const permission of ["Contenu", "Issues", "Pull requests"])
         expect(screen.getByText(new RegExp(permission))).toBeDefined();
       expect(
@@ -105,7 +103,7 @@ describe("start-up wizard", () => {
     },
   );
 
-  it("given a start code and an address, when the form is submitted and the server answers 200, then POST /api/setup/start carries them and a form is posted to GitHub with the manifest in a hidden field", async () => {
+  it("given a start code, when the form is submitted and the server answers 200, then POST /api/setup/start carries exactly { code } and a form is posted to GitHub with the manifest in a hidden field", async () => {
     const submit = vi
       .spyOn(HTMLFormElement.prototype, "submit")
       .mockImplementation(() => {});
@@ -117,19 +115,13 @@ describe("start-up wizard", () => {
     fireEvent.change(await screen.findByLabelText("Code de démarrage"), {
       target: { value: "the-code" },
     });
-    fireEvent.change(screen.getByLabelText("Adresse publique"), {
-      target: { value: "https://cockpit.other.example" },
-    });
 
     fireEvent.click(screen.getByRole("button", { name: "Créer l'App GitHub" }));
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const start = calls.find((c) => c.path === "/api/setup/start");
     expect(start?.method).toBe("POST");
-    expect(JSON.parse(start?.body ?? "{}")).toEqual({
-      code: "the-code",
-      publicUrl: "https://cockpit.other.example",
-    });
+    expect(JSON.parse(start?.body ?? "{}")).toEqual({ code: "the-code" });
     const form = submit.mock.contexts[0] as HTMLFormElement;
     expect(form.method.toLowerCase()).toBe("post");
     expect(form.getAttribute("action")).toBe(ACTION);
@@ -190,7 +182,7 @@ describe("start-up wizard", () => {
   });
 });
 
-// Decision 023 B: the wizard shows the sentence of the server, not a generic one.
+// Decision 028 J: the wizard shows the sentence of the server, not a generic one.
 describe("start-up wizard, refused address", () => {
   const submitWith400 = async (body: unknown) => {
     const submit = vi
@@ -208,21 +200,13 @@ describe("start-up wizard, refused address", () => {
     return { alert: await screen.findByRole("alert"), submit };
   };
 
-  it("given the server answers 400 that the address must start with https://, when the form is submitted, then the alert shows that exact message and nothing is posted to GitHub", async () => {
+  it("given the server answers 400 that Cockpit must be opened over https://, when the form is submitted, then the alert shows that exact message and nothing is posted to GitHub", async () => {
     const message =
-      "L'adresse publique doit commencer par https:// : claude.ai l'exige.";
+      "Ouvre Cockpit par son adresse en https:// pour l'installer : claude.ai l'exige pour le connecteur.";
 
     const { alert, submit } = await submitWith400({ error: message });
 
     expect(alert.textContent).toContain(message);
     expect(submit).not.toHaveBeenCalled();
-  });
-
-  it("given the server answers 400 with another error, when the form is submitted, then the alert shows a French message about the address", async () => {
-    const { alert } = await submitWith400({
-      error: "Adresse publique invalide",
-    });
-
-    expect(alert.textContent).toMatch(/adresse publique/i);
   });
 });

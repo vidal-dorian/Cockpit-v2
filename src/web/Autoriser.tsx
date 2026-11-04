@@ -1,9 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
-
-const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
+import { alertBox, button, primaryButton } from "./ui.ts";
 
 async function fetchMe() {
   const res = await client.api.me.$get();
@@ -44,14 +42,14 @@ export function Autoriser() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
       <h1 className="font-heading text-3xl font-extrabold">
         Autoriser un connecteur
       </h1>
       <div className="mt-6" aria-live="polite">
         {me.isPending && <p className="text-muted-foreground">Chargement…</p>}
         {me.isError && (
-          <p role="alert" className={errorBox}>
+          <p role="alert" className={alertBox}>
             Impossible de lire ton compte. Recharge la page ; si cela continue,
             réessaie plus tard.
           </p>
@@ -61,7 +59,7 @@ export function Autoriser() {
             <p>Connecte-toi à Cockpit pour continuer.</p>
             <a
               href={`/api/auth/login?next=${encodeURIComponent(`/autoriser${search}`)}`}
-              className={`mt-3 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+              className={`mt-3 ${primaryButton}`}
             >
               Se connecter avec GitHub
             </a>
@@ -71,7 +69,7 @@ export function Autoriser() {
           <p className="text-muted-foreground">Chargement…</p>
         )}
         {request.isError && (
-          <p role="alert" className={errorBox}>
+          <p role="alert" className={alertBox}>
             Cette demande de connexion est invalide. Retourne dans Claude et
             recommence l'ajout du connecteur.
           </p>
@@ -93,7 +91,7 @@ export function Autoriser() {
                 type="button"
                 onClick={() => decide.mutate("approve")}
                 disabled={decide.isPending || decide.isSuccess}
-                className={`min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+                className={primaryButton}
               >
                 Autoriser
               </button>
@@ -101,7 +99,7 @@ export function Autoriser() {
                 type="button"
                 onClick={() => decide.mutate("deny")}
                 disabled={decide.isPending || decide.isSuccess}
-                className={`min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`}
+                className={button}
               >
                 Refuser
               </button>
@@ -109,7 +107,7 @@ export function Autoriser() {
           </>
         )}
         {decide.isError && (
-          <p role="alert" className={`mt-3 ${errorBox}`}>
+          <p role="alert" className={`mt-3 ${alertBox}`}>
             {decide.error.message}
           </p>
         )}

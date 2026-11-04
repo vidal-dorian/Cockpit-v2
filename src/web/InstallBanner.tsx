@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
+import { card, primaryButton } from "./ui.ts";
 
 /** Whether the App is installed on the caller's account, and where to install it; null when logged out, throws when GitHub fails. */
 export async function fetchInstallation() {
@@ -24,16 +24,13 @@ export function InstallBanner() {
   return (
     <div
       role="status"
-      className="mx-4 mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-card p-4"
+      className={`mx-4 mt-4 flex flex-wrap items-center gap-3 ${card} p-4`}
     >
       <p>
         Cockpit n'est pas installé sur ton compte GitHub : sans lui, tu ne peux
         pas importer de projet.
       </p>
-      <a
-        href={installation.data.installUrl}
-        className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-      >
+      <a href={installation.data.installUrl} className={primaryButton}>
         Installer
       </a>
     </div>

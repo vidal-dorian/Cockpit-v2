@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [008 — Service en ligne](008-service-en-ligne.md) (enregistrer d'abord, traiter ensuite), [012 — Configuration automatique](012-configuration-automatique.md) (l'App et son secret de webhook), [013 — Bilan de santé](013-bilan-de-sante.md), [010 — Historique](010-historique.md), [023 — Adresse publique](023-reglages-adresse-https.md)
 - **Modifiée par** : [025 — Une issue modifiée sur GitHub](025-issue-modifiee-sur-github.md) : le traitement des livraisons existe maintenant (`processed_at`, `claimed_at`, `attempts`, entrée `process_webhook`), lancé après la réponse 202 puis chaque minute
+- **Modifiée par 028** : plus de changement d'adresse (choix G) : Réglages ne déclenche plus `PATCH /app/hook/config` — voir la [028](028-creme-sombre-onglets-journal.md)
 - **Tranche** : 5.1 du [découpage](../decoupage.md)
 
 ## Contexte

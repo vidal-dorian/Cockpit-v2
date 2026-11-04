@@ -71,7 +71,7 @@ export function createApp(
       .route("/", setupRoutes(db, readInstance, encryptionKey, setupCode))
       .route("/", authRoutes(db, readInstance, readGitHub))
       .route("/", historyRoutes(db))
-      .route("/", accountRoutes(db, readInstance, readGitHub))
+      .route("/", accountRoutes(db, readInstance))
       .route("/", webhookRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       // After projectRoutes: its gate covers the ticket and story routes.

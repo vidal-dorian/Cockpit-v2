@@ -151,7 +151,7 @@ describe("Project page, the health check", () => {
   it("given a project, when /projets/:id loads, then the title is its full name and the health is requested for that id", async () => {
     const { healthPaths } = stubApi({});
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     const title = await screen.findByRole("heading", {
       level: 1,
@@ -162,7 +162,7 @@ describe("Project page, the health check", () => {
     expect(healthPaths).toContain("/api/projects/5/health");
   });
 
-  it("given a project in the list, when its name is clicked on /projets, then the page of the project shows its health", async () => {
+  it("given a project in the list, when its name is clicked on /projets, then the page of the project opens on its Kanban tab (decision 028 G)", async () => {
     stubApi({});
     renderAt("/projets");
 
@@ -170,13 +170,18 @@ describe("Project page, the health check", () => {
 
     await screen.findByRole("heading", { level: 1, name: "octocat/hello" });
     expect(window.location.pathname).toBe("/projets/5");
-    await screen.findByText(LABELS.ci);
+    const tabs = screen.getByRole("navigation", { name: "Sections du projet" });
+    expect(
+      within(tabs)
+        .getByRole("link", { name: "Kanban" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
   });
 
   it("given all lines ok, when the page loads, then the four French labels each read OK in text and none reads À corriger", async () => {
     stubApi({});
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await screen.findByText(LABELS.claude_md);
     for (const label of Object.values(LABELS)) {
@@ -206,7 +211,7 @@ describe("Project page, the health check", () => {
       ],
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await screen.findByText(LABELS.claude_md);
     const green = rowOf(LABELS.claude_md);
@@ -243,7 +248,7 @@ describe("Project page, the health check", () => {
       ],
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await screen.findByText(LABELS.mcp);
     const row = rowOf(LABELS.mcp);
@@ -263,7 +268,7 @@ describe("Project page, the health check", () => {
       ],
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await screen.findByText(LABELS.mcp);
     const row = rowOf(LABELS.mcp);
@@ -283,7 +288,7 @@ describe("Project page, the health check", () => {
         answer(OK_LINES),
       ],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await screen.findByText(LABELS.ci);
     await waitFor(() =>
       expect(within(rowOf(LABELS.ci)).getByText(RED)).toBeDefined(),
@@ -302,7 +307,7 @@ describe("Project page, the health check", () => {
   it("given the page links back, when it loads, then a link to /projets is inside the page", async () => {
     stubApi({});
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await screen.findByText(LABELS.ci);
     // The header navigation also has a Projets link: the page needs its own.
@@ -319,7 +324,7 @@ describe("Project page, errors", () => {
       answers: [fail(502, "github_unavailable"), answer(OK_LINES)],
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/GitHub/);
@@ -335,7 +340,7 @@ describe("Project page, errors", () => {
   it("given the App lost access to the repo (409 repo_unreachable), when the page loads, then a French alert says the App no longer has access to it and no internal code is shown", async () => {
     stubApi({ answers: [fail(409, "repo_unreachable")] });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/App/);
@@ -347,7 +352,7 @@ describe("Project page, errors", () => {
   it("given the session expired (health answers 401), when the page loads, then it offers to log in with GitHub and shows no alert", async () => {
     stubApi({ answers: [fail(401, "Unauthorized")] });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     const main = await screen.findByRole("main");
     const link = await within(main).findByRole("link", {
@@ -363,7 +368,7 @@ describe("Project page, errors", () => {
       answers: [fail(502, "github_unavailable")],
     });
 
-    renderAt("/projets/5", new QueryClient());
+    renderAt("/projets/5/sante", new QueryClient());
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/GitHub/);
@@ -372,7 +377,7 @@ describe("Project page, errors", () => {
 
   it("given the lines are shown, when the window regains focus, then the health is not requested again", async () => {
     const { healthPaths } = stubApi({});
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await screen.findByText(LABELS.ci);
     expect(healthPaths).toHaveLength(1);
 

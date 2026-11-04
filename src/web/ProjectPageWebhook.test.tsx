@@ -85,7 +85,7 @@ function stubHealth(webhook: Line) {
 }
 
 function renderProject() {
-  window.history.replaceState({}, "", "/projets/5");
+  window.history.replaceState({}, "", "/projets/5/sante");
   render(
     <QueryClientProvider
       client={

@@ -93,7 +93,7 @@ describe("GET /api/history", () => {
     );
   });
 
-  it("given 105 entries for A, when A asks for the history, then only the 100 most recent come back", async () => {
+  it("given 105 entries for A, when A asks for the history, then only the 25 most recent come back (decision 028 F)", async () => {
     const { app, db } = await setup();
     const a = await userWithSession(db, 1);
     await db.insert(history).values(
@@ -110,12 +110,12 @@ describe("GET /api/history", () => {
     });
 
     const body = (await res.json()) as { entries: { at: string }[] };
-    expect(body.entries).toHaveLength(100);
+    expect(body.entries).toHaveLength(25);
     expect(body.entries[0]?.at).toBe(
       new Date(Date.UTC(2026, 0, 1, 0, 104)).toISOString(),
     );
-    expect(body.entries[99]?.at).toBe(
-      new Date(Date.UTC(2026, 0, 1, 0, 5)).toISOString(),
+    expect(body.entries[24]?.at).toBe(
+      new Date(Date.UTC(2026, 0, 1, 0, 80)).toISOString(),
     );
   });
 });

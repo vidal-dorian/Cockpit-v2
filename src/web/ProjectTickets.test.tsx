@@ -37,7 +37,7 @@ describe("Project page, the tickets", () => {
   it("given two tickets, when /projets/:id loads, then a Tickets section lists them in the API order, each a link to /tickets/:id with its step Nouveau", async () => {
     stubTicketApi([ticket(8, "Plus récent"), ticket(7, "Plus ancien")]);
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
 
     await screen.findByRole("heading", { name: "Tickets" });
     const newer = await screen.findByRole("link", { name: "Plus récent" });
@@ -54,7 +54,7 @@ describe("Project page, the tickets", () => {
   it("given a project without ticket, when the page loads, then it says there is none yet and offers the Nouveau ticket form", async () => {
     stubTicketApi([]);
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
 
     await screen.findByText(/Aucun ticket/);
     expect(screen.getByText("Nouveau ticket")).toBeDefined();
@@ -65,7 +65,7 @@ describe("Project page, the tickets", () => {
 
   it("given the form, when a title is typed and Créer is clicked, then the ticket is sent for this project and shown at the top of the list, and the field is emptied", async () => {
     const api = stubTicketApi([ticket(7, "Déjà là")]);
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
     await screen.findByRole("link", { name: "Déjà là" });
 
     create("Ajouter la recherche");
@@ -98,7 +98,7 @@ describe("Project page, the tickets", () => {
   it("given the Nouveau ticket form, when the page loads, then it shows an empty Description (markdown) textarea", async () => {
     stubTicketApi([]);
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
 
     await screen.findByText(/Aucun ticket/);
     const description = screen.getByLabelText("Description (markdown)");
@@ -108,7 +108,7 @@ describe("Project page, the tickets", () => {
 
   it("given a title only, when Créer is clicked, then the request holds exactly { title } with no descriptionMd", async () => {
     const api = stubTicketApi([]);
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
     await screen.findByText(/Aucun ticket/);
 
     create("Capture rapide");
@@ -126,7 +126,7 @@ describe("Project page, the tickets", () => {
 
   it("given a title and a description, when Créer is clicked, then { title, descriptionMd } is sent as typed and both fields are emptied", async () => {
     const api = stubTicketApi([]);
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
     await screen.findByText(/Aucun ticket/);
     const markdown = "  ## Contexte\n\n- un **point**\n";
 
@@ -150,7 +150,7 @@ describe("Project page, the tickets", () => {
   it("given the server refuses the ticket (400), when Créer is clicked with a title and a description, then both fields keep what was typed", async () => {
     const api = stubTicketApi([]);
     api.failNext.post = fail(400, "Bad request");
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
     await screen.findByText(/Aucun ticket/);
 
     create("   ", "du **texte**");
@@ -168,7 +168,7 @@ describe("Project page, the tickets", () => {
   it("given the server refuses the title (400), when Créer is clicked, then a French alert talks about the title, keeps what was typed and shows no internal text", async () => {
     const api = stubTicketApi([]);
     api.failNext.post = fail(400, "Bad request");
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
     await screen.findByText(/Aucun ticket/);
 
     create("   ");
@@ -183,7 +183,7 @@ describe("Project page, the tickets", () => {
   it("given an archived project (409 project_archived), when Créer is clicked, then a French alert says the project is archived and the code is not shown", async () => {
     const api = stubTicketApi([]);
     api.failNext.post = fail(409, "project_archived");
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
     await screen.findByText(/Aucun ticket/);
 
     create("Trop tard");
@@ -196,7 +196,7 @@ describe("Project page, the tickets", () => {
 
   it("given a ticket in the list, when its title is clicked, then the ticket page opens on /tickets/:id", async () => {
     stubTicketApi([ticket(7, "Ouvre-moi", "du texte")]);
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
 
     fireEvent.click(await screen.findByRole("link", { name: "Ouvre-moi" }));
 
