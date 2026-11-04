@@ -8,7 +8,8 @@
   - la [003](003-interface.md), section « Style visuel » : les maquettes retenues sont désormais la rangée **« Version Crème sombre — le style du site vitrine »** du canevas (https://claude.ai/artifact/XAteTYa7tQBcCGq8HpRF7C, planches « Crème sombre 1 » à « Crème sombre 8 ») ; l'UX et les règles d'ergonomie de la 003 ne changent pas ;
   - la [023](023-reglages-adresse-https.md), choix C (la section « Adresse publique » de Réglages disparaît) et E (Réglages a quatre onglets au lieu de deux) ;
   - la [024](024-webhooks.md), choix G (plus de changement d'adresse, donc plus de `PATCH /app/hook/config` déclenché par Réglages) ;
-  - la [010](010-historique.md) pour `GET /api/history` (par pages).
+  - la [010](010-historique.md) pour `GET /api/history` (par pages) ;
+  - la [012](012-configuration-automatique.md), choix C, et la [023](023-reglages-adresse-https.md), choix B : l'assistant ne demande plus de confirmer l'adresse (choix J).
 - **Répond à** : la demande du 2026-11-03 : « les maquettes appelées "crème sombre" sont les maquettes retenues » ; « le journal des logs est bien trop grand […] permettre à l'utilisateur d'afficher plus de logs » ; « dans la page des projets […] il faudrait des onglets, bilan de santé, kanbans, tickets, paramétrage pour l'écriture automatique des US » ; « dans la page des réglages, on a pas d'onglets » ; « la fonctionnalité d'adresse publique […] devrait disparaître ».
 
 ## Contexte
@@ -28,6 +29,7 @@ Les écrans ont été construits avec le style clair de la 003. Les maquettes Cr
 | G | La page d'un projet ? | Un en-tête (fil d'Ariane « Projets / nom », le nom en titre), puis des **onglets**, des liens (`aria-label="Sections du projet"`, l'onglet ouvert porte `aria-current="page"`) : **« Kanban »** (`/projets/:id`, l'onglet par défaut), **« Tickets »** (`/projets/:id/tickets`), **« Santé »** (`/projets/:id/sante` : le bilan, « Revérifier », « Préparer pour Claude ») et **« Écriture des US »** (`/projets/:id/ecriture-us` : la section de la 022). Chaque onglet ne montre que sa section. Le bilan reste lu à l'ouverture de la page, quel que soit l'onglet (pour « Projet introuvable » comme aujourd'hui, et pour le repère qui suit) : quand il a des lignes rouges, l'onglet Santé le dit par un mot, **« Santé · N à corriger »** ; tout vert, il dit seulement « Santé ». Le lien « ← » d'un ticket mène à l'onglet Tickets ; après l'abandon d'un ticket, on revient au Kanban comme aujourd'hui |
 | H | Réglages ? | Quatre onglets, des liens (`aria-label="Réglages"`, `aria-current="page"` sur l'onglet ouvert) : **« Connecter Claude »** (`/reglages`), **« Jetons MCP »** (`/reglages/jetons`), **« Utilisateurs »** (`/reglages/utilisateurs`, onglet montré à l'administrateur seulement) et **« Écriture automatique des US »** (`/reglages/ecriture-us`, inchangé). Chaque onglet ne montre que sa section. Un non-administrateur qui ouvre `/reglages/utilisateurs` lit « Cette page est réservée à l'administrateur. » et la liste n'est pas demandée au serveur. Dans « Connecter Claude », « Les jetons manuels » devient un lien vers l'onglet « Jetons MCP » |
 | I | L'adresse publique ? | La section « Adresse publique » de Réglages disparaît, ainsi que `GET` et `PUT /api/settings/public-url` (ils répondent 404 comme toute route inconnue) et le changement d'adresse du webhook qu'ils déclenchaient (024 G). L'adresse reste celle de l'installation : détectée et confirmée par l'assistant (012 C, 023 A, B, inchangés), elle sert à créer l'App, à l'OAuth (021) et à la ligne `webhook` du bilan (024). Les entrées `change_public_url` déjà écrites gardent leur libellé dans le journal |
+| J | L'adresse à l'installation ? | L'assistant n'a plus de champ « Adresse publique » : l'administrateur n'a rien à recopier, il donne le code de démarrage puis accepte l'App sur GitHub. `POST /api/setup/start` prend `{ code }` seul et **détecte l'adresse sur sa propre requête**, comme `GET /api/setup/status` (`CF-Visitor`, puis `X-Forwarded-Proto` et `X-Forwarded-Host`, sinon l'origine de la requête ; 023 A). Une adresse qui n'est pas en `https://` est refusée (400) par la phrase : « Ouvre Cockpit par son adresse en https:// pour l'installer : claude.ai l'exige pour le connecteur. » ; seule exception, inchangée : `localhost`, `127.0.0.1` et `[::1]`, pour développer sur sa machine (023 B). Un `publicUrl` encore envoyé dans le corps est ignoré. Cette adresse est celle que Réglages › Connecter Claude donne pour le connecteur (`<adresse>/mcp`, 021) |
 
 ## Critères d'acceptation
 
@@ -60,6 +62,13 @@ Les écrans ont été construits avec le style clair de la 003. Les maquettes Cr
 - **Étant donné** un non-administrateur, **quand** il ouvre `/reglages`, **alors** l'onglet Utilisateurs n'est pas affiché ; **quand** il ouvre `/reglages/utilisateurs`, **alors** il lit « Cette page est réservée à l'administrateur. » et `/api/settings/users` n'est jamais demandé.
 - **Étant donné** n'importe quel utilisateur, **quand** il ouvre un onglet de Réglages, **alors** il n'y a pas de section « Adresse publique » et `/api/settings/public-url` n'est jamais demandé.
 - **Étant donné** un administrateur, **quand** il demande `GET` ou `PUT /api/settings/public-url`, **alors** la réponse est 404 et l'adresse enregistrée ne change pas.
+
+### Installation (J)
+
+- **Étant donné** l'assistant, **quand** il est affiché, **alors** il n'a pas de champ « Adresse publique », seulement le code de démarrage, la liste des droits et « Créer l'App GitHub ».
+- **Étant donné** une requête qui arrive en https (par exemple `CF-Visitor: {"scheme":"https"}` et `Host: cockpit.example.com`), **quand** `POST /api/setup/start` reçoit le bon code, **alors** le manifeste est construit avec `https://cockpit.example.com`, même si le corps contient un autre `publicUrl`.
+- **Étant donné** une requête qui arrive en http sur un autre hôte que la machine (par exemple `X-Forwarded-Proto: http` et `Host: cockpit.example.com`), **quand** `POST /api/setup/start` reçoit le bon code, **alors** la réponse est 400 avec la phrase du choix J et rien n'est préparé ; la page l'affiche dans une alerte.
+- **Étant donné** une requête sur `http://localhost:3000`, **quand** `POST /api/setup/start` reçoit le bon code, **alors** le manifeste est construit avec `http://localhost:3000`.
 
 ## Ce qui est repoussé
 
