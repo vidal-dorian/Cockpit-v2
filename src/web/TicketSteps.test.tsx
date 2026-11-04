@@ -21,7 +21,7 @@ const LABELS: [string, string][] = [
 ];
 
 describe("criterion 16: the step labels", () => {
-  it("given one ticket per step, when /projets/:id loads, then each row reads the French label of its step and never the code", async () => {
+  it("given one ticket per step, when /projets/:id/tickets loads, then each row reads the French label of its step and never the code", async () => {
     stubTicketApi(
       LABELS.map(([code], i) => ({
         ...ticket(10 + i, `ticket-${code}`),
@@ -29,7 +29,7 @@ describe("criterion 16: the step labels", () => {
       })),
     );
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/tickets");
 
     for (const [code, label] of LABELS) {
       const link = await screen.findByRole("link", { name: `ticket-${code}` });

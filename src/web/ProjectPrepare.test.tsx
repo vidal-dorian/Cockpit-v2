@@ -250,7 +250,7 @@ describe("decision 027 F: the button", () => {
     async (_name, red) => {
       const calls = stubApi({ healths: [lines(red)] });
 
-      renderAt("/projets/5");
+      renderAt("/projets/5/sante");
 
       const found = (await prepareButton()) as HTMLButtonElement;
       expect(found.disabled).toBe(false);
@@ -267,7 +267,7 @@ describe("decision 027 F: the button", () => {
     async (_name, red) => {
       stubApi({ healths: [lines(red)] });
 
-      renderAt("/projets/5");
+      renderAt("/projets/5/sante");
 
       await screen.findByText("Agents et skill de développement");
       expect(
@@ -279,7 +279,7 @@ describe("decision 027 F: the button", () => {
   it("given an archived project with a red line, when the page loads, then « Préparer pour Claude » is shown but disabled and a click asks nothing", async () => {
     const calls = stubApi({ archived: true });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     const found = (await prepareButton()) as HTMLButtonElement;
     expect(found.disabled).toBe(true);
@@ -291,7 +291,7 @@ describe("decision 027 F: the button", () => {
 describe("decision 027 F: the list of the files", () => {
   it("given the button clicked, when the plan is read, then the plan is asked once and each file is a list item with its path and its own French label", async () => {
     const calls = stubApi();
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await open();
 
@@ -318,7 +318,7 @@ describe("decision 027 F: the list of the files", () => {
 
   it("given a file to add, when the list is shown, then its content is in a closed details", async () => {
     stubApi();
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await open();
 
@@ -330,7 +330,7 @@ describe("decision 027 F: the list of the files", () => {
 
   it("given a file that is there but different, when the list is shown, then its diff goes from the current text to the proposed one: a removed line is marked Retirée, an added one Ajoutée, an unchanged one neither", async () => {
     stubApi();
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await open();
 
@@ -351,7 +351,7 @@ describe("decision 027 F: the list of the files", () => {
 
   it("given a file that is identical and a file that is not a plain file, when the list is shown, then neither has a diff", async () => {
     stubApi();
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await open();
 
@@ -361,7 +361,7 @@ describe("decision 027 F: the list of the files", () => {
 
   it("given a plan with files to add, when the list is shown, then « Faire le commit » is enabled", async () => {
     stubApi();
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await open();
 
@@ -372,7 +372,7 @@ describe("decision 027 F: the list of the files", () => {
     const calls = stubApi({
       plans: [{ status: 200, body: { plan: NOTHING_TO_ADD } }],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
 
     await open();
 
@@ -401,7 +401,7 @@ describe("decision 027 F: the list of the files", () => {
     "given the plan refused with %s, when the button is clicked, then a French alert is shown, without the code, and there is no « Faire le commit »",
     async (_name, answer, code) => {
       stubApi({ plans: [answer] });
-      renderAt("/projets/5");
+      renderAt("/projets/5/sante");
 
       fireEvent.click(await prepareButton());
 
@@ -420,7 +420,7 @@ describe("decision 027 F: the commit", () => {
     const calls = stubApi({
       healths: [lines(["claude_md", "agents"]), GREEN],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
     expect(calls.health).toBe(1);
 
@@ -451,7 +451,7 @@ describe("decision 027 F: the commit", () => {
         }),
       ],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -477,7 +477,7 @@ describe("decision 027 F: the commit", () => {
         },
       ],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -503,7 +503,7 @@ describe("decision 027 F: the commit", () => {
         },
       ],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -527,7 +527,7 @@ describe("decision 027 F: the commit", () => {
     "given the commit answered %s, when the answer comes, then the alert does not blame GitHub",
     async (status, body) => {
       stubApi({ applies: [{ status, body }] });
-      renderAt("/projets/5");
+      renderAt("/projets/5/sante");
       await open();
 
       fireEvent.click(commitButton());
@@ -539,7 +539,7 @@ describe("decision 027 F: the commit", () => {
 
   it("given a session that ended, when the commit is made, then the alert offers the login", async () => {
     stubApi({ applies: [{ status: 401, body: { error: "Unauthorized" } }] });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -553,7 +553,7 @@ describe("decision 027 F: the commit", () => {
 
   it("given a commit that went straight to the branch, when it is done, then the protected-branch sentence is not shown", async () => {
     stubApi();
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -572,7 +572,7 @@ describe("decision 027 F: the refusals", () => {
       ],
       applies: [{ status: 409, body: { error: "repo_changed" } }],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -600,7 +600,7 @@ describe("decision 027 F: the refusals", () => {
         },
       ],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());
@@ -618,7 +618,7 @@ describe("decision 027 F: the refusals", () => {
     stubApi({
       applies: [{ status: 502, body: { error: "github_unavailable" } }],
     });
-    renderAt("/projets/5");
+    renderAt("/projets/5/sante");
     await open();
 
     fireEvent.click(commitButton());

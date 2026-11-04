@@ -9,7 +9,15 @@ import {
   STORY_STATUSES,
   ticketError,
 } from "./tickets.ts";
-import { focusRing, markdownStyle } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  card,
+  field,
+  focusRing,
+  markdownStyle,
+  primaryButton,
+} from "./ui.ts";
 
 /** The ticket with its stories, "not_found" when the user cannot reach it, or null when the server answers 401. */
 async function fetchTicket(id: string) {
@@ -20,9 +28,6 @@ async function fetchTicket(id: string) {
   return res.json();
 }
 
-const field = `mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 ${focusRing}`;
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
-const alertBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
 type Loaded = Exclude<
   Awaited<ReturnType<typeof fetchTicket>>,
   null | "not_found"
@@ -146,7 +151,7 @@ function TicketView({ ticket, stories }: Loaded) {
   return (
     <>
       <Link
-        to={`/projets/${ticket.projectId}`}
+        to={`/projets/${ticket.projectId}/tickets`}
         className={`underline ${focusRing}`}
       >
         ← Projet
@@ -183,7 +188,7 @@ function TicketView({ ticket, stories }: Loaded) {
             <button
               type="submit"
               disabled={save.isPending}
-              className={`min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+              className={primaryButton}
             >
               Enregistrer
             </button>
@@ -234,7 +239,7 @@ function TicketView({ ticket, stories }: Loaded) {
                 {stories.map((story) => (
                   <li
                     key={story.id}
-                    className="flex flex-wrap items-baseline gap-x-3 rounded-xl bg-card p-3"
+                    className={`flex flex-wrap items-baseline gap-x-3 ${card} p-3`}
                   >
                     <span className="font-semibold">{story.position}.</span>
                     <Link
@@ -308,7 +313,7 @@ function TicketView({ ticket, stories }: Loaded) {
                     mode === "delete" ? remove.mutate() : abandon.mutate()
                   }
                   disabled={remove.isPending || abandon.isPending}
-                  className={`min-h-10 rounded-lg bg-destructive px-4 font-semibold text-card ${focusRing}`}
+                  className={`min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card ${focusRing}`}
                 >
                   {mode === "delete"
                     ? "Confirmer la suppression"
@@ -357,7 +362,7 @@ export function TicketPage() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
       <div aria-live="polite">
         {ticket.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
@@ -375,10 +380,7 @@ export function TicketPage() {
           </div>
         )}
         {ticket.data === null && (
-          <a
-            href="/api/auth/login"
-            className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+          <a href="/api/auth/login" className={primaryButton}>
             Se connecter avec GitHub
           </a>
         )}

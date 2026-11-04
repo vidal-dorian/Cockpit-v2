@@ -6,41 +6,23 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Decision 023 C, E: Réglages in two tabs, and the administrator's section « Adresse publique ».
+// Decision 028 H, I: Réglages in four tabs, and no more « Adresse publique ».
 //
 // Pinned choices (the decision leaves them open):
-// - The tabs are two links inside a <nav> (its name is free), « Général » and « Écriture automatique des US »; the
-//   open one has aria-current="page", the other has no aria-current.
-// - The section « Adresse publique » is a <section aria-labelledby> (role region) with one text field and a button
-//   whose name contains « Enregistrer ». The field is empty at first: the current address is shown as text.
-// - The GitHub steps (link to appSettingsUrl, `<typed>/api/auth/callback`) and the
-//   note about the claude.ai connector sit in that section, before the button, and follow what is typed.
-//   Decision 024 G: the webhook is no longer one of the steps (the server changes it): the section does not say
-//   « webhook » at all until a save answers webhookUpdated: false, then it asks, in a message, to change the address of
-//   the webhook by hand on GitHub (« à la main »), giving `<saved address>/api/webhooks/github`.
-// - After a save, the page reads the address again (GET) and shows it in place of the old one.
-// - A 400 shows the `error` text of the server, in French, in an alert.
+// - The tabs are links inside a <nav aria-label="Réglages">: « Connecter Claude » (/reglages), « Jetons MCP »
+//   (/reglages/jetons), « Utilisateurs » (/reglages/utilisateurs, administrator only) and
+//   « Écriture automatique des US » (/reglages/ecriture-us). The open one has aria-current="page", the others have none.
+// - A section is told by its heading: « Connecter Claude », « Jetons MCP », « Utilisateurs », « Écrire les US automatiquement ».
+// - A non-administrator on /reglages/utilisateurs reads « Cette page est réservée à l'administrateur. » and /api/settings/users
+//   is never requested. /api/settings/public-url is never requested by any tab.
 
-const OLD_URL = "https://cockpit.example.com";
-const NEW_URL = "https://new.example.org";
-const APP_SETTINGS = "https://github.com/settings/apps/cockpit-acme";
-const HTTPS_ONLY =
-  "L'adresse publique doit commencer par https:// : claude.ai l'exige.";
+const RESERVED = "Cette page est réservée à l'administrateur.";
 
-type State = {
-  isAdmin: boolean;
-  publicUrl: string;
-  /** What PUT answers instead of saving. */
-  putAnswer?: Response;
-  /** What the saving PUT says of the webhook (decision 024 G); true when absent. */
-  webhookUpdated?: boolean;
-};
-type Call = { method: string; path: string; body: string };
+type Call = { method: string; path: string };
 
 function renderAt(path: string) {
   window.history.replaceState({}, "", path);
@@ -55,8 +37,8 @@ function renderAt(path: string) {
   );
 }
 
-/** A small fake server behind fetch: it keeps the address, so a refetch shows the change. */
-function stubApi(state: State) {
+/** A small fake server behind fetch; any route the page should not need fails the test loudly. */
+function stubApi(isAdmin: boolean) {
   const calls: Call[] = [];
   vi.stubGlobal(
     "fetch",
@@ -71,13 +53,7 @@ function stubApi(state: State) {
         init?.method ?? (input instanceof Request ? input.method : "GET")
       ).toUpperCase();
       const path = new URL(raw, "http://localhost").pathname;
-      const body =
-        typeof init?.body === "string"
-          ? init.body
-          : input instanceof Request
-            ? await input.clone().text()
-            : "";
-      calls.push({ method, path, body });
+      calls.push({ method, path });
 
       if (path === "/api/setup/status")
         return Response.json({
@@ -92,7 +68,7 @@ function stubApi(state: State) {
           login: "dorian",
           name: "Dorian",
           avatarUrl: null,
-          isAdmin: state.isAdmin,
+          isAdmin,
         });
       if (path === "/api/installation")
         return Response.json({
@@ -103,7 +79,7 @@ function stubApi(state: State) {
         return Response.json({ tokens: [] });
       if (path === "/api/me/connect" && method === "GET")
         return Response.json({
-          mcpUrl: `${state.publicUrl}/mcp`,
+          mcpUrl: "https://cockpit.example.com/mcp",
           connected: false,
           connectedAt: null,
           client: null,
@@ -116,27 +92,9 @@ function stubApi(state: State) {
           prompt: "This task is started by Cockpit.",
         });
       if (path === "/api/settings/users" && method === "GET")
-        return state.isAdmin
+        return isAdmin
           ? Response.json({ users: [] })
           : Response.json({ error: "Forbidden" }, { status: 403 });
-      if (path === "/api/settings/public-url") {
-        if (!state.isAdmin)
-          return Response.json({ error: "Forbidden" }, { status: 403 });
-        if (method === "GET")
-          return Response.json({
-            publicUrl: state.publicUrl,
-            appSettingsUrl: APP_SETTINGS,
-          });
-        if (method === "PUT") {
-          if (state.putAnswer) return state.putAnswer.clone();
-          const sent = JSON.parse(body) as { publicUrl: string };
-          state.publicUrl = new URL(sent.publicUrl).origin;
-          return Response.json({
-            publicUrl: state.publicUrl,
-            webhookUpdated: state.webhookUpdated ?? true,
-          });
-        }
-      }
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     }),
   );
@@ -152,310 +110,176 @@ afterEach(() => {
 const heading = (name: string) =>
   screen.queryByRole("heading", { level: 2, name });
 
-/** The nav that holds the two tabs, found by its links. */
-async function tabs() {
-  const general = await screen.findByRole("link", { name: "Général" });
-  const routine = screen.getByRole("link", {
-    name: "Écriture automatique des US",
-  });
-  expect(
-    general.closest("nav"),
-    "the tabs must be links inside a <nav>",
-  ).not.toBeNull();
-  expect(routine.closest("nav")).toBe(general.closest("nav"));
-  return { general, routine };
+const TABS = {
+  claude: "Connecter Claude",
+  tokens: "Jetons MCP",
+  users: "Utilisateurs",
+  routine: "Écriture automatique des US",
+};
+const HREFS: Record<string, string> = {
+  [TABS.claude]: "/reglages",
+  [TABS.tokens]: "/reglages/jetons",
+  [TABS.users]: "/reglages/utilisateurs",
+  [TABS.routine]: "/reglages/ecriture-us",
+};
+const SECTIONS: Record<string, string> = {
+  [TABS.claude]: "Connecter Claude",
+  [TABS.tokens]: "Jetons MCP",
+  [TABS.users]: "Utilisateurs",
+  [TABS.routine]: "Écrire les US automatiquement",
+};
+
+/** The tabs: the links of the nav « Réglages ». */
+async function tabNav() {
+  const nav = await screen.findByRole("navigation", { name: "Réglages" });
+  const link = (name: string) => {
+    const found = [...nav.querySelectorAll("a")].find(
+      (a) => a.textContent?.trim() === name,
+    );
+    return found ?? null;
+  };
+  return { nav, link };
 }
 
-describe("Réglages, the two tabs (decision 023 E)", () => {
-  it("given /reglages, when the page loads, then the nav links Général to /reglages and Écriture automatique des US to /reglages/ecriture-us, Général being the open one", async () => {
-    stubApi({ isAdmin: false, publicUrl: OLD_URL });
+describe("Réglages, the four tabs (decision 028 H)", () => {
+  it("given an administrator, when /reglages loads, then the nav « Réglages » links Connecter Claude, Jetons MCP, Utilisateurs and Écriture automatique des US to their routes, Connecter Claude being the open one", async () => {
+    stubApi(true);
 
     renderAt("/reglages");
 
-    const { general, routine } = await tabs();
-    expect(general.getAttribute("href")).toBe("/reglages");
-    expect(routine.getAttribute("href")).toBe("/reglages/ecriture-us");
-    expect(general.getAttribute("aria-current")).toBe("page");
-    expect(routine.getAttribute("aria-current")).toBeNull();
+    const { link } = await tabNav();
+    for (const [name, href] of Object.entries(HREFS)) {
+      const tab = link(name);
+      expect(tab, `the tab ${name}`).not.toBeNull();
+      expect(tab?.getAttribute("href")).toBe(href);
+      expect(tab?.getAttribute("aria-current")).toBe(
+        name === TABS.claude ? "page" : null,
+      );
+    }
   });
 
-  it("given /reglages/ecriture-us, when the page loads, then the tabs are the same and Écriture automatique des US is the open one", async () => {
-    stubApi({ isAdmin: false, publicUrl: OLD_URL });
+  it.each([
+    [TABS.tokens, "/reglages/jetons"],
+    [TABS.users, "/reglages/utilisateurs"],
+    [TABS.routine, "/reglages/ecriture-us"],
+  ])(
+    "given an administrator, when %s is the route %s, then that tab alone is marked open",
+    async (open, path) => {
+      stubApi(true);
 
-    renderAt("/reglages/ecriture-us");
+      renderAt(path);
 
-    const { general, routine } = await tabs();
-    expect(general.getAttribute("aria-current")).toBeNull();
-    expect(routine.getAttribute("aria-current")).toBe("page");
-  });
+      const { link } = await tabNav();
+      for (const name of Object.values(TABS))
+        expect(link(name)?.getAttribute("aria-current")).toBe(
+          name === open ? "page" : null,
+        );
+    },
+  );
 
-  it("given /reglages, when the tab Écriture automatique des US is clicked, then the routine section replaces the general sections and the tab is marked open", async () => {
-    stubApi({ isAdmin: false, publicUrl: OLD_URL });
-    renderAt("/reglages");
-    const { general, routine } = await tabs();
-    await screen.findByRole("heading", { name: "Connecter Claude" });
-
-    fireEvent.click(routine);
-
-    expect(
-      await screen.findByRole("heading", {
-        name: "Écrire les US automatiquement",
-      }),
-    ).toBeDefined();
-    expect(heading("Connecter Claude")).toBeNull();
-    expect(window.location.pathname).toBe("/reglages/ecriture-us");
-    expect(routine.getAttribute("aria-current")).toBe("page");
-    expect(general.getAttribute("aria-current")).toBeNull();
-  });
-});
-
-describe("Réglages, what each tab holds", () => {
-  it("given an administrator, when /reglages loads, then it holds Connecter Claude, Adresse publique, Utilisateurs and Jetons MCP but not the routine section", async () => {
-    const calls = stubApi({ isAdmin: true, publicUrl: OLD_URL });
-
-    renderAt("/reglages");
-
-    for (const name of [
-      "Connecter Claude",
-      "Adresse publique",
-      "Utilisateurs",
-      "Jetons MCP",
-    ])
-      expect(await screen.findByRole("heading", { name })).toBeDefined();
-    expect(heading("Écrire les US automatiquement")).toBeNull();
-    // Nothing of the routine is read for a page that does not show it.
-    expect(calls.some((c) => c.path === "/api/me/routine")).toBe(false);
-  });
-
-  it("given a user who is not an administrator, when /reglages loads, then it holds Connecter Claude and Jetons MCP, without Adresse publique, Utilisateurs or the routine section, and the address is never read", async () => {
-    const calls = stubApi({ isAdmin: false, publicUrl: OLD_URL });
+  it("given an administrator, when /reglages loads, then only the section Connecter Claude is shown", async () => {
+    const calls = stubApi(true);
 
     renderAt("/reglages");
 
     expect(
       await screen.findByRole("heading", { name: "Connecter Claude" }),
     ).toBeDefined();
-    expect(
-      await screen.findByRole("heading", { name: "Jetons MCP" }),
-    ).toBeDefined();
-    await waitFor(() =>
-      expect(calls.some((c) => c.path === "/api/me")).toBe(true),
-    );
-    expect(heading("Adresse publique")).toBeNull();
+    expect(heading("Jetons MCP")).toBeNull();
     expect(heading("Utilisateurs")).toBeNull();
     expect(heading("Écrire les US automatiquement")).toBeNull();
-    expect(calls.some((c) => c.path === "/api/settings/public-url")).toBe(
-      false,
-    );
+    expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
+    expect(calls.some((c) => c.path === "/api/me/routine")).toBe(false);
   });
 
   it.each([
-    ["an administrator", true],
-    ["a user who is not an administrator", false],
+    [TABS.tokens, "/reglages/jetons"],
+    [TABS.users, "/reglages/utilisateurs"],
+    [TABS.routine, "/reglages/ecriture-us"],
   ])(
-    "given %s, when /reglages/ecriture-us loads, then it holds the routine section and none of the general ones",
-    async (_who, isAdmin) => {
-      stubApi({ isAdmin, publicUrl: OLD_URL });
+    "given an administrator, when %s is open at %s, then only its own section is shown",
+    async (tab, path) => {
+      stubApi(true);
 
-      renderAt("/reglages/ecriture-us");
+      renderAt(path);
 
       expect(
-        await screen.findByRole("heading", {
-          name: "Écrire les US automatiquement",
-        }),
+        await screen.findByRole("heading", { name: SECTIONS[tab] }),
       ).toBeDefined();
-      for (const name of [
-        "Connecter Claude",
-        "Adresse publique",
-        "Utilisateurs",
-        "Jetons MCP",
-      ])
-        expect(heading(name)).toBeNull();
+      for (const [other, name] of Object.entries(SECTIONS))
+        if (other !== tab) expect(heading(name), `${name} hidden`).toBeNull();
     },
   );
-});
 
-/** The section « Adresse publique », found by its heading. */
-function addressElement() {
-  const section = screen
-    .getByRole("heading", { name: "Adresse publique" })
-    .closest("section");
-  expect(section, "the heading must be inside a section").not.toBeNull();
-  return section as HTMLElement;
-}
-
-async function addressSection() {
-  await screen.findByRole("heading", { name: "Adresse publique" });
-  return within(addressElement());
-}
-
-/** The deepest element of the section whose text holds `text`, wherever the page splits it. */
-function elementHolding(text: string) {
-  const found = [...addressElement().querySelectorAll("*")].filter(
-    (el) =>
-      el.textContent?.includes(text) &&
-      ![...el.children].some((child) => child.textContent?.includes(text)),
-  );
-  expect(found, `an element of the section holds ${text}`).toHaveLength(1);
-  return found[0] as Element;
-}
-
-const precedes = (node: Node, later: Node) =>
-  Boolean(
-    node.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING,
-  );
-
-describe("Réglages, the section Adresse publique (decision 023 C)", () => {
-  it("given an administrator, when /reglages loads, then the section shows the current address, a field and a save button", async () => {
-    stubApi({ isAdmin: true, publicUrl: OLD_URL });
-
+  it("given an administrator on /reglages, when the tab Jetons MCP is clicked, then the route changes and the section replaces the previous one", async () => {
+    stubApi(true);
     renderAt("/reglages");
+    const { link } = await tabNav();
+    await screen.findByRole("heading", { name: "Connecter Claude" });
 
-    const section = await addressSection();
-    await waitFor(() =>
-      expect(addressElement().textContent).toContain(OLD_URL),
-    );
-    expect(section.getByRole("textbox")).toBeDefined();
-    expect(section.getByRole("button", { name: /Enregistrer/ })).toBeDefined();
+    fireEvent.click(link(TABS.tokens) as HTMLElement);
+
+    expect(
+      await screen.findByRole("heading", { name: "Jetons MCP" }),
+    ).toBeDefined();
+    expect(window.location.pathname).toBe("/reglages/jetons");
+    expect(heading("Connecter Claude")).toBeNull();
+    expect(link(TABS.tokens)?.getAttribute("aria-current")).toBe("page");
   });
 
-  it("given an address typed, when the section is read, then before the save button it links to the settings of the App and gives the callback address built on what is typed, and says nothing of the webhook (decision 024 G)", async () => {
-    stubApi({ isAdmin: true, publicUrl: OLD_URL });
+  it("given a user who is not an administrator, when /reglages loads, then the tab Utilisateurs is not shown but the three others are", async () => {
+    stubApi(false);
+
     renderAt("/reglages");
-    const section = await addressSection();
-    const field = await section.findByRole("textbox");
 
-    fireEvent.change(field, { target: { value: NEW_URL } });
-
-    const link = await section.findByRole("link", {
-      name: (_name, element) => element.getAttribute("href") === APP_SETTINGS,
-    });
-    const callback = elementHolding(`${NEW_URL}/api/auth/callback`);
-    const save = section.getByRole("button", { name: /Enregistrer/ });
-    expect(precedes(link, save)).toBe(true);
-    expect(precedes(callback, save)).toBe(true);
-    expect(addressElement().textContent).not.toMatch(/webhook/i);
-    // Not a constant: the steps follow the typed address.
-    fireEvent.change(field, { target: { value: "https://other.example.net" } });
-    expect(addressElement().textContent).toContain(
-      "https://other.example.net/api/auth/callback",
-    );
-    expect(addressElement().textContent).not.toContain(
-      `${NEW_URL}/api/auth/callback`,
-    );
+    const { link } = await tabNav();
+    await screen.findByRole("heading", { name: "Connecter Claude" });
+    expect(link(TABS.users)).toBeNull();
+    for (const name of [TABS.claude, TABS.tokens, TABS.routine])
+      expect(link(name), name).not.toBeNull();
   });
 
-  it("given the section, when it is read, then it says that a connector added on claude.ai with the old address must be added again", async () => {
-    stubApi({ isAdmin: true, publicUrl: OLD_URL });
+  it("given a user who is not an administrator, when /reglages/utilisateurs is opened, then it reads that the page is reserved to the administrator and the list of the users is never requested", async () => {
+    const calls = stubApi(false);
 
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
 
-    const section = await addressSection();
-    await section.findByRole("textbox");
-    const text = addressElement().textContent;
-    expect(text).toMatch(/connecteur/i);
-    expect(text).toMatch(/claude\.ai/);
-    expect(text).toMatch(/ancienne adresse/i);
-    expect(text).toMatch(/rajout|ajout/i);
-  });
-
-  it("given a new address typed with a path, when the button is clicked, then PUT /api/settings/public-url is sent with it and the section then shows the new address instead of the old one", async () => {
-    const calls = stubApi({ isAdmin: true, publicUrl: OLD_URL });
-    renderAt("/reglages");
-    const section = await addressSection();
+    expect(await screen.findByText(RESERVED)).toBeDefined();
     await waitFor(() =>
-      expect(addressElement().textContent).toContain(OLD_URL),
+      expect(calls.some((c) => c.path === "/api/me")).toBe(true),
     );
-
-    fireEvent.change(section.getByRole("textbox"), {
-      target: { value: `${NEW_URL}/ignored/` },
-    });
-    fireEvent.click(section.getByRole("button", { name: /Enregistrer/ }));
-
-    await waitFor(() =>
-      expect(
-        calls.filter(
-          (c) => c.method === "PUT" && c.path === "/api/settings/public-url",
-        ),
-      ).toHaveLength(1),
-    );
-    const put = calls.find((c) => c.method === "PUT");
-    expect(JSON.parse(put?.body ?? "{}")).toEqual({
-      publicUrl: `${NEW_URL}/ignored/`,
-    });
-    await waitFor(() =>
-      expect(addressElement().textContent).not.toContain(OLD_URL),
-    );
-    expect(addressElement().textContent).toContain(NEW_URL);
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("given the server refuses the address with a 400, when the button is clicked, then an alert shows its French message and the current address stays", async () => {
-    stubApi({
-      isAdmin: true,
-      publicUrl: OLD_URL,
-      putAnswer: Response.json({ error: HTTPS_ONLY }, { status: 400 }),
-    });
-    renderAt("/reglages");
-    const section = await addressSection();
-    await waitFor(() =>
-      expect(addressElement().textContent).toContain(OLD_URL),
-    );
-
-    fireEvent.change(section.getByRole("textbox"), {
-      target: { value: "http://cockpit.example.com" },
-    });
-    fireEvent.click(section.getByRole("button", { name: /Enregistrer/ }));
-
-    const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain(HTTPS_ONLY);
-    expect(addressElement().textContent).toContain(OLD_URL);
+    expect(heading("Utilisateurs")).toBeNull();
+    expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
   });
 });
 
-describe("Réglages, the webhook after a save (decision 024 G)", () => {
-  async function saveAddress(state: State) {
-    const calls = stubApi(state);
-    renderAt("/reglages");
-    const section = await addressSection();
-    await waitFor(() =>
-      expect(addressElement().textContent).toContain(OLD_URL),
-    );
-    fireEvent.change(section.getByRole("textbox"), {
-      target: { value: NEW_URL },
-    });
-    fireEvent.click(section.getByRole("button", { name: /Enregistrer/ }));
-    await waitFor(() =>
-      expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1),
-    );
-    await waitFor(() =>
-      expect(addressElement().textContent).not.toContain(OLD_URL),
-    );
-  }
+describe("Réglages, no more public address (decision 028 I)", () => {
+  it.each([
+    ["an administrator", true, "/reglages"],
+    ["an administrator", true, "/reglages/jetons"],
+    ["an administrator", true, "/reglages/utilisateurs"],
+    ["an administrator", true, "/reglages/ecriture-us"],
+    ["a user who is not an administrator", false, "/reglages"],
+    ["a user who is not an administrator", false, "/reglages/jetons"],
+    ["a user who is not an administrator", false, "/reglages/ecriture-us"],
+  ])(
+    "given %s (administrator: %s), when %s is opened, then there is no section Adresse publique and /api/settings/public-url is never requested",
+    async (_who, isAdmin, path) => {
+      const calls = stubApi(isAdmin);
 
-  it("given the server changed the webhook (webhookUpdated true), when the address is saved, then the section never mentions the webhook", async () => {
-    await saveAddress({ isAdmin: true, publicUrl: OLD_URL });
+      renderAt(path);
 
-    expect(addressElement().textContent).not.toMatch(/webhook/i);
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("given the server could not change the webhook (webhookUpdated false), when the address is saved, then a message asks to change the address of the webhook by hand on GitHub and gives <new address>/api/webhooks/github", async () => {
-    await saveAddress({
-      isAdmin: true,
-      publicUrl: OLD_URL,
-      webhookUpdated: false,
-    });
-
-    await waitFor(() =>
-      expect(addressElement().textContent).toMatch(/webhook/i),
-    );
-    const message = elementHolding(`${NEW_URL}/api/webhooks/github`);
-    const text = addressElement().textContent ?? "";
-    expect(text).toMatch(/à la main/);
-    expect(text).toMatch(/GitHub/);
-    expect(message.textContent).toContain(`${NEW_URL}/api/webhooks/github`);
-    // The address itself was saved: the section shows it.
-    expect(text).toContain(NEW_URL);
-  });
+      await tabNav();
+      await waitFor(() =>
+        expect(calls.some((c) => c.path === "/api/me")).toBe(true),
+      );
+      // Let the sections of the tab settle before looking for what must not be there.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(heading("Adresse publique")).toBeNull();
+      expect(screen.queryByText(/Adresse publique/)).toBeNull();
+      expect(calls.some((c) => c.path === "/api/settings/public-url")).toBe(
+        false,
+      );
+    },
+  );
 });

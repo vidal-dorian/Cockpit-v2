@@ -17,7 +17,7 @@ export type InstanceSettings = {
   githubWebhookSecret: string;
 };
 
-/** Reads the settings on demand: null until the wizard has run. The first successful read is kept until `forget()`, which the change of the public address calls (decision 023 C). */
+/** Reads the settings on demand: null until the wizard has run. The first successful read is kept until `forget()` (the public address is fixed at installation, decision 028 I). */
 export function instanceReader(db: Db, encryptionKey: Buffer) {
   let cached: InstanceSettings | null = null;
   const read = async () => {

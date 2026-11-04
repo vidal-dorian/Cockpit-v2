@@ -7,7 +7,7 @@ Service en ligne de pilotage des repos GitHub développés avec Claude Code. Le 
 Rien à faire à la main : Cockpit crée lui-même sa GitHub App au premier lancement, avec ton accord ([décision 012](docs/decisions/012-configuration-automatique.md)). L'assistant « Installer Cockpit » s'ouvre tout seul à l'adresse de Cockpit tant que l'App n'existe pas :
 
 1. Entrer le **code de démarrage** que le serveur affiche dans ses logs (`Cockpit setup code: …`).
-2. Vérifier l'**adresse publique**, détectée à partir de ta requête (derrière un tunnel Cloudflare, l'en-tête `CF-Visitor` donne le bon protocole) : c'est celle que GitHub utilisera pour renvoyer vers Cockpit. Elle doit commencer par `https://` (claude.ai l'exige) ; seul `http://localhost` (ou `127.0.0.1`, `[::1]`) est accepté pour développer sur sa machine.
+2. Rien à saisir pour l'adresse : Cockpit utilise celle avec laquelle tu l'ouvres (derrière un tunnel Cloudflare, l'en-tête `CF-Visitor` donne le bon protocole) ; c'est celle que GitHub utilisera pour renvoyer vers Cockpit. Elle doit commencer par `https://` (claude.ai l'exige) ; seul `http://localhost` (ou `127.0.0.1`, `[::1]`) est accepté pour développer sur sa machine.
 3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos et de la CI ; écriture du contenu, des issues et des PR).
 4. Cliquer sur « Create GitHub App » sur GitHub. Cockpit récupère l'App, chiffre ses secrets en base et te renvoie vers la connexion GitHub : **le premier compte qui se connecte devient administrateur**.
 
@@ -19,11 +19,15 @@ Une App créée avant la [décision 026](docs/decisions/026-ecrire-dans-un-repo.
 
 ### Réglages
 
-La page « Réglages » a deux onglets : « Général » (Connecter Claude, Adresse publique et Utilisateurs pour l'administrateur, Jetons MCP) et « Écriture automatique des US » (voir plus bas).
+La page « Réglages » (l'icône en forme de roue, en haut à droite) a quatre onglets : « Connecter Claude », « Jetons MCP », « Utilisateurs » (pour l'administrateur seulement) et « Écriture automatique des US » (voir plus bas). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
-### Corriger l'adresse publique d'une instance installée
+### La page d'un projet
 
-Si Cockpit a été installé avec une mauvaise adresse (par exemple en `http://` derrière un tunnel), l'administrateur ouvre « Réglages », section « Adresse publique », tape la nouvelle adresse et clique « Enregistrer l'adresse » : Cockpit l'utilise tout de suite, sans redémarrer. **Avant**, sur GitHub, dans les réglages de l'App (le lien est dans la section, `https://github.com/settings/apps/<slug>`) : ajouter l'adresse de retour `<nouvelle adresse>/api/auth/callback` (sinon la connexion GitHub échoue). Cockpit change lui-même l'adresse du webhook de l'App (`<nouvelle adresse>/api/webhooks/github`) ; s'il n'y arrive pas, la page le dit et demande de la changer à la main. Décision [024](docs/decisions/024-webhooks.md). Un connecteur déjà ajouté sur claude.ai avec l'ancienne adresse est à rajouter. Décision [023](docs/decisions/023-reglages-adresse-https.md).
+La page d'un projet a quatre onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude ») et « Écriture des US ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+### Le Journal
+
+Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### Webhooks GitHub
 
@@ -107,7 +111,7 @@ npm start
 
 Les migrations sont appliquées au démarrage. Au premier lancement, le serveur crée sa clé de chiffrement dans `secrets/master.key` (`COCKPIT_KEY_FILE` pour la changer) et affiche le code de démarrage. Ouvrir http://localhost:3000 : l'assistant crée la GitHub App de développement (voir « Créer la GitHub App »).
 
-Pour développer, lancer `npm run dev:server` et `npm run dev:web` dans deux terminaux, puis ouvrir http://localhost:5173 : la page se recharge à chaque modification. L'App est créée avec l'adresse que tu confirmes dans l'assistant : pour `npm run dev:web`, confirmer `http://localhost:5173`.
+Pour développer, lancer `npm run dev:server` et `npm run dev:web` dans deux terminaux, puis ouvrir http://localhost:5173 : la page se recharge à chaque modification. L'App est créée avec l'adresse par laquelle tu ouvres l'assistant : pour `npm run dev:web`, ouvrir `http://localhost:5173` (le proxy de Vite garde l'en-tête `Host`).
 
 ## Vérifier
 
@@ -144,7 +148,7 @@ Dans GitHub : Actions → CD → Run workflow. `scripts/deploy.sh` vérifie le f
 
 Le premier déploiement affiche dans son journal la ligne `Cockpit setup code: XXXX-XXXX-XXXX-XXXX — open …/installation` (on la retrouve avec `docker compose --env-file /etc/cockpit/cockpit.env logs app`). Ensuite :
 
-1. Ouvrir l'adresse publique de Cockpit, entrer le code de démarrage et confirmer l'adresse.
+1. Ouvrir l'adresse publique de Cockpit, entrer le code de démarrage.
 2. Cliquer sur « Créer l'App GitHub », puis sur « Create GitHub App » sur GitHub.
 3. Se connecter avec GitHub : on devient administrateur.
 

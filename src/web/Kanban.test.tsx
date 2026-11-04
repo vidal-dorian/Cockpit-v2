@@ -72,18 +72,15 @@ const onBoard = [
 ];
 
 describe("criterion 2: the Kanban section and its five columns", () => {
-  it("given a project with stories, when /projets/:id loads, then a Kanban section sits above the Tickets section with the five columns in order, each a section with a counted heading and a list", async () => {
+  it("given a project with stories, when /projets/:id loads, then the Kanban section shows the five columns in order, each a section with a counted heading and a list, and the Tickets section is not on this tab (decision 028 G)", async () => {
     stubTicketApi(tickets, onBoard);
 
     renderAt("/projets/5");
 
     await screen.findByRole("heading", { name: "À valider (2)" });
     const heading = screen.getByRole("heading", { name: "Kanban" });
-    const ticketsHeading = screen.getByRole("heading", { name: "Tickets" });
-    expect(
-      heading.compareDocumentPosition(ticketsHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(heading).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Tickets" })).toBeNull();
     const names = within(kanban())
       .getAllByRole("heading")
       .map((h) => h.textContent ?? "")
@@ -184,8 +181,8 @@ describe("criterion 4: the cards", () => {
 describe("criterion 5: the board is fresh when the user comes back to the project", () => {
   // The client never considers a query stale by itself: only an invalidation (decision 019 E) makes the project page
   // read the board again when it is shown again. Without it, the old board stays on screen.
-  function renderWithClient() {
-    window.history.replaceState({}, "", "/projets/5");
+  function renderWithClient(path = "/projets/5") {
+    window.history.replaceState({}, "", path);
     render(
       <QueryClientProvider
         client={
@@ -280,8 +277,9 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     expect(within(column("À valider", 0)).getByText("Aucune")).toBeDefined();
   });
 
+  // Decision 028 G: the tickets have their own tab.
   const openTicket = async () => {
-    renderWithClient();
+    renderWithClient("/projets/5/tickets");
     const tickets = (
       await screen.findByRole("heading", { name: "Tickets" })
     ).closest("section") as HTMLElement;

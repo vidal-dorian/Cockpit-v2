@@ -192,10 +192,10 @@ afterEach(() => {
 });
 
 describe("Réglages page, the section Jetons MCP", () => {
-  it("given a user, when /reglages loads, then there is a section Jetons MCP with the form Nouveau jeton (field Nom, button Créer) and a hint naming COCKPIT_MCP_TOKEN", async () => {
+  it("given a user, when /reglages/jetons loads, then there is a section Jetons MCP with the form Nouveau jeton (field Nom, button Créer) and a hint naming COCKPIT_MCP_TOKEN", async () => {
     stubApi({ tokens: [] });
 
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
 
     const heading = await screen.findByRole("heading", { name: "Jetons MCP" });
     const section = heading.closest("section") as HTMLElement;
@@ -210,7 +210,7 @@ describe("Réglages page, the section Jetons MCP", () => {
     expect(section.textContent).toContain("COCKPIT_MCP_TOKEN");
   });
 
-  it("given three tokens, when /reglages loads, then each row shows its name, … and the last four, the created date and Jamais utilisé or the last use date, with a Révoquer button", async () => {
+  it("given three tokens, when /reglages/jetons loads, then each row shows its name, … and the last four, the created date and Jamais utilisé or the last use date, with a Révoquer button", async () => {
     stubApi({
       tokens: [
         token(2, "utilisé-pro", {
@@ -225,7 +225,7 @@ describe("Réglages page, the section Jetons MCP", () => {
       ],
     });
 
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
 
     await screen.findByText("neuf-portable");
     const fresh = rowOf("neuf-portable");
@@ -257,7 +257,7 @@ describe("Réglages page, the section Jetons MCP", () => {
 describe("Réglages page, creating a token", () => {
   it("given a name, when Créer is clicked, then the name is posted to /api/me/tokens and the secret is shown once in a read-only field or code block, with a Copier button and the warning ne pourras plus le revoir", async () => {
     const calls = stubApi({ tokens: [] });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
 
     await createToken("Mon Claude");
 
@@ -281,7 +281,7 @@ describe("Réglages page, creating a token", () => {
   it("given the secret is shown, when Copier is clicked, then the clipboard receives exactly the secret", async () => {
     stubApi({ tokens: [] });
     const writeText = stubClipboard();
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await createToken("Mon Claude");
     await waitFor(() => expect(secretField()).not.toBeNull());
 
@@ -294,7 +294,7 @@ describe("Réglages page, creating a token", () => {
   it("given the secret is shown, when Copier is clicked, then a Copié. message is announced in a role=status element", async () => {
     stubApi({ tokens: [] });
     stubClipboard();
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await createToken("Mon Claude");
     await waitFor(() => expect(secretField()).not.toBeNull());
 
@@ -310,7 +310,7 @@ describe("Réglages page, creating a token", () => {
       value: { writeText: vi.fn(async () => Promise.reject(new Error("no"))) },
       configurable: true,
     });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await createToken("Mon Claude");
     await waitFor(() => expect(secretField()).not.toBeNull());
 
@@ -326,7 +326,7 @@ describe("Réglages page, creating a token", () => {
 
   it("given the secret is shown, when J'ai copié le jeton is clicked, then the secret, its warning and the Copier button leave the DOM entirely and the token stays in the list", async () => {
     stubApi({ tokens: [] });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await createToken("Mon Claude");
     await waitFor(() => expect(secretField()).not.toBeNull());
 
@@ -342,12 +342,12 @@ describe("Réglages page, creating a token", () => {
 
   it("given a token was just created, when the page is loaded again, then the secret is nowhere, only the last four", async () => {
     stubApi({ tokens: [] });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await createToken("Mon Claude");
     await waitFor(() => expect(secretField()).not.toBeNull());
     cleanup();
 
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
 
     await screen.findByText("Mon Claude");
     expect(secretField()).toBeNull();
@@ -366,7 +366,7 @@ describe("Réglages page, creating a token", () => {
         tokens: [],
         createAnswer: Response.json({ error: code }, { status }),
       });
-      renderAt("/reglages");
+      renderAt("/reglages/jetons");
 
       await createToken("Mon Claude");
 
@@ -381,7 +381,7 @@ describe("Réglages page, creating a token", () => {
 
   it("given the secret is shown, when J'ai copié le jeton is clicked, then the focus moves to the Nom field", async () => {
     stubApi({ tokens: [] });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await createToken("Mon Claude");
     await waitFor(() => expect(secretField()).not.toBeNull());
 
@@ -400,7 +400,7 @@ describe("Réglages page, revoking a token", () => {
     const calls = stubApi({
       tokens: [token(2, "portable"), token(1, "bureau")],
     });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await screen.findByText("portable");
 
     fireEvent.click(
@@ -422,7 +422,7 @@ describe("Réglages page, revoking a token", () => {
 
   it("given the confirmation is shown, when Annuler is clicked, then it goes away, nothing is sent and the focus is back on Révoquer", async () => {
     const calls = stubApi({ tokens: [token(1, "portable")] });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await screen.findByText("portable");
     fireEvent.click(screen.getByRole("button", { name: "Révoquer" }));
 
@@ -441,7 +441,7 @@ describe("Réglages page, revoking a token", () => {
     const calls = stubApi({
       tokens: [token(2, "portable"), token(1, "bureau")],
     });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await screen.findByText("portable");
     fireEvent.click(
       within(rowOf("portable")).getByRole("button", { name: "Révoquer" }),
@@ -477,7 +477,7 @@ describe("Réglages page, revoking a token", () => {
         tokens: [token(1, "portable")],
         revokeAnswer: Response.json({ error: code }, { status }),
       });
-      renderAt("/reglages");
+      renderAt("/reglages/jetons");
       await screen.findByText("portable");
       fireEvent.click(screen.getByRole("button", { name: "Révoquer" }));
       fireEvent.click(
@@ -492,7 +492,7 @@ describe("Réglages page, revoking a token", () => {
 
   it("given the confirmation is shown, when Confirmer la révocation succeeds, then the focus moves to the Jetons MCP section heading", async () => {
     stubApi({ tokens: [token(2, "portable"), token(1, "bureau")] });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await screen.findByText("portable");
     fireEvent.click(
       within(rowOf("portable")).getByRole("button", { name: "Révoquer" }),
@@ -517,7 +517,7 @@ describe("Réglages page, revoking a token", () => {
         { status: 409 },
       ),
     });
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
     await screen.findByText("portable");
     fireEvent.click(screen.getByRole("button", { name: "Révoquer" }));
     fireEvent.click(
