@@ -204,7 +204,7 @@ const rowAgents = () =>
     .getAllByRole("listitem")
     .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
     .map((li) => /^\s*\d+\s*([a-z0-9-]+)/.exec(li.textContent ?? "")?.[1]);
-const click = (name: string, scope: HTMLElement | Screen = screen) =>
+const click = (name: string, scope: HTMLElement | typeof screen = screen) =>
   fireEvent.click(
     (scope === screen ? screen : within(scope as HTMLElement)).getByRole(
       "button",

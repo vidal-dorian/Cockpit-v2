@@ -51,6 +51,7 @@ export const ACTIONS: Record<string, string> = {
   prepare_repo: "Préparer pour Claude",
   save_agent: "Agent enregistré",
   delete_agent: "Agent supprimé",
+  save_team: "Équipe enregistrée",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",

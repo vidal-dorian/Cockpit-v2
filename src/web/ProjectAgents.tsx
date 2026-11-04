@@ -5,6 +5,7 @@ import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
+import { ProjectTeam } from "./ProjectTeam.tsx";
 import {
   alertBox,
   button,
@@ -306,118 +307,143 @@ export function ProjectAgents({
     (agents.isError ? { code: "", status: 0 } : undefined);
   const list = agents.data?.data;
   return (
-    <section className="mt-6" aria-labelledby="agents">
-      <h2 id="agents" className="font-heading text-xl font-bold">
-        Agents
-      </h2>
-      {agents.isPending && (
-        <p className="mt-3 text-muted-foreground">Chargement…</p>
-      )}
-      {failed && (
-        <div role="alert" className={`mt-3 ${alertBox}`}>
-          <p>{message(failed)}</p>
-        </div>
-      )}
-      {problem && (
-        <div role="alert" className={`mt-3 ${alertBox}`}>
-          <p>{message(problem)}</p>
-          {problem.settingsUrl && (
-            <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
-              Réglages de l'App sur GitHub
-            </a>
-          )}
-        </div>
-      )}
-      {done && (
-        <div className="mt-3 rounded-xl bg-done-soft p-4 text-done-text">
-          <p>
-            {done.pullRequest
-              ? "La branche par défaut est protégée : une pull request est ouverte"
-              : "C'est fait"}
-          </p>
-          <a href={done.url} className={`underline ${focusRing}`}>
-            {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
-          </a>
-        </div>
-      )}
+    <>
       {list && (
-        <>
-          <ul className="mt-3 grid gap-2">
-            {list.agents.map((agent) => (
-              <li
-                key={agent.name}
-                className={`${card} flex items-center gap-x-4 p-4`}
-              >
-                <span className="font-mono font-semibold">{agent.name}</span>
-                <span className="text-muted-foreground">
-                  {agent.text === null
-                    ? "Fichier trop gros"
-                    : (parseAgent(agent.text)?.model ?? "En-tête illisible") ||
-                      SESSION_MODEL}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Ouvrir ${agent.name}`}
-                  disabled={agent.text === null}
-                  onClick={() => {
-                    setProblem(null);
-                    setDone(null);
-                    setAdding(false);
-                    setEditing(
-                      agent.text === null
-                        ? null
-                        : {
-                            name: agent.name,
-                            before: agent.text,
-                            base: agent.text,
-                          },
-                    );
-                  }}
-                  className={`sm:ml-auto ${button}`}
-                >
-                  Ouvrir
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            disabled={archived}
-            onClick={() => {
-              setEditing(null);
-              setAdding(true);
-            }}
-            className={`mt-3 ${button}`}
-          >
-            Ajouter un agent
-          </button>
-          {adding && (
-            <AddAgent
-              taken={list.agents.map((agent) => agent.name)}
-              catalog={list.catalog}
-              onContinue={(name, base) => {
-                setProblem(null);
-                setDone(null);
-                setAdding(false);
-                setEditing({ name, before: null, base });
-              }}
-            />
-          )}
-        </>
-      )}
-      {editing && (
-        <AgentForm
-          // The text too: opening an agent again after a re-read starts from the new text, not from stale fields.
-          key={`${editing.name}\n${editing.before}`}
-          editing={editing}
+        <ProjectTeam
+          projectId={projectId}
+          fullName={fullName}
           archived={archived}
-          pending={commit.isPending}
-          onCommit={(after) => {
+          hidden={editing !== null}
+          agents={list.agents}
+          team={list.team ?? null}
+          onSaved={reload}
+          onEditAgent={(name) => {
+            const text = list.agents.find((a) => a.name === name)?.text;
+            if (text === undefined || text === null) return;
             setProblem(null);
-            commit.mutate({ before: editing.before, after });
+            setDone(null);
+            setAdding(false);
+            setEditing({ name, before: text, base: text });
           }}
         />
       )}
-    </section>
+      <section className="mt-6" aria-labelledby="agents">
+        <h2 id="agents" className="font-heading text-xl font-bold">
+          Agents
+        </h2>
+        {agents.isPending && (
+          <p className="mt-3 text-muted-foreground">Chargement…</p>
+        )}
+        {failed && (
+          <div role="alert" className={`mt-3 ${alertBox}`}>
+            <p>{message(failed)}</p>
+          </div>
+        )}
+        {problem && (
+          <div role="alert" className={`mt-3 ${alertBox}`}>
+            <p>{message(problem)}</p>
+            {problem.settingsUrl && (
+              <a
+                href={problem.settingsUrl}
+                className={`underline ${focusRing}`}
+              >
+                Réglages de l'App sur GitHub
+              </a>
+            )}
+          </div>
+        )}
+        {done && (
+          <div className="mt-3 rounded-xl bg-done-soft p-4 text-done-text">
+            <p>
+              {done.pullRequest
+                ? "La branche par défaut est protégée : une pull request est ouverte"
+                : "C'est fait"}
+            </p>
+            <a href={done.url} className={`underline ${focusRing}`}>
+              {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
+            </a>
+          </div>
+        )}
+        {list && (
+          <>
+            <ul className="mt-3 grid gap-2">
+              {list.agents.map((agent) => (
+                <li
+                  key={agent.name}
+                  className={`${card} flex items-center gap-x-4 p-4`}
+                >
+                  <span className="font-mono font-semibold">{agent.name}</span>
+                  <span className="text-muted-foreground">
+                    {agent.text === null
+                      ? "Fichier trop gros"
+                      : (parseAgent(agent.text)?.model ??
+                          "En-tête illisible") ||
+                        SESSION_MODEL}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Ouvrir ${agent.name}`}
+                    disabled={agent.text === null}
+                    onClick={() => {
+                      setProblem(null);
+                      setDone(null);
+                      setAdding(false);
+                      setEditing(
+                        agent.text === null
+                          ? null
+                          : {
+                              name: agent.name,
+                              before: agent.text,
+                              base: agent.text,
+                            },
+                      );
+                    }}
+                    className={`sm:ml-auto ${button}`}
+                  >
+                    Ouvrir
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              disabled={archived}
+              onClick={() => {
+                setEditing(null);
+                setAdding(true);
+              }}
+              className={`mt-3 ${button}`}
+            >
+              Ajouter un agent
+            </button>
+            {adding && (
+              <AddAgent
+                taken={list.agents.map((agent) => agent.name)}
+                catalog={list.catalog}
+                onContinue={(name, base) => {
+                  setProblem(null);
+                  setDone(null);
+                  setAdding(false);
+                  setEditing({ name, before: null, base });
+                }}
+              />
+            )}
+          </>
+        )}
+        {editing && (
+          <AgentForm
+            // The text too: opening an agent again after a re-read starts from the new text, not from stale fields.
+            key={`${editing.name}\n${editing.before}`}
+            editing={editing}
+            archived={archived}
+            pending={commit.isPending}
+            onCommit={(after) => {
+              setProblem(null);
+              commit.mutate({ before: editing.before, after });
+            }}
+          />
+        )}
+      </section>
+    </>
   );
 }

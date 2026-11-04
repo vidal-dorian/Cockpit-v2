@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validator } from "hono/validator";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import {
   type ReadGitHub,
 } from "./github.ts";
 import { type HealthLine, healthLines, webhookLine } from "./health.ts";
-import { AGENT_NAME } from "./team.ts";
+import { AGENT_NAME, parseTeam } from "./team.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -89,6 +89,19 @@ const agentBody = z
       .string()
       .refine((text) => Buffer.byteLength(text) <= 1_048_576)
       .nullable(),
+  })
+  .refine(({ before, after }) => before !== after);
+
+// Decision 031 H: `after` is a team that `parseTeam` reads, at most 1 MiB, never null.
+const teamBody = z
+  .object({
+    before: z.string().nullable(),
+    after: z
+      .string()
+      .refine(
+        (text) =>
+          Buffer.byteLength(text) <= 1_048_576 && parseTeam(text) !== null,
+      ),
   })
   .refine(({ before, after }) => before !== after);
 
@@ -192,6 +205,76 @@ export function projectRoutes(
   };
 
   /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
+  // The write of one file of the repo by a human, as the agent and team editors do it (decisions 030 E, 031 H).
+  const saveFile = async (
+    c: Context<Env, string>,
+    entry: Entry & { userId: number },
+    change: { path: string; before: string | null; after: string | null },
+    message: string,
+  ) => {
+    const record = async (error: unknown) => {
+      try {
+        await act(db, entry, async () => {
+          throw error;
+        });
+      } catch (thrown) {
+        if (thrown !== error) throw thrown;
+      }
+    };
+    const id = Number(c.req.param("id"));
+    const project = await memberProject(db, entry.userId, id);
+    if (!project) {
+      await record(new Refused("not_found"));
+      return c.json({ error: "Not found" }, 404);
+    }
+    entry.projectId = id;
+    if (project.archivedAt) {
+      await record(new Refused("project_archived"));
+      return c.json({ error: "project_archived" }, 409);
+    }
+    let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
+    try {
+      result = await c
+        .get("github")
+        .applyRepoChanges(
+          project.installationId,
+          project.fullName,
+          [change],
+          message,
+        );
+    } catch (error) {
+      await record(error);
+      return c.json({ error: "github_unavailable" }, 502);
+    }
+    if ("refused" in result) {
+      await record(new Refused(result.refused));
+      return result.refused === "pull_request_forbidden"
+        ? c.json(
+            {
+              error: result.refused,
+              appSettingsUrl: c.get("appSettingsUrl"),
+            },
+            409,
+          )
+        : c.json({ error: result.refused }, 409);
+    }
+    await act(
+      db,
+      {
+        ...entry,
+        githubEffects: {
+          commitSha: result.commitSha,
+          pullRequest: result.pullRequest?.number ?? null,
+        },
+      },
+      async () => {},
+    );
+    return c.json({
+      commitSha: result.commitSha,
+      ...(result.pullRequest && { pullRequest: result.pullRequest }),
+    });
+  };
+
   const gate = createMiddleware<Env>(async (c, next) => {
     const ready = await readGitHub();
     if (!ready) return c.json({ error: NOT_CONFIGURED }, 503);
@@ -505,6 +588,7 @@ export function projectRoutes(
         const taken = new Set(read.agents.map((agent) => agent.name));
         return c.json({
           agents: read.agents,
+          team: read.team,
           catalog: CATALOG_AGENTS.filter((agent) => !taken.has(agent.name)),
         });
       } catch (error) {
@@ -519,76 +603,39 @@ export function projectRoutes(
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { name, before, after } = parsed.data;
       const path = `.claude/agents/${name}.md`;
-      const id = Number(c.req.param("id"));
-      const entry: Entry = {
-        userId: user.userId,
-        actor: "human",
-        origin: "ui",
-        action: after === null ? "delete_agent" : "save_agent",
-        args: { path },
-      };
-      const record = async (error: unknown) => {
-        try {
-          await act(db, entry, async () => {
-            throw error;
-          });
-        } catch (thrown) {
-          if (thrown !== error) throw thrown;
-        }
-      };
-      const project = await memberProject(db, user.userId, id);
-      if (!project) {
-        await record(new Refused("not_found"));
-        return c.json({ error: "Not found" }, 404);
-      }
-      entry.projectId = id;
-      if (project.archivedAt) {
-        await record(new Refused("project_archived"));
-        return c.json({ error: "project_archived" }, 409);
-      }
       const verb =
         after === null ? "remove" : before === null ? "add" : "update";
-      let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
-      try {
-        result = await c
-          .get("github")
-          .applyRepoChanges(
-            project.installationId,
-            project.fullName,
-            [{ path, before, after }],
-            `feat: ${verb} the agent ${name} (Cockpit)`,
-          );
-      } catch (error) {
-        await record(error);
-        return c.json({ error: "github_unavailable" }, 502);
-      }
-      if ("refused" in result) {
-        await record(new Refused(result.refused));
-        return result.refused === "pull_request_forbidden"
-          ? c.json(
-              {
-                error: result.refused,
-                appSettingsUrl: c.get("appSettingsUrl"),
-              },
-              409,
-            )
-          : c.json({ error: result.refused }, 409);
-      }
-      await act(
-        db,
+      return saveFile(
+        c,
         {
-          ...entry,
-          githubEffects: {
-            commitSha: result.commitSha,
-            pullRequest: result.pullRequest?.number ?? null,
-          },
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action: after === null ? "delete_agent" : "save_agent",
+          args: { path },
         },
-        async () => {},
+        { path, before, after },
+        `feat: ${verb} the agent ${name} (Cockpit)`,
       );
-      return c.json({
-        commitSha: result.commitSha,
-        ...(result.pullRequest && { pullRequest: result.pullRequest }),
-      });
+    })
+    .post("/api/projects/:id/team/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = teamBody.safeParse(await c.req.json().catch(() => null));
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const path = ".claude/team.md";
+      return saveFile(
+        c,
+        {
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action: "save_team",
+          args: { path },
+        },
+        { path, ...parsed.data },
+        "feat: update the team (Cockpit)",
+      );
     })
     .post("/api/projects/:id/archive", async (c) => {
       const user = await currentUser(db, c);
