@@ -37,7 +37,8 @@
 - **En cours** : tranche 6.2 (préparer un repo pour Claude en un clic, [décision 027](decisions/027-preparer-pour-claude.md)) : écrite et testée, en relecture.
 - **Fait** : décision 028 (style « Crème sombre », onglets) et tranche E1 (`/dev-us` lit `.claude/team.md`, [décision 029](decisions/029-equipe-d-agents.md)).
 - **En cours** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche E3, ou la phase 7.
+- **En cours** : tranche E3 (l'équipe en graphe, [décision 031](decisions/031-equipe-en-graphe.md)).
+- **Ensuite** : la phase 7.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -178,7 +179,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
   |---|---|---|
   | E1 | **`/dev-us` lit `.claude/team.md`** (trois étapes par défaut sans fichier), règle `agents` du bilan adaptée | Un `team.md` sans `reviewer` : le bilan reste vert, `/dev-us` saute l'étape |
   | E2 | **Éditeur d'agent** ([030](decisions/030-editeur-d-agent.md)) : description, outils, modèle, prompt, aperçu ; ajouter, supprimer ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
-  | E3 | **Écran « Équipe »** : étapes, ordre, boucles, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
+  | E3 | **Écran « Équipe »** en graphe ([031](decisions/031-equipe-en-graphe.md)) : cartes déplaçables, liens « puis » et « boucle », liste pour le clavier, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
   | E4 | **Plusieurs équipes par projet** : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
 - **Configuration Claude** : éditer `CLAUDE.md`, règles, skills et `.mcp.json` depuis Cockpit (les agents : voir « Équipe d'agents ») ; configuration globale (repo de plugins).
 - **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
