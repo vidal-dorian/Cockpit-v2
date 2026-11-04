@@ -6,6 +6,7 @@
 - **Dépend de** : [005 — Lancement local](005-lancement-local.md), [013 — Bilan de santé](013-bilan-de-sante.md), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [027 — Préparer pour Claude](027-preparer-pour-claude.md)
 - **Modifie** : la règle F de la [013](013-bilan-de-sante.md) (les trois agents ne sont plus exigés quand le projet a sa propre équipe) ; le brief §6.9 (l'éditeur d'agent passe avant le reste de la configuration Claude)
 - **Tranche** : après le MVP, voir « Configuration Claude » du [découpage](../decoupage.md)
+- **Modifiée par** : [030 — Éditeur d'agent](030-editeur-d-agent.md) : l'historique (I) gagne `delete_agent` ; renommer un agent passe à E3
 
 ## Contexte
 

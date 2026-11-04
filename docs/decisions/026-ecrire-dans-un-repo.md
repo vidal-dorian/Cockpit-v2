@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md) (l'App a déjà Contents en écriture), [013 — Bilan de santé](013-bilan-de-sante.md), [011 — Import des projets](011-import-projets.md)
 - **Tranche** : 6.1 du [découpage](../decoupage.md)
+- **Modifiée par** : [030 — Éditeur d'agent](030-editeur-d-agent.md) : une écriture peut remplacer ou supprimer un fichier, à la demande de l'utilisateur et seulement s'il est encore celui qu'on lui a montré (`applyRepoChanges`) ; « Préparer pour Claude » n'écrase toujours rien
 - **Modifie** : la [012](012-configuration-automatique.md), choix D (Pull requests en écriture, pour G)
 
 ## Contexte
