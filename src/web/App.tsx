@@ -319,6 +319,10 @@ export function App() {
           element={<ProjectPage tab="ecriture-us" />}
         />
         <Route
+          path="/projets/:id/agents"
+          element={<ProjectPage tab="agents" />}
+        />
+        <Route
           path="/tickets/:id"
           element={
             <LoadErrorBoundary>

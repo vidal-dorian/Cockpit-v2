@@ -14,6 +14,7 @@ import {
   type ReadGitHub,
 } from "./github.ts";
 import { type HealthLine, healthLines, webhookLine } from "./health.ts";
+import { AGENT_NAME } from "./team.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -65,6 +66,31 @@ const CLAUDE_MD = {
 
 /** Every file the prepare routes may write (decision 027 B). */
 const PREPARE_FILES = [...CATALOG_FILES, CLAUDE_MD];
+
+/** The catalogue agents by name (decision 030 B). */
+const CATALOG_AGENTS = CATALOG_FILES.filter((f) =>
+  f.path.startsWith(".claude/agents/"),
+)
+  .map((f) => ({
+    name: f.path.slice(".claude/agents/".length, -".md".length),
+    text: f.content,
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+// The longest name for which `.claude/agents/<name>.md` fits the 255 characters of decision 026 D.
+export const MAX_AGENT_NAME = 255 - ".claude/agents/".length - ".md".length;
+
+// Decision 030 E: `name` has the format of decision 029 B; `after` is at most 1 MiB, `before` is only compared.
+const agentBody = z
+  .object({
+    name: z.string().max(MAX_AGENT_NAME).regex(AGENT_NAME),
+    before: z.string().nullable(),
+    after: z
+      .string()
+      .refine((text) => Buffer.byteLength(text) <= 1_048_576)
+      .nullable(),
+  })
+  .refine(({ before, after }) => before !== after);
 
 const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
@@ -460,6 +486,109 @@ export function projectRoutes(
         async () => {},
       );
       return c.json(result);
+    })
+    .get("/api/projects/:id/agents", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const read = await c
+          .get("github")
+          .readAgentFiles(project.installationId, project.fullName);
+        if ("refused" in read) return c.json({ error: read.refused }, 409);
+        const taken = new Set(read.agents.map((agent) => agent.name));
+        return c.json({
+          agents: read.agents,
+          catalog: CATALOG_AGENTS.filter((agent) => !taken.has(agent.name)),
+        });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/projects/:id/agents/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = agentBody.safeParse(await c.req.json().catch(() => null));
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { name, before, after } = parsed.data;
+      const path = `.claude/agents/${name}.md`;
+      const id = Number(c.req.param("id"));
+      const entry: Entry = {
+        userId: user.userId,
+        actor: "human",
+        origin: "ui",
+        action: after === null ? "delete_agent" : "save_agent",
+        args: { path },
+      };
+      const record = async (error: unknown) => {
+        try {
+          await act(db, entry, async () => {
+            throw error;
+          });
+        } catch (thrown) {
+          if (thrown !== error) throw thrown;
+        }
+      };
+      const project = await memberProject(db, user.userId, id);
+      if (!project) {
+        await record(new Refused("not_found"));
+        return c.json({ error: "Not found" }, 404);
+      }
+      entry.projectId = id;
+      if (project.archivedAt) {
+        await record(new Refused("project_archived"));
+        return c.json({ error: "project_archived" }, 409);
+      }
+      const verb =
+        after === null ? "remove" : before === null ? "add" : "update";
+      let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
+      try {
+        result = await c
+          .get("github")
+          .applyRepoChanges(
+            project.installationId,
+            project.fullName,
+            [{ path, before, after }],
+            `feat: ${verb} the agent ${name} (Cockpit)`,
+          );
+      } catch (error) {
+        await record(error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+      if ("refused" in result) {
+        await record(new Refused(result.refused));
+        return result.refused === "pull_request_forbidden"
+          ? c.json(
+              {
+                error: result.refused,
+                appSettingsUrl: c.get("appSettingsUrl"),
+              },
+              409,
+            )
+          : c.json({ error: result.refused }, 409);
+      }
+      await act(
+        db,
+        {
+          ...entry,
+          githubEffects: {
+            commitSha: result.commitSha,
+            pullRequest: result.pullRequest?.number ?? null,
+          },
+        },
+        async () => {},
+      );
+      return c.json({
+        commitSha: result.commitSha,
+        ...(result.pullRequest && { pullRequest: result.pullRequest }),
+      });
     })
     .post("/api/projects/:id/archive", async (c) => {
       const user = await currentUser(db, c);

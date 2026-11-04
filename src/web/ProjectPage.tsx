@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, NavLink, useParams } from "react-router";
 import { client } from "./api.ts";
+import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { ProjectRoutine } from "./ProjectRoutine.tsx";
@@ -53,16 +54,22 @@ const EXPLANATIONS: Record<string, string> = {
     "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
 };
 
-export type ProjectTab = "kanban" | "tickets" | "sante" | "ecriture-us";
+export type ProjectTab =
+  | "kanban"
+  | "tickets"
+  | "sante"
+  | "ecriture-us"
+  | "agents";
 
 const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "kanban", to: "", label: "Kanban" },
   { tab: "tickets", to: "/tickets", label: "Tickets" },
   { tab: "sante", to: "/sante", label: "Santé" },
   { tab: "ecriture-us", to: "/ecriture-us", label: "Écriture des US" },
+  { tab: "agents", to: "/agents", label: "Agents" },
 ];
 
-/** The page of a project in four tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
+/** The page of a project in five tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { id = "" } = useParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
@@ -205,6 +212,13 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
       )}
       {!notFound && tab === "kanban" && <ProjectKanban projectId={id} />}
       {!notFound && tab === "tickets" && <ProjectTickets projectId={id} />}
+      {!notFound && tab === "agents" && project && (
+        <ProjectAgents
+          projectId={id}
+          fullName={project.fullName}
+          archived={project.archived}
+        />
+      )}
       {!notFound && tab === "ecriture-us" && <ProjectRoutine projectId={id} />}
     </main>
   );

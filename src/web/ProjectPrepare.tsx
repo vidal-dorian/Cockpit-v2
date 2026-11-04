@@ -24,16 +24,16 @@ const FAILED = "Ça n'a pas marché, réessaie dans un instant.";
 type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
 /** What went wrong, for the page: `code` is the server's, never shown; `status` is 0 when no answer came. */
-type Failure = { code: string; status: number; settingsUrl?: string };
+export type Failure = { code: string; status: number; settingsUrl?: string };
 type Done = { url: string; pullRequest: boolean };
 
-function message({ code, status }: Failure) {
+export function message({ code, status }: Failure) {
   if (REFUSALS[code]) return REFUSALS[code];
   if (status === 502) return UNAVAILABLE;
   return status === 401 ? UNAUTHORIZED : FAILED;
 }
 
-async function failure(res: Response): Promise<Failure> {
+export async function failure(res: Response): Promise<Failure> {
   const body: { error?: string; appSettingsUrl?: string } | null = await res
     .json()
     .catch(() => null);

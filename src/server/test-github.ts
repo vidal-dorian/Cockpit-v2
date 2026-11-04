@@ -386,7 +386,8 @@ export function stubGitHub(initial: {
               path: string;
               mode: string;
               type: string;
-              content: string;
+              content?: string;
+              sha?: null;
             }[];
           }[],
           commits: [] as {
@@ -659,14 +660,19 @@ export function stubGitHub(initial: {
               typeof e.path === "string" &&
               e.mode === "100644" &&
               e.type === "blob" &&
-              typeof e.content === "string",
+              // `sha: null` removes the path (decision 030 E).
+              (typeof e.content === "string" || e.sha === null),
           );
           if (!base || !valid)
             return reply(422, { message: "Validation Failed" });
           git.created.trees.push({ baseTree: sent.base_tree, entries });
           let snap = base;
           for (const e of entries)
-            snap = git._place(snap, e.path, { files: { [e.path]: e.content } });
+            snap = git._place(
+              snap,
+              e.path,
+              e.sha === null ? {} : { files: { [e.path]: e.content } },
+            );
           const tree = git._addTree(snap);
           return reply(201, { sha: tree, truncated: false, tree: [] });
         }

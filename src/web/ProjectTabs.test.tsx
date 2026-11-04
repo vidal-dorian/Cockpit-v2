@@ -11,7 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Decision 028 G: the page of a project in four tabs.
+// Decision 028 G: the page of a project in five tabs.
 //
 // Pinned choices (the decision leaves them open):
 // - The tabs are links inside <nav aria-label="Sections du projet">: « Kanban » (/projets/:id), « Tickets » (/projets/:id/tickets),
@@ -169,13 +169,14 @@ async function tabs() {
 }
 
 describe("Project page, the tabs (decision 028 G)", () => {
-  it("given a project, when /projets/:id opens, then the four tabs are links to their routes, Kanban is open and only the Kanban section is shown", async () => {
+  it("given a project, when /projets/:id opens, then the five tabs are links to their routes, Kanban is open and only the Kanban section is shown", async () => {
     stubApi();
 
     renderAt("/projets/5");
 
     const { links, find } = await tabs();
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
+    expect(links[4]?.textContent?.trim()).toBe("Agents");
     for (const name of NAMES) {
       const link = find(name);
       expect(link, `the tab ${name}`).toBeDefined();

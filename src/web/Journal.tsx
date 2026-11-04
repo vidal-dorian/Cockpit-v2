@@ -49,6 +49,8 @@ export const ACTIONS: Record<string, string> = {
   keep_cockpit_issue: "Version de Cockpit gardée",
   take_github_issue: "Version de GitHub reprise",
   prepare_repo: "Préparer pour Claude",
+  save_agent: "Agent enregistré",
+  delete_agent: "Agent supprimé",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",
