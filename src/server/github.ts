@@ -3,6 +3,7 @@ import { App } from "@octokit/app";
 import { Octokit } from "@octokit/core";
 import { z } from "zod";
 import type { ReadInstance } from "./instance.ts";
+import { AGENT_NAME } from "./team.ts";
 
 export type GitHubAppConfig = {
   githubAppId: string;
@@ -697,7 +698,9 @@ export function githubClient(config: GitHubAppConfig) {
       }
       const names = tree.tree
         .filter((e) => e.type === "blob" && /^100(644|755)$/.test(e.mode))
-        .flatMap((e) => /^([a-z0-9][a-z0-9-]*)\.md$/.exec(e.path)?.[1] ?? [])
+        .filter((e) => e.path.endsWith(".md"))
+        .map((e) => e.path.slice(0, -".md".length))
+        .filter((name) => AGENT_NAME.test(name))
         .sort();
       return {
         agents: await Promise.all(

@@ -16,9 +16,10 @@ import {
 
 const SESSION_MODEL = "Celui de la session";
 const MODELS = ["sonnet", "opus", "haiku", "fable"];
+// The name must fit `.claude/agents/<name>.md` in 255 characters (decision 026 D).
 const AGENT_NAME = /^[a-z0-9][a-z0-9-]*$/;
+const MAX_NAME = 237;
 
-type AgentFile = { name: string; text: string | null };
 /** An agent being edited: `before` is the text read (null for an addition), `base` the text the form starts from. */
 type Editing = { name: string; before: string | null; base: string };
 type Done = { url: string; pullRequest: boolean };
@@ -135,14 +136,28 @@ function AgentForm({
         <div className="mt-3">
           {confirming ? (
             <>
-              <p>Le fichier sera retiré du repo par un commit</p>
+              <p id="delete-agent-warning">
+                Le fichier sera retiré du repo par un commit
+              </p>
               <button
                 type="button"
+                aria-describedby="delete-agent-warning"
                 disabled={archived || pending}
                 onClick={() => onCommit(null)}
-                className={`mt-2 ${button}`}
+                className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
               >
                 Confirmer la suppression
+              </button>
+              <button
+                type="button"
+                aria-describedby="delete-agent-warning"
+                // The button that asked is gone: keep the keyboard focus on the safe choice.
+                // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                autoFocus
+                onClick={() => setConfirming(false)}
+                className={`mt-2 ml-2 ${button}`}
+              >
+                Annuler
               </button>
             </>
           ) : (
@@ -167,13 +182,14 @@ function AddAgent({
   onContinue,
 }: {
   taken: string[];
-  catalog: AgentFile[];
+  catalog: { name: string; text: string }[];
   onContinue: (name: string, start: string) => void;
 }) {
   const [name, setName] = useState("");
   const [start, setStart] = useState("");
   const isTaken = taken.includes(name);
-  const valid = AGENT_NAME.test(name) && !isTaken;
+  const validName = AGENT_NAME.test(name) && name.length <= MAX_NAME;
+  const valid = validName && !isTaken;
   return (
     <div className={`${card} mt-4 p-4`}>
       <label htmlFor="agent-name" className="block">
@@ -183,10 +199,11 @@ function AddAgent({
         id="agent-name"
         className={field}
         value={name}
+        maxLength={MAX_NAME}
         onChange={(e) => setName(e.target.value)}
       />
       {isTaken && <p className="mt-1">Ce nom est déjà pris</p>}
-      {name !== "" && !AGENT_NAME.test(name) && (
+      {name !== "" && !validName && (
         <p className="mt-1">
           Le nom ne contient que a-z, 0-9 et -, et ne commence pas par -
         </p>
@@ -341,6 +358,7 @@ export function ProjectAgents({
                 <button
                   type="button"
                   aria-label={`Ouvrir ${agent.name}`}
+                  disabled={agent.text === null}
                   onClick={() => {
                     setProblem(null);
                     setDone(null);
@@ -376,10 +394,7 @@ export function ProjectAgents({
           {adding && (
             <AddAgent
               taken={list.agents.map((agent) => agent.name)}
-              catalog={list.catalog.filter(
-                (agent): agent is { name: string; text: string } =>
-                  agent.text !== null,
-              )}
+              catalog={list.catalog}
               onContinue={(name, base) => {
                 setProblem(null);
                 setDone(null);
@@ -392,7 +407,8 @@ export function ProjectAgents({
       )}
       {editing && (
         <AgentForm
-          key={editing.name}
+          // The text too: opening an agent again after a re-read starts from the new text, not from stale fields.
+          key={`${editing.name}\n${editing.before}`}
           editing={editing}
           archived={archived}
           pending={commit.isPending}

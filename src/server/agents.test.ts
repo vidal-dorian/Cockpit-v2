@@ -335,6 +335,10 @@ describe("decision 030 E: POST /api/projects/:id/agents/apply", () => {
     ["a name that climbs", { name: "../x", before: null, after: T }],
     ["an upper case name", { name: "Dev", before: null, after: T }],
     ["a name starting with a dash", { name: "-x", before: null, after: T }],
+    [
+      "a name of 238 characters",
+      { name: "a".repeat(238), before: null, after: T },
+    ],
     ["an empty name", { name: "", before: null, after: T }],
     ["a name with a dot", { name: "a.b", before: null, after: T }],
     [

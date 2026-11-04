@@ -36,7 +36,7 @@ export type AppOptions = {
 };
 
 const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
-// The agent editor sends a file of up to 1 MiB, twice (decision 030 E), which JSON escaping can inflate.
+// The agent editor sends a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
 const agentsBodyLimit = bodyLimit({ maxSize: 4 * 1024 * 1024 });
 const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/agents\/apply$/;
 
