@@ -49,3 +49,13 @@ describe("parseTeam", () => {
     expect(parseTeam(text)).toBeNull();
   });
 });
+
+describe("parseTeam comments", () => {
+  it("given a comment line at column 0 between two steps, when it is parsed, then both agents come back", () => {
+    const text = file(
+      "steps:\n  - agent: developer\n# next\n  - agent: doc-writer",
+    );
+
+    expect(parseTeam(text)).toEqual(["developer", "doc-writer"]);
+  });
+});

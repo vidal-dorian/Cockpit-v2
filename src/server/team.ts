@@ -12,6 +12,7 @@ export function parseTeam(text: string): string[] | null {
   if (start === -1) return null;
   const agents: string[] = [];
   for (const l of front.slice(start + 1)) {
+    if (/^\s*#/.test(l)) continue; // a comment
     if (/^\S/.test(l)) break; // the next top-level key
     if (!/^\s*-\s/.test(l)) continue; // does, loop_to, until, blank lines
     const name = /^\s*-\s+agent:\s*(.*?)\s*$/.exec(l)?.[1];
