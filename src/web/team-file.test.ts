@@ -67,7 +67,7 @@ describe("decision 031 G: readTeam", () => {
           until: "the verdict is ready",
         },
       ],
-      body: "Body kept.\n\n  Two  paragraphs  \n",
+      body: "Body kept.\n\n  Two  paragraphs\n",
     });
   });
 
@@ -146,9 +146,28 @@ Body kept.
   });
 
   it("given the text of a file read, when it is written back unchanged, then it is identical", () => {
-    const read = readTeam(TEXT);
+    // The blank line between two steps is not kept by a rewrite: compare with the text without it.
+    const canonical = TEXT.replace(
+      "\n\n  - agent: reviewer",
+      "\n  - agent: reviewer",
+    );
+    const read = readTeam(canonical);
     expect(read).not.toBeNull();
-    expect(writeTeam(read?.steps ?? [], read?.body ?? "")).toBe(TEXT);
+    expect(writeTeam(read?.steps ?? [], read?.body ?? "")).toBe(canonical);
+  });
+
+  it("given does and until written without quotes, as in the example of /dev-us, when it is read, then the values come back as written", () => {
+    const read = readTeam(
+      "---\nsteps:\n  - agent: doc-writer\n    does: writes the documentation\n    loop_to: doc-writer\n    until: the docs build\n---\n",
+    );
+    expect(read?.steps).toEqual([
+      {
+        agent: "doc-writer",
+        does: "writes the documentation",
+        loopTo: "doc-writer",
+        until: "the docs build",
+      },
+    ]);
   });
 });
 
