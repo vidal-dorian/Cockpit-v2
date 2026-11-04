@@ -1991,7 +1991,7 @@ describe("GET /api/projects/:id/health", () => {
     expect(callsOn("r2")).toHaveLength(4);
   });
 
-  // Decision 028 (slice E1): a project may describe its own team in .claude/team.md.
+  // Decision 029 (slice E1): a project may describe its own team in .claude/team.md.
   const TEAM_MD = ".claude/team.md";
   const TEAM_MD_CALL = `${REPO}/contents/${TEAM_MD}?ref=SHA`;
   const team = (...agents: string[]) =>

@@ -57,7 +57,7 @@ export type FakeGitRepoOptions = {
 export const DEFAULT_WEBHOOK_URL =
   "https://cockpit.example.com/api/webhooks/github";
 
-/** The App's webhook as the stub holds it (decision 024 F, G); read and change it between two calls. */
+/** The App's webhook as the stub holds it (decision 024 F); read and change it between two calls. */
 export type FakeWebhook = {
   url: string;
   /** Sent in the answer of `GET /app/hook/config` only when set. */
@@ -67,7 +67,6 @@ export type FakeWebhook = {
   /** Fails the given call with that status (body message `github-boom-message`). */
   configStatus?: number;
   deliveriesStatus?: number;
-  patchStatus?: number;
 };
 
 /** An issue as the fake holds it (slice 4.6, decision 020); `labels` are names. */
@@ -173,11 +172,11 @@ export function failOnUnexpectedFetch() {
  * with 500 every call it returns true for (or with the status it returns), to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
  * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
  *
- * The webhook of the App (decisions 002 and 024), read and written as the App itself (a JWT, never an installation token: 401 otherwise):
- * `GET /app/hook/config` (`{ url, content_type, insecure_ssl }`, plus `active` when the test set it), `GET /app/hook/deliveries?per_page=n` (the `n` newest
- * deliveries, each `{ id, guid, status_code, event, action }`) and `PATCH /app/hook/config` (`{ url }`, which changes the url the next read answers).
+ * The webhook of the App (decisions 002 and 024), read as the App itself (a JWT, never an installation token: 401 otherwise):
+ * `GET /app/hook/config` (`{ url, content_type, insecure_ssl }`, plus `active` when the test set it) and `GET /app/hook/deliveries?per_page=n` (the `n` newest
+ * deliveries, each `{ id, guid, status_code, event, action }`).
  * It starts at DEFAULT_WEBHOOK_URL with no delivery, so a health check reads it green. The returned mock holds it as `webhook` (a live object: assign
- * its fields between two calls, `initial.webhook` seeds them); `configStatus`, `deliveriesStatus` and `patchStatus` fail one of the three calls.
+ * its fields between two calls, `initial.webhook` seeds them); `configStatus` and `deliveriesStatus` fail one of the two calls.
  *
  * Writing into a repo (slice 6.1, decision 026): `gitRepos` names the repos (`owner/repo`) that keep a real Git history, which the stub serves instead of the snapshots above:
  * `GET /repos/{o}/{r}` (`default_branch`), `GET .../git/ref/heads/{branch}` (only the default branch exists; 409 on an empty repo), `GET .../git/commits/{sha}`,
@@ -920,15 +919,6 @@ export function stubGitHub(initial: {
           });
         if (route === "GET https://api.github.com/app/hook/config")
           return boom(webhook.configStatus) ?? config();
-        if (route === "PATCH https://api.github.com/app/hook/config") {
-          const failure = boom(webhook.patchStatus);
-          if (failure) return failure;
-          const sent = JSON.parse(String(init?.body ?? "{}")) as {
-            url?: string;
-          };
-          if (typeof sent.url === "string") webhook.url = sent.url;
-          return config();
-        }
         if (route === "GET https://api.github.com/app/hook/deliveries") {
           const failure = boom(webhook.deliveriesStatus);
           if (failure) return failure;

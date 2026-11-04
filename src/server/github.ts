@@ -77,7 +77,7 @@ export type RepoFiles = {
   workflows: string[];
   /** The text of .mcp.json, null when absent. */
   mcpJson: string | null;
-  /** The text of .claude/team.md (decision 028), null when absent. */
+  /** The text of .claude/team.md (decision 029), null when absent. */
   teamMd: string | null;
   /** Names of the files directly in .claude/agents. */
   agents: string[];
@@ -471,12 +471,6 @@ export function githubClient(config: GitHubAppConfig) {
       };
     },
 
-    /** Points the App's webhook at `url`, as the App (decision 024 G). Errors are left to the caller. */
-    async setWebhookUrl(url: string) {
-      // `data`, not a bare `url`: Octokit would take that one for the address of the request.
-      await app.octokit.request("PATCH /app/hook/config", { data: { url } });
-    },
-
     /** What writing `files` into the default branch would do (decision 026 A): each file is `create`, `same` or `exists` (never overwritten). Refused when the repo is empty or out of reach. Reads only. Throws on an invalid plan and on any other GitHub error. */
     async planRepoWrite(
       installationId: number,
@@ -733,7 +727,7 @@ export function githubClient(config: GitHubAppConfig) {
 export const appSettingsUrl = (slug: string) =>
   `https://github.com/settings/apps/${slug}`;
 
-/** The client, the App's install and settings pages and the instance's public URL, null before the wizard has run. The client is built once and keeps its installation tokens; the public URL is read each time, as the administrator can change it (decision 023 C). */
+/** The client, the App's install and settings pages and the instance's public URL, null before the wizard has run. The client is built once and keeps its installation tokens; the public URL is read each time. */
 export function githubReader(readInstance: ReadInstance) {
   let built:
     | {

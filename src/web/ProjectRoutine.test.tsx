@@ -219,7 +219,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given a project, when /projets/5 loads, then the section is a heading and reads the schedule and the routine of the project", async () => {
     const calls = stubApi({ schedule: OFF, routine: CONNECTED });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     await routineSection();
     const gets = calls.filter((c) => c.method === "GET").map((c) => c.path);
@@ -230,7 +230,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given the frequency off, when the section loads, then the choice shows the four frequencies, off is selected, and neither the hour nor the weekday is shown", async () => {
     stubApi({ schedule: OFF, routine: CONNECTED });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     const frequency = within(section).getByLabelText(
@@ -249,7 +249,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given a daily schedule, when the section loads, then the hour is shown with its 24 values and the saved hour selected, and the weekday is not shown", async () => {
     stubApi({ schedule: DAILY_AT_7, routine: CONNECTED });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     const hour = (await within(section).findByLabelText(
@@ -269,7 +269,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       routine: CONNECTED,
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     const day = (await within(section).findByLabelText(
@@ -288,7 +288,7 @@ describe("Project page, the section Écriture automatique des US", () => {
 
   it("given the frequency off, when Chaque jour then Chaque semaine then À la demande is chosen, then the hour and the weekday appear and disappear as they apply", async () => {
     stubApi({ schedule: OFF, routine: CONNECTED });
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
     const frequency = within(section).getByLabelText("Fréquence");
 
@@ -306,7 +306,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given Chaque jour at 7 h chosen, when Enregistrer is clicked, then PUT sends the frequency, the hour and the time zone of the browser, and the next run it answers is shown in French", async () => {
     browserTimeZone("Europe/Paris");
     const calls = stubApi({ schedule: OFF, routine: CONNECTED });
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
     fireEvent.change(within(section).getByLabelText("Fréquence"), {
       target: { value: "daily" },
@@ -338,7 +338,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given Chaque semaine on Wednesday at 18 h chosen in another time zone, when Enregistrer is clicked, then PUT sends the weekday as a number and the time zone of the browser", async () => {
     browserTimeZone("America/New_York");
     const calls = stubApi({ schedule: OFF, routine: CONNECTED });
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
     fireEvent.change(within(section).getByLabelText("Fréquence"), {
       target: { value: "weekly" },
@@ -366,7 +366,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given À la demande chosen, when Enregistrer is clicked, then PUT sends the frequency and the time zone, no hour, and no next run is shown", async () => {
     browserTimeZone("Europe/Paris");
     const calls = stubApi({ schedule: DAILY_AT_7, routine: CONNECTED });
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
     await within(section).findByLabelText("Heure");
     fireEvent.change(within(section).getByLabelText("Fréquence"), {
@@ -391,7 +391,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given a schedule with a next run, when the section loads, then it reads Prochain passage with the date in French", async () => {
     stubApi({ schedule: DAILY_AT_7, routine: CONNECTED });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     expect(section.textContent).toMatch(/Prochain passage/);
@@ -401,7 +401,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given a project, when the section loads, then the sentence about nothing to write is scoped to the planning, since the button always fires (022 D, E)", async () => {
     stubApi({ schedule: DAILY_AT_7, routine: CONNECTED });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     expect(section.textContent).toMatch(/au planning|lancement automatique/i);
@@ -413,7 +413,7 @@ describe("Project page, the section Écriture automatique des US", () => {
   it("given a project with no schedule, when the section loads, then it shows no next run and no last run", async () => {
     stubApi({ schedule: OFF, routine: CONNECTED });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     expect(section.textContent).not.toMatch(/Prochain passage/);
@@ -436,7 +436,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       routine: CONNECTED,
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     expect(section.textContent).toMatch(/Dernier lancement/);
@@ -461,7 +461,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       routine: CONNECTED,
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     expect(section.textContent).toMatch(/Échec/);
@@ -473,7 +473,7 @@ describe("Project page, the section Écriture automatique des US", () => {
 
   it("given a connected routine, when « Écrire les US maintenant » is clicked, then it posts to the run route and then shows the new last run with its Voir la session link", async () => {
     const calls = stubApi({ schedule: OFF, routine: CONNECTED });
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
     expect(
       within(section).queryByRole("link", { name: "Voir la session" }),
@@ -505,7 +505,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       routine: { connected: false, needsReconnect: false },
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     const link = await within(section).findByRole("link", { name: /Réglages/ });
@@ -524,7 +524,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       routine: { connected: true, needsReconnect: true },
     });
 
-    renderAt("/projets/5");
+    renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
     await waitFor(() => expect(section.textContent).toMatch(/reconnecter/));
@@ -554,7 +554,7 @@ describe("Project page, the section Écriture automatique des US", () => {
         routine: CONNECTED,
         runAnswer: Response.json({ error: code }, { status }),
       });
-      renderAt("/projets/5");
+      renderAt("/projets/5/ecriture-us");
       const section = await routineSection();
 
       fireEvent.click(
@@ -582,7 +582,7 @@ describe("Project page, the section Écriture automatique des US", () => {
         routine: CONNECTED,
         putAnswer: Response.json({ error: code }, { status }),
       });
-      renderAt("/projets/5");
+      renderAt("/projets/5/ecriture-us");
       const section = await routineSection();
       fireEvent.change(within(section).getByLabelText("Fréquence"), {
         target: { value: "on_demand" },

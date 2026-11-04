@@ -32,8 +32,9 @@ describe("Ticket page, reading", () => {
       name: "Ajouter la recherche",
     });
     expect(within(main()).getByText("Nouveau")).toBeDefined();
-    const back = main().querySelector('a[href="/projets/5"]');
-    expect(back, "a link to /projets/5 inside the page").not.toBeNull();
+    // Decision 028 G: the "←" link leads to the Tickets tab of the project.
+    const back = main().querySelector('a[href="/projets/5/tickets"]');
+    expect(back, "a link to /projets/5/tickets inside the page").not.toBeNull();
   });
 
   it("given a markdown description, when the page loads, then bold text, a heading, a list and a link are rendered as HTML", async () => {
@@ -267,6 +268,8 @@ describe("Ticket page, deleting", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/projets/5"));
     await screen.findByRole("heading", { level: 1, name: "octocat/hello" });
+    // Decision 028 G: the tickets are listed in the Tickets tab, not on the Kanban tab the project opens on.
+    fireEvent.click(await screen.findByRole("link", { name: "Tickets" }));
     await screen.findByRole("link", { name: "Survit" });
     expect(screen.queryByRole("link", { name: "Disparaît" })).toBeNull();
     expect(api.writes()).toEqual([

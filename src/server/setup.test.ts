@@ -55,10 +55,21 @@ const cookieValueOf = (setCookie: string) =>
 
 type App = Awaited<ReturnType<typeof freshInstance>>["app"];
 
-const postStart = (app: App, body: unknown) =>
-  app.request("/api/setup/start", {
+/** The request of a visitor who reached Cockpit over https (decision 028 J: the address is detected from the request itself). */
+const HTTPS_VISITOR = {
+  "cf-visitor": '{"scheme":"https"}',
+  host: "cockpit.example.com",
+};
+
+const postStart = (
+  app: App,
+  body: unknown,
+  headers: Record<string, string> = HTTPS_VISITOR,
+  url = "/api/setup/start",
+) =>
+  app.request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 
@@ -90,7 +101,7 @@ function stubConversion(status: number, body: unknown = CONVERSION) {
 
 /** Runs /api/setup/start with the right code and returns the state the server gave. */
 async function startWizard(app: App) {
-  const res = await postStart(app, { code: CODE, publicUrl: PUBLIC_URL });
+  const res = await postStart(app, { code: CODE });
   const cookie = cookieNamed(res, "cockpit_setup");
   assert(cookie, "start must set cockpit_setup");
   return { state: cookieValueOf(cookie), cookie: pairOf(cookie) };
@@ -248,10 +259,10 @@ describe("GET /api/setup/status", () => {
 });
 
 describe("POST /api/setup/start", () => {
-  it("given the right start code and a public URL, when the wizard starts, then it answers the GitHub action URL carrying the state, and keeps the same state in an HttpOnly cookie", async () => {
+  it("given the right start code and an https request, when the wizard starts, then it answers the GitHub action URL carrying the state, and keeps the same state in an HttpOnly cookie", async () => {
     const { app } = await freshInstance();
 
-    const res = await postStart(app, { code: CODE, publicUrl: PUBLIC_URL });
+    const res = await postStart(app, { code: CODE });
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { action: string; manifest: object };
@@ -268,10 +279,10 @@ describe("POST /api/setup/start", () => {
     expect(cookie).toMatch(/;\s*Max-Age=3600(;|$)/i);
   });
 
-  it("given the right start code, when the wizard starts, then the manifest points every URL at the public URL", async () => {
+  it("given the right start code, when the wizard starts, then the manifest points every URL at the address detected from the request", async () => {
     const { app } = await freshInstance();
 
-    const res = await postStart(app, { code: CODE, publicUrl: PUBLIC_URL });
+    const res = await postStart(app, { code: CODE });
 
     const { manifest } = (await res.json()) as {
       manifest: Record<string, unknown>;
@@ -293,7 +304,7 @@ describe("POST /api/setup/start", () => {
   it("given the right start code, when the wizard starts, then the manifest asks for the whole MVP permissions (Pull requests in write, decision 012 D amended by 026 G) and events, under a name GitHub accepts", async () => {
     const { app } = await freshInstance();
 
-    const res = await postStart(app, { code: CODE, publicUrl: PUBLIC_URL });
+    const res = await postStart(app, { code: CODE });
 
     const { manifest } = (await res.json()) as {
       manifest: {
@@ -324,32 +335,6 @@ describe("POST /api/setup/start", () => {
     expect(manifest.name.length).toBeLessThanOrEqual(34);
   });
 
-  it("given a public URL with a path and a trailing slash, when the wizard starts, then every manifest URL is built on the bare origin", async () => {
-    const { app } = await freshInstance();
-    const origin = "https://c.example.com";
-
-    const res = await postStart(app, {
-      code: CODE,
-      publicUrl: `${origin}/x/`,
-    });
-
-    expect(res.status).toBe(200);
-    const { manifest } = (await res.json()) as {
-      manifest: {
-        url: string;
-        redirect_url: string;
-        callback_urls: string[];
-        setup_url: string;
-        hook_attributes: { url: string };
-      };
-    };
-    expect(manifest.url).toBe(origin);
-    expect(manifest.redirect_url).toBe(`${origin}/api/setup/callback`);
-    expect(manifest.callback_urls).toEqual([`${origin}/api/auth/callback`]);
-    expect(manifest.setup_url).toBe(`${origin}/projets`);
-    expect(manifest.hook_attributes.url).toBe(`${origin}/api/webhooks/github`);
-  });
-
   it.each([
     ["lowercase without dashes", CODE.toLowerCase().replaceAll("-", "")],
     ["lowercase with dashes", CODE.toLowerCase()],
@@ -359,7 +344,7 @@ describe("POST /api/setup/start", () => {
     async (_name, typed) => {
       const { app } = await freshInstance();
 
-      const res = await postStart(app, { code: typed, publicUrl: PUBLIC_URL });
+      const res = await postStart(app, { code: typed });
 
       expect(res.status).toBe(200);
       expect(cookieNamed(res, "cockpit_setup")).toBeDefined();
@@ -369,7 +354,7 @@ describe("POST /api/setup/start", () => {
   it("given a wrong start code, when the wizard starts, then it answers 403 with an error and sets no cookie", async () => {
     const { app } = await freshInstance();
 
-    const res = await postStart(app, { code: "nope", publicUrl: PUBLIC_URL });
+    const res = await postStart(app, { code: "nope" });
 
     expect(res.status).toBe(403);
     expect(typeof ((await res.json()) as { error?: unknown }).error).toBe(
@@ -378,51 +363,30 @@ describe("POST /api/setup/start", () => {
     expect(res.headers.getSetCookie()).toEqual([]);
   });
 
+  it("given an https request and another publicUrl in the body, when the wizard starts, then the manifest is built on the detected address and the body address is ignored (decision 028 J)", async () => {
+    const { app } = await freshInstance();
+
+    const res = await postStart(app, {
+      code: CODE,
+      publicUrl: "https://other.example.org",
+    });
+
+    expect(res.status).toBe(200);
+    const { manifest } = (await res.json()) as {
+      manifest: { url: string; redirect_url: string };
+    };
+    expect(manifest.url).toBe("https://cockpit.example.com");
+    expect(manifest.redirect_url).toBe(
+      "https://cockpit.example.com/api/setup/callback",
+    );
+  });
+
   it.each([
-    ["not a URL", "cockpit"],
-    ["not http(s)", "ftp://cockpit.example.com"],
+    ["garbage", "cockpit"],
+    ["an http address", "http://cockpit.example.com"],
     ["empty", ""],
   ])(
-    "given the right start code and a public URL that is %s, when the wizard starts, then it answers 400 and sets no cookie",
-    async (_name, publicUrl) => {
-      const { app } = await freshInstance();
-
-      const res = await postStart(app, { code: CODE, publicUrl });
-
-      expect(res.status).toBe(400);
-      expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();
-    },
-  );
-
-  it.each([
-    ["a domain", "http://cockpit.example.com"],
-    ["a domain with a port", "http://cockpit.example.com:3000"],
-    ["a private IP", "http://192.168.1.20:3000"],
-    ["a domain that starts like localhost", "http://localhost.example.com"],
-    ["a domain that starts like an IP", "http://127.0.0.1.example.com"],
-  ])(
-    "given the right start code and an http:// public address on %s, when the wizard starts, then it answers 400 with the https message and sets no cookie (decision 023 B)",
-    async (_name, publicUrl) => {
-      const { app } = await freshInstance();
-
-      const res = await postStart(app, { code: CODE, publicUrl });
-
-      expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({
-        error:
-          "L'adresse publique doit commencer par https:// : claude.ai l'exige.",
-      });
-      expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();
-    },
-  );
-
-  // Guard: developing on one's own machine keeps working (it already holds before decision 023).
-  it.each([
-    ["localhost", "http://localhost:3000"],
-    ["127.0.0.1", "http://127.0.0.1:3000"],
-    ["[::1]", "http://[::1]:3000"],
-  ])(
-    "given the right start code and an http:// public address on %s, when the wizard starts, then it is accepted",
+    "given an https request and a publicUrl that is %s in the body, when the wizard starts, then it is ignored and the wizard starts (decision 028 J)",
     async (_name, publicUrl) => {
       const { app } = await freshInstance();
 
@@ -433,10 +397,79 @@ describe("POST /api/setup/start", () => {
     },
   );
 
+  it.each([
+    ["a domain", { host: "cockpit.example.com" }],
+    ["a domain with a port", { host: "cockpit.example.com:3000" }],
+    ["a private IP", { host: "192.168.1.20:3000" }],
+    ["a domain that starts like localhost", { host: "localhost.example.com" }],
+    ["a domain that starts like an IP", { host: "127.0.0.1.example.com" }],
+  ])(
+    "given the right start code and a request that arrives in http on %s (X-Forwarded-Proto: http), when the wizard starts, then it answers 400 with the https sentence, sets no cookie and prepares nothing (decision 028 J)",
+    async (_name, host) => {
+      const { app, db } = await freshInstance();
+
+      const res = await postStart(
+        app,
+        { code: CODE, publicUrl: "https://cockpit.example.com" },
+        { ...host, "x-forwarded-proto": "http" },
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error:
+          "Ouvre Cockpit par son adresse en https:// pour l'installer : claude.ai l'exige pour le connecteur.",
+      });
+      expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();
+      expect(res.headers.getSetCookie()).toEqual([]);
+      expect(await db.select().from(instanceSettings)).toHaveLength(0);
+    },
+  );
+
+  it("given the right start code and a plain http request on a public host with no forwarded header, when the wizard starts, then it answers 400 with the https sentence", async () => {
+    const { app } = await freshInstance();
+
+    const res = await postStart(
+      app,
+      { code: CODE },
+      {},
+      "http://cockpit.example.com/api/setup/start",
+    );
+
+    expect(res.status).toBe(400);
+    expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();
+  });
+
+  // Developing on one's own machine keeps working (decision 023 B), the manifest being built on the request's own origin.
+  it.each([
+    ["localhost", "http://localhost:3000"],
+    ["127.0.0.1", "http://127.0.0.1:3000"],
+    ["[::1]", "http://[::1]:3000"],
+  ])(
+    "given the right start code on %s over http, when the wizard starts, then it is accepted and the manifest is built on %s",
+    async (_name, origin) => {
+      const { app } = await freshInstance();
+
+      const res = await postStart(
+        app,
+        { code: CODE },
+        {},
+        `${origin}/api/setup/start`,
+      );
+
+      expect(res.status).toBe(200);
+      expect(cookieNamed(res, "cockpit_setup")).toBeDefined();
+      const { manifest } = (await res.json()) as {
+        manifest: { url: string; redirect_url: string };
+      };
+      expect(manifest.url).toBe(origin);
+      expect(manifest.redirect_url).toBe(`${origin}/api/setup/callback`);
+    },
+  );
+
   it("given an instance that is already configured, when the wizard starts with the right code, then it answers 409 and sets no cookie", async () => {
     const { app } = await configuredInstance();
 
-    const res = await postStart(app, { code: CODE, publicUrl: PUBLIC_URL });
+    const res = await postStart(app, { code: CODE });
 
     expect(res.status).toBe(409);
     expect(cookieNamed(res, "cockpit_setup")).toBeUndefined();

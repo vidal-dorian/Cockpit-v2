@@ -170,7 +170,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
   | R5 | **Constats de Claude** : bugs, failles, architecture, stack ; page Constats et tri | Une faille trouvée devient un ticket en un clic |
   | R6 | **Constats de GitHub et versions** : alertes Dependabot, code scanning, secret scanning ; fin de vie des runtimes | Node 20 en fin de vie est signalé sur la carte |
 - **Projets** : créer depuis un repo modèle, gérer le repo modèle.
-- **Équipe d'agents** (demande du 2026-11-03) : `/dev-us` reste le défaut, mais l'utilisateur ajoute, modifie ou retire des agents dans ce schéma, et définit d'autres structures par projet. Quatre tranches, voir [`decisions/028-equipe-d-agents.md`](decisions/028-equipe-d-agents.md) :
+- **Équipe d'agents** (demande du 2026-11-03) : `/dev-us` reste le défaut, mais l'utilisateur ajoute, modifie ou retire des agents dans ce schéma, et définit d'autres structures par projet. Quatre tranches, voir [`decisions/029-equipe-d-agents.md`](decisions/029-equipe-d-agents.md) :
 
   | # | Tranche | Démo |
   |---|---|---|

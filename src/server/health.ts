@@ -77,7 +77,7 @@ export function healthLines(files: RepoFiles, publicUrl: string): HealthLine[] {
   ];
 }
 
-// Decision 028 E: the agents wanted are the project's own team, or the three default ones.
+// Decision 029 E: the agents wanted are the project's own team, or the three default ones.
 function agentsDetail(files: RepoFiles): HealthDetail {
   if (!files.devUsSkill.includes("SKILL.md")) return "missing";
   const team = files.teamMd === null ? DEFAULT_TEAM : parseTeam(files.teamMd);

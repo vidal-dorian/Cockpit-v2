@@ -118,14 +118,6 @@ function stubApi(state: State) {
         );
         return new Response(null, { status: 204 });
       }
-      // Decision 023: the administrator's section « Adresse publique » has its own tests (SettingsTabs.test.tsx).
-      if (path === "/api/settings/public-url" && method === "GET")
-        return state.isAdmin
-          ? Response.json({
-              publicUrl: "https://cockpit.example.com",
-              appSettingsUrl: "https://github.com/settings/apps/cockpit-test",
-            })
-          : Response.json({ error: "Forbidden" }, { status: 403 });
       // The « Connecter Claude » section (decision 021 G) has its own tests (ConnectClaude.test.tsx): nothing connected here.
       if (path === "/api/me/connect" && method === "GET")
         return Response.json({
@@ -188,10 +180,10 @@ describe("navigation to Réglages", () => {
 });
 
 describe("Réglages page, for a user who is not an administrator", () => {
-  it("given a user who is not an administrator, when /reglages loads, then it has the heading Réglages and the section Jetons MCP but no section Utilisateurs", async () => {
+  it("given a user who is not an administrator, when /reglages/jetons loads, then it has the heading Réglages and the section Jetons MCP but no section Utilisateurs", async () => {
     const calls = stubApi({ isAdmin: false, users: [admin, user(2, "alice")] });
 
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Réglages" }),
@@ -212,28 +204,38 @@ describe("Réglages page, for a user who is not an administrator", () => {
     expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
   });
 
-  it("given an administrator, when /reglages loads, then both sections Utilisateurs and Jetons MCP are there", async () => {
-    stubApi({ isAdmin: true, users: [admin] });
+  it("given an administrator, when /reglages/jetons loads, then the section Jetons MCP is there and the users are not asked (decision 028 H)", async () => {
+    const calls = stubApi({ isAdmin: true, users: [admin] });
 
-    renderAt("/reglages");
+    renderAt("/reglages/jetons");
 
     expect(
       await screen.findByRole("heading", { name: "Jetons MCP" }),
     ).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Utilisateurs" })).toBeNull();
+    expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
+  });
+
+  it("given an administrator, when /reglages/utilisateurs loads, then the section Utilisateurs is there and the section Jetons MCP is not (decision 028 H)", async () => {
+    stubApi({ isAdmin: true, users: [admin] });
+
+    renderAt("/reglages/utilisateurs");
+
     expect(
       await screen.findByRole("heading", { name: "Utilisateurs" }),
     ).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Jetons MCP" })).toBeNull();
   });
 });
 
 describe("Réglages page, the users", () => {
-  it("given the admin and two users, when /reglages loads, then it has the heading Réglages, a section Utilisateurs and lists every login", async () => {
+  it("given the admin and two users, when /reglages/utilisateurs loads, then it has the heading Réglages, a section Utilisateurs and lists every login", async () => {
     stubApi({
       isAdmin: true,
       users: [admin, user(2, "alice-dev"), user(3, "bob")],
     });
 
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Réglages" }),
@@ -244,9 +246,9 @@ describe("Réglages page, the users", () => {
     expect(screen.getByText("root-admin")).toBeDefined();
   });
 
-  it("given the admin and a user, when /reglages loads, then the admin is marked Administrateur without a Bloquer button and the user has one", async () => {
+  it("given the admin and a user, when /reglages/utilisateurs loads, then the admin is marked Administrateur without a Bloquer button and the user has one", async () => {
     stubApi({ isAdmin: true, users: [admin, user(2, "alice-dev")] });
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
     await screen.findByText("alice-dev");
 
     const adminRow = within(rowOf("root-admin"));
@@ -257,10 +259,10 @@ describe("Réglages page, the users", () => {
     expect(userRow.getByRole("button", { name: "Bloquer" })).toBeDefined();
   });
 
-  it("given the old allow-list is gone, when /reglages loads, then there is no form Ajouter un compte and the accounts route is never called", async () => {
+  it("given the old allow-list is gone, when /reglages/utilisateurs loads, then there is no form Ajouter un compte and the accounts route is never called", async () => {
     const calls = stubApi({ isAdmin: true, users: [admin, user(2, "bob")] });
 
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
     await screen.findByText("bob");
 
     expect(screen.queryByLabelText("Login GitHub")).toBeNull();
@@ -276,7 +278,7 @@ describe("Réglages page, blocking a user", () => {
       isAdmin: true,
       users: [admin, user(2, "alice-dev"), user(3, "bob")],
     });
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
     await screen.findByText("alice-dev");
 
     fireEvent.click(
@@ -313,7 +315,7 @@ describe("Réglages page, blocking a user", () => {
       isAdmin: true,
       users: [admin, user(2, "alice-dev")],
     });
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
     await screen.findByText("alice-dev");
     fireEvent.click(screen.getByRole("button", { name: "Bloquer" }));
 
@@ -336,7 +338,7 @@ describe("Réglages page, blocking a user", () => {
         users: [admin, user(2, "alice-dev")],
         blockAnswer: Response.json({ error: code }, { status }),
       });
-      renderAt("/reglages");
+      renderAt("/reglages/utilisateurs");
       await screen.findByText("alice-dev");
       fireEvent.click(screen.getByRole("button", { name: "Bloquer" }));
       fireEvent.click(await screen.findByRole("button", { name: /Confirmer/ }));
@@ -354,7 +356,7 @@ describe("Réglages page, unblocking a user", () => {
       isAdmin: true,
       users: [admin, user(2, "alice-dev", { blockedAt })],
     });
-    renderAt("/reglages");
+    renderAt("/reglages/utilisateurs");
     await screen.findByText("alice-dev");
     expect(within(rowOf("alice-dev")).getByText("Bloqué")).toBeDefined();
     const listsBefore = listCalls(calls);

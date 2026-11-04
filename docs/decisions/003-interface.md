@@ -4,6 +4,7 @@
 - **Date** : 2026-10-20
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md)
+- **Modifiée par 028** : le style visuel est celui des maquettes « Crème sombre » ; l'UX et les règles d'ergonomie ne changent pas — voir la [028](028-creme-sombre-onglets-journal.md)
 - **Maquettes** : canevas « Cockpit — Maquettes », rangée **« Version retenue — UX + UI »** (https://claude.ai/artifact/XAteTYa7tQBcCGq8HpRF7C)
 
 ## Contexte

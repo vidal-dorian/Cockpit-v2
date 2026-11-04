@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseTeam } from "./team.ts";
 
-// Decision 028 (slice E1): .claude/team.md, a Markdown file with a YAML front matter listing the steps.
+// Decision 029 (slice E1): .claude/team.md, a Markdown file with a YAML front matter listing the steps.
 const file = (front: string) => `---\n${front}\n---\n\n# Our team\n`;
 
 describe("parseTeam", () => {

@@ -1,13 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
+import { alertBox, button, card, primaryButton } from "./ui.ts";
 
-/** The caller's entries, or null when the server answers 401. */
-async function fetchHistory() {
-  const res = await client.api.history.$get();
+/** A page of the caller's entries (25), the one after the entry `before`; null when the server answers 401. */
+async function fetchHistory(before: number | undefined) {
+  const res = await client.api.history.$get({
+    query: before === undefined ? {} : { before: String(before) },
+  });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).entries;
+  return res.json();
 }
 
 export const ACTIONS: Record<string, string> = {
@@ -62,73 +64,102 @@ export const RESULTS: Record<string, { label: string; style: string }> = {
 };
 
 export function Journal() {
-  const entries = useQuery({ queryKey: ["history"], queryFn: fetchHistory });
+  const pages = useInfiniteQuery({
+    queryKey: ["history"],
+    queryFn: ({ pageParam }) => fetchHistory(pageParam),
+    initialPageParam: undefined as number | undefined,
+    // The next page starts after the last entry shown (decision 028 F).
+    getNextPageParam: (last) =>
+      last?.hasMore ? last.entries.at(-1)?.id : undefined,
+  });
+  const entries = pages.data?.pages.flatMap((page) => page?.entries ?? []);
+  const signedOut = pages.data?.pages[0] === null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 py-8 sm:px-7">
       <h1 className="font-heading text-3xl font-extrabold">Journal</h1>
       <div className="mt-6" aria-live="polite">
-        {entries.isPending && (
+        {pages.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
         )}
-        {entries.isError && (
-          <div
-            role="alert"
-            className="rounded-xl bg-destructive-soft p-4 text-destructive"
-          >
-            <p>Impossible de lire le journal : {entries.error.message}</p>
+        {pages.isError && !pages.data && (
+          <div role="alert" className={alertBox}>
+            <p>Impossible de lire le journal : {pages.error.message}</p>
             <button
               type="button"
-              onClick={() => entries.refetch()}
-              className={`mt-3 min-h-10 rounded-lg bg-card px-4 font-semibold text-foreground ${focusRing}`}
+              onClick={() => pages.refetch()}
+              className={`mt-3 ${button}`}
             >
               Réessayer
             </button>
           </div>
         )}
-        {entries.isSuccess && entries.data === null && (
-          <a
-            href="/api/auth/login"
-            className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+        {signedOut && (
+          <a href="/api/auth/login" className={primaryButton}>
             Se connecter avec GitHub
           </a>
         )}
-        {entries.isSuccess && entries.data?.length === 0 && (
+        {pages.isSuccess && entries?.length === 0 && !signedOut && (
           <p className="text-muted-foreground">Aucune entrée pour l'instant.</p>
         )}
-        {entries.isSuccess && entries.data && entries.data.length > 0 && (
-          <ul className="grid gap-2">
-            {entries.data.map((entry) => {
-              const result = RESULTS[entry.result];
-              return (
-                <li
-                  key={entry.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-card p-4"
+        {entries && entries.length > 0 && (
+          <>
+            <ul className="grid gap-2">
+              {entries.map((entry) => {
+                const result = RESULTS[entry.result];
+                return (
+                  <li
+                    key={entry.id}
+                    className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-4 ${card}`}
+                  >
+                    <span className="font-semibold">
+                      {ACTIONS[entry.action] ??
+                        (entry.origin === "mcp"
+                          ? "Outil inconnu"
+                          : entry.action)}
+                      {"event" in entry && ` (${entry.event})`}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}
+                    >
+                      {result?.label ?? entry.result}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {ORIGINS[entry.origin] ?? entry.origin}
+                    </span>
+                    <time
+                      dateTime={entry.at}
+                      className="text-muted-foreground sm:ml-auto"
+                    >
+                      {new Date(entry.at).toLocaleString("fr-FR")}
+                    </time>
+                  </li>
+                );
+              })}
+            </ul>
+            {pages.isFetchNextPageError && (
+              <div role="alert" className={`mt-3 ${alertBox}`}>
+                <p>Impossible de lire la suite du journal.</p>
+                <button
+                  type="button"
+                  onClick={() => pages.fetchNextPage()}
+                  className={`mt-3 ${button}`}
                 >
-                  <span className="font-semibold">
-                    {ACTIONS[entry.action] ??
-                      (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
-                    {"event" in entry && ` (${entry.event})`}
-                  </span>
-                  <span
-                    className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}
-                  >
-                    {result?.label ?? entry.result}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {ORIGINS[entry.origin] ?? entry.origin}
-                  </span>
-                  <time
-                    dateTime={entry.at}
-                    className="text-muted-foreground sm:ml-auto"
-                  >
-                    {new Date(entry.at).toLocaleString("fr-FR")}
-                  </time>
-                </li>
-              );
-            })}
-          </ul>
+                  Réessayer
+                </button>
+              </div>
+            )}
+            {pages.hasNextPage && !pages.isFetchNextPageError && (
+              <button
+                type="button"
+                onClick={() => pages.fetchNextPage()}
+                disabled={pages.isFetchingNextPage}
+                className={`mt-3 ${button}`}
+              >
+                {pages.isFetchingNextPage ? "Chargement…" : "Afficher plus"}
+              </button>
+            )}
+          </>
         )}
       </div>
     </main>

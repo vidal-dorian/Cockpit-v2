@@ -1,4 +1,4 @@
-# 028 — Une équipe d'agents configurable par projet
+# 029 — Une équipe d'agents configurable par projet
 
 - **Statut** : proposée (à valider à la relecture de la PR)
 - **Date** : 2026-11-03

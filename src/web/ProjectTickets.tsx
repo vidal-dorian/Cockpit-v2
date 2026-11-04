@@ -3,7 +3,14 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { STEPS, ticketError } from "./tickets.ts";
-import { focusRing } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  card,
+  field,
+  focusRing,
+  primaryButton,
+} from "./ui.ts";
 
 /** The tickets of a project, newest first, or null when the server answers 401. */
 async function fetchTickets(id: string) {
@@ -12,8 +19,6 @@ async function fetchTickets(id: string) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()).tickets;
 }
-
-const field = `mt-1 block w-full rounded-lg border border-border bg-card px-3 py-2 ${focusRing}`;
 
 /** The « Tickets » section of the project page: the list and the form to create one. */
 export function ProjectTickets({ projectId }: { projectId: string }) {
@@ -51,25 +56,19 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
           <p className="text-muted-foreground">Chargement…</p>
         )}
         {tickets.isError && (
-          <div
-            role="alert"
-            className="rounded-xl bg-destructive-soft p-4 text-destructive"
-          >
+          <div role="alert" className={alertBox}>
             <p>Impossible de lire les tickets.</p>
             <button
               type="button"
               onClick={() => tickets.refetch()}
-              className={`mt-3 min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`}
+              className={`mt-3 ${button}`}
             >
               Réessayer
             </button>
           </div>
         )}
         {tickets.isSuccess && tickets.data === null && (
-          <a
-            href="/api/auth/login"
-            className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+          <a href="/api/auth/login" className={primaryButton}>
             Se connecter avec GitHub
           </a>
         )}
@@ -81,7 +80,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
             {tickets.data.map((ticket) => (
               <li
                 key={ticket.id}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-card p-4"
+                className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${card} p-4`}
               >
                 <Link
                   to={`/tickets/${ticket.id}`}
@@ -125,15 +124,12 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
         <button
           type="submit"
           disabled={create.isPending}
-          className={`mt-3 min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+          className={`mt-3 ${primaryButton}`}
         >
           Créer
         </button>
         {create.error && (
-          <p
-            role="alert"
-            className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-          >
+          <p role="alert" className={`mt-3 ${alertBox}`}>
             {create.error.message}
           </p>
         )}
