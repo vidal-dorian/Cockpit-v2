@@ -48,13 +48,12 @@ function postToGitHub(action: string, manifest: unknown) {
 }
 
 /** The start-up wizard: shown instead of the whole app until the GitHub App exists (decision 012). */
-export function Setup({ detectedUrl }: { detectedUrl: string }) {
+export function Setup() {
   const [code, setCode] = useState("");
-  const [publicUrl, setPublicUrl] = useState(detectedUrl);
   const start = useMutation({
     mutationFn: async () => {
       const res = await client.api.setup.start.$post({
-        json: { code: code.trim(), publicUrl: publicUrl.trim() },
+        json: { code: code.trim() },
       });
       if (res.status === 403) throw new Error("Code de démarrage incorrect.");
       if (res.status === 400) {
@@ -62,9 +61,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
         const body = (await res.json().catch(() => null)) as {
           error?: string;
         } | null;
-        throw new Error(
-          body?.error || "L'adresse publique n'est pas une adresse web valide.",
-        );
+        throw new Error(body?.error || "La demande n'est pas valide.");
       }
       if (!res.ok) throw new Error(`Le serveur a répondu ${res.status}.`);
       const { action, manifest } = await res.json();
@@ -77,7 +74,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
   const message = start.isError
     ? start.error.message
     : failed
-      ? "La création de l'App GitHub a échoué. Vérifie l'adresse publique, puis réessaie."
+      ? "La création de l'App GitHub a échoué. Réessaie."
       : null;
 
   return (
@@ -118,25 +115,6 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
-            required
-            className={field}
-          />
-        </div>
-        <div>
-          <label htmlFor="setup-url" className="font-semibold">
-            Adresse publique
-          </label>
-          <p id="setup-url-help" className="text-muted-foreground">
-            Celle que Cockpit a détectée. Corrige-la si ce n'est pas l'adresse
-            où tu ouvres Cockpit.
-          </p>
-          <input
-            id="setup-url"
-            type="url"
-            value={publicUrl}
-            onChange={(event) => setPublicUrl(event.target.value)}
-            aria-describedby="setup-url-help"
-            autoComplete="off"
             required
             className={field}
           />

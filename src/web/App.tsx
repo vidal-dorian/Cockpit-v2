@@ -295,8 +295,7 @@ export function App() {
     );
   }
   // Every page waits for the GitHub App: none of them works without it.
-  if (!setup.data.configured)
-    return <Setup detectedUrl={setup.data.detectedUrl} />;
+  if (!setup.data.configured) return <Setup />;
   if (setup.data.hasAdmin === false) return <ClaimAdmin />;
 
   return (

@@ -21,7 +21,6 @@ const NAME_MAX = 34;
 const FAILED = "/installation?erreur=setup-echoue";
 
 const codeBody = z.object({ code: z.string() });
-const startBody = codeBody.extend({ publicUrl: z.string() });
 // What we read of GitHub's answer; anything else is ignored.
 const conversion = z.object({
   id: z.number().int(),
@@ -73,22 +72,9 @@ function originOf(value: string | undefined) {
   return null;
 }
 
-export const HTTPS_ONLY =
-  "L'adresse publique doit commencer par https:// : claude.ai l'exige.";
+const HTTPS_ONLY =
+  "Ouvre Cockpit par son adresse en https:// pour l'installer : claude.ai l'exige pour le connecteur.";
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]"];
-
-/** The origin of an address Cockpit may announce: https, or http on this machine only (decision 023 B); otherwise the error to answer. */
-export function checkPublicUrl(
-  value: string | undefined,
-):
-  | { origin: string; error?: undefined }
-  | { origin?: undefined; error: string } {
-  const origin = originOf(value);
-  if (!origin) return { error: "Adresse publique invalide" };
-  const { protocol, hostname } = new URL(origin);
-  if (protocol === "https:" || LOOPBACK.includes(hostname)) return { origin };
-  return { error: HTTPS_ONLY };
-}
 
 /** The scheme CF-Visitor reports (`{"scheme":"https"}`), or undefined when absent or unreadable. */
 function visitorScheme(header: string | undefined) {
@@ -97,6 +83,23 @@ function visitorScheme(header: string | undefined) {
     if (scheme === "http" || scheme === "https") return scheme;
   } catch {}
   return undefined;
+}
+
+/** The address the visitor typed. The proxy (Cloudflare) tells it: CF-Visitor is the visitor's scheme, X-Forwarded-Proto may be the one behind the tunnel (decision 023 A). */
+function detectUrl(c: Context) {
+  const proto =
+    visitorScheme(c.req.header("cf-visitor")) ??
+    c.req.header("x-forwarded-proto")?.split(",")[0]?.trim();
+  const host = (
+    c.req.header("x-forwarded-host") ??
+    (proto ? c.req.header("host") : undefined)
+  )
+    ?.split(",")[0]
+    ?.trim();
+  return (
+    (proto && host && originOf(`${proto}://${host}`)) ||
+    new URL(c.req.url).origin
+  );
 }
 
 /** Equal-length digests of the code without case, spaces or dashes, so a copy typed loosely still matches and the comparison takes the same time whatever the guess. */
@@ -139,19 +142,7 @@ export function setupRoutes(
 
   return new Hono()
     .get("/api/setup/status", async (c) => {
-      // The proxy (Cloudflare) tells the address the visitor typed; the administrator confirms it. CF-Visitor is the visitor's scheme, X-Forwarded-Proto may be the one behind the tunnel (decision 023 A).
-      const proto =
-        visitorScheme(c.req.header("cf-visitor")) ??
-        c.req.header("x-forwarded-proto")?.split(",")[0]?.trim();
-      const host = (
-        c.req.header("x-forwarded-host") ??
-        (proto ? c.req.header("host") : undefined)
-      )
-        ?.split(",")[0]
-        ?.trim();
-      const detectedUrl =
-        (proto && host && originOf(`${proto}://${host}`)) ||
-        new URL(c.req.url).origin;
+      const detectedUrl = detectUrl(c);
       if (!(await readInstance()))
         return c.json({ configured: false as const, detectedUrl });
       // Configured but nobody is administrator: the page offers to claim it (see /api/setup/claim).
@@ -193,14 +184,15 @@ export function setupRoutes(
     .post("/api/setup/start", async (c) => {
       if (await readInstance())
         return c.json({ error: "Cockpit est déjà installé" }, 409);
-      const body = startBody.safeParse(await c.req.json().catch(() => null));
+      const body = codeBody.safeParse(await c.req.json().catch(() => null));
       if (!body.success) return c.json({ error: "Bad request" }, 400);
       if (!sameCode(body.data.code, setupCode))
         return c.json({ error: "Code de démarrage incorrect" }, 403);
-      const checked = checkPublicUrl(body.data.publicUrl);
-      if (checked.error !== undefined)
-        return c.json({ error: checked.error }, 400);
-      const publicUrl = checked.origin;
+      // The address is the one the visitor opened Cockpit with: https, or http on this machine only (decision 028 J).
+      const publicUrl = detectUrl(c);
+      const { protocol, hostname } = new URL(publicUrl);
+      if (protocol !== "https:" && !LOOPBACK.includes(hostname))
+        return c.json({ error: HTTPS_ONLY }, 400);
 
       const now = Date.now();
       for (const [state, entry] of pending)
