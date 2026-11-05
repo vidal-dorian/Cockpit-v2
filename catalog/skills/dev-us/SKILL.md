@@ -17,6 +17,7 @@ If a check fails, stop and say why. Change nothing.
 2. **The story.** Call `mcp__cockpit__get_user_story` with the `story_id`. Refuse a story whose status is not `ready`: only a story the user validated is developed. Tell the user its status. Also refuse an archived project. Read the narrative, the notes, every criterion and the `depends_on` stories (a dependency that is not done is worth a warning, not a stop).
 3. **The working tree.** `git status --porcelain` must print nothing: the working tree must be clean.
 4. **The default branch.** Take `default_branch` from the project, then `git fetch origin` and bring that branch up to date (fast-forward only).
+5. **The team.** With `--team <name>`, the name is made of `a-z`, `0-9` and `-` only, and `.claude/teams/<name>.md` must exist on that branch: if it does not exist, stop and say so, never fall back to the default team.
 
 ## The branch
 
@@ -37,7 +38,7 @@ steps:
 ---
 ```
 
-A step with `loop_to` and `until` sends you back to that step until the condition holds. With `--team <name>`, the steps are those of `.claude/teams/<name>.md`, in the same format; if that file does not exist, stop and say so, never fall back to the default team. Without `--team`, and without `.claude/team.md`, the default steps are these three, in this order:
+A step with `loop_to` and `until` sends you back to that step until the condition holds. With `--team <name>`, the steps are those of `.claude/teams/<name>.md`, in the same format. Without `--team`, and without `.claude/team.md`, the default steps are these three, in this order:
 
 1. **test-writer** writes the acceptance tests from the criteria. They must fail, for the right reason.
 2. **developer** implements until those tests pass, without touching them.

@@ -472,3 +472,41 @@ describe("decision 032 E: a named team Cockpit cannot rewrite", () => {
     await screen.findByText(/modifie-le sur GitHub/);
   });
 });
+
+describe("decision 032 E: a save in flight", () => {
+  it("given a removal waiting for its answer, when the team picker and the team buttons are looked at, then they are disabled until it answers", async () => {
+    stubApi();
+    const inner = globalThis.fetch;
+    let answer: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (String(input).endsWith("/team/apply")) await gate;
+        return inner(input, init);
+      }),
+    );
+    await openTeam();
+    choose("leger");
+    await waitFor(() =>
+      expect(rowAgents()).toEqual(["developer", "doc-writer"]),
+    );
+    click("Supprimer l'équipe");
+
+    click("Confirmer la suppression");
+
+    await waitFor(() => expect(picker().disabled).toBe(true));
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Nouvelle équipe",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    answer();
+    await waitFor(() => expect(picker().disabled).toBe(false));
+    expect(picker().value).toBe("");
+  });
+});

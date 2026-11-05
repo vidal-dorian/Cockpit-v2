@@ -498,6 +498,7 @@ export function githubClient(config: GitHubAppConfig) {
         ]);
         return parts.flat();
       };
+      // Only trusted paths come here (constants, or names checked against AGENT_NAME): `{+path}` keeps `?` and `#` as they are.
       const readFile = async (path: string) => {
         try {
           const { data } = await octokit.request(

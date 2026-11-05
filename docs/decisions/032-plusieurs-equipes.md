@@ -33,4 +33,5 @@ La 029 G a déjà décidé l'essentiel : d'autres équipes dans `.claude/teams/<
 
 - **Un repo préparé avant cette tranche** a un `/dev-us` qui ignore `--team` : il faut mettre à jour le skill à la main tant que le catalogue ne sait pas le faire (027).
 - **Supprimer un agent qu'une équipe nommée utilise** fait passer la ligne `agents` au rouge, comme pour `team.md` (029, limites).
+- **Un dossier `.claude` trop gros** (GitHub tronque sa liste) : les équipes nommées ne sont pas vérifiées par le bilan.
 - **`--team` reste une consigne** que Claude suit (029, limites).

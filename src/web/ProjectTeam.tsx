@@ -280,6 +280,8 @@ export function ProjectTeam({
         id="team-pick"
         className={field}
         value={name ?? ""}
+        // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
+        disabled={commit.isPending}
         onChange={(e) => {
           const next = e.target.value || null;
           if (!dirty) return goTo(next);
@@ -336,7 +338,7 @@ export function ProjectTeam({
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={archived}
+          disabled={archived || commit.isPending}
           onClick={() => {
             setSwitchTo(null);
             setDeleting(false);
@@ -350,7 +352,7 @@ export function ProjectTeam({
         {name !== null && current !== null && !deleting && (
           <button
             type="button"
-            disabled={archived}
+            disabled={archived || commit.isPending}
             onClick={() => {
               setSwitchTo(null);
               setCreating(false);
