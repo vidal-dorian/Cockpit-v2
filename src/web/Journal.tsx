@@ -39,6 +39,8 @@ export const ACTIONS: Record<string, string> = {
   update_user_story: "User story réécrite",
   start_run: "Run démarré",
   report_step: "Étape signalée",
+  report_criterion: "Critère signalé",
+  link_pull_request: "PR liée",
   finish_run: "Run terminé",
   sync_issue: "Issue GitHub synchronisée",
   connect_routine: "Tâche d'écriture des US connectée",
