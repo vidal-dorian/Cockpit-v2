@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { RunQuestions } from "./RunQuestions.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
 import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
@@ -151,6 +152,11 @@ export function RunPage() {
                 ))}
               </ol>
             </section>
+            <RunQuestions
+              runId={id}
+              running={found.run.status === "running"}
+              questions={found.questions ?? []}
+            />
             {found.run.summary && (
               <section className="mt-6">
                 <h2 className="font-heading text-xl font-bold">Résumé</h2>
