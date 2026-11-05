@@ -685,6 +685,20 @@ export function githubClient(config: GitHubAppConfig) {
       return { ...done, created: toCreate.map((file) => file.path) };
     },
 
+    /** The names of the branches of a repo, in GitHub's order, read as the App (decision 034 C). Shortcut: the first page of 100 only, upgrade with pagination when a repo has more. Errors are left to the caller. */
+    async readBranches(installationId: number, fullName: string) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/branches",
+        { owner, repo, per_page: 100 },
+      );
+      return z
+        .array(z.object({ name: z.string() }))
+        .parse(data)
+        .map((branch) => branch.name);
+    },
+
     /** The regular files `<name>.md` directly in `.claude/agents` of the default branch, by name, with their text (null when GitHub does not serve it: too large), and the text of `.claude/team.md` (null when absent or unreadable). No such directory: no agents. Reads only (decisions 030 B, 031 G). */
     async readAgentFiles(
       installationId: number,

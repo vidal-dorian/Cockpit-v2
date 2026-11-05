@@ -601,6 +601,26 @@ export function projectRoutes(
         return c.json({ error: "github_unavailable" }, 502);
       }
     })
+    .get("/api/projects/:id/branches", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const branches = await c
+          .get("github")
+          .readBranches(project.installationId, project.fullName);
+        return c.json({ branches });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
     .post("/api/projects/:id/agents/apply", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
