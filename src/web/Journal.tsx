@@ -46,6 +46,8 @@ export const ACTIONS: Record<string, string> = {
   request_stop: "Arrêt demandé",
   close_run: "Run fermé à la main",
   link_pull_request: "PR liée",
+  pull_request_merged: "PR mergée",
+  pull_request_closed: "PR fermée sans merge",
   finish_run: "Run terminé",
   sync_issue: "Issue GitHub synchronisée",
   connect_routine: "Tâche d'écriture des US connectée",
