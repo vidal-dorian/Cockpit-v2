@@ -34,4 +34,4 @@ La table des droits (004) ne laisse qu'à GitHub deux transitions : une PR merg�
 ## Limites connues
 
 - **Une App créée avant cette tranche** n'est pas abonnée à `pull_request_review` : l'administrateur coche l'événement dans les réglages de l'App sur GitHub ; d'ici là, la revue ne se met à jour qu'avec « Actualiser » ou au prochain événement `pull_request`.
-- **Chaque livraison coûte trois lectures** à l'API de GitHub (la PR, les check runs, les revues).
+- **Chaque livraison coûte trois lectures** à l'API de GitHub (la PR, les check runs, les revues), plus un jeton d'installation : chaque passe de traitement reconstruit son client.

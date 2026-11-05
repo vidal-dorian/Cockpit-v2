@@ -78,8 +78,12 @@ export async function followPullRequest(
     if (pull.merged || !pull.open) {
       if (!LIVE.includes(locked.status)) return null;
       action = pull.merged ? "pull_request_merged" : "pull_request_closed";
-      if (pull.merged) set.status = "done";
-      else {
+      if (pull.merged) {
+        // The last CI and review seen stay on the done story: no later delivery will update them.
+        set.status = "done";
+        set.prCiState = ci;
+        set.prReviewState = review;
+      } else {
         // A relaunch in progress keeps its status, only its PR goes.
         if (locked.status === "in_review") set.status = "ready";
         set.prNumber = null;

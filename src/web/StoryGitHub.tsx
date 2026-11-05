@@ -51,7 +51,12 @@ export function StoryGitHub({
           PR n° {story.prNumber}
         </a>
       </p>
-      <p>État : {story.status === "done" ? "Mergée" : "Ouverte"}</p>
+      {/* The state comes from the story: unknown once it is abandoned or back to ready. */}
+      {story.status === "done" ? (
+        <p>État : Mergée</p>
+      ) : story.status === "in_review" || story.status === "in_progress" ? (
+        <p>État : Ouverte</p>
+      ) : null}
       <p>CI : {story.prCiState ? CI[story.prCiState] : "Aucune"}</p>
       <p>
         Revue :{" "}
