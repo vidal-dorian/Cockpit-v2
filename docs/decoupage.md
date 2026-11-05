@@ -39,7 +39,8 @@
 - **Fait** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)).
 - **Fait** : tranche E3 (l'équipe en graphe, [décision 031](decisions/031-equipe-en-graphe.md)).
 - **Fait** : tranche E4 (plusieurs équipes, [décision 032](decisions/032-plusieurs-equipes.md)).
-- **En cours** : tranche 7.1 (run minimal, [décision 033](decisions/033-run-minimal.md)).
+- **Fait** : tranche 7.1 (run minimal, [décision 033](decisions/033-run-minimal.md)).
+- **En cours** : tranche 7.2 (fenêtre « Développer avec Claude », [décision 034](decisions/034-developper-avec-claude.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
