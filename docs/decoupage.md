@@ -36,7 +36,7 @@
 - **En cours** : tranche 6.1 (écrire dans un repo sans rien écraser, [décision 026](decisions/026-ecrire-dans-un-repo.md)) : écrite et testée, en relecture.
 - **En cours** : tranche 6.2 (préparer un repo pour Claude en un clic, [décision 027](decisions/027-preparer-pour-claude.md)) : écrite et testée, en relecture.
 - **Fait** : décision 028 (style « Crème sombre », onglets) et tranche E1 (`/dev-us` lit `.claude/team.md`, [décision 029](decisions/029-equipe-d-agents.md)).
-- **En cours** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)) : écrite et testée, en relecture.
+- **Fait** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)).
 - **En cours** : tranche E3 (l'équipe en graphe, [décision 031](decisions/031-equipe-en-graphe.md)) : écrite et testée, en relecture.
 - **Ensuite** : la phase 7.
 
