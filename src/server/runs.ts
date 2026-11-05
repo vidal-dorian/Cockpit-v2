@@ -22,7 +22,7 @@ import {
   WrongStatus,
 } from "./stories.ts";
 import { assertActive } from "./tickets.ts";
-import { verdict } from "./verdict.ts";
+import { runVerdict } from "./verdict.ts";
 
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
 
@@ -486,18 +486,7 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         questions: asked,
         criteria,
         verdict:
-          run.status === "running"
-            ? null
-            : verdict({
-                runStatus: run.status,
-                criteria: parts.map((k) => ({
-                  result: k.result,
-                  givenByThisRun: k.resultRunId === run.id,
-                })),
-                prNumber: found.story.prNumber,
-                prCiState: found.story.prCiState,
-                prReviewState: found.story.prReviewState,
-              }),
+          run.status === "running" ? null : runVerdict(run, found.story, parts),
         story: {
           id: found.story.id,
           iWant: found.story.iWant,

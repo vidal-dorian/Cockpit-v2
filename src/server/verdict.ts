@@ -25,3 +25,27 @@ export function verdict(input: {
   ].filter((reason) => reason !== false);
   return { acceptable: reasons.length === 0, reasons };
 }
+
+/** The verdict of a finished run, from the rows: the criteria's result counts only when this run gave it (decision 035 E). Shared by the run page and the home. */
+export const runVerdict = (
+  run: { id: number; status: string },
+  story: {
+    prNumber: number | null;
+    prCiState: (typeof PR_CI_STATES)[number] | null;
+    prReviewState: (typeof PR_REVIEW_STATES)[number] | null;
+  },
+  criteria: {
+    result: "passed" | "failed" | null;
+    resultRunId: number | null;
+  }[],
+) =>
+  verdict({
+    runStatus: run.status,
+    criteria: criteria.map((k) => ({
+      result: k.result,
+      givenByThisRun: k.resultRunId === run.id,
+    })),
+    prNumber: story.prNumber,
+    prCiState: story.prCiState,
+    prReviewState: story.prReviewState,
+  });

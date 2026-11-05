@@ -7,6 +7,7 @@ import { authRoutes } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
+import { homeRoutes } from "./home.ts";
 import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
@@ -88,6 +89,7 @@ export function createApp(
       .route("/", storyRoutes(db, readGitHub))
       .route("/", runRoutes(db, readGitHub))
       .route("/", questionRoutes(db))
+      .route("/", homeRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))
