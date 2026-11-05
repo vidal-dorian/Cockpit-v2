@@ -16,3 +16,15 @@ describe("criterion 11: catalog/skills/dev-us/SKILL.md", () => {
     },
   );
 });
+
+describe("criterion 13 (slice 7.2, decision 034 I): the extra prompt", () => {
+  it("given the skill dev-us, when it is read, then it tells to pass the extra prompt to start_run as `comment`", () => {
+    const text = readFileSync(SKILL, "utf8");
+    const start = text.slice(
+      text.indexOf("## Start the run"),
+      text.indexOf("## Develop"),
+    );
+    expect(start).toMatch(/`comment`/);
+    expect(start).toMatch(/extra prompt/);
+  });
+});

@@ -237,6 +237,7 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
   soThat: story.soThat,
   notesMd: story.notesMd,
   status: story.status,
+  branch: story.branch,
   rewriteComment: story.rewriteComment,
   criteria: parts.criteria.map((k) => ({
     id: k.id,
@@ -338,6 +339,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
         project: {
           id: project.id,
           fullName: project.fullName,
+          defaultBranch: project.defaultBranch,
           archived: project.archivedAt !== null,
         },
       });

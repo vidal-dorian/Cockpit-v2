@@ -183,6 +183,7 @@ describe("criterion 12: GET /api/stories/:id", () => {
     expect(body.project).toEqual({
       id: s.projectId,
       fullName: "user1000/app",
+      defaultBranch: "main",
       archived: false,
     });
     expect(await rows(s.db)).toHaveLength(before);

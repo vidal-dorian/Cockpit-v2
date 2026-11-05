@@ -36,6 +36,7 @@ describe("GET /api/stories/:id for the decisions of slice 4.4", () => {
     expect((await read(s)).project).toEqual({
       id: s.projectId,
       fullName: "user1000/app",
+      defaultBranch: "main",
       archived: false,
     });
 

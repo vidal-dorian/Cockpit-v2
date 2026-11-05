@@ -538,6 +538,16 @@ export function stubGitHub(initial: {
             default_branch: git.defaultBranch,
             private: false,
           });
+        // Slice 7.2 (decision 034 C): the branches, in alphabetical order like GitHub, the default one included.
+        if (verb === "GET" && rest === "/branches") {
+          if (empty) return reply(200, []);
+          return reply(
+            200,
+            [git.defaultBranch, ...git._otherBranches.keys()]
+              .sort()
+              .map((name) => ({ name })),
+          );
+        }
         const ref = /^\/git\/ref\/(.+)$/.exec(rest);
         if (verb === "GET" && ref) {
           if (empty) return reply(409, { message: "Git Repository is empty." });
