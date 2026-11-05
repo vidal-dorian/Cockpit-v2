@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (`stop_requested`, `finish_run`, la table des droits, point ouvert 1), [002 — Modèle de données](002-modele-donnees.md) (`stop_requested_at`, `stopped`, `closed_manually`), [033](033-run-minimal.md), [035](035-criteres-et-pr.md), [036](036-questions-de-claude.md), [034](034-developper-avec-claude.md)
 - **Modifie** : la [004](004-outils-mcp.md), point ouvert 1, tranché (E) ; la table des droits gagne `in_review` → `in_progress` par `start_run` et le retour à `in_review` d'un run qui ne réussit pas
+- **Modifiée par** : [038 — Le suivi de la PR](038-suivi-de-la-pr.md) (lève la limite d'un `pr_number` resté d'une PR fermée)
 - **Tranche** : 7.5 du [découpage](../decoupage.md)
 
 ## Contexte

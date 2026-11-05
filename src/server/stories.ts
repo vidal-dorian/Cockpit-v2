@@ -25,6 +25,7 @@ import {
 import type { ReadGitHub } from "./github.ts";
 import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
+import { followPullRequest } from "./pr-follow.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
 import { storyRuns } from "./runs.ts";
 import {
@@ -239,6 +240,8 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
   status: story.status,
   branch: story.branch,
   prNumber: story.prNumber,
+  prCiState: story.prCiState,
+  prReviewState: story.prReviewState,
   rewriteComment: story.rewriteComment,
   criteria: parts.criteria.map((k) => ({
     id: k.id,
@@ -404,6 +407,27 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       if (!shouldHaveIssue(found.story))
         return c.json({ error: "wrong_status" }, 409);
       await syncIssue(db, readGitHub, user.userId, found.story.id);
+      return c.json({
+        story: await reread(found.story.id, found.project.fullName),
+      });
+    })
+    .post("/api/stories/:id/pr/refresh", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const found = await memberStory(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json({ error: "Not found" }, 404);
+      if (found.story.prNumber === null)
+        return c.json({ error: "no_pull_request" }, 409);
+      try {
+        await followPullRequest(db, readGitHub, found, user.userId, "ui");
+      } catch (error) {
+        console.error(`Refresh of the PR of story ${found.story.id}:`, error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
       return c.json({
         story: await reread(found.story.id, found.project.fullName),
       });

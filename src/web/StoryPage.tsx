@@ -7,6 +7,7 @@ import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
+import { StoryGitHub } from "./StoryGitHub.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
@@ -143,15 +144,11 @@ export function StoryPage() {
                 <span className={label}>Afin de</span> {found.story.soThat}
               </p>
             </div>
-            {found.story.prNumber !== null && (
-              <p className="mt-4">
-                <a
-                  href={`https://github.com/${found.project.fullName}/pull/${found.story.prNumber}`}
-                  className={`underline ${focusRing}`}
-                >
-                  PR n° {found.story.prNumber}
-                </a>
-              </p>
+            {found.story.prNumber != null && (
+              <StoryGitHub
+                story={{ ...found.story, prNumber: found.story.prNumber }}
+                fullName={found.project.fullName}
+              />
             )}
             {found.story.notesMd && (
               <section className="mt-6">

@@ -181,6 +181,9 @@ export const STORY_STATUSES = [
   "abandoned",
 ] as const;
 
+export const PR_CI_STATES = ["pending", "success", "failure"] as const;
+export const PR_REVIEW_STATES = ["approved", "changes_requested"] as const;
+
 /** A user story of a ticket (decisions 002 and 017 A); the branch and PR columns come with their slices. */
 export const userStories = pgTable(
   "user_stories",
@@ -215,6 +218,9 @@ export const userStories = pgTable(
     branch: text("branch"),
     // The pull request of the story (decision 035 A).
     prNumber: integer("pr_number"),
+    // Cache of the PR as GitHub shows it (decision 038 A): null when it has no check run or no review that counts.
+    prCiState: text("pr_ci_state", { enum: PR_CI_STATES }),
+    prReviewState: text("pr_review_state", { enum: PR_REVIEW_STATES }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -226,6 +232,14 @@ export const userStories = pgTable(
     check(
       "user_stories_status_check",
       sql`${t.status} in ('to_validate', 'to_rewrite', 'ready', 'in_progress', 'in_review', 'done', 'abandoned')`,
+    ),
+    check(
+      "user_stories_pr_ci_state_check",
+      sql`${t.prCiState} in ('pending', 'success', 'failure')`,
+    ),
+    check(
+      "user_stories_pr_review_state_check",
+      sql`${t.prReviewState} in ('approved', 'changes_requested')`,
     ),
   ],
 );

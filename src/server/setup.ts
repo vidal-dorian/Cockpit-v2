@@ -55,6 +55,7 @@ function manifest(publicUrl: string) {
     default_events: [
       "issues",
       "pull_request",
+      "pull_request_review",
       "check_suite",
       "status",
       "workflow_run",

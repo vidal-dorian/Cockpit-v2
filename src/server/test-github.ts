@@ -69,6 +69,18 @@ export type FakeWebhook = {
   deliveriesStatus?: number;
 };
 
+/** A check run as GitHub's API serves it (slice 7.6, decision 038 E). */
+export type FakeCheckRun = {
+  name: string;
+  status: "queued" | "in_progress" | "completed";
+  conclusion: string | null;
+};
+/** A review of a PR, oldest first in the list given to `setReviews` (slice 7.6, decision 038 F). */
+export type FakeReview = {
+  login: string;
+  state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED";
+};
+
 /** An issue as the fake holds it (slice 4.6, decision 020); `labels` are names. */
 export type FakeIssue = {
   number: number;
@@ -447,7 +459,10 @@ export function stubGitHub(initial: {
     }),
   );
   // Pull requests seeded by `addPull`, as `GET .../pulls/{n}` serves them (slice 7.3, decision 035 C).
-  const pulls = new Map<string, unknown>();
+  const pulls = new Map<string, Record<string, unknown>>();
+  // Slice 7.6 (decision 038 B): the check runs of a commit (`owner/repo@sha`) and the reviews of a PR (`owner/repo#number`), as seeded.
+  const checkRuns = new Map<string, FakeCheckRun[]>();
+  const reviews = new Map<string, FakeReview[]>();
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -969,6 +984,36 @@ export function stubGitHub(initial: {
           return Response.json({ message: "Not Found" }, { status: 404 });
         return Response.json(pull);
       }
+      // Slice 7.6 (decision 038 B): the check runs of a commit and the reviews of a PR, `failOn` applies; a PR or a commit nobody seeded is 404 / empty.
+      const followRoute =
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:commits\/([^/]+)\/check-runs|pulls\/(\d+)\/reviews)$/.exec(
+          route,
+        );
+      if (followRoute) {
+        const failed = options.failOn?.({ method, path: url.pathname });
+        if (failed)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: failed === true ? 500 : failed },
+          );
+        const [, fullName, sha, number] = followRoute;
+        if (sha !== undefined) {
+          const runs = checkRuns.get(`${fullName}@${sha}`) ?? [];
+          return Response.json({ total_count: runs.length, check_runs: runs });
+        }
+        if (!pulls.has(`${fullName}#${number}`))
+          return Response.json({ message: "Not Found" }, { status: 404 });
+        return Response.json(
+          (reviews.get(`${fullName}#${number}`) ?? []).map((r, i) => ({
+            id: i + 1,
+            user: { login: r.login },
+            state: r.state,
+            submitted_at: new Date(
+              1_700_000_000_000 + i * 60_000,
+            ).toISOString(),
+          })),
+        );
+      }
       const issueRoute =
         /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:(labels)|issues(?:\/(\d+)(?:\/(labels)(?:\/(.+))?)?)?)$/.exec(
           route,
@@ -1122,9 +1167,35 @@ export function stubGitHub(initial: {
         number,
         state: "open",
         html_url: `https://github.com/${fullName}/pull/${number}`,
-        head: { ref: branch, repo: { full_name: headRepo } },
+        merged: false,
+        head: {
+          ref: branch,
+          sha: `sha-${number}`,
+          repo: { full_name: headRepo },
+        },
         base: { ref: "main", repo: { full_name: fullName } },
       });
+    },
+    /** Slice 7.6: changes a PR seeded by `addPull` (state "closed", merged true, the sha of its head commit), as GitHub would after a merge or a push. */
+    setPull(
+      fullName: string,
+      number: number,
+      patch: { state?: "open" | "closed"; merged?: boolean; headSha?: string },
+    ) {
+      const pull = pulls.get(`${fullName}#${number}`);
+      if (!pull) throw new Error(`PR ${number} of ${fullName} is not seeded`);
+      if (patch.state) pull.state = patch.state;
+      if (patch.merged !== undefined) pull.merged = patch.merged;
+      if (patch.headSha)
+        pull.head = { ...(pull.head as object), sha: patch.headSha };
+    },
+    /** Slice 7.6: the check runs `GET /repos/{o}/{r}/commits/{sha}/check-runs` answers for a commit (`{ total_count, check_runs: [{ name, status, conclusion }] }`); the default head sha of a seeded PR is `sha-<number>`. */
+    setCheckRuns(fullName: string, sha: string, runs: FakeCheckRun[]) {
+      checkRuns.set(`${fullName}@${sha}`, runs);
+    },
+    /** Slice 7.6: the reviews `GET /repos/{o}/{r}/pulls/{n}/reviews` answers, oldest first (`{ id, user: { login }, state, submitted_at }`); 404 when the PR is not seeded. */
+    setReviews(fullName: string, number: number, list: FakeReview[]) {
+      reviews.set(`${fullName}#${number}`, list);
     },
     /** The live Git state of a repo named in `gitRepos` (decision 026), see the stub's comment. */
     git(fullName: string) {
