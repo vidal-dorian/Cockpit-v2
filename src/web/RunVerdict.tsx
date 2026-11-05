@@ -1,4 +1,4 @@
-import { primaryButton } from "./ui.ts";
+import { button, primaryButton } from "./ui.ts";
 
 const REASONS: Record<string, string> = {
   run_not_succeeded: "Le run n'a pas réussi",
@@ -16,11 +16,9 @@ const count = (n: number, one: string, many: string) =>
 export function RunVerdict({
   verdict,
   criteria,
-  prUrl,
 }: {
   verdict: { acceptable: boolean; reasons: string[] };
   criteria: { result: string | null }[];
-  prUrl: string | null;
 }) {
   const failed = criteria.filter((k) => k.result === "failed").length;
   const unreported = criteria.filter((k) => k.result === null).length;
@@ -35,19 +33,34 @@ export function RunVerdict({
   };
   return (
     <section className="mt-6">
-      <p className="font-heading text-xl font-bold">
+      <h2 className="font-heading text-xl font-bold">
         {verdict.acceptable ? "Acceptable" : "À vérifier"}
-      </p>
-      <ul className="mt-2 list-disc pl-5">
-        {verdict.reasons.map((code) => (
-          <li key={code}>{texts[code] ?? code}</li>
-        ))}
-      </ul>
-      {prUrl && (
-        <a href={prUrl} className={`mt-3 inline-block ${primaryButton}`}>
-          Relire et merger sur GitHub
-        </a>
+      </h2>
+      {verdict.reasons.length > 0 && (
+        <ul className="mt-2 list-disc pl-5">
+          {verdict.reasons.map((code) => (
+            <li key={code}>{texts[code] ?? code}</li>
+          ))}
+        </ul>
       )}
     </section>
+  );
+}
+
+/** The one main action (decision 039 E): review and merge, or only look once the PR is merged. */
+export function RunAction({
+  prUrl,
+  merged,
+}: {
+  prUrl: string;
+  merged: boolean;
+}) {
+  return (
+    <a
+      href={prUrl}
+      className={`mt-6 inline-block ${merged ? button : primaryButton}`}
+    >
+      {merged ? "Voir la PR sur GitHub" : "Relire et merger sur GitHub"}
+    </a>
   );
 }

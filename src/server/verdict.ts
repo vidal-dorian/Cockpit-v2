@@ -13,7 +13,9 @@ export function verdict(input: {
     input.runStatus !== "succeeded" && "run_not_succeeded",
     criteria.some((k) => k.givenByThisRun && k.result === "failed") &&
       "criteria_failed",
-    criteria.some((k) => !k.givenByThisRun || k.result === null) &&
+    // No criterion at all is not a pass.
+    (criteria.length === 0 ||
+      criteria.some((k) => !k.givenByThisRun || k.result === null)) &&
       "criteria_not_reported",
     prNumber === null && "no_pull_request",
     prNumber !== null && prCiState === "failure" && "ci_failing",

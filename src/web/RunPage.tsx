@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { RunControls } from "./RunControls.tsx";
 import { RunQuestions } from "./RunQuestions.tsx";
-import { RunVerdict } from "./RunVerdict.tsx";
+import { RunAction, RunVerdict } from "./RunVerdict.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
 import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
@@ -147,22 +147,7 @@ export function RunPage() {
               <RunVerdict
                 verdict={found.verdict}
                 criteria={found.criteria ?? []}
-                prUrl={
-                  found.story.prNumber === null
-                    ? null
-                    : `https://github.com/${found.project.name}/pull/${found.story.prNumber}`
-                }
               />
-            )}
-            {found.run.status === "running" ? (
-              <Steps steps={found.steps} />
-            ) : (
-              <details className="mt-6">
-                <summary className={`cursor-pointer ${focusRing}`}>
-                  Journal détaillé
-                </summary>
-                <Steps steps={found.steps} />
-              </details>
             )}
             <section className="mt-6">
               <h2 className="font-heading text-xl font-bold">Critères</h2>
@@ -193,6 +178,24 @@ export function RunPage() {
                 ))}
               </ol>
             </section>
+            {found.verdict && found.story.prNumber != null && (
+              <div>
+                <RunAction
+                  prUrl={`https://github.com/${found.project.name}/pull/${found.story.prNumber}`}
+                  merged={found.story.status === "done"}
+                />
+              </div>
+            )}
+            {found.run.status === "running" ? (
+              <Steps steps={found.steps} />
+            ) : (
+              <details className="mt-6">
+                <summary className={`cursor-pointer ${focusRing}`}>
+                  Journal détaillé
+                </summary>
+                <Steps steps={found.steps} />
+              </details>
+            )}
             <RunQuestions
               runId={id}
               running={found.run.status === "running"}
