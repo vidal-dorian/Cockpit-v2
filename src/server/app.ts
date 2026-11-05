@@ -36,9 +36,9 @@ export type AppOptions = {
 };
 
 const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
-// The agent editor sends a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
+// The agent and team editors send a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
 const agentsBodyLimit = bodyLimit({ maxSize: 4 * 1024 * 1024 });
-const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/agents\/apply$/;
+const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/(agents|team)\/apply$/;
 
 export function createApp(
   db: Db,
@@ -63,7 +63,7 @@ export function createApp(
         c.res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
         c.res.headers.set("X-Frame-Options", "DENY");
       })
-      // A JSON body is read whole in memory: 256 KiB at most on every API route (the agent editor's apply route has a larger one), before the session and the validation (decision 014). GitHub's webhook has its own limit (decision 024 A).
+      // A JSON body is read whole in memory: 256 KiB at most on every API route (the apply routes of the agent and team editors have a larger one), before the session and the validation (decision 014). GitHub's webhook has its own limit (decision 024 A).
       .use("/api/*", (c, next) =>
         c.req.path === WEBHOOK_PATH
           ? next()

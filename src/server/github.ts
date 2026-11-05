@@ -669,16 +669,20 @@ export function githubClient(config: GitHubAppConfig) {
       return { ...done, created: toCreate.map((file) => file.path) };
     },
 
-    /** The regular files `<name>.md` directly in `.claude/agents` of the default branch, by name, with their text (null when GitHub does not serve it: too large). No such directory: none. Reads only (decision 030 B). */
+    /** The regular files `<name>.md` directly in `.claude/agents` of the default branch, by name, with their text (null when GitHub does not serve it: too large), and the text of `.claude/team.md` (null when absent or unreadable). No such directory: no agents. Reads only (decisions 030 B, 031 G). */
     async readAgentFiles(
       installationId: number,
       fullName: string,
     ): Promise<
-      { agents: { name: string; text: string | null }[] } | RepoWriteRefusal
+      | { agents: { name: string; text: string | null }[]; team: string | null }
+      | RepoWriteRefusal
     > {
       const repo = await writeAccess(installationId, fullName);
       const head = await repo.head();
       if ("refused" in head) return head;
+      // null only for no file: one that cannot be read gives "", which the page shows as not rewritable.
+      const found = await repo.inspect(".claude/team.md", head.sha);
+      const team = found === null ? null : (found.text ?? "");
       let tree: z.infer<typeof treeSchema>;
       try {
         const { data } = await repo.octokit.request(
@@ -693,7 +697,7 @@ export function githubClient(config: GitHubAppConfig) {
       } catch (error) {
         // 404 or 422: no such directory (or not a directory).
         const status = (error as { status?: number }).status;
-        if (status === 404 || status === 422) return { agents: [] };
+        if (status === 404 || status === 422) return { agents: [], team };
         throw error;
       }
       const names = tree.tree
@@ -703,6 +707,7 @@ export function githubClient(config: GitHubAppConfig) {
         .filter((name) => AGENT_NAME.test(name))
         .sort();
       return {
+        team,
         agents: await Promise.all(
           names.map(async (name) => ({
             name,

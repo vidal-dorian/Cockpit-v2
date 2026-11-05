@@ -7,6 +7,7 @@
 - **Modifie** : la règle F de la [013](013-bilan-de-sante.md) (les trois agents ne sont plus exigés quand le projet a sa propre équipe) ; le brief §6.9 (l'éditeur d'agent passe avant le reste de la configuration Claude)
 - **Tranche** : après le MVP, voir « Configuration Claude » du [découpage](../decoupage.md)
 - **Modifiée par** : [030 — Éditeur d'agent](030-editeur-d-agent.md) : l'historique (I) gagne `delete_agent` ; renommer un agent passe à E3
+- **Modifiée par** : [031 — L'équipe en graphe](031-equipe-en-graphe.md) : l'écran « Équipe » (F) est un graphe de cartes, en plus de la liste ; un agent du catalogue s'ajoute par l'éditeur avant l'équipe
 
 ## Contexte
 

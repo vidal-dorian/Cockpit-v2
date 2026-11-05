@@ -48,3 +48,27 @@
 body {
   @apply bg-background font-sans text-[15px] text-foreground;
 }
+
+/* React Flow (decision 031 B), themed with the tokens above. */
+.react-flow {
+  --xy-background-color: var(--color-sunken);
+  --xy-background-pattern-color: var(--color-border);
+  --xy-edge-stroke: var(--color-muted-foreground);
+  --xy-edge-stroke-selected: var(--color-primary);
+  --xy-edge-label-color: var(--color-foreground);
+  --xy-edge-label-background-color: var(--color-card);
+  --xy-handle-background-color: var(--color-muted-foreground);
+  --xy-handle-border-color: var(--color-card);
+  --xy-connectionline-stroke: var(--color-primary);
+  --xy-controls-button-background-color: var(--color-raised);
+  --xy-controls-button-background-color-hover: var(--color-raised-hover);
+  --xy-controls-button-color: var(--color-foreground);
+  --xy-controls-button-border-color: var(--color-border);
+  --xy-attribution-background-color: var(--color-sunken);
+}
+.react-flow__attribution a {
+  color: var(--color-muted-foreground);
+}
+.react-flow__node {
+  color: var(--color-foreground);
+}
