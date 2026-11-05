@@ -4,7 +4,12 @@ import { streamSSE } from "hono/streaming";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { runSteps, runs, userStories } from "./db/schema.ts";
+import {
+  acceptanceCriteria,
+  runSteps,
+  runs,
+  userStories,
+} from "./db/schema.ts";
 import { publish, subscribe } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
@@ -170,7 +175,89 @@ export async function reportStep(
   return { step_id: step.id, stop_requested: false };
 }
 
-/** `finish_run` (decision 033 D): open steps close failed, a story still in_progress is ready again. */
+/** `report_criterion` (decision 035 B): the report replaces the previous one of the criterion. */
+export async function reportCriterion(
+  db: Db,
+  userId: number,
+  entry: Entry,
+  args: {
+    run_id: number;
+    criterion_id: number;
+    result: "passed" | "failed";
+    evidence: string;
+  },
+) {
+  const found = await ownRun(db, userId, entry, args.run_id);
+  await act(db, entry, async (tx) => {
+    await lockRunning(tx, found.project.id, args.run_id);
+    const changed = await tx
+      .update(acceptanceCriteria)
+      .set({
+        result: args.result,
+        evidence: args.evidence,
+        resultRunId: args.run_id,
+      })
+      .where(
+        and(
+          eq(acceptanceCriteria.id, args.criterion_id),
+          eq(acceptanceCriteria.storyId, found.story.id),
+        ),
+      )
+      .returning({ id: acceptanceCriteria.id });
+    if (changed.length === 0) throw new Refused("wrong_criterion");
+  });
+  await announce(db, found, args.run_id);
+  return { criterion_id: args.criterion_id, result: args.result };
+}
+
+/** `link_pull_request` (decision 035 C): the PR is read on GitHub before the transaction, then the story goes in_review. */
+export async function linkPullRequest(
+  db: Db,
+  userId: number,
+  readGitHub: ReadGitHub,
+  entry: Entry,
+  args: { run_id: number; pr_number: number },
+) {
+  const found = await ownRun(db, userId, entry, args.run_id);
+  const { project, story } = found;
+  const ready = await readGitHub();
+  if (!ready) throw new Error("The GitHub App is not configured");
+  const pull = await ready.github.readPullRequest(
+    project.installationId,
+    project.fullName,
+    args.pr_number,
+  );
+  const refusal = (code: string) =>
+    act(db, entry, async () => {
+      throw new Refused(code);
+    });
+  if (!pull) return refusal("pr_not_found");
+  if (pull.branch !== story.branch || pull.repo !== project.fullName)
+    return refusal("pr_wrong_branch");
+  await act(db, entry, async (tx) => {
+    await lockRunning(tx, project.id, args.run_id);
+    const changed = await tx
+      .update(userStories)
+      .set({
+        prNumber: args.pr_number,
+        status: "in_review",
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(userStories.id, story.id),
+          eq(userStories.status, "in_progress"),
+        ),
+      )
+      .returning({ id: userStories.id });
+    if (changed.length === 0) throw new Refused("wrong_status");
+  });
+  await syncIssue(db, readGitHub, userId, story.id);
+  await announce(db, found, args.run_id);
+  return { pr_number: args.pr_number, story_status: "in_review" as const };
+}
+
+/** `finish_run` (decisions 033 D and 035 D): open steps close failed, a story still in_progress is ready again, and success needs a linked PR. */
 export async function finishRun(
   db: Db,
   userId: number,
@@ -181,6 +268,13 @@ export async function finishRun(
   const found = await ownRun(db, userId, entry, args.run_id);
   const reopened = await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
+    if (args.outcome === "succeeded") {
+      const [row] = await tx
+        .select({ prNumber: userStories.prNumber })
+        .from(userStories)
+        .where(eq(userStories.id, found.story.id));
+      if (row?.prNumber == null) throw new Refused("no_pull_request");
+    }
     await tx
       .update(runSteps)
       .set({ status: "failed", finishedAt: sql`now()` })
@@ -269,6 +363,20 @@ export function runRoutes(db: Db) {
           finishedAt: run.finishedAt,
         },
         steps,
+        // The result and the evidence are those this run gave, nothing of the others (decision 035 E).
+        criteria: (await storyParts(db, found.story.id)).criteria.map((k) => {
+          const mine = k.resultRunId === run.id;
+          return {
+            id: k.id,
+            position: k.position,
+            given: k.givenText,
+            when: k.whenText,
+            // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
+            then: k.thenText,
+            result: mine ? k.result : null,
+            evidence: mine ? k.evidence : null,
+          };
+        }),
         story: { id: found.story.id, iWant: found.story.iWant },
         project: { id: found.project.id, name: found.project.fullName },
       });

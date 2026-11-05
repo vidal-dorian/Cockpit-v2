@@ -57,10 +57,12 @@ Give each agent the story, its criteria and the notes. Commit as you go, in smal
 ## Finish
 
 1. Run **all the tests**, the lint and the type check of the repository (the commands are in `CLAUDE.md`). Everything must pass: fix, never skip or disable.
-2. Push the branch.
-3. Open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
-4. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work.
-5. Tell the user the link of the pull request, and what you are unsure about.
+2. Call `mcp__cockpit__report_criterion` once per criterion of the story, with `result` `passed` or `failed` and as `evidence` the test that proves it (file and test name) or what fails.
+3. Push the branch.
+4. Open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
+5. Call `mcp__cockpit__link_pull_request` with the `run_id` and the number of the pull request you just opened.
+6. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work.
+7. Tell the user the link of the pull request, and what you are unsure about.
 
 ## Never
 

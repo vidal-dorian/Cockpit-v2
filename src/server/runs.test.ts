@@ -373,7 +373,7 @@ describe("criterion 3: report_step", () => {
 });
 
 describe("criterion 4: finish_run", () => {
-  it.each(["failed", "succeeded"] as const)(
+  it.each(["failed"] as const)(
     "given a running run with an open step, when finish_run is called with outcome %s, then the run has that status and finished_at, the step is closed failed and the story is ready again",
     async (outcome) => {
       const s = await running();
@@ -474,8 +474,8 @@ describe("criterion 5: the history of the three tools", () => {
     dataOf(
       await finish(s, {
         run_id: started.run_id,
-        outcome: "succeeded",
-        summary: "PR ouverte",
+        outcome: "failed",
+        summary: "Arrêté",
       }),
     );
 

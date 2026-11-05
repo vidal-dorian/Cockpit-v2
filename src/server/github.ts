@@ -55,6 +55,13 @@ const pullRequestSchema = z.object({
   number: z.number().int(),
   html_url: z.string(),
 });
+// What link_pull_request checks of a PR: its head branch and where it comes from (decision 035 C).
+const pullHeadSchema = z.object({
+  head: z.object({
+    ref: z.string(),
+    repo: z.object({ full_name: z.string() }).nullable(),
+  }),
+});
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -587,6 +594,27 @@ export function githubClient(config: GitHubAppConfig) {
       );
       const file = contentsSchema.parse(data);
       return file ? Buffer.from(file.content, "base64").toString("utf8") : "";
+    },
+
+    /** The head of a pull request, as the installation: null when GitHub answers 404 (decision 035 C). Other errors are left to the caller. */
+    async readPullRequest(
+      installationId: number,
+      fullName: string,
+      number: number,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      try {
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+          { owner, repo, pull_number: number },
+        );
+        const { head } = pullHeadSchema.parse(data);
+        return { branch: head.ref, repo: head.repo?.full_name ?? null };
+      } catch (error) {
+        if (isNotFound(error)) return null;
+        throw error;
+      }
     },
 
     /** The App's webhook as GitHub holds it, read as the App (decision 024 F): its config and the status code of its last delivery, null when it has none. Errors are left to the caller. */
