@@ -42,7 +42,8 @@
 - **Fait** : tranche 7.1 (run minimal, [décision 033](decisions/033-run-minimal.md)).
 - **Fait** : tranche 7.2 (fenêtre « Développer avec Claude », [décision 034](decisions/034-developper-avec-claude.md)).
 - **Fait** : tranche 7.3 (critères et PR, [décision 035](decisions/035-criteres-et-pr.md)).
-- **En cours** : tranche 7.4 (questions de Claude, [décision 036](decisions/036-questions-de-claude.md)).
+- **Fait** : tranche 7.4 (questions de Claude, [décision 036](decisions/036-questions-de-claude.md)).
+- **En cours** : tranche 7.5 (arrêter, relancer, fermer, [décision 037](decisions/037-arreter-relancer-fermer.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -198,4 +199,4 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 
 ## Points ouverts
 
-- **Relancer une US en revue** (CI rouge après l'ouverture de la PR) : à trancher en 7.5, voir [`decisions/004-outils-mcp.md`](decisions/004-outils-mcp.md).
+- ~~**Relancer une US en revue**~~ : tranché par la [037](decisions/037-arreter-relancer-fermer.md) E, `start_run` accepte une US `in_review`.
