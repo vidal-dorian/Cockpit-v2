@@ -211,6 +211,8 @@ export const userStories = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    // The branch of the first run (decision 033 A); empty until a run starts.
+    branch: text("branch"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -222,6 +224,74 @@ export const userStories = pgTable(
     check(
       "user_stories_status_check",
       sql`${t.status} in ('to_validate', 'to_rewrite', 'ready', 'in_progress', 'in_review', 'done', 'abandoned')`,
+    ),
+  ],
+);
+
+export const RUN_STATUSES = [
+  "running",
+  "succeeded",
+  "failed",
+  "stopped",
+  "closed_manually",
+] as const;
+export const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
+
+/** A run of Claude on a story (decisions 002 and 033 A); one running run per story at most. `stopRequestedAt` is filled from slice 7.5. */
+export const runs = pgTable(
+  "runs",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    storyId: integer("story_id")
+      .notNull()
+      .references(() => userStories.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status", { enum: RUN_STATUSES }).notNull(),
+    modelActual: text("model_actual").notNull(),
+    stopRequestedAt: timestamp("stop_requested_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    comment: text("comment"),
+    summary: text("summary"),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("runs_one_running_per_story_idx")
+      .on(t.storyId)
+      .where(sql`${t.status} = 'running'`),
+    check(
+      "runs_status_check",
+      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually')`,
+    ),
+  ],
+);
+
+/** A step of a run: one agent's turn (decision 033 C). A redone step is a new row. */
+export const runSteps = pgTable(
+  "run_steps",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id),
+    agent: text("agent").notNull(),
+    status: text("status", { enum: STEP_STATUSES }).notNull(),
+    summary: text("summary"),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    check(
+      "run_steps_status_check",
+      sql`${t.status} in ('running', 'succeeded', 'failed')`,
     ),
   ],
 );
@@ -290,6 +360,8 @@ export const history = pgTable(
     projectId: integer("project_id"),
     ticketId: integer("ticket_id"),
     storyId: integer("story_id"),
+    // The run of a run tool (decision 033 A); no foreign key, like the other ids.
+    runId: integer("run_id"),
     // The MCP token behind an entry of origin mcp (decision 016); no foreign key, like the other ids.
     tokenId: integer("token_id"),
     actor: text("actor", {

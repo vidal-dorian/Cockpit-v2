@@ -22,7 +22,13 @@ If a check fails, stop and say why. Change nothing.
 ## The branch
 
 - With `--branch <name>`: if the branch exists on `origin`, check it out and update it (`git pull --ff-only`): the story is resumed. Otherwise create it from the default branch and push it with `git push -u origin <name>`.
-- Without `--branch`: name it `us/<story_id>-<short-title>`, the title taken from `i_want`: lower case, no accents, words joined by dashes, 40 characters at most. Create it and push it the same way.
+- Without `--branch`, if the story already has a `branch` (from `get_user_story`), use it as if it were given with `--branch`. Otherwise name it `us/<story_id>-<short-title>`, the title taken from `i_want`: lower case, no accents, words joined by dashes, 40 characters at most. Create it and push it the same way.
+
+## Start the run
+
+Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why.
+
+From now on, whenever you stop before the pull request is open (a refused tool, a step that fails for good, a test you must not change), first call `mcp__cockpit__finish_run` with `outcome` `failed` and the reason in the `summary`: otherwise the story stays "in progress" and cannot be started again.
 
 ## Develop
 
@@ -44,6 +50,8 @@ A step with `loop_to` and `until` sends you back to that step until the conditio
 2. **developer** implements until those tests pass, without touching them.
 3. **reviewer** reviews the diff with a fresh context. Blocking findings go back to the developer, then to a new review, until the verdict is **ready**.
 
+Before each step call `mcp__cockpit__report_step` with the `run_id`, the `agent` and the event `started`; after it, with the event `finished`, its `status` (`succeeded` or `failed`) and a short `summary`. A step you redo (the review loop) is reported `started` again.
+
 Give each agent the story, its criteria and the notes. Commit as you go, in small commits that follow the conventions of the repository.
 
 ## Finish
@@ -51,7 +59,8 @@ Give each agent the story, its criteria and the notes. Commit as you go, in smal
 1. Run **all the tests**, the lint and the type check of the repository (the commands are in `CLAUDE.md`). Everything must pass: fix, never skip or disable.
 2. Push the branch.
 3. Open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
-4. Tell the user the link of the pull request, and what you are unsure about.
+4. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work.
+5. Tell the user the link of the pull request, and what you are unsure about.
 
 ## Never
 

@@ -25,6 +25,7 @@ import {
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
 import { memberProject, memberProjects } from "./projects.ts";
+import { activeRunId, finishRun, reportStep, startRun } from "./runs.ts";
 import {
   changeStory,
   memberStory,
@@ -36,6 +37,7 @@ import {
   ticketStories,
   WrongStatus,
 } from "./stories.ts";
+import { AGENT_NAME } from "./team.ts";
 import {
   assertActive,
   createTicket,
@@ -96,6 +98,9 @@ async function ownProject(call: Call, id: number) {
   call.entry.projectId = project.id;
   return project;
 }
+
+// The safe subset of Git's branch names (decision 033 B); `..` is refused next to it.
+const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
 
 const id = z.number().int().min(1).max(2_147_483_647);
 
@@ -682,6 +687,8 @@ const tools = {
             notes_md: story.notesMd,
             status: story.status,
             rewrite_comment: story.rewriteComment,
+            branch: story.branch,
+            active_run_id: await activeRunId(tx, story.id),
           },
           criteria: criteria.map((k) => ({
             id: k.id,
@@ -707,6 +714,96 @@ const tools = {
       });
     },
   ),
+
+  start_run: tool(
+    "Start a development run on a ready user story (status ready), once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session and optionally a comment. Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is not ready, already has an active run, has another branch recorded, or the project is archived.",
+    z.object({
+      story_id: id.describe("Id of a ready story, from get_user_story"),
+      branch: z
+        .string()
+        .min(1)
+        .max(255)
+        .regex(BRANCH)
+        .refine((b) => !b.includes(".."))
+        .describe("The git branch of the story, e.g. us/42-login"),
+      model: z
+        .string()
+        .min(1)
+        .max(100)
+        .refine(noNul)
+        .describe("The model of this session"),
+      comment: z
+        .string()
+        .max(10_000)
+        .refine(noNul)
+        .optional()
+        .describe("An optional note"),
+    }),
+    async (call, args) => {
+      const found = await memberStory(call.db, call.userId, args.story_id);
+      if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
+      const { runId, story, criteria } = await startRun(
+        call.db,
+        call.userId,
+        call.readGitHub,
+        call.entry,
+        found,
+        args,
+      );
+      return {
+        run_id: runId,
+        story: {
+          id: story.id,
+          status: story.status,
+          branch: story.branch,
+          active_run_id: runId,
+        },
+        criteria: criteria.map((k) => ({
+          id: k.id,
+          position: k.position,
+          given: k.givenText,
+          when: k.whenText,
+          // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the tool (decision 004)
+          then: k.thenText,
+        })),
+      };
+    },
+  ),
+
+  report_step: tool(
+    "Report that an agent of the team starts or finishes a step of the run. Call it with event started just before the agent works and with event finished (and its status, succeeded or failed, and a short summary) right after. A redone step is a new started. Answers step_id and stop_requested (always false for now). Refused when the run is finished, when the agent already has an open step (started) or has none (finished).",
+    z
+      .object({
+        run_id: id.describe("The run_id of start_run"),
+        agent: z
+          .string()
+          .max(255)
+          .regex(AGENT_NAME)
+          .describe("The agent name, e.g. developer"),
+        event: z.enum(["started", "finished"]),
+        status: z
+          .enum(["succeeded", "failed"])
+          .optional()
+          .describe("Required with event finished"),
+        summary: z.string().max(10_000).refine(noNul).optional(),
+      })
+      .refine((a) => a.event === "started" || a.status !== undefined, {
+        message: "status is required with event finished",
+        path: ["status"],
+      }),
+    (call, args) => reportStep(call.db, call.userId, call.entry, args),
+  ),
+
+  finish_run: tool(
+    "Finish the run: succeeded once the pull request is open, failed when you stop on a failure. Steps still open are closed as failed and the story becomes ready again. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished.",
+    z.object({
+      run_id: id.describe("The run_id of start_run"),
+      outcome: z.enum(["succeeded", "failed"]),
+      summary: z.string().min(1).max(10_000).refine(noNul),
+    }),
+    (call, args) =>
+      finishRun(call.db, call.userId, call.readGitHub, call.entry, args),
+  ),
 };
 
 const TOOL_NAME = /^[a-z][a-z0-9_]{0,39}$/;
@@ -715,6 +812,17 @@ const TOOL_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 const ADVICE: Record<string, string | ((written: number) => string)> = {
   not_found:
     "not found. The project, ticket or story does not exist or is not yours. Find the right id with list_projects, search or list_tickets_needing_us, then call again.",
+  wrong_status:
+    "the story is not ready. Only a ready story can start a run: check get_user_story, and tell the user if it needs their validation.",
+  run_active:
+    "this story already has an active run. Use its run_id (get_user_story gives active_run_id), or finish it with finish_run.",
+  branch_mismatch:
+    "another branch is already recorded on this story. Use the branch given by get_user_story (branch).",
+  run_finished:
+    "this run is finished. Start a new one with start_run if the story is ready.",
+  step_open:
+    "this agent already has an open step. Report it finished before starting another.",
+  no_open_step: "this agent has no open step. Report started first.",
   project_archived:
     "this project is archived, so it is read-only. Tell the user, or use another project from list_projects.",
   ticket_abandoned:

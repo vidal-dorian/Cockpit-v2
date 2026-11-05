@@ -1601,6 +1601,8 @@ describe("criterion 7: get_user_story", () => {
         notes_md: "des **notes**",
         status: "to_rewrite",
         rewrite_comment: "Précise le cas vide",
+        branch: null,
+        active_run_id: null,
       },
       criteria: [
         { id: stored[0]?.id, position: 1, given: "g1", when: "w1", then: "t1" },

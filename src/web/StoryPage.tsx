@@ -7,7 +7,7 @@ import { client } from "./api.ts";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
-import { STORY_STATUSES } from "./tickets.ts";
+import { RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
   button,
@@ -16,6 +16,7 @@ import {
   markdownStyle,
   primaryButton,
 } from "./ui.ts";
+import { useChanges } from "./useChanges.ts";
 
 /** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
 async function fetchStory(id: string) {
@@ -35,6 +36,7 @@ export function StoryPage() {
     queryKey: ["story", id],
     queryFn: () => fetchStory(id),
   });
+  useChanges(`story:${id}`);
   const statusRef = useRef<HTMLSpanElement>(null);
   const found = result.data && result.data !== "not_found" && result.data;
 
@@ -183,6 +185,27 @@ export function StoryPage() {
                       </Link>
                       <span className="text-muted-foreground">
                         {STORY_STATUSES[dependency.status] ?? dependency.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {(found.story.runs ?? []).length > 0 && (
+              <section className="mt-6">
+                <h2 className="font-heading text-xl font-bold">Runs</h2>
+                <ul className="mt-2 grid gap-2">
+                  {found.story.runs.map((run) => (
+                    <li key={run.id} className={`${card} p-3`}>
+                      <Link
+                        to={`/runs/${run.id}`}
+                        className={`underline ${focusRing}`}
+                      >
+                        Run n° {run.id} ·{" "}
+                        {RUN_STATUSES[run.status] ?? run.status}
+                      </Link>{" "}
+                      <span className="text-muted-foreground">
+                        {new Date(run.startedAt).toLocaleString("fr-FR")}
                       </span>
                     </li>
                   ))}

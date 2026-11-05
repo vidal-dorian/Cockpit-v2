@@ -118,8 +118,8 @@ describe("decision 027 A, C: the skill /dev-us", () => {
     for (const name of named) expect(listed, name).toContain(name);
   });
 
-  it("given the skill, when it is read, then it does not promise what comes with phase 7 (start_run)", () => {
-    expect(read("catalog/skills/dev-us/SKILL.md")).not.toMatch(/start_run/);
+  it("given the skill, when it is read, then it reports its run (decision 033 K)", () => {
+    expect(read("catalog/skills/dev-us/SKILL.md")).toMatch(/start_run/);
   });
 });
 

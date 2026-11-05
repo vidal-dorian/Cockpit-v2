@@ -26,6 +26,7 @@ import type { ReadGitHub } from "./github.ts";
 import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
+import { storyRuns } from "./runs.ts";
 import {
   assertActive,
   body,
@@ -325,11 +326,14 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
       return c.json({
-        story: presentStory(
-          story,
-          await storyParts(db, story.id),
-          project.fullName,
-        ),
+        story: {
+          ...presentStory(
+            story,
+            await storyParts(db, story.id),
+            project.fullName,
+          ),
+          runs: await storyRuns(db, story.id),
+        },
         ticket: { id: ticket.id, title: ticket.title },
         project: {
           id: project.id,

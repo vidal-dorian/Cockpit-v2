@@ -15,6 +15,7 @@ import { Journal } from "./Journal.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
+import { RunPage } from "./RunPage.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
 import { alertBox, button, focusRing, primaryButton } from "./ui.ts";
@@ -354,6 +355,7 @@ export function App() {
             </LoadErrorBoundary>
           }
         />
+        <Route path="/runs/:id" element={<RunPage />} />
         <Route path="/journal" element={<Journal />} />
         <Route path="/reglages" element={<Settings tab="claude" />} />
         <Route path="/reglages/jetons" element={<Settings tab="jetons" />} />

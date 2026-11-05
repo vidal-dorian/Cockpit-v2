@@ -1,0 +1,291 @@
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import { act, type Entry, Refused, type Tx } from "./action.ts";
+import { currentUser } from "./auth.ts";
+import type { Db } from "./db/db.ts";
+import { runSteps, runs, userStories } from "./db/schema.ts";
+import { publish, subscribe } from "./events.ts";
+import type { ReadGitHub } from "./github.ts";
+import { syncIssue } from "./issues.ts";
+import { isDatabaseId } from "./projects.ts";
+import {
+  changeStory,
+  memberStory,
+  storyParts,
+  WrongStatus,
+} from "./stories.ts";
+import { assertActive } from "./tickets.ts";
+
+type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
+
+/** PostgreSQL's unique violation, which drizzle wraps in its own error. */
+const isUniqueViolation = (error: unknown) =>
+  [error, (error as { cause?: unknown } | null)?.cause].some(
+    (e) => (e as { code?: unknown } | null)?.code === "23505",
+  );
+
+/** Tells the project's members, after the commit (decision 033 G). */
+const announce = (db: Db, found: Found, runId: number) =>
+  publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
+
+/** `start_run` (decision 033 B): a ready story gets a running run and goes in_progress with its branch. */
+export async function startRun(
+  db: Db,
+  userId: number,
+  readGitHub: ReadGitHub,
+  entry: Entry,
+  found: Found,
+  args: { branch: string; model: string; comment?: string },
+) {
+  let runId = 0;
+  try {
+    const story = await changeStory(
+      db,
+      entry,
+      found,
+      ["ready"],
+      async (tx, locked) => {
+        if (locked.branch && locked.branch !== args.branch)
+          throw new Refused("branch_mismatch");
+        const [run] = await tx
+          .insert(runs)
+          .values({
+            storyId: locked.id,
+            userId,
+            status: "running",
+            modelActual: args.model,
+            comment: args.comment,
+          })
+          .returning({ id: runs.id })
+          .catch((error) => {
+            // The unique index has the last word, even when two starts race.
+            throw isUniqueViolation(error) ? new Refused("run_active") : error;
+          });
+        if (!run) throw new Error("run not created");
+        runId = run.id;
+        entry.runId = run.id;
+        const [row] = await tx
+          .update(userStories)
+          .set({
+            status: "in_progress",
+            branch: args.branch,
+            updatedAt: sql`now()`,
+          })
+          .where(eq(userStories.id, locked.id))
+          .returning();
+        if (!row) throw new Refused("not_found");
+        return row;
+      },
+    );
+    await syncIssue(db, readGitHub, userId, story.id);
+    await announce(db, found, runId);
+    const { criteria } = await storyParts(db, story.id);
+    return { runId, story, criteria };
+  } catch (error) {
+    // The history already has the code; the text Claude reads must not talk about a rewrite.
+    throw error instanceof WrongStatus ? new Refused("wrong_status") : error;
+  }
+}
+
+/** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. */
+async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
+  const [run] = await db
+    .select()
+    .from(runs)
+    .where(and(eq(runs.id, id), eq(runs.userId, userId)));
+  const found = run && (await memberStory(db, userId, run.storyId));
+  if (!run || !found)
+    return act(db, entry, async () => {
+      throw new Refused("not_found");
+    });
+  entry.projectId = found.project.id;
+  entry.ticketId = found.ticket.id;
+  entry.storyId = found.story.id;
+  entry.runId = run.id;
+  entry.args = { runId: run.id };
+  return found;
+}
+
+/** Checks the project and locks the run, which must still run. */
+async function lockRunning(tx: Tx, projectId: number, runId: number) {
+  await assertActive(tx, projectId);
+  const [run] = await tx
+    .select()
+    .from(runs)
+    .where(eq(runs.id, runId))
+    .for("update");
+  if (!run) throw new Refused("not_found");
+  if (run.status !== "running") throw new Refused("run_finished");
+}
+
+/** `report_step` (decision 033 C). */
+export async function reportStep(
+  db: Db,
+  userId: number,
+  entry: Entry,
+  args: {
+    run_id: number;
+    agent: string;
+    event: "started" | "finished";
+    status?: "succeeded" | "failed";
+    summary?: string;
+  },
+) {
+  const found = await ownRun(db, userId, entry, args.run_id);
+  const step = await act(db, entry, async (tx) => {
+    await lockRunning(tx, found.project.id, args.run_id);
+    const [open] = await tx
+      .select({ id: runSteps.id })
+      .from(runSteps)
+      .where(
+        and(
+          eq(runSteps.runId, args.run_id),
+          eq(runSteps.agent, args.agent),
+          eq(runSteps.status, "running"),
+        ),
+      );
+    if (args.event === "started") {
+      if (open) throw new Refused("step_open");
+      const [row] = await tx
+        .insert(runSteps)
+        .values({ runId: args.run_id, agent: args.agent, status: "running" })
+        .returning({ id: runSteps.id });
+      if (!row) throw new Error("step not created");
+      return row;
+    }
+    if (!open) throw new Refused("no_open_step");
+    await tx
+      .update(runSteps)
+      .set({
+        status: args.status ?? "failed",
+        summary: args.summary,
+        finishedAt: sql`now()`,
+      })
+      .where(eq(runSteps.id, open.id));
+    return open;
+  });
+  await announce(db, found, args.run_id);
+  // Asking for a stop comes with slice 7.5.
+  return { step_id: step.id, stop_requested: false };
+}
+
+/** `finish_run` (decision 033 D): open steps close failed, a story still in_progress is ready again. */
+export async function finishRun(
+  db: Db,
+  userId: number,
+  readGitHub: ReadGitHub,
+  entry: Entry,
+  args: { run_id: number; outcome: "succeeded" | "failed"; summary: string },
+) {
+  const found = await ownRun(db, userId, entry, args.run_id);
+  const reopened = await act(db, entry, async (tx) => {
+    await lockRunning(tx, found.project.id, args.run_id);
+    await tx
+      .update(runSteps)
+      .set({ status: "failed", finishedAt: sql`now()` })
+      .where(
+        and(eq(runSteps.runId, args.run_id), eq(runSteps.status, "running")),
+      );
+    await tx
+      .update(runs)
+      .set({
+        status: args.outcome,
+        summary: args.summary,
+        finishedAt: sql`now()`,
+      })
+      .where(eq(runs.id, args.run_id));
+    const changed = await tx
+      .update(userStories)
+      .set({ status: "ready", updatedAt: sql`now()` })
+      .where(
+        and(
+          eq(userStories.id, found.story.id),
+          eq(userStories.status, "in_progress"),
+        ),
+      )
+      .returning({ id: userStories.id });
+    return changed.length > 0;
+  });
+  if (reopened) await syncIssue(db, readGitHub, userId, found.story.id);
+  await announce(db, found, args.run_id);
+  return { run_id: args.run_id, status: args.outcome };
+}
+
+/** The running run of a story, for `get_user_story`. */
+export async function activeRunId(db: Db, storyId: number) {
+  const [run] = await db
+    .select({ id: runs.id })
+    .from(runs)
+    .where(and(eq(runs.storyId, storyId), eq(runs.status, "running")));
+  return run?.id ?? null;
+}
+
+/** The runs of a story, most recent first. */
+export const storyRuns = (db: Db, storyId: number) =>
+  db
+    .select({
+      id: runs.id,
+      status: runs.status,
+      startedAt: runs.startedAt,
+      finishedAt: runs.finishedAt,
+    })
+    .from(runs)
+    .where(eq(runs.storyId, storyId))
+    .orderBy(desc(runs.id));
+
+export function runRoutes(db: Db) {
+  return new Hono()
+    .get("/api/runs/:id", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const id = Number(c.req.param("id"));
+      const [run] = isDatabaseId(id)
+        ? await db.select().from(runs).where(eq(runs.id, id))
+        : [];
+      const found = run && (await memberStory(db, user.userId, run.storyId));
+      if (!run || !found) return c.json({ error: "Not found" }, 404);
+      const steps = await db
+        .select({
+          id: runSteps.id,
+          agent: runSteps.agent,
+          status: runSteps.status,
+          summary: runSteps.summary,
+          startedAt: runSteps.startedAt,
+          finishedAt: runSteps.finishedAt,
+        })
+        .from(runSteps)
+        .where(eq(runSteps.runId, run.id))
+        .orderBy(asc(runSteps.id));
+      return c.json({
+        run: {
+          id: run.id,
+          status: run.status,
+          branch: found.story.branch,
+          model: run.modelActual,
+          comment: run.comment,
+          summary: run.summary,
+          startedAt: run.startedAt,
+          finishedAt: run.finishedAt,
+        },
+        steps,
+        story: { id: found.story.id, iWant: found.story.iWant },
+        project: { id: found.project.id, name: found.project.fullName },
+      });
+    })
+    .get("/api/events", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      return streamSSE(c, async (stream) => {
+        const unsubscribe = subscribe(user.userId, (key) => {
+          stream.writeSSE({ event: "change", data: key }).catch(() => {});
+        });
+        stream.onAbort(unsubscribe);
+        // A comment every 25 s keeps the connection open behind Cloudflare (decision 033 G).
+        while (!stream.aborted) {
+          await stream.sleep(25_000);
+          await stream.write(": keep-alive\n\n");
+        }
+      });
+    });
+}
