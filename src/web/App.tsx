@@ -134,11 +134,12 @@ function Home() {
 
   return (
     <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
-      {me.data && <HomePage />}
       <h1 className="font-heading text-4xl font-extrabold">Cockpit</h1>
       <p className="mt-2 text-muted-foreground">
         Le centre de contrôle de tes repos GitHub avec Claude Code.
       </p>
+      {/* The page title first, then what waits for you (003), then the account and the server. */}
+      {me.data && <HomePage />}
 
       <LoginError />
 
