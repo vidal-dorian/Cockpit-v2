@@ -13,9 +13,11 @@ import type { ReadInstance } from "./instance.ts";
 import { liveToken, MAX_ACTIVE_TOKENS } from "./tokens.ts";
 
 // Decisions 021 and 006: Cockpit as a connector of claude.ai (OAuth 2.1 with PKCE, clients known by a CIMD document).
-const CLIENT_HOST = "claude.ai";
+// Decision 021 amended: exactly these two client_id values (claude.ai and Claude Code), nothing else is ever fetched.
+const CLAUDE_AI_CLIENT = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 const CLAUDE_CODE_CLIENT =
   "https://claude.ai/oauth/claude-code-client-metadata";
+const KNOWN_CLIENTS = [CLAUDE_AI_CLIENT, CLAUDE_CODE_CLIENT];
 const CIMD_TIMEOUT_MS = 5_000;
 const CIMD_MAX_BYTES = 64 * 1024;
 const CIMD_CACHE_MS = 10 * 60_000;
@@ -64,21 +66,6 @@ type Env = { Variables: { userId: number } };
 const fieldsOf = z.record(z.string(), z.string());
 
 const newSecret = () => randomBytes(32).toString("base64url");
-
-/** `https://claude.ai/…` and nothing else: no other host, port, credentials or fragment (the address is fetched, so this is the SSRF guard). */
-function isClientUrl(value: string) {
-  const url = URL.parse(value);
-  return (
-    url !== null &&
-    url.protocol === "https:" &&
-    url.hostname === CLIENT_HOST &&
-    url.port === "" &&
-    !url.username &&
-    !url.password &&
-    !url.hash &&
-    url.href === value
-  );
-}
 
 const isLoopback = (url: URL) =>
   url.protocol === "http:" &&
@@ -217,7 +204,8 @@ export function oauthRoutes(
   /** The checked authorize request, or null: the same checks run on the GET, the page's read and the approval. */
   async function checkRequest(input: unknown) {
     const parsed = authorizeRequest.safeParse(input);
-    if (!parsed.success || !isClientUrl(parsed.data.client_id)) return null;
+    if (!parsed.success || !KNOWN_CLIENTS.includes(parsed.data.client_id))
+      return null;
     const request = parsed.data;
     const redirects = await clientRedirects(request.client_id);
     if (!redirects || !redirectAllowed(request.redirect_uri, redirects))
