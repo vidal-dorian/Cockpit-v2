@@ -28,6 +28,8 @@ If a check fails, stop and say why. Change nothing.
 
 Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why.
 
+From now on, whenever you stop before the pull request is open (a refused tool, a step that fails for good, a test you must not change), first call `mcp__cockpit__finish_run` with `outcome` `failed` and the reason in the `summary`: otherwise the story stays "in progress" and cannot be started again.
+
 ## Develop
 
 Read `CLAUDE.md` first: it holds the commands and the conventions. Then run the steps in order, never starting a step before the previous one is done.
@@ -57,7 +59,7 @@ Give each agent the story, its criteria and the notes. Commit as you go, in smal
 1. Run **all the tests**, the lint and the type check of the repository (the commands are in `CLAUDE.md`). Everything must pass: fix, never skip or disable.
 2. Push the branch.
 3. Open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
-4. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work. If you stop on a failure instead, call it with `failed` and say why in the `summary`.
+4. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work.
 5. Tell the user the link of the pull request, and what you are unsure about.
 
 ## Never
