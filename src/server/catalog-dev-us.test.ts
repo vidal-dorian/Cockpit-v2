@@ -28,3 +28,18 @@ describe("criterion 13 (slice 7.2, decision 034 I): the extra prompt", () => {
     expect(start).toMatch(/extra prompt/);
   });
 });
+
+describe("criterion 11 (slice 7.3, decision 035 H): criteria and pull request", () => {
+  it.each(["report_criterion", "link_pull_request"])(
+    "given the skill dev-us, when it is read, then it names the tool %s in its Finish section, before finish_run",
+    (tool) => {
+      const text = readFileSync(SKILL, "utf8");
+      const finish = text.slice(
+        text.indexOf("## Finish"),
+        text.indexOf("## Never"),
+      );
+      expect(finish).toContain(tool);
+      expect(finish.indexOf(tool)).toBeLessThan(finish.indexOf("finish_run"));
+    },
+  );
+});
