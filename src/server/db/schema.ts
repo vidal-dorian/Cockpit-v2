@@ -274,6 +274,29 @@ export const runs = pgTable(
   ],
 );
 
+/** A question Claude asks during a run (decision 036 A); one unanswered question per run at most. */
+export const questions = pgTable(
+  "questions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id),
+    question: text("question").notNull(),
+    suggestedAnswers: jsonb("suggested_answers").$type<string[]>(),
+    answer: text("answer"),
+    askedAt: timestamp("asked_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    answeredAt: timestamp("answered_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("questions_one_pending_per_run_idx")
+      .on(t.runId)
+      .where(sql`${t.answer} is null`),
+  ],
+);
+
 /** A step of a run: one agent's turn (decision 033 C). A redone step is a new row. */
 export const runSteps = pgTable(
   "run_steps",

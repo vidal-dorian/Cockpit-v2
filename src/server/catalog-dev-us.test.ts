@@ -43,3 +43,19 @@ describe("criterion 11 (slice 7.3, decision 035 H): criteria and pull request", 
     },
   );
 });
+
+describe("criterion 9 (slice 7.4, decision 036 I): the questions", () => {
+  it.each(["ask_user", "get_answer"])(
+    "given the skill dev-us, when it is read, then it names the tool %s",
+    (tool) => {
+      expect(readFileSync(SKILL, "utf8")).toContain(tool);
+    },
+  );
+
+  it.each([/30 seconds/i, /5 minutes/i])(
+    "given the skill dev-us, when it is read, then it states the waits (%s)",
+    (wait) => {
+      expect(readFileSync(SKILL, "utf8")).toMatch(wait);
+    },
+  );
+});

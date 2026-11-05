@@ -6,6 +6,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
+  questions,
   runSteps,
   runs,
   userStories,
@@ -25,13 +26,13 @@ import { assertActive } from "./tickets.ts";
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
 
 /** PostgreSQL's unique violation, which drizzle wraps in its own error. */
-const isUniqueViolation = (error: unknown) =>
+export const isUniqueViolation = (error: unknown) =>
   [error, (error as { cause?: unknown } | null)?.cause].some(
     (e) => (e as { code?: unknown } | null)?.code === "23505",
   );
 
 /** Tells the project's members, after the commit (decision 033 G). */
-const announce = (db: Db, found: Found, runId: number) =>
+export const announce = (db: Db, found: Found, runId: number) =>
   publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
 
 /** `start_run` (decision 033 B): a ready story gets a running run and goes in_progress with its branch. */
@@ -94,7 +95,7 @@ export async function startRun(
 }
 
 /** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. */
-async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
+export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
   const [run] = await db
     .select()
     .from(runs)
@@ -113,7 +114,7 @@ async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
 }
 
 /** Checks the project and locks the run, which must still run. */
-async function lockRunning(tx: Tx, projectId: number, runId: number) {
+export async function lockRunning(tx: Tx, projectId: number, runId: number) {
   await assertActive(tx, projectId);
   const [run] = await tx
     .select()
@@ -358,6 +359,18 @@ export function runRoutes(db: Db) {
         .from(runSteps)
         .where(eq(runSteps.runId, run.id))
         .orderBy(asc(runSteps.id));
+      const asked = await db
+        .select({
+          id: questions.id,
+          question: questions.question,
+          suggestedAnswers: questions.suggestedAnswers,
+          answer: questions.answer,
+          askedAt: questions.askedAt,
+          answeredAt: questions.answeredAt,
+        })
+        .from(questions)
+        .where(eq(questions.runId, run.id))
+        .orderBy(asc(questions.id));
       return c.json({
         run: {
           id: run.id,
@@ -370,6 +383,7 @@ export function runRoutes(db: Db) {
           finishedAt: run.finishedAt,
         },
         steps,
+        questions: asked,
         // The result and the evidence are those this run gave, nothing of the others (decision 035 E).
         criteria: (await storyParts(db, found.story.id)).criteria.map((k) => {
           const mine = k.resultRunId === run.id;

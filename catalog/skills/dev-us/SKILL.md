@@ -52,6 +52,8 @@ A step with `loop_to` and `until` sends you back to that step until the conditio
 
 Before each step call `mcp__cockpit__report_step` with the `run_id`, the `agent` and the event `started`; after it, with the event `finished`, its `status` (`succeeded` or `failed`) and a short `summary`. A step you redo (the review loop) is reported `started` again.
 
+When a choice belongs to the user (a name, a trade-off, a scope you cannot settle from the story and the notes), never guess: call `mcp__cockpit__ask_user` with the `run_id` and the question, plus at most two `suggested_answers` when the choices are obvious. It answers at once. Keep working on what does not depend on the answer, then call `mcp__cockpit__get_answer` with the `question_id` after 30 seconds, after 1 minute, after 2 minutes, then every 5 minutes (each call is journaled: never poll faster). Resume with the answer as soon as `answered` is true.
+
 Give each agent the story, its criteria and the notes. Commit as you go, in small commits that follow the conventions of the repository.
 
 ## Finish

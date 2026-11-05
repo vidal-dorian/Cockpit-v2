@@ -41,7 +41,8 @@
 - **Fait** : tranche E4 (plusieurs équipes, [décision 032](decisions/032-plusieurs-equipes.md)).
 - **Fait** : tranche 7.1 (run minimal, [décision 033](decisions/033-run-minimal.md)).
 - **Fait** : tranche 7.2 (fenêtre « Développer avec Claude », [décision 034](decisions/034-developper-avec-claude.md)).
-- **En cours** : tranche 7.3 (critères et PR, [décision 035](decisions/035-criteres-et-pr.md)).
+- **Fait** : tranche 7.3 (critères et PR, [décision 035](decisions/035-criteres-et-pr.md)).
+- **En cours** : tranche 7.4 (questions de Claude, [décision 036](decisions/036-questions-de-claude.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
