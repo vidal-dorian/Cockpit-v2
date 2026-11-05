@@ -12,7 +12,7 @@ const REASONS: Record<string, string> = {
 const count = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
-/** The decision aid of a finished run (decision 039 E): the verdict in words, its reasons, the one main action. */
+/** The decision aid of a finished run (decision 039 E): the verdict in words and its reasons; the main action is `RunAction`. */
 export function RunVerdict({
   verdict,
   criteria,
