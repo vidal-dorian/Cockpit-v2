@@ -138,14 +138,7 @@ describe("criterion 1: the button", () => {
     ).toBeDefined();
   });
 
-  it.each([
-    "to_validate",
-    "to_rewrite",
-    "in_progress",
-    "in_review",
-    "done",
-    "abandoned",
-  ])(
+  it.each(["to_validate", "to_rewrite", "in_progress", "done", "abandoned"])(
     "given a story %s, when /us/42 loads, then there is no button « Développer avec Claude »",
     async (status) => {
       stub({ status });

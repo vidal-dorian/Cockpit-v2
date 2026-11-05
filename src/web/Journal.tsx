@@ -43,6 +43,8 @@ export const ACTIONS: Record<string, string> = {
   ask_user: "Question posée",
   get_answer: "Réponse consultée",
   answer_question: "Question répondue",
+  request_stop: "Arrêt demandé",
+  close_run: "Run fermé à la main",
   link_pull_request: "PR liée",
   finish_run: "Run terminé",
   sync_issue: "Issue GitHub synchronisée",

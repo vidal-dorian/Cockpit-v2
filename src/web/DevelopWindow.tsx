@@ -302,7 +302,7 @@ function Panel({
   );
 }
 
-/** Decision 034: the button of a ready story and the panel that opens the link of decision 005. */
+/** Decision 034: the button of a ready or in_review story and the panel that opens the link of decision 005. */
 export function DevelopWindow({
   story,
   project,

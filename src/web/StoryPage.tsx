@@ -128,9 +128,10 @@ export function StoryPage() {
               archived={found.project.archived}
               statusRef={statusRef}
             />
-            {found.story.status === "ready" && !found.project.archived && (
-              <DevelopWindow story={found.story} project={found.project} />
-            )}
+            {["ready", "in_review"].includes(found.story.status) &&
+              !found.project.archived && (
+                <DevelopWindow story={found.story} project={found.project} />
+              )}
             <div className="mt-4 grid gap-1">
               <p>
                 <span className={label}>En tant que</span> {found.story.asA}
