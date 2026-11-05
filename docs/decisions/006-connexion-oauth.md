@@ -85,7 +85,7 @@ Au rafraîchissement, les deux empreintes sont remplacées **sur la même ligne*
 ## Points ouverts
 
 1. **Routines** : une routine déclenchée par API reçoit-elle les connecteurs claude.ai ? À vérifier avant la tranche des routines.
-2. **Exposition (1.2)** : Cloudflare Tunnel est retenu (008). Vérifier qu'aucune protection de Cloudflare (anti-bots, pare-feu) ne bloque `160.79.104.0/21`, ni les webhooks GitHub, et que `/.well-known/*` est servi.
+2. **Exposition (1.2)** : Cloudflare Tunnel est retenu (008). Vérifier qu'aucune protection de Cloudflare (anti-bots, pare-feu) ne bloque `160.79.104.0/21`, ni les webhooks GitHub, et que `/.well-known/*` est servi. **Vu le 2026-11-05** : Cloudflare Access sur tout l'hôte bloque `/mcp`, `/.well-known/*`, `/oauth/token` et les webhooks ; les chemins à ouvrir sont dans [021, déploiement derrière Cloudflare Access](021-connecter-claude.md#déploiement-derrière-cloudflare-access-point-ouvert-2-de-la-006).
 3. **SDK MCP** : regarder ce que `@modelcontextprotocol/sdk` fournit côté serveur d'autorisation, en sachant que ses aides visent Express et non Hono.
 
 ## Pistes écartées

@@ -48,7 +48,7 @@ flowchart LR
 | GitHub | Une seule GitHub App, **créée par l'assistant de démarrage** à partir d'un manifeste ([012](decisions/012-configuration-automatique.md)), installée par chaque utilisateur ; connexion par son flux web, en `fetch` ; Octokit (`@octokit/app`) pour l'API des repos, avec l'identité de l'App seule (2.1) | [001](decisions/001-stack.md), [002](decisions/002-modele-donnees.md), [009](decisions/009-connexion-github.md), [011](decisions/011-import-projets.md) |
 | Sessions | Cookie aléatoire de 30 jours, seule son empreinte SHA-256 en base ; aucun jeton GitHub de l'utilisateur gardé | [009](decisions/009-connexion-github.md) |
 | MCP | SDK officiel (`@modelcontextprotocol/sdk`), transport HTTP en mode sans session et réponses JSON, à l'adresse `/mcp` ; jeton vérifié avant le SDK | [004](decisions/004-outils-mcp.md), [016](decisions/016-serveur-mcp.md) |
-| OAuth | Cockpit est le serveur d'autorisation de son connecteur : métadonnées RFC 9728 et 8414, client reconnu par son document CIMD (`https://claude.ai/…` seulement), PKCE `S256`, code de 60 secondes en mémoire, jetons dans `mcp_tokens` (accès d'une heure, rafraîchissement de 90 jours remplacé sur la même ligne) | [006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md) |
+| OAuth | Cockpit est le serveur d'autorisation de son connecteur : métadonnées RFC 9728 et 8414, client reconnu par son document CIMD (les deux adresses publiées par Claude seulement : claude.ai et Claude Code), PKCE `S256`, code de 60 secondes en mémoire, jetons dans `mcp_tokens` (accès d'une heure, rafraîchissement de 90 jours remplacé sur la même ligne) | [006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md) |
 | Tests | Vitest, Testing Library, **PGlite** (PostgreSQL en mémoire), faux GitHub | [001](decisions/001-stack.md), [008](decisions/008-service-en-ligne.md) |
 | Qualité | Biome (lint et format), `tsc` ; la CI lance lint, typecheck, tests et build | [001](decisions/001-stack.md) |
 | Exposition | Cloudflare Tunnel, sur le domaine de Dorian | [008](decisions/008-service-en-ligne.md) |
@@ -191,7 +191,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 |---|---|
 | Permissions ajoutées après le MVP : modification manuelle de l'App et approbation de chaque utilisateur | [012](decisions/012-configuration-automatique.md) |
 | Relancer une US en revue quand la CI échoue après la PR | [004](decisions/004-outils-mcp.md), tranche 7.5 |
-| Cloudflare ne doit bloquer ni les adresses d'Anthropic ni les webhooks | [006](decisions/006-connexion-oauth.md), tranche 1.2 |
+| Cloudflare ne doit bloquer ni les adresses d'Anthropic ni les webhooks (avec Cloudflare Access : `/mcp`, `/.well-known/*`, `/oauth/token` et `/api/webhooks/github` en « Bypass ») | [006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md), tranche 1.2 |
 | Repo déjà suivi par un autre compte : refus qui révèle l'existence du projet | [008](decisions/008-service-en-ligne.md), tranche 2.1 |
 | Choix de l'hébergeur ; facturation par personne ou par organisation | [008](decisions/008-service-en-ligne.md), [offres](offres.md) |
 | Écrans restants et version téléphone | [003](decisions/003-interface.md) |
