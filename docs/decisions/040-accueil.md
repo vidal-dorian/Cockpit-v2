@@ -15,7 +15,7 @@ Le brief veut un accueil qui répond à une question, « qu'est-ce qui m'attend 
 | # | Question | Décision |
 |---|---|---|
 | A | Une route ? | **`GET /api/home`**, pour l'utilisateur de la session (401 sinon), sur ses projets non archivés : `{ forYou, claudeWorks, projects }`. Rien n'est stocké : tout se lit dans les tables existantes (002) |
-| B | « À toi de jouer » ? | Dans l'ordre des verbes : **Répondre** (chaque question en attente d'un run en cours, 036) ; **Valider** (chaque US `to_validate`) ; **Relire** (chaque US `in_review` avec une PR, avec l'état de sa CI en clair, 038) ; **Vérifier** (une US `ready` dont le dernier run est fini et « à vérifier », 039, avec ses raisons). **Une US n'y figure qu'une fois.** Chaque élément dit son projet et mène où agir : la question se répond **sur place** (le bloc de réponse de la 036), l'US à valider mène à `/us/:id`, la PR à relire à GitHub et à `/us/:id`, le run à vérifier à `/runs/:id` |
+| B | « À toi de jouer » ? | Dans l'ordre des verbes : **Répondre** (chaque question en attente d'un run en cours, 036) ; **Valider** (chaque US `to_validate`) ; **Relire** (chaque US `in_review` avec une PR, avec l'état de sa CI en clair, 038) ; **Vérifier** (une US `ready` dont le dernier run est fini et « à vérifier », 039, avec ses raisons). **Une US n'y figure qu'une fois**, et une US dont un run tourne n'y a que sa question en attente : ni « Relire » ni « Vérifier » pendant que Claude y travaille. Chaque élément dit son projet et mène où agir : la question se répond **sur place** (le bloc de réponse de la 036), l'US à valider mène à `/us/:id`, la PR à relire à GitHub et à `/us/:id`, le run à vérifier à `/runs/:id` |
 | C | « Claude travaille » ? | Chaque run `running` : l'US (« je veux »), le projet et **l'étape en cours** (l'agent de la dernière étape ouverte, sinon « Démarrage »), menant à `/runs/:id` |
 | D | « Projets » ? | Chaque projet actif avec sa **pastille** : « À toi » s'il a un élément dans « À toi de jouer », sinon « Claude travaille » s'il a un run en cours, sinon « Rien en cours ». La couleur suit la 003 (corail, violet) et n'est jamais seule : le mot est écrit. Cockpit n'a pas de barre latérale (028) : la pastille est sur l'accueil |
 | E | Le compteur ? | Sur l'onglet « Accueil » de la barre du haut, le nombre d'éléments de « À toi de jouer » quand il n'est pas nul, lu dans le même `GET /api/home` (003) |
@@ -32,5 +32,7 @@ Le brief veut un accueil qui répond à une question, « qu'est-ce qui m'attend 
 
 ## Limites connues
 
-- **Le verdict de chaque run candidat** se calcule à chaque lecture de l'accueil (039 D) : une requête de plus par US `ready` qui a un run fini.
+- **Le verdict de chaque run candidat** se calcule à chaque lecture de l'accueil (039 D), en un nombre fixe de requêtes.
+- **Toutes les écritures ne préviennent pas le flux SSE** : les US écrites par Claude (4.3) et les décisions humaines sur une US (4.4) ne rechargent pas l'accueil ; elles apparaissent au prochain affichage ou au retour sur l'onglet.
+- **Une question par carte** : chaque question en attente a son propre bouton « Répondre » ; chaque carte compte comme une zone (003, règle 2).
 - **Une US validée par erreur ou un run muet** ne reviennent pas dans « À toi de jouer » : l'US `ready` sans run n'attend personne, et un run `running` muet est dans « Claude travaille » (037 : l'humain le ferme).
