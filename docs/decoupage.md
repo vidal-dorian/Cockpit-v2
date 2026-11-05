@@ -43,7 +43,8 @@
 - **Fait** : tranche 7.2 (fenêtre « Développer avec Claude », [décision 034](decisions/034-developper-avec-claude.md)).
 - **Fait** : tranche 7.3 (critères et PR, [décision 035](decisions/035-criteres-et-pr.md)).
 - **Fait** : tranche 7.4 (questions de Claude, [décision 036](decisions/036-questions-de-claude.md)).
-- **En cours** : tranche 7.5 (arrêter, relancer, fermer, [décision 037](decisions/037-arreter-relancer-fermer.md)).
+- **Fait** : tranche 7.5 (arrêter, relancer, fermer, [décision 037](decisions/037-arreter-relancer-fermer.md)).
+- **En cours** : tranche 7.6 (suivi de la PR, [décision 038](decisions/038-suivi-de-la-pr.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
