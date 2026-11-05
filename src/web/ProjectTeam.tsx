@@ -309,6 +309,7 @@ export function ProjectTeam({
           <button
             type="button"
             aria-describedby="switch-team-warning"
+            disabled={commit.isPending}
             onClick={() => goTo(switchTo || null)}
             className={`mt-2 ${button}`}
           >
@@ -381,7 +382,7 @@ export function ProjectTeam({
           </p>
           <button
             type="button"
-            disabled={!newName || newNameProblem !== null}
+            disabled={commit.isPending || !newName || newNameProblem !== null}
             onClick={() => {
               setCopy(draft ?? { steps: DEFAULT_STEPS, body: "" });
               goTo(newName);

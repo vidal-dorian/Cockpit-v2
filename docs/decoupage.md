@@ -38,7 +38,7 @@
 - **Fait** : décision 028 (style « Crème sombre », onglets) et tranche E1 (`/dev-us` lit `.claude/team.md`, [décision 029](decisions/029-equipe-d-agents.md)).
 - **Fait** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)).
 - **Fait** : tranche E3 (l'équipe en graphe, [décision 031](decisions/031-equipe-en-graphe.md)).
-- **En cours** : tranche E4 (plusieurs équipes, [décision 032](decisions/032-plusieurs-equipes.md)).
+- **En cours** : tranche E4 (plusieurs équipes, [décision 032](decisions/032-plusieurs-equipes.md)) : écrite et testée, en relecture.
 - **Ensuite** : la phase 7.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).

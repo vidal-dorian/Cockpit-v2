@@ -521,7 +521,7 @@ export function githubClient(config: GitHubAppConfig) {
           : [],
         rootBlobs.includes(".mcp.json") ? readFile(".mcp.json") : null,
       ]);
-      // A second wave, only when team.md is there: it is listed by the .claude read above.
+      // A second wave, only when team.md or named teams are there: they are listed by the .claude read above.
       const teamNames = claude
         .map((p) => /^\.claude\/teams\/([^/]+)\.md$/.exec(p)?.[1])
         .filter(
