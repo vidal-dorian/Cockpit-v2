@@ -6,6 +6,8 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { runSteps, runs, userStories } from "./db/schema.ts";
 import { publish, subscribe } from "./events.ts";
+import type { ReadGitHub } from "./github.ts";
+import { syncIssue } from "./issues.ts";
 import { isDatabaseId } from "./projects.ts";
 import {
   changeStory,
@@ -31,6 +33,7 @@ const announce = (db: Db, found: Found, runId: number) =>
 export async function startRun(
   db: Db,
   userId: number,
+  readGitHub: ReadGitHub,
   entry: Entry,
   found: Found,
   args: { branch: string; model: string; comment?: string },
@@ -75,6 +78,7 @@ export async function startRun(
         return row;
       },
     );
+    await syncIssue(db, readGitHub, userId, story.id);
     await announce(db, found, runId);
     const { criteria } = await storyParts(db, story.id);
     return { runId, story, criteria };
@@ -170,11 +174,12 @@ export async function reportStep(
 export async function finishRun(
   db: Db,
   userId: number,
+  readGitHub: ReadGitHub,
   entry: Entry,
   args: { run_id: number; outcome: "succeeded" | "failed"; summary: string },
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
-  await act(db, entry, async (tx) => {
+  const reopened = await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
     await tx
       .update(runSteps)
@@ -190,7 +195,7 @@ export async function finishRun(
         finishedAt: sql`now()`,
       })
       .where(eq(runs.id, args.run_id));
-    await tx
+    const changed = await tx
       .update(userStories)
       .set({ status: "ready", updatedAt: sql`now()` })
       .where(
@@ -198,8 +203,11 @@ export async function finishRun(
           eq(userStories.id, found.story.id),
           eq(userStories.status, "in_progress"),
         ),
-      );
+      )
+      .returning({ id: userStories.id });
+    return changed.length > 0;
   });
+  if (reopened) await syncIssue(db, readGitHub, userId, found.story.id);
   await announce(db, found, args.run_id);
   return { run_id: args.run_id, status: args.outcome };
 }

@@ -726,8 +726,18 @@ const tools = {
         .regex(BRANCH)
         .refine((b) => !b.includes(".."))
         .describe("The git branch of the story, e.g. us/42-login"),
-      model: z.string().min(1).max(100).describe("The model of this session"),
-      comment: z.string().max(10_000).optional().describe("An optional note"),
+      model: z
+        .string()
+        .min(1)
+        .max(100)
+        .refine(noNul)
+        .describe("The model of this session"),
+      comment: z
+        .string()
+        .max(10_000)
+        .refine(noNul)
+        .optional()
+        .describe("An optional note"),
     }),
     async (call, args) => {
       const found = await memberStory(call.db, call.userId, args.story_id);
@@ -735,6 +745,7 @@ const tools = {
       const { runId, story, criteria } = await startRun(
         call.db,
         call.userId,
+        call.readGitHub,
         call.entry,
         found,
         args,
@@ -774,7 +785,7 @@ const tools = {
           .enum(["succeeded", "failed"])
           .optional()
           .describe("Required with event finished"),
-        summary: z.string().max(10_000).optional(),
+        summary: z.string().max(10_000).refine(noNul).optional(),
       })
       .refine((a) => a.event === "started" || a.status !== undefined, {
         message: "status is required with event finished",
@@ -788,9 +799,10 @@ const tools = {
     z.object({
       run_id: id.describe("The run_id of start_run"),
       outcome: z.enum(["succeeded", "failed"]),
-      summary: z.string().min(1).max(10_000),
+      summary: z.string().min(1).max(10_000).refine(noNul),
     }),
-    (call, args) => finishRun(call.db, call.userId, call.entry, args),
+    (call, args) =>
+      finishRun(call.db, call.userId, call.readGitHub, call.entry, args),
   ),
 };
 
