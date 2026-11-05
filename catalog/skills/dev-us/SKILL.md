@@ -5,7 +5,7 @@ description: Develop one user story of Cockpit from start to pull request. Use w
 
 # Develop a user story
 
-The message is `/dev-us <story_id> [--branch <name>]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
+The message is `/dev-us <story_id> [--branch <name>] [--team <name>]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
 
 The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, the `cockpit` MCP server is not connected: tell the user and stop.
 
@@ -27,7 +27,7 @@ If a check fails, stop and say why. Change nothing.
 
 Read `CLAUDE.md` first: it holds the commands and the conventions. Then run the steps in order, never starting a step before the previous one is done.
 
-If `.claude/team.md` exists, its steps are the ones to follow. Its front matter lists them, each naming an `agent` of `.claude/agents/` and saying what it `does`:
+Without `--team`, if `.claude/team.md` exists, its steps are the ones to follow. Its front matter lists them, each naming an `agent` of `.claude/agents/` and saying what it `does`:
 
 ```
 ---
@@ -37,7 +37,7 @@ steps:
 ---
 ```
 
-A step with `loop_to` and `until` sends you back to that step until the condition holds. Without that file, the default steps are these three, in this order:
+A step with `loop_to` and `until` sends you back to that step until the condition holds. With `--team <name>`, the steps are those of `.claude/teams/<name>.md`, in the same format; if that file does not exist, stop and say so, never fall back to the default team. Without `--team`, and without `.claude/team.md`, the default steps are these three, in this order:
 
 1. **test-writer** writes the acceptance tests from the criteria. They must fail, for the right reason.
 2. **developer** implements until those tests pass, without touching them.

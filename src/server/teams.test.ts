@@ -429,7 +429,7 @@ describe("decision 032 A, F: a name outside the format", () => {
     ["an empty string", ""],
     ["a slash", "a/b"],
     ["a dot", "a.b"],
-    ["241 characters", "a".repeat(241)],
+    ["239 characters", "a".repeat(239)],
     ["a number", 5],
     ["an array", ["leger"]],
     ["an object", {}],
@@ -456,10 +456,10 @@ describe("decision 032 A, F: a name outside the format", () => {
     expect(await historyCount(ctx)).toBe(0);
   });
 
-  it("given a name of 240 characters, when a team is created, then it is accepted", async () => {
+  it("given a name of 238 characters, when a team is created, then it is accepted", async () => {
     const ctx = await ready();
 
-    const name = "a".repeat(240);
+    const name = "a".repeat(238);
     const res = await apply(ctx, { name, before: null, after: LEGER });
 
     expect(res.status).toBe(200);

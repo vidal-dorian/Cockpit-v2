@@ -316,6 +316,7 @@ export function ProjectAgents({
           hidden={editing !== null}
           agents={list.agents}
           team={list.team ?? null}
+          teams={list.teams ?? []}
           onSaved={reload}
           onEditAgent={(name) => {
             const text = list.agents.find((a) => a.name === name)?.text;

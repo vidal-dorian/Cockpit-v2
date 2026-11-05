@@ -3,7 +3,7 @@ import { App } from "@octokit/app";
 import { Octokit } from "@octokit/core";
 import { z } from "zod";
 import type { ReadInstance } from "./instance.ts";
-import { AGENT_NAME } from "./team.ts";
+import { AGENT_NAME, MAX_TEAM_NAME } from "./team.ts";
 
 export type GitHubAppConfig = {
   githubAppId: string;
@@ -80,6 +80,8 @@ export type RepoFiles = {
   mcpJson: string | null;
   /** The text of .claude/team.md (decision 029), null when absent. */
   teamMd: string | null;
+  /** The texts of the named teams `.claude/teams/<name>.md` (decision 032), "" for one that cannot be read. */
+  teams: string[];
   /** Names of the files directly in .claude/agents. */
   agents: string[];
   /** Names of the files directly in .claude/skills/dev-us. */
@@ -484,6 +486,7 @@ export function githubClient(config: GitHubAppConfig) {
         const whole = await readTree(at(".claude"), true);
         if (!whole?.truncated) return blobs(whole, ".claude/");
         // A huge .claude: GitHub cut the answer, so read the three directories we need one by one.
+        // shortcut: named teams (decision 032) are not listed in that case, so they are not checked; add a fourth read if a `.claude` that huge shows up.
         const parts = await Promise.all([
           readTree(at(".claude")).then((t) => blobs(t, ".claude/")),
           readTree(at(".claude/agents")).then((t) =>
@@ -498,7 +501,7 @@ export function githubClient(config: GitHubAppConfig) {
       const readFile = async (path: string) => {
         try {
           const { data } = await octokit.request(
-            "GET /repos/{owner}/{repo}/contents/{path}",
+            "GET /repos/{owner}/{repo}/contents/{+path}",
             { owner, repo, path, ref: root.sha },
           );
           const file = contentsSchema.parse(data);
@@ -518,9 +521,20 @@ export function githubClient(config: GitHubAppConfig) {
         rootBlobs.includes(".mcp.json") ? readFile(".mcp.json") : null,
       ]);
       // A second wave, only when team.md is there: it is listed by the .claude read above.
-      const teamMd = claude.includes(".claude/team.md")
-        ? await readFile(".claude/team.md")
-        : null;
+      const teamNames = claude
+        .map((p) => /^\.claude\/teams\/([^/]+)\.md$/.exec(p)?.[1])
+        .filter(
+          (name) =>
+            name !== undefined &&
+            name.length <= MAX_TEAM_NAME &&
+            AGENT_NAME.test(name),
+        );
+      const [teamMd, ...teams] = await Promise.all([
+        claude.includes(".claude/team.md") ? readFile(".claude/team.md") : null,
+        ...teamNames.map(
+          async (name) => (await readFile(`.claude/teams/${name}.md`)) ?? "",
+        ),
+      ]);
       const paths = [...rootBlobs, ...claude, ...workflows];
       const filesIn = (dir: string) =>
         paths
@@ -534,6 +548,7 @@ export function githubClient(config: GitHubAppConfig) {
         workflows: filesIn(".github/workflows"),
         mcpJson,
         teamMd,
+        teams,
         agents: filesIn(".claude/agents"),
         devUsSkill: filesIn(".claude/skills/dev-us"),
       };
@@ -674,7 +689,11 @@ export function githubClient(config: GitHubAppConfig) {
       installationId: number,
       fullName: string,
     ): Promise<
-      | { agents: { name: string; text: string | null }[]; team: string | null }
+      | {
+          agents: { name: string; text: string | null }[];
+          team: string | null;
+          teams: { name: string; text: string }[];
+        }
       | RepoWriteRefusal
     > {
       const repo = await writeAccess(installationId, fullName);
@@ -683,33 +702,50 @@ export function githubClient(config: GitHubAppConfig) {
       // null only for no file: one that cannot be read gives "", which the page shows as not rewritable.
       const found = await repo.inspect(".claude/team.md", head.sha);
       const team = found === null ? null : (found.text ?? "");
-      let tree: z.infer<typeof treeSchema>;
-      try {
-        const { data } = await repo.octokit.request(
-          "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
-          {
-            owner: repo.owner,
-            repo: repo.name,
-            tree_sha: `${head.sha}:.claude/agents`,
-          },
-        );
-        tree = treeSchema.parse(data);
-      } catch (error) {
-        // 404 or 422: no such directory (or not a directory).
-        const status = (error as { status?: number }).status;
-        if (status === 404 || status === 422) return { agents: [], team };
-        throw error;
-      }
-      const names = tree.tree
-        .filter((e) => e.type === "blob" && /^100(644|755)$/.test(e.mode))
-        .filter((e) => e.path.endsWith(".md"))
-        .map((e) => e.path.slice(0, -".md".length))
-        .filter((name) => AGENT_NAME.test(name))
-        .sort();
+      // The blobs of a directory, [] when there is none (404, or 422 for a file).
+      const blobsOf = async (dir: string) => {
+        try {
+          const { data } = await repo.octokit.request(
+            "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+            {
+              owner: repo.owner,
+              repo: repo.name,
+              tree_sha: `${head.sha}:${dir}`,
+            },
+          );
+          return treeSchema.parse(data).tree.filter((e) => e.type === "blob");
+        } catch (error) {
+          const status = (error as { status?: number }).status;
+          if (status === 404 || status === 422) return [];
+          throw error;
+        }
+      };
+      const mdNames = (entries: { path: string }[], max: number) =>
+        entries
+          .filter((e) => e.path.endsWith(".md"))
+          .map((e) => e.path.slice(0, -".md".length))
+          .filter((name) => name.length <= max && AGENT_NAME.test(name))
+          .sort();
+      const agentNames = mdNames(
+        (await blobsOf(".claude/agents")).filter((e) =>
+          /^100(644|755)$/.test(e.mode),
+        ),
+        Infinity,
+      );
+      // Decision 032 D: every entry named like a team is listed, a symlink or a too large file with an empty text.
+      const teamNames = mdNames(await blobsOf(".claude/teams"), MAX_TEAM_NAME);
       return {
         team,
+        teams: await Promise.all(
+          teamNames.map(async (name) => ({
+            name,
+            text:
+              (await repo.inspect(`.claude/teams/${name}.md`, head.sha))
+                ?.text ?? "",
+          })),
+        ),
         agents: await Promise.all(
-          names.map(async (name) => ({
+          agentNames.map(async (name) => ({
             name,
             text:
               (await repo.inspect(`.claude/agents/${name}.md`, head.sha))

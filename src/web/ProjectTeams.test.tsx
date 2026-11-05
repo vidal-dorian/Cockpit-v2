@@ -369,7 +369,7 @@ describe("decision 032 E: a new team", () => {
     ["a leading dash", "-x", INVALID],
     ["a space", "a b", INVALID],
     ["a path", "../x", INVALID],
-    ["241 characters", "a".repeat(241), INVALID],
+    ["239 characters", "a".repeat(239), INVALID],
     ["a name already taken", "leger", TAKEN],
   ])(
     "given the name %s, when « Nouvelle équipe » is open, then « Créer l'équipe » is disabled and the message is shown",

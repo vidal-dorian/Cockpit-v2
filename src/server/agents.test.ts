@@ -140,6 +140,7 @@ describe("decision 030 B: GET /api/projects/:id/agents", () => {
       ],
       catalog: [{ name: "test-writer", text: fromCatalog("test-writer") }],
       team: null,
+      teams: [],
     });
     noWrite(ctx);
   });
@@ -157,6 +158,7 @@ describe("decision 030 B: GET /api/projects/:id/agents", () => {
         text: fromCatalog(name),
       })),
       team: null,
+      teams: [],
     });
   });
 
