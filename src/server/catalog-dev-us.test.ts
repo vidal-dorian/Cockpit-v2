@@ -59,3 +59,18 @@ describe("criterion 9 (slice 7.4, decision 036 I): the questions", () => {
     },
   );
 });
+
+describe("criterion 10 (slice 7.5, decision 037 H): stopping and relaunching", () => {
+  it("given the skill dev-us, when it is read, then it names stop_requested and says to call finish_run failed when it is true", () => {
+    const text = readFileSync(SKILL, "utf8");
+    expect(text).toContain("stop_requested");
+    expect(text).toMatch(/stop_requested[\s\S]*finish_run[\s\S]*failed/);
+  });
+
+  it("given the skill dev-us, when it is read, then it says that an in_review story reuses its PR with link_pull_request instead of opening a new one", () => {
+    const text = readFileSync(SKILL, "utf8");
+    expect(text).toContain("in_review");
+    expect(text).toMatch(/in_review[\s\S]*pr_number/);
+    expect(text).toMatch(/in_review[\s\S]*link_pull_request/);
+  });
+});

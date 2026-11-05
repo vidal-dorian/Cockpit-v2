@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { RunControls } from "./RunControls.tsx";
 import { RunQuestions } from "./RunQuestions.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
 import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
@@ -87,6 +88,17 @@ export function RunPage() {
                 {found.project.name}
               </span>
             </p>
+            <RunControls
+              runId={id}
+              running={found.run.status === "running"}
+              archived={found.project.archived}
+              stopRequested={found.run.stopRequestedAt !== null}
+              relaunchStoryId={
+                ["ready", "in_review"].includes(found.story.status)
+                  ? found.story.id
+                  : null
+              }
+            />
             <div className="mt-4 grid gap-1">
               <p>
                 <span className={label}>Branche</span> {found.run.branch}

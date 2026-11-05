@@ -14,7 +14,7 @@ The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, t
 If a check fails, stop and say why. Change nothing.
 
 1. **The folder.** The current folder must be the repository of the story's project: compare `git remote get-url origin` with the `full_name` of the project (step 2).
-2. **The story.** Call `mcp__cockpit__get_user_story` with the `story_id`. Refuse a story whose status is not `ready`: only a story the user validated is developed. Tell the user its status. Also refuse an archived project. Read the narrative, the notes, every criterion and the `depends_on` stories (a dependency that is not done is worth a warning, not a stop).
+2. **The story.** Call `mcp__cockpit__get_user_story` with the `story_id`. Develop only a story whose status is `ready` or `in_review`, and refuse any other: a story the user validated is developed, and one in review is taken up again on its branch. Tell the user its status. Also refuse an archived project. Read the narrative, the notes, every criterion and the `depends_on` stories (a dependency that is not done is worth a warning, not a stop).
 3. **The working tree.** `git status --porcelain` must print nothing: the working tree must be clean.
 4. **The default branch.** Take `default_branch` from the project, then `git fetch origin` and bring that branch up to date (fast-forward only).
 5. **The team.** With `--team <name>`, the name is made of `a-z`, `0-9` and `-` only, and `.claude/teams/<name>.md` must exist on that branch: if it does not exist, stop and say so, never fall back to the default team.
@@ -52,6 +52,8 @@ A step with `loop_to` and `until` sends you back to that step until the conditio
 
 Before each step call `mcp__cockpit__report_step` with the `run_id`, the `agent` and the event `started`; after it, with the event `finished`, its `status` (`succeeded` or `failed`) and a short `summary`. A step you redo (the review loop) is reported `started` again.
 
+When `report_step` or `get_answer` answers `stop_requested: true`, the user asked to stop: call `mcp__cockpit__finish_run` with `outcome` `failed` and the `summary` « Arrêt demandé par l'utilisateur » (the user reads it in Cockpit), then stop, pushing nothing more.
+
 When a choice belongs to the user (a name, a trade-off, a scope you cannot settle from the story and the notes), never guess: call `mcp__cockpit__ask_user` with the `run_id` and the question, plus at most two `suggested_answers` when the choices are obvious. It answers at once. Keep working on what does not depend on the answer, then call `mcp__cockpit__get_answer` with the `question_id` after 30 seconds, after 1 minute, after 2 minutes, then every 5 minutes (each call is journaled: never poll faster). Resume with the answer as soon as `answered` is true.
 
 Give each agent the story, its criteria and the notes. Commit as you go, in small commits that follow the conventions of the repository.
@@ -61,8 +63,8 @@ Give each agent the story, its criteria and the notes. Commit as you go, in smal
 1. Run **all the tests**, the lint and the type check of the repository (the commands are in `CLAUDE.md`). Everything must pass: fix, never skip or disable.
 2. Call `mcp__cockpit__report_criterion` once per criterion of the story, with `result` `passed` or `failed` and as `evidence` the test that proves it (file and test name) or what fails.
 3. Push the branch.
-4. Open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
-5. Call `mcp__cockpit__link_pull_request` with the `run_id` and the number of the pull request you just opened.
+4. If the story already had a `pr_number` when you read it before starting, do not open a new pull request: the push of step 3 updates the one of the story, so go to step 5 with the `pr_number` of the story. Otherwise open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
+5. Call `mcp__cockpit__link_pull_request` with the `run_id` and the number of the pull request you just opened (or the story's `pr_number`).
 6. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work.
 7. Tell the user the link of the pull request, and what you are unsure about.
 

@@ -89,8 +89,16 @@ describe("criterion 6: GET /api/runs/:id", () => {
     ]);
     expect(typeof body.steps[0]?.startedAt).toBe("string");
     expect(typeof body.steps[0]?.finishedAt).toBe("string");
-    expect(body.story).toEqual({ id: s.id, iWant: "relire" });
-    expect(body.project).toEqual({ id: s.projectId, name: "user1000/app" });
+    expect(body.story).toEqual({
+      id: s.id,
+      iWant: "relire",
+      status: "in_progress",
+    });
+    expect(body.project).toEqual({
+      id: s.projectId,
+      name: "user1000/app",
+      archived: false,
+    });
   });
 
   it("given a finished run, when I read it, then it has its summary and finishedAt", async () => {

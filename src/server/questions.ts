@@ -55,18 +55,21 @@ export async function getAnswer(
       throw new Refused("not_found");
     });
   await ownRun(db, userId, entry, asked.runId);
-  const row = await act(db, entry, async (tx) => {
+  const { row, stopped } = await act(db, entry, async (tx) => {
     const [current] = await tx
       .select({ answer: questions.answer })
       .from(questions)
       .where(eq(questions.id, args.question_id));
-    return current;
+    const [run] = await tx
+      .select({ at: runs.stopRequestedAt })
+      .from(runs)
+      .where(eq(runs.id, asked.runId));
+    return { row: current, stopped: run?.at != null };
   });
-  // Asking for a stop comes with slice 7.5.
   return {
     answered: row?.answer != null,
     answer: row?.answer ?? null,
-    stop_requested: false,
+    stop_requested: stopped,
   };
 }
 

@@ -123,9 +123,9 @@ Qui peut faire chaque transition d'une US, et par où. Elle reprend le brief (§
 | `to_validate` → `ready` (valider) | **jamais** | oui *(et depuis `to_rewrite`, 018 B ; l'humain modifie aussi une US `to_validate`, `to_rewrite` ou `ready` sans en changer le statut, 018 C)* | — |
 | `to_validate` → `to_rewrite` (renvoyer, commentaire obligatoire) | **jamais** | oui | — |
 | `to_rewrite` → `to_validate` (réécrire) | `update_user_story` | — | — |
-| `ready` → `in_progress` | `start_run` | — | — |
+| `ready` → `in_progress` *(et `in_review` → `in_progress`, 037 E)* | `start_run` | — | — |
 | `in_progress` → `in_review` | `link_pull_request` | — | — |
-| `in_progress` → `ready` (run échoué ou arrêté avant la PR) | `finish_run` | fermeture à la main d'un run muet | — |
+| `in_progress` → `ready` (run échoué ou arrêté avant la PR) *(→ `in_review` si une PR est liée, 037 C)* | `finish_run` | fermeture à la main d'un run muet | — |
 | `in_review` → `done` (PR mergée) | **jamais** | **jamais** | oui |
 | `in_review` → `ready` (PR fermée sans merge) | **jamais** | — | oui |
 | n'importe quel état → `abandoned` | **jamais** | oui | — |
@@ -149,7 +149,7 @@ Valider, renvoyer, terminer ou abandonner une US ; modifier une US qui n'est pas
 
 ## Points ouverts
 
-1. **Relancer une US en revue** (CI rouge après l'ouverture de la PR) : `start_run` n'accepte qu'une US `ready`. À trancher en tranche 7.5 : autoriser `in_review` → `in_progress` pour une relance, ou attendre la relance automatique (après le MVP).
+1. ~~**Relancer une US en revue**~~ (tranché par la [037](037-arreter-relancer-fermer.md) E : `start_run` accepte une US `in_review`) (CI rouge après l'ouverture de la PR) : ~~`start_run` n'accepte qu'une US `ready`. À trancher en tranche 7.5 : autoriser `in_review` → `in_progress` pour une relance, ou attendre la relance automatique (après le MVP).~~
 2. ~~**Modèle demandé** (`runs.model_requested`)~~ : réglé par la [005](005-lancement-local.md). Le modèle est fixé dans la fiche des agents ; la colonne est retirée.
 
 ## Pistes écartées
