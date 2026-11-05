@@ -22,6 +22,7 @@ import {
   WrongStatus,
 } from "./stories.ts";
 import { assertActive } from "./tickets.ts";
+import { verdict } from "./verdict.ts";
 
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
 
@@ -454,6 +455,21 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         .from(questions)
         .where(eq(questions.runId, run.id))
         .orderBy(asc(questions.id));
+      // The result and the evidence are those this run gave, nothing of the others (decision 035 E).
+      const parts = (await storyParts(db, found.story.id)).criteria;
+      const criteria = parts.map((k) => {
+        const mine = k.resultRunId === run.id;
+        return {
+          id: k.id,
+          position: k.position,
+          given: k.givenText,
+          when: k.whenText,
+          // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
+          then: k.thenText,
+          result: mine ? k.result : null,
+          evidence: mine ? k.evidence : null,
+        };
+      });
       return c.json({
         run: {
           id: run.id,
@@ -468,24 +484,27 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         },
         steps,
         questions: asked,
-        // The result and the evidence are those this run gave, nothing of the others (decision 035 E).
-        criteria: (await storyParts(db, found.story.id)).criteria.map((k) => {
-          const mine = k.resultRunId === run.id;
-          return {
-            id: k.id,
-            position: k.position,
-            given: k.givenText,
-            when: k.whenText,
-            // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
-            then: k.thenText,
-            result: mine ? k.result : null,
-            evidence: mine ? k.evidence : null,
-          };
-        }),
+        criteria,
+        verdict:
+          run.status === "running"
+            ? null
+            : verdict({
+                runStatus: run.status,
+                criteria: parts.map((k) => ({
+                  result: k.result,
+                  givenByThisRun: k.resultRunId === run.id,
+                })),
+                prNumber: found.story.prNumber,
+                prCiState: found.story.prCiState,
+                prReviewState: found.story.prReviewState,
+              }),
         story: {
           id: found.story.id,
           iWant: found.story.iWant,
           status: found.story.status,
+          prNumber: found.story.prNumber,
+          prCiState: found.story.prCiState,
+          prReviewState: found.story.prReviewState,
         },
         project: {
           id: found.project.id,

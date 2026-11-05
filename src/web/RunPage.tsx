@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { RunControls } from "./RunControls.tsx";
 import { RunQuestions } from "./RunQuestions.tsx";
+import { RunAction, RunVerdict } from "./RunVerdict.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
 import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
@@ -25,6 +26,33 @@ const duration = (from: string, to: string | null) => {
 };
 
 const label = "font-semibold";
+
+type Run = Exclude<Awaited<ReturnType<typeof fetchRun>>, "not_found" | null>;
+
+function Steps({ steps }: { steps: Run["steps"] }) {
+  return (
+    <section className="mt-6">
+      <h2 className="font-heading text-xl font-bold">Étapes</h2>
+      <ol className="mt-2 grid gap-2">
+        {steps.map((step) => (
+          <li key={step.id} className={`${card} p-3`}>
+            <p>
+              <span className={label}>{step.agent}</span>{" "}
+              <span className="text-muted-foreground">
+                {RUN_STATUSES[step.status] ?? step.status}
+                {duration(step.startedAt, step.finishedAt) &&
+                  ` · ${duration(step.startedAt, step.finishedAt)}`}
+              </span>
+            </p>
+            {step.summary && (
+              <p className="mt-1 whitespace-pre-wrap">{step.summary}</p>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
 
 /** What Claude does on a story, live (decision 033 I). */
 export function RunPage() {
@@ -115,26 +143,12 @@ export function RunPage() {
                 </p>
               )}
             </div>
-            <section className="mt-6">
-              <h2 className="font-heading text-xl font-bold">Étapes</h2>
-              <ol className="mt-2 grid gap-2">
-                {found.steps.map((step) => (
-                  <li key={step.id} className={`${card} p-3`}>
-                    <p>
-                      <span className={label}>{step.agent}</span>{" "}
-                      <span className="text-muted-foreground">
-                        {RUN_STATUSES[step.status] ?? step.status}
-                        {duration(step.startedAt, step.finishedAt) &&
-                          ` · ${duration(step.startedAt, step.finishedAt)}`}
-                      </span>
-                    </p>
-                    {step.summary && (
-                      <p className="mt-1 whitespace-pre-wrap">{step.summary}</p>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </section>
+            {found.verdict && (
+              <RunVerdict
+                verdict={found.verdict}
+                criteria={found.criteria ?? []}
+              />
+            )}
             <section className="mt-6">
               <h2 className="font-heading text-xl font-bold">Critères</h2>
               <ol className="mt-2 grid gap-2">
@@ -164,6 +178,24 @@ export function RunPage() {
                 ))}
               </ol>
             </section>
+            {found.verdict && found.story.prNumber != null && (
+              <div>
+                <RunAction
+                  prUrl={`https://github.com/${found.project.name}/pull/${found.story.prNumber}`}
+                  merged={found.story.status === "done"}
+                />
+              </div>
+            )}
+            {found.run.status === "running" ? (
+              <Steps steps={found.steps} />
+            ) : (
+              <details className="mt-6">
+                <summary className={`cursor-pointer ${focusRing}`}>
+                  Journal détaillé
+                </summary>
+                <Steps steps={found.steps} />
+              </details>
+            )}
             <RunQuestions
               runId={id}
               running={found.run.status === "running"}
