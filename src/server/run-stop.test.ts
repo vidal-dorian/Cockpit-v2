@@ -118,7 +118,10 @@ describe("criterion 1: the member asks Claude to stop", () => {
 
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "stop_already_requested" });
-    expect(await entries(s.db, "request_stop")).toHaveLength(1);
+    // Decision 010 C: a refusal leaves its entry too.
+    expect(
+      (await entries(s.db, "request_stop")).map((e) => e.result),
+    ).toEqual(["ok", "refused"]);
   });
 
   it("given an archived project, when the stop is posted, then 409 project_archived and nothing changes", async () => {
