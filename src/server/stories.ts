@@ -339,6 +339,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
         project: {
           id: project.id,
           fullName: project.fullName,
+          defaultBranch: project.defaultBranch,
           archived: project.archivedAt !== null,
         },
       });

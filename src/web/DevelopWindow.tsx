@@ -7,6 +7,9 @@ import { button, card, field, primaryButton } from "./ui.ts";
 // Mirror of BRANCH in src/server/mcp.ts (decision 033 B), `..` being refused next to it.
 const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
 const MAX_PROMPT = 10_000;
+const MAX_BRANCH = 255;
+const validBranch = (name: string) =>
+  name.length <= MAX_BRANCH && BRANCH.test(name) && !name.includes("..");
 
 type Story = {
   id: number;
@@ -18,15 +21,17 @@ type Story = {
 const storageKey = (projectId: number) => `cockpit.clone.${projectId}`;
 
 /** The short title of decision 005 D: lower case, no accents, dashes, 40 characters at most. */
-const proposedBranch = (story: Story) =>
-  `us/${story.id}-${story.iWant
+const proposedBranch = (story: Story) => {
+  const slug = story.iWant
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+/, "")
     .slice(0, 40)
-    .replace(/-+$/, "")}`;
+    .replace(/-+$/, "");
+  return `us/${story.id}${slug && `-${slug}`}`;
+};
 
 async function fetchBranches(id: string) {
   const res = await client.api.projects[":id"].branches.$get({ param: { id } });
@@ -46,7 +51,7 @@ function Panel({
   onClose,
 }: {
   story: Story;
-  project: { id: number; fullName: string };
+  project: { id: number; fullName: string; defaultBranch?: string };
   onClose: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -73,17 +78,27 @@ function Panel({
     }
   });
   const [prompt, setPrompt] = useState("");
-  const [copied, setCopied] = useState(false);
+  // The message that was copied (or that failed to copy): another message resets both.
+  const [copied, setCopied] = useState<string | null>(null);
+  const [copyFailed, setCopyFailed] = useState<string | null>(null);
 
   const branch = story.branch ?? (mode === "new" ? name : existing);
   const branchValid =
     story.branch !== null ||
-    (BRANCH.test(branch) && !branch.includes("..")) ||
-    (mode === "existing" && existing !== "");
+    (mode === "new" ? validBranch(name) : existing !== "");
   const promptValid = prompt.length <= MAX_PROMPT;
-  const valid = branchValid && promptValid && folder.trim() !== "";
-  const message = `/dev-us ${story.id} --branch ${branch}${team ? ` --team ${team}` : ""}${prompt ? `\n\n${prompt}` : ""}`;
-  const href = `claude://code/new?folder=${encodeURIComponent(folder)}&q=${encodeURIComponent(message)}`;
+  // The Windows « Copier en tant que chemin d'accès » puts the path between double quotes.
+  const cleanFolder = folder
+    .trim()
+    .replace(/^"(.*)"$/, "$1")
+    .trim();
+  const valid = branchValid && promptValid && cleanFolder !== "";
+  const extra = prompt.trim();
+  const message = `/dev-us ${story.id} --branch ${branch}${team ? ` --team ${team}` : ""}${extra ? `\n\n${extra}` : ""}`;
+  const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(message)}`;
+  const choices = (branches.data ?? []).filter(
+    (b) => b !== project.defaultBranch && validBranch(b),
+  );
   const pending = story.dependsOn.filter((d) => d.status !== "done");
   const label = "block font-semibold";
 
@@ -106,6 +121,7 @@ function Panel({
         </p>
       ) : (
         <fieldset className="grid gap-2">
+          <legend className="font-semibold">Branche</legend>
           <label>
             <input
               type="radio"
@@ -154,7 +170,7 @@ function Panel({
                 onChange={(e) => setExisting(e.target.value)}
               >
                 <option value="">Choisir une branche</option>
-                {(branches.data ?? []).map((b) => (
+                {choices.map((b) => (
                   <option key={b} value={b}>
                     {b}
                   </option>
@@ -163,6 +179,11 @@ function Panel({
             </label>
           )}
         </fieldset>
+      )}
+      {teams.isError && (
+        <p className="text-muted-foreground">
+          Impossible de lire les équipes : l'équipe par défaut sera utilisée.
+        </p>
       )}
       {teams.data && teams.data.length > 0 && (
         <label className={label}>
@@ -185,6 +206,7 @@ function Panel({
         <label className={label}>
           Dossier du clone
           <input
+            required
             className={field}
             value={folder}
             placeholder="C:\Users\dorian\code\mon-repo ou /home/dorian/code/mon-repo"
@@ -228,32 +250,50 @@ function Panel({
       <p>
         Claude Desktop va s'ouvrir. Confirme le dossier, puis appuie sur Entrée.
       </p>
+      {!valid && cleanFolder === "" && (
+        <p>Indique le dossier du clone pour lancer Claude.</p>
+      )}
+      {!story.branch && mode === "existing" && existing === "" && (
+        <p>Choisis une branche existante.</p>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <a
-          className={primaryButton}
+          className={`${primaryButton} aria-disabled:opacity-50`}
           {...(valid
             ? {
                 href,
                 onClick: () => {
                   try {
-                    window.localStorage.setItem(storageKey(project.id), folder);
+                    window.localStorage.setItem(
+                      storageKey(project.id),
+                      cleanFolder,
+                    );
                   } catch {}
                 },
               }
-            : { "aria-disabled": true })}
+            : { "aria-disabled": true, role: "link" })}
         >
           <span>Lancer Claude</span>
         </a>
         <button
           type="button"
           className={button}
+          disabled={!valid}
           onClick={() =>
-            navigator.clipboard.writeText(message).then(() => setCopied(true))
+            navigator.clipboard
+              .writeText(message)
+              .then(() => setCopied(message))
+              .catch(() => setCopyFailed(message))
           }
         >
           Copier le prompt
         </button>
-        {copied && <span role="status">Copié</span>}
+        {copied === message && <span role="status">Copié</span>}
+        {copyFailed === message && (
+          <span role="status" className="text-destructive">
+            Copie impossible
+          </span>
+        )}
         <button type="button" className={button} onClick={onClose}>
           Annuler
         </button>
@@ -268,15 +308,29 @@ export function DevelopWindow({
   project,
 }: {
   story: Story;
-  project: { id: number; fullName: string };
+  project: { id: number; fullName: string; defaultBranch?: string };
 }) {
   const [open, setOpen] = useState(false);
+  const openRef = useRef<HTMLButtonElement>(null);
+  const closed = useRef(false);
+  // Back to the button when the panel is cancelled, for keyboard users.
+  useEffect(() => {
+    if (!open && closed.current) openRef.current?.focus();
+  }, [open]);
   if (open)
     return (
-      <Panel story={story} project={project} onClose={() => setOpen(false)} />
+      <Panel
+        story={story}
+        project={project}
+        onClose={() => {
+          closed.current = true;
+          setOpen(false);
+        }}
+      />
     );
   return (
     <button
+      ref={openRef}
       type="button"
       className={`mt-4 ${primaryButton}`}
       onClick={() => setOpen(true)}
