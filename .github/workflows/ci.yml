@@ -27,8 +27,20 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # The screens' tests run beside, in the job web: a runner has two cores.
+      - run: npm test -- --project server
       - run: npm run build
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --project web
 
   docker:
     runs-on: ubuntu-latest

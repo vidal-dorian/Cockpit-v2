@@ -10,7 +10,7 @@ Self-hosted control center for the GitHub repos developed with Claude Code. Read
 | `npm run dev:web` | Vite on http://localhost:5173, forwards `/api` to the server |
 | `npm run build` | Builds the page into `dist/web` |
 | `npm start` | Serves the API and the built page on http://localhost:3000 (needs only `DATABASE_URL`, a PostgreSQL 18 URL; the start-up wizard then creates the GitHub App, decision 012) |
-| `npm test` | Vitest, server and web |
+| `npm test` | Vitest, server and web (`npm test -- --project server` or `web` for one side; CI runs them in two jobs) |
 | `npm run lint` | Biome: lint, format and import order (`npx biome check --write` fixes) |
 | `npm run typecheck` | `tsc`, no emit |
 | `npm run db:generate` | New migration in `drizzle/` from `src/server/db/schema.ts` |
@@ -40,5 +40,5 @@ Only then open the pull request.
 - Every commit message starts with `feat: ` (release-please builds the changelog and the version from it, `.github/workflows/cd.yml`).
 - Colors and fonts are the tokens of `src/web/styles.css` (decision 003). Never hard-code a color.
 - Components: Tailwind + shadcn/ui (decision 003).
-- Tests never call Claude or the real GitHub. Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite: migrated once per run, one database per test file, emptied at the start of each test, so never `it.concurrent` on it); screens with Testing Library and a stubbed `fetch`.
+- Tests never call Claude or the real GitHub. Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite: migrated once per run, one database per worker, emptied at the start of each test, so never `it.concurrent` on it). The server's test files are not isolated from each other (they share their modules, `isolate: false`): a test leaves no global state behind (timers and stubbed globals are reset after each test); screens with Testing Library and a stubbed `fetch`.
 - Every PR has a "Notions TS utilisées ici" section, in French, for Dorian who is learning TypeScript.
