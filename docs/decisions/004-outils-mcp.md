@@ -4,7 +4,7 @@
 - **Date** : 2026-10-21
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md)
-- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse) ; [017 — Claude écrit les US](017-user-stories.md) (`create_user_stories` en plusieurs appels pour un gros ticket, dépendances par position dans le ticket) ; [018 — Les décisions humaines sur une US](018-decisions-humaines.md) (table des droits, choix B : l'humain valide aussi une US à réécrire)
+- **Modifiée par** : [016 — Le serveur MCP](016-serveur-mcp.md) (ce que le journal garde des arguments et de la réponse) ; [017 — Claude écrit les US](017-user-stories.md) (`create_user_stories` en plusieurs appels pour un gros ticket, dépendances par position dans le ticket) ; [018 — Les décisions humaines sur une US](018-decisions-humaines.md) (table des droits, choix B : l'humain valide aussi une US à réécrire) ; [033 — Le run minimal](033-run-minimal.md) (D : `finish_run` accepte `succeeded` sans PR jusqu'à la 7.3)
 
 ## Contexte
 
