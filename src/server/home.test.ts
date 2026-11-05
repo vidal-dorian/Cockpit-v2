@@ -101,7 +101,8 @@ describe("criterion 1: GET /api/home is for the session user", () => {
   it("given no session, when I read /api/home, then 401", async () => {
     const ctx = await withProject();
 
-    expect((await home(ctx, undefined)).status).toBe(401);
+    // No cookie at all: home(ctx, undefined) would fall back to the default cookie.
+    expect((await ctx.app.request("/api/home")).status).toBe(401);
   });
 
   it("given Bob with his own story, when he reads it, then he sees only his story", async () => {
