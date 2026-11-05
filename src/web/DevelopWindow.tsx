@@ -278,7 +278,7 @@ function Panel({
         <button
           type="button"
           className={button}
-          disabled={!valid}
+          disabled={!branchValid || !promptValid}
           onClick={() =>
             navigator.clipboard
               .writeText(message)

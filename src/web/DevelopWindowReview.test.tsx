@@ -72,7 +72,7 @@ const launch = (ui: ReturnType<typeof within>) =>
   ui.getByText("Lancer Claude").closest("a") as HTMLAnchorElement;
 
 describe("review of the window", () => {
-  it("given an empty folder, then the link is aria-disabled, the folder is required and a sentence says why", async () => {
+  it("given an empty folder, then the link is aria-disabled, the folder is required and a sentence says why, while copying stays possible", async () => {
     const ui = await open();
 
     expect(launch(ui).getAttribute("aria-disabled")).toBe("true");
@@ -88,7 +88,7 @@ describe("review of the window", () => {
           name: "Copier le prompt",
         }) as HTMLButtonElement
       ).disabled,
-    ).toBe(true);
+    ).toBe(false); // the message holds no folder: copying stays the fallback (005)
   });
 
   it("given the existing mode with nothing picked, then a sentence asks for a branch; the default branch is not listed", async () => {
