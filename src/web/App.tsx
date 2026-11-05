@@ -10,6 +10,7 @@ import {
 } from "react-router";
 import { Autoriser } from "./Autoriser.tsx";
 import { client } from "./api.ts";
+import { HomePage, useHome } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
@@ -127,6 +128,7 @@ function Account() {
 }
 
 function Home() {
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
 
   return (
@@ -164,6 +166,8 @@ function Home() {
           </p>
         )}
       </div>
+
+      {me.data && <HomePage />}
     </main>
   );
 }
@@ -216,6 +220,8 @@ function SettingsIcon() {
 function TopBar() {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const account = me.data;
+  // A failed read is no counter, not an error of the bar.
+  const waiting = useHome(!!account).data?.forYou.length;
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-7">
@@ -228,7 +234,7 @@ function TopBar() {
         </Link>
         <nav aria-label="Navigation principale" className="flex gap-1">
           <NavLink to="/" end className={navLink}>
-            Accueil
+            Accueil{waiting ? ` ${waiting}` : ""}
           </NavLink>
           <NavLink to="/projets" className={navLink}>
             Projets
