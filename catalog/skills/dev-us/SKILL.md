@@ -22,7 +22,7 @@ If a check fails, stop and say why. Change nothing.
 ## The branch
 
 - With `--branch <name>`: if the branch exists on `origin`, check it out and update it (`git pull --ff-only`): the story is resumed. Otherwise create it from the default branch and push it with `git push -u origin <name>`.
-- Without `--branch`: name it `us/<story_id>-<short-title>`, the title taken from `i_want`: lower case, no accents, words joined by dashes, 40 characters at most. Create it and push it the same way.
+- Without `--branch`, if the story already has a `branch` (from `get_user_story`), use it as if it were given with `--branch`. Otherwise name it `us/<story_id>-<short-title>`, the title taken from `i_want`: lower case, no accents, words joined by dashes, 40 characters at most. Create it and push it the same way.
 
 ## Start the run
 
