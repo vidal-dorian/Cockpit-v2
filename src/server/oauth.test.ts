@@ -563,9 +563,9 @@ describe("criterion 2: GET /oauth/authorize, validation", () => {
       const page = await res.text();
       expect(page).toMatch(/demande/i);
       expect(page).toMatch(/invalide/i);
-      // SSRF: a client_id that is not under https://claude.ai/ is never fetched.
+      // SSRF: only the two Claude clients are ever fetched.
       for (const [url] of ctx.fetchClientMetadata.mock.calls)
-        expect(String(url).startsWith("https://claude.ai/")).toBe(true);
+        expect([CLIENT_ID, CODE_CLIENT_ID]).toContain(String(url));
     },
   );
 
