@@ -62,6 +62,23 @@ const pullHeadSchema = z.object({
     repo: z.object({ full_name: z.string() }).nullable(),
   }),
 });
+// What the follow of a PR reads (decision 038 B).
+const pullStateSchema = z.object({
+  state: z.string(),
+  merged: z.boolean(),
+  head: z.object({ sha: z.string() }),
+});
+const checkRunsSchema = z.object({
+  check_runs: z.array(
+    z.object({ status: z.string(), conclusion: z.string().nullable() }),
+  ),
+});
+const reviewsSchema = z.array(
+  z.object({
+    user: z.object({ login: z.string() }).nullable(),
+    state: z.string(),
+  }),
+);
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -615,6 +632,52 @@ export function githubClient(config: GitHubAppConfig) {
         if (isNotFound(error)) return null;
         throw error;
       }
+    },
+
+    /** A PR as the follow of decision 038 B needs it: its state, its merge, and the check runs of its head commit and its reviews (oldest first). The three reads all succeed or this throws, so nothing is written on a half read. Shortcut: only the first 100 check runs and 100 reviews, paginate if a PR ever has more. */
+    async readPullFollow(
+      installationId: number,
+      fullName: string,
+      number: number,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const pull = pullStateSchema.parse(
+        (
+          await octokit.request(
+            "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+            {
+              owner,
+              repo,
+              pull_number: number,
+            },
+          )
+        ).data,
+      );
+      const runs = checkRunsSchema.parse(
+        (
+          await octokit.request(
+            "GET /repos/{owner}/{repo}/commits/{ref}/check-runs",
+            { owner, repo, ref: pull.head.sha, per_page: 100 },
+          )
+        ).data,
+      );
+      const reviews = reviewsSchema.parse(
+        (
+          await octokit.request(
+            "GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+            { owner, repo, pull_number: number, per_page: 100 },
+          )
+        ).data,
+      );
+      return {
+        open: pull.state === "open",
+        merged: pull.merged,
+        checkRuns: runs.check_runs,
+        reviews: reviews.flatMap((r) =>
+          r.user ? [{ login: r.user.login, state: r.state }] : [],
+        ),
+      };
     },
 
     /** The App's webhook as GitHub holds it, read as the App (decision 024 F): its config and the status code of its last delivery, null when it has none. Errors are left to the caller. */

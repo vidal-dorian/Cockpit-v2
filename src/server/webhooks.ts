@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
@@ -13,10 +13,12 @@ import {
   userStories,
   webhookDeliveries,
 } from "./db/schema.ts";
+import { githubReader } from "./github.ts";
 import { type ReadInstance, WEBHOOK_PATH } from "./instance.ts";
 import { renderStory } from "./issues.ts";
+import { followPullRequest } from "./pr-follow.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
-import { storyParts } from "./stories.ts";
+import { memberStory, storyParts } from "./stories.ts";
 
 // GitHub's own limit on a delivery; the 256 KiB of the other /api/* routes does not apply here (decision 024 A).
 const MAX_BODY = 25 * 1024 * 1024;
@@ -25,6 +27,7 @@ const EVENT = /^[a-z_]{1,64}$/;
 const MAX_DELIVERY_ID = 100;
 // A delivery that fails this many times is given up on (decision 025 A).
 const MAX_ATTEMPTS = 5;
+const PULL_EVENTS = ["pull_request", "pull_request_review", "check_suite"];
 const PROCESS_EVERY_MS = 60_000;
 
 // An id of the body; a safe integer, so the bigint column of the table can hold it.
@@ -116,6 +119,46 @@ async function handleIssueEdited(db: Db, deps: Deps, delivery: Delivery) {
   });
 }
 
+const pullNumbers = z.object({
+  pull_request: z.object({ number: z.number() }).optional(),
+  check_suite: z
+    .object({ pull_requests: z.array(z.object({ number: z.number() })) })
+    .optional(),
+});
+
+/** A delivery that concerns pull requests (decision 038 C): it only says which ones to read again; the story of each is followed as GitHub shows its PR now. A payload without a PR number, or a PR no live story has, is nothing to do. */
+async function handlePullRequest(
+  db: Db,
+  readGitHub: ReturnType<typeof githubReader>,
+  delivery: Delivery,
+) {
+  const parsed = pullNumbers.safeParse(delivery.payload);
+  const numbers = parsed.success
+    ? [
+        ...(parsed.data.pull_request ? [parsed.data.pull_request.number] : []),
+        ...(parsed.data.check_suite?.pull_requests.map((p) => p.number) ?? []),
+      ]
+    : [];
+  const project = await projectOfRepo(db, delivery.repoId);
+  if (!project) return;
+  for (const number of numbers) {
+    const [story] = await db
+      .select({ id: userStories.id })
+      .from(userStories)
+      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+      .where(
+        and(
+          eq(tickets.projectId, project.id),
+          eq(userStories.prNumber, number),
+          inArray(userStories.status, ["in_review", "in_progress"]),
+        ),
+      );
+    const found = story && (await memberStory(db, project.userId, story.id));
+    if (found)
+      await followPullRequest(db, readGitHub, found, project.userId, "webhook");
+  }
+}
+
 /** What a failed attempt leaves: one more attempt, and at the last one the delivery is given up on, with one entry (decision 025 A; the error itself is only in the log). */
 async function fail(db: Db, delivery: Delivery) {
   const project = await projectOfRepo(db, delivery.repoId);
@@ -153,6 +196,7 @@ const claimable = and(
 
 /** One pass over the deliveries not processed yet (decision 025 A): each is reserved by one atomic statement, handled by its event, and dated when done. Never throws. */
 export async function processDeliveries(db: Db, deps: Deps) {
+  const readGitHub = githubReader(deps.readInstance);
   try {
     for (;;) {
       const [next] = await db
@@ -172,6 +216,8 @@ export async function processDeliveries(db: Db, deps: Deps) {
       try {
         if (delivery.event === "issues" && delivery.action === "edited")
           await handleIssueEdited(db, deps, delivery);
+        else if (PULL_EVENTS.includes(delivery.event))
+          await handlePullRequest(db, readGitHub, delivery);
         await db
           .update(webhookDeliveries)
           .set({ processedAt: sql`now()` })
