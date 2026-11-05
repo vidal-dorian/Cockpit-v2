@@ -206,7 +206,7 @@ describe("criterion 3: a new branch", () => {
     ["Éditer les équipes à la volée", "us/42-editer-les-equipes-a-la-volee"],
     [
       "Consulter lhistorique complet des executions de chaque equipe du projet",
-      "us/42-consulter-lhistorique-complet-des-executi",
+      "us/42-consulter-lhistorique-complet-des-execut",
     ],
   ])(
     "given the i_want %s, when the panel opens, then the proposed name is %s (lower case, no accents, dashes, 40 characters at most)",
