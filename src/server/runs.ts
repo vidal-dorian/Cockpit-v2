@@ -220,18 +220,25 @@ export async function linkPullRequest(
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
   const { project, story } = found;
-  const ready = await readGitHub();
-  if (!ready) throw new Error("The GitHub App is not configured");
-  const pull = await ready.github.readPullRequest(
-    project.installationId,
-    project.fullName,
-    args.pr_number,
-  );
+  // Read before the transaction; a failure waits for `act`, which writes its one `error` entry.
+  let pull: { branch: string; repo: string | null } | null = null;
+  let failed: unknown;
+  try {
+    const ready = await readGitHub();
+    if (!ready) throw new Error("The GitHub App is not configured");
+    pull = await ready.github.readPullRequest(
+      project.installationId,
+      project.fullName,
+      args.pr_number,
+    );
+  } catch (error) {
+    failed = error;
+  }
   const refusal = (code: string) =>
     act(db, entry, async () => {
-      throw new Refused(code);
+      throw failed ?? new Refused(code);
     });
-  if (!pull) return refusal("pr_not_found");
+  if (failed || !pull) return refusal("pr_not_found");
   if (pull.branch !== story.branch || pull.repo !== project.fullName)
     return refusal("pr_wrong_branch");
   await act(db, entry, async (tx) => {

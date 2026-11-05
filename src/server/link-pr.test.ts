@@ -9,6 +9,7 @@ import {
   REPO,
   running,
   storyRow,
+  tool,
 } from "./test-criteria.ts";
 import { validate, withStory } from "./test-decisions.ts";
 import { githubCalls } from "./test-github.ts";
@@ -198,6 +199,11 @@ describe("criterion 4: link_pull_request refusals", () => {
 
     expect(result.isError).toBe(true);
     expect(textOf(result)).toMatch(/^Error: \S/);
+    expect((await mcpRows(s.db)).at(-1)).toMatchObject({
+      action: "link_pull_request",
+      result: "error",
+      run_id: s.runId,
+    });
     expect(await storyRow(s.db, s.id)).toEqual({
       status: "in_progress",
       pr_number: null,
@@ -263,6 +269,29 @@ describe("criterion 5: finish_run needs a pull request to succeed (decision 035 
     );
 
     expect((await storyRow(s.db, s.id))?.status).toBe("ready");
+  });
+
+  it("given a linked run with an open step, when finish_run succeeded is called, then the step is closed failed with finished_at", async () => {
+    const s = await withPr();
+    dataOf(
+      await tool(s, "report_step", {
+        run_id: s.runId,
+        agent: "developer",
+        event: "started",
+      }),
+    );
+    dataOf(await link(s, { run_id: s.runId, pr_number: PR }));
+
+    dataOf(
+      await finish(s, { run_id: s.runId, outcome: "succeeded", summary: "PR" }),
+    );
+
+    const steps = (await s.db.execute(
+      sql`select status, finished_at from run_steps where run_id = ${s.runId}`,
+    )) as unknown as { rows: { status: string; finished_at: Date | null }[] };
+    expect(steps.rows).toHaveLength(1);
+    expect(steps.rows[0]?.status).toBe("failed");
+    expect(steps.rows[0]?.finished_at).not.toBeNull();
   });
 
   it("given a linked PR, when finish_run succeeded is called, then the run succeeded and the story stays in_review", async () => {
