@@ -93,6 +93,9 @@ describe("criterion 6: GET /api/runs/:id", () => {
       id: s.id,
       iWant: "relire",
       status: "in_progress",
+      prNumber: null,
+      prCiState: null,
+      prReviewState: null,
     });
     expect(body.project).toEqual({
       id: s.projectId,
