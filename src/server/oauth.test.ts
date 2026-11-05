@@ -39,7 +39,8 @@ import {
 //   `/api/auth/login?next=<that /autoriser URL, encoded>`. The request is checked before the session.
 // - GET /api/oauth/request?<the authorize query> (session required): 200 { clientName, returnHost } or 400
 //   { error: "invalid_request" }. It feeds the /autoriser page. clientName is « Claude Code » for the client
-//   https://claude.ai/oauth/claude-code-client-metadata and « claude.ai » for any other client.
+//   https://claude.ai/oauth/claude-code-client-metadata and « claude.ai » for the client
+//   https://claude.ai/oauth/mcp-oauth-client-metadata. Those two are the only clients (decision 021, amendment).
 // - POST /api/oauth/approve, JSON body: the authorize query as fields (response_type, client_id, redirect_uri,
 //   code_challenge, code_challenge_method, state, resource) plus `decision: "approve" | "deny"`.
 //   200 { redirectUrl }; 400 { error: "invalid_request" } for a request the checks refuse; 401 without session;
@@ -50,7 +51,7 @@ import {
 
 const PUBLIC_URL = "https://cockpit.example.com";
 const MCP_URL = `${PUBLIC_URL}/mcp`;
-const CLIENT_ID = "https://claude.ai/oauth/mcp-client-metadata.json";
+const CLIENT_ID = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 const REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback";
 const CODE_CLIENT_ID = "https://claude.ai/oauth/claude-code-client-metadata";
 const CODE_REDIRECT_URI = "http://localhost:54321/callback";
@@ -562,11 +563,75 @@ describe("criterion 2: GET /oauth/authorize, validation", () => {
       const page = await res.text();
       expect(page).toMatch(/demande/i);
       expect(page).toMatch(/invalide/i);
-      // SSRF: a client_id that is not under https://claude.ai/ is never fetched.
+      // SSRF: only the two Claude clients are ever fetched.
       for (const [url] of ctx.fetchClientMetadata.mock.calls)
-        expect(String(url).startsWith("https://claude.ai/")).toBe(true);
+        expect([CLIENT_ID, CODE_CLIENT_ID]).toContain(String(url));
     },
   );
+
+  // Amendment 2026-11-05: only the two Claude clients. Each of these answers a valid document for itself,
+  // so only the address of the client can make the request fail.
+  const notClaude = [
+    ["another claude.ai path", "https://claude.ai/oauth/another-client"],
+    ["a trailing slash", `${CLIENT_ID}/`],
+    ["a query", `${CLIENT_ID}?x=1`],
+    ["another case", "https://claude.ai/oauth/MCP-OAUTH-CLIENT-METADATA"],
+  ] as const;
+  const docsFor = (clientId: string): Docs => ({
+    [clientId]: () => Response.json(cimdDocument(clientId)),
+  });
+
+  it.each(notClaude)(
+    "given %s as client_id, when /oauth/authorize is requested, then a 400 page and the document is never fetched",
+    async (_name, clientId) => {
+      const ctx = await setup({ docs: docsFor(clientId) });
+      const alice = await userWithSession(ctx.db, 1);
+
+      const res = await authorizeRequest(
+        ctx,
+        request({ client_id: clientId }).params,
+        alice.cookie,
+      );
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get("location")).toBeNull();
+      expect(await res.text()).toMatch(/invalide/i);
+      expect(ctx.fetchClientMetadata).not.toHaveBeenCalled();
+    },
+  );
+
+  it("given another claude.ai path as client_id, when /api/oauth/request is asked, then 400 invalid_request and the document is never fetched", async () => {
+    const clientId = notClaude[0][1];
+    const ctx = await setup({ docs: docsFor(clientId) });
+    const alice = await userWithSession(ctx.db, 1);
+
+    const res = await ctx.app.request(
+      `/api/oauth/request?${query(request({ client_id: clientId }).params)}`,
+      { headers: { cookie: alice.cookie } },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "invalid_request" });
+    expect(ctx.fetchClientMetadata).not.toHaveBeenCalled();
+  });
+
+  it("given another claude.ai path as client_id, when a logged-in user approves, then 400 invalid_request, no redirect URL and the document is never fetched", async () => {
+    const clientId = notClaude[0][1];
+    const ctx = await setup({ docs: docsFor(clientId) });
+    const alice = await userWithSession(ctx.db, 1);
+
+    const res = await approveRequest(
+      ctx,
+      alice.cookie,
+      request({ client_id: clientId }).params,
+    );
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.error).toBe("invalid_request");
+    expect(body.redirectUrl).toBeUndefined();
+    expect(ctx.fetchClientMetadata).not.toHaveBeenCalled();
+  });
 
   it("given a CIMD document that never answers, when /oauth/authorize is requested, then Cockpit gives up (the fetch is given an abort signal) and answers the 400 page", {
     timeout: 20_000,

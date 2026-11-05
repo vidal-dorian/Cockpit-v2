@@ -13,15 +13,16 @@ import type { ReadInstance } from "./instance.ts";
 import { liveToken, MAX_ACTIVE_TOKENS } from "./tokens.ts";
 
 // Decisions 021 and 006: Cockpit as a connector of claude.ai (OAuth 2.1 with PKCE, clients known by a CIMD document).
-const CLIENT_HOST = "claude.ai";
+// Decision 021 amended: exactly these two client_id values (claude.ai and Claude Code), nothing else is ever fetched.
+const CLAUDE_AI_CLIENT = "https://claude.ai/oauth/mcp-oauth-client-metadata";
 const CLAUDE_CODE_CLIENT =
   "https://claude.ai/oauth/claude-code-client-metadata";
+const KNOWN_CLIENTS = [CLAUDE_AI_CLIENT, CLAUDE_CODE_CLIENT];
 const CIMD_TIMEOUT_MS = 5_000;
 const CIMD_MAX_BYTES = 64 * 1024;
 const CIMD_CACHE_MS = 10 * 60_000;
 // A failed read is kept too, so a client_id that never answers cannot make us fetch at every request.
 const CIMD_FAILURE_CACHE_MS = 60_000;
-const CIMD_CACHE_MAX = 300;
 const CODE_MS = 60_000;
 const ACCESS_SECONDS = 3_600;
 const REFRESH_MS = 90 * 24 * 3_600_000;
@@ -64,21 +65,6 @@ type Env = { Variables: { userId: number } };
 const fieldsOf = z.record(z.string(), z.string());
 
 const newSecret = () => randomBytes(32).toString("base64url");
-
-/** `https://claude.ai/…` and nothing else: no other host, port, credentials or fragment (the address is fetched, so this is the SSRF guard). */
-function isClientUrl(value: string) {
-  const url = URL.parse(value);
-  return (
-    url !== null &&
-    url.protocol === "https:" &&
-    url.hostname === CLIENT_HOST &&
-    url.port === "" &&
-    !url.username &&
-    !url.password &&
-    !url.hash &&
-    url.href === value
-  );
-}
 
 const isLoopback = (url: URL) =>
   url.protocol === "http:" &&
@@ -152,7 +138,7 @@ export function oauthRoutes(
 ) {
   // In memory, as decision 006 says: a restart only makes a connection in progress start again. Keyed by the hash of the code.
   const codes = new Map<string, AuthorizationCode>();
-  // Read results by client_id, null for a failed read; the oldest go first past CIMD_CACHE_MAX.
+  // Read results by client_id, null for a failed read: two entries at most, one per known client.
   const documents = new Map<
     string,
     { redirectUris: string[] | null; at: number }
@@ -173,12 +159,7 @@ export function oauthRoutes(
     if (!pending) {
       pending = readClientDocument(clientId)
         .then((redirectUris) => {
-          documents.delete(clientId);
           documents.set(clientId, { redirectUris, at: now() });
-          for (const key of documents.keys()) {
-            if (documents.size <= CIMD_CACHE_MAX) break;
-            documents.delete(key);
-          }
           return redirectUris;
         })
         .finally(() => reading.delete(clientId));
@@ -217,7 +198,8 @@ export function oauthRoutes(
   /** The checked authorize request, or null: the same checks run on the GET, the page's read and the approval. */
   async function checkRequest(input: unknown) {
     const parsed = authorizeRequest.safeParse(input);
-    if (!parsed.success || !isClientUrl(parsed.data.client_id)) return null;
+    if (!parsed.success || !KNOWN_CLIENTS.includes(parsed.data.client_id))
+      return null;
     const request = parsed.data;
     const redirects = await clientRedirects(request.client_id);
     if (!redirects || !redirectAllowed(request.redirect_uri, redirects))
