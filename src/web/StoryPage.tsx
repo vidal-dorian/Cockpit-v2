@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { DevelopWindow } from "./DevelopWindow.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
@@ -127,6 +128,9 @@ export function StoryPage() {
               archived={found.project.archived}
               statusRef={statusRef}
             />
+            {found.story.status === "ready" && !found.project.archived && (
+              <DevelopWindow story={found.story} project={found.project} />
+            )}
             <div className="mt-4 grid gap-1">
               <p>
                 <span className={label}>En tant que</span> {found.story.asA}
