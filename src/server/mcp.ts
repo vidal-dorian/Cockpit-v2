@@ -729,7 +729,7 @@ const tools = {
   start_run: tool(
     "Start a development run on a ready or in_review user story, once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session and optionally a comment. Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is neither ready nor in_review, already has an active run, has another branch recorded, or the project is archived.",
     z.object({
-      story_id: id.describe("Id of a ready story, from get_user_story"),
+      story_id: id.describe("Id of a ready or in_review story, from get_user_story"),
       branch: z
         .string()
         .min(1)
