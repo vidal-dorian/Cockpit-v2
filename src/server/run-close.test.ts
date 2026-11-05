@@ -150,9 +150,9 @@ describe("criterion 3: the member closes a silent run", () => {
     expect(await res.json()).toEqual({ error: "run_finished" });
     expect((await runRow(s.db, s.runId))?.status).toBe("failed");
     // Decision 010 C: a refusal leaves its entry too.
-    expect(
-      (await entries(s.db, "close_run")).map((e) => e.result),
-    ).toEqual(["refused"]);
+    expect((await entries(s.db, "close_run")).map((e) => e.result)).toEqual([
+      "refused",
+    ]);
   });
 
   it("given an archived project, when the close is posted, then 409 project_archived and nothing changes", async () => {

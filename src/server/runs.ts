@@ -378,11 +378,6 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         storyId: found.story.id,
         runId: id,
       };
-      // Told before the transaction, so a call that changes nothing leaves no entry.
-      if (run.status !== "running")
-        return c.json({ error: "run_finished" }, 409);
-      if (action === "request_stop" && run.stopRequestedAt)
-        return c.json({ error: "stop_already_requested" }, 409);
       try {
         const { moved, stopRequestedAt, status } = await act(
           db,
@@ -492,7 +487,11 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
           iWant: found.story.iWant,
           status: found.story.status,
         },
-        project: { id: found.project.id, name: found.project.fullName },
+        project: {
+          id: found.project.id,
+          name: found.project.fullName,
+          archived: found.project.archivedAt !== null,
+        },
       });
     })
     .get("/api/events", async (c) => {

@@ -8,11 +8,13 @@ import { alertBox, button, focusRing } from "./ui.ts";
 export function RunControls({
   runId,
   running,
+  archived,
   stopRequested,
   relaunchStoryId,
 }: {
   runId: string;
   running: boolean;
+  archived: boolean;
   stopRequested: boolean;
   /** The story of a finished run that can be launched again, or null. */
   relaunchStoryId: number | null;
@@ -33,7 +35,7 @@ export function RunControls({
       queryClient.invalidateQueries({ queryKey: ["run", runId] }),
   });
   if (!running)
-    return relaunchStoryId === null ? null : (
+    return relaunchStoryId === null || archived ? null : (
       <Link
         to={`/us/${relaunchStoryId}`}
         className={`mt-4 inline-block underline ${focusRing}`}
@@ -47,7 +49,7 @@ export function RunControls({
         {!stopRequested && (
           <button
             type="button"
-            disabled={send.isPending}
+            disabled={archived || send.isPending}
             onClick={() => send.mutate("stop")}
             className={button}
           >
@@ -57,7 +59,7 @@ export function RunControls({
         {!confirming && (
           <button
             type="button"
-            disabled={send.isPending}
+            disabled={archived || send.isPending}
             onClick={() => setConfirming(true)}
             className={button}
           >
@@ -77,7 +79,7 @@ export function RunControls({
           <button
             type="button"
             aria-describedby="close-run-warning"
-            disabled={send.isPending}
+            disabled={archived || send.isPending}
             onClick={() => send.mutate("close")}
             className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
           >

@@ -91,6 +91,7 @@ export function RunPage() {
             <RunControls
               runId={id}
               running={found.run.status === "running"}
+              archived={found.project.archived}
               stopRequested={found.run.stopRequestedAt !== null}
               relaunchStoryId={
                 ["ready", "in_review"].includes(found.story.status)
