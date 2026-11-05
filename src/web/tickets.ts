@@ -8,6 +8,15 @@ export const STEPS: Record<string, string> = {
   validated: "Validé",
 };
 
+/** The status labels of a run and of its steps (decision 033 I). */
+export const RUN_STATUSES: Record<string, string> = {
+  running: "En cours",
+  succeeded: "Réussi",
+  failed: "Échoué",
+  stopped: "Arrêté",
+  closed_manually: "Fermé à la main",
+};
+
 /** The status labels of a user story (decision 017 L). */
 export const STORY_STATUSES: Record<string, string> = {
   to_validate: "à valider",
