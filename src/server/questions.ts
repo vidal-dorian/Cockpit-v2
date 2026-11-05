@@ -76,7 +76,7 @@ const answerBody = z.object({
 
 const CONFLICTS = ["already_answered", "run_finished", "project_archived"];
 
-/** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/questions/*. */
+/** Not behind the gate of `projectRoutes`: it never reads GitHub, like /api/runs/:id. */
 export function questionRoutes(db: Db) {
   return new Hono().post(
     "/api/questions/:id/answer",

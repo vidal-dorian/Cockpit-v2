@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { client } from "./api.ts";
 import { alertBox, button, card, field, primaryButton } from "./ui.ts";
 
@@ -22,6 +22,7 @@ export function RunQuestions({
 }) {
   const queryClient = useQueryClient();
   const [typed, setTyped] = useState("");
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const send = useMutation({
     mutationFn: async ({ id, answer }: { id: number; answer: string }) => {
       const res = await client.api.questions[":id"].answer.$post({
@@ -30,16 +31,29 @@ export function RunQuestions({
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     },
-    onSuccess: () => setTyped(""),
+    // The form goes away with the answer: keep the keyboard focus in the section.
+    onSuccess: () => {
+      setTyped("");
+      headingRef.current?.focus();
+    },
     // Answered meanwhile or run finished: the page shows the real state.
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["run", runId] }),
   });
+  // Also after a success, until the refetch shows the answer: a second click would only get a 409.
+  const busy = (id: number) =>
+    send.isPending || (send.isSuccess && send.variables?.id === id);
   const pending = questions.filter((q) => q.answer === null);
   const ordered = [...pending, ...questions.filter((q) => q.answer !== null)];
   return (
     <section className="mt-6">
-      <h2 className="font-heading text-xl font-bold">Questions</h2>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="font-heading text-xl font-bold"
+      >
+        Questions
+      </h2>
       <ul className="mt-2 grid gap-2">
         {ordered.map((q) => (
           <li key={q.id} className={`${card} p-3`}>
@@ -63,7 +77,7 @@ export function RunQuestions({
                       <button
                         key={answer}
                         type="button"
-                        disabled={send.isPending}
+                        disabled={busy(q.id)}
                         onClick={() => send.mutate({ id: q.id, answer })}
                         className={button}
                       >
@@ -83,7 +97,7 @@ export function RunQuestions({
                 </label>
                 <button
                   type="submit"
-                  disabled={send.isPending || typed.trim() === ""}
+                  disabled={busy(q.id) || typed.trim() === ""}
                   className={`${primaryButton} justify-self-start`}
                 >
                   Répondre
