@@ -11,6 +11,7 @@ import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
+import { questionRoutes } from "./questions.ts";
 import { type FireRoutine, routineRoutes } from "./routines.ts";
 import { runRoutes } from "./runs.ts";
 import { setupRoutes } from "./setup.ts";
@@ -86,6 +87,7 @@ export function createApp(
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
       .route("/", runRoutes(db))
+      .route("/", questionRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))

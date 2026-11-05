@@ -25,6 +25,7 @@ import {
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
 import { memberProject, memberProjects } from "./projects.ts";
+import { askUser, getAnswer } from "./questions.ts";
 import {
   activeRunId,
   finishRun,
@@ -825,6 +826,25 @@ const tools = {
       linkPullRequest(call.db, call.userId, call.readGitHub, call.entry, args),
   ),
 
+  ask_user: tool(
+    "Ask the user a question when a choice belongs to them: never guess it. Send the run_id, the question (1 to 2,000 characters) and, only when one or two answers are obvious, suggested_answers (at most 2, 1 to 200 characters each). Answers the question_id at once, without waiting: keep working on what does not depend on the answer, then read it with get_answer. Refused when a question of the run is still waiting, the run is finished or the project is archived.",
+    z.object({
+      run_id: id.describe("The run_id of start_run"),
+      question: z.string().min(1).max(2_000).refine(noNul),
+      suggested_answers: z
+        .array(z.string().min(1).max(200).refine(noNul))
+        .max(2)
+        .optional(),
+    }),
+    (call, args) => askUser(call.db, call.userId, call.entry, args),
+  ),
+
+  get_answer: tool(
+    "Read the answer of a question asked with ask_user. Answers answered (false while the user has not answered), answer (null until then) and stop_requested (always false for now). Call it 30 seconds after ask_user, then after 1 minute, after 2 minutes, then every 5 minutes: each call is journaled, so do not poll faster. Works on a finished run too.",
+    z.object({ question_id: id.describe("The question_id of ask_user") }),
+    (call, args) => getAnswer(call.db, call.userId, call.entry, args),
+  ),
+
   finish_run: tool(
     "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure. Steps still open are closed as failed; a story still in_progress becomes ready again, one in_review stays so. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
     z.object({
@@ -864,6 +884,8 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
   no_open_step: "this agent has no open step. Report started first.",
   project_archived:
     "this project is archived, so it is read-only. Tell the user, or use another project from list_projects.",
+  question_pending:
+    "a question of this run is still waiting for an answer. Read it with get_answer and wait for the user; ask the next one once it is answered.",
   ticket_abandoned:
     "this ticket is abandoned, so none of its stories can be written or rewritten. Tell the user, or pick another ticket from list_tickets_needing_us.",
   ticket_has_stories:

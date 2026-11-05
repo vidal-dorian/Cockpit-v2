@@ -578,7 +578,7 @@ describe("criterion 1: authentication of POST /mcp", () => {
 });
 
 describe("criterion 2: tools/list", () => {
-  it("given a valid token, when tools/list is posted, then exactly the 14 tools, each with an English description and an input schema naming its arguments", async () => {
+  it("given a valid token, when tools/list is posted, then exactly the 16 tools, each with an English description and an input schema naming its arguments", async () => {
     const { app, alice } = await withProject();
 
     const res = await rpc(app, "tools/list", {}, `Bearer ${alice.secret}`);
@@ -599,11 +599,13 @@ describe("criterion 2: tools/list", () => {
     };
     const tools = body.result.tools;
     // Slice 4.3 (decision 017) adds create_user_stories, get_user_story and list_tickets_needing_us;
-    // slice 4.4 (decision 018 E) adds update_user_story; slice 7.1 (decision 033) adds start_run, report_step, finish_run; slice 7.3 (decision 035) adds report_criterion and link_pull_request.
+    // slice 4.4 (decision 018 E) adds update_user_story; slice 7.1 (decision 033) adds start_run, report_step, finish_run; slice 7.3 (decision 035) adds report_criterion and link_pull_request; slice 7.4 (decision 036) adds ask_user and get_answer.
     expect(tools.map((t) => t.name).sort()).toEqual([
+      "ask_user",
       "create_ticket",
       "create_user_stories",
       "finish_run",
+      "get_answer",
       "get_project",
       "get_ticket",
       "get_user_story",
