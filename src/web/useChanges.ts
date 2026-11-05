@@ -15,3 +15,16 @@ export function useChanges(key: string) {
     return () => source.close();
   }, [key, queryClient]);
 }
+
+/** Reloads the query `key` on every change the server tells, whatever the object (decision 040 F); `enabled` false opens no stream. */
+export function useAnyChange(key: string, enabled = true) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!enabled || typeof EventSource === "undefined") return;
+    const source = new EventSource("/api/events");
+    source.addEventListener("change", () =>
+      queryClient.invalidateQueries({ queryKey: [key] }),
+    );
+    return () => source.close();
+  }, [key, enabled, queryClient]);
+}

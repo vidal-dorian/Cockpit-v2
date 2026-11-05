@@ -1,6 +1,6 @@
 import { button, primaryButton } from "./ui.ts";
 
-const REASONS: Record<string, string> = {
+export const REASONS: Record<string, string> = {
   run_not_succeeded: "Le run n'a pas réussi",
   no_pull_request: "Aucune PR liée",
   ci_failing: "La CI échoue",
