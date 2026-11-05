@@ -28,7 +28,7 @@ If a check fails, stop and say why. Change nothing.
 
 Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why. If the user gave an extra prompt after the options, pass it to `start_run` as `comment`.
 
-From now on, whenever you stop before the pull request is open (a refused tool, a step that fails for good, a test you must not change), first call `mcp__cockpit__finish_run` with `outcome` `failed` and the reason in the `summary`: otherwise the story stays "in progress" and cannot be started again.
+From now on, whenever you stop before the pull request is linked with `link_pull_request` (a refused tool, a step that fails for good, a test you must not change), first call `mcp__cockpit__finish_run` with `outcome` `failed` and the reason in the `summary`: otherwise the story stays "in progress" and cannot be started again.
 
 ## Develop
 

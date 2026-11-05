@@ -33,4 +33,5 @@ La 004 a fixé `report_criterion` et `link_pull_request` ; la 002, le résultat 
 ## Limites connues
 
 - **Une PR liée puis fermée sur GitHub** reste liée tant que la 7.6 ne suit pas les webhooks.
+- **Un `pr_number` resté d'une PR fermée** suffirait à `finish_run` `succeeded` : rien ne ramène encore une US `in_review` à `ready`. À régler avec la 7.6, qui le fera (vider `pr_number` au `start_run`, ou exiger `in_review`).
 - **La preuve est déclarée par Claude** : Cockpit ne relance pas le test. Le verdict de la 7.7 la croisera avec la CI.
