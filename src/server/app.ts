@@ -12,6 +12,7 @@ import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
 import { type FireRoutine, routineRoutes } from "./routines.ts";
+import { runRoutes } from "./runs.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
 import { ticketRoutes } from "./tickets.ts";
@@ -84,6 +85,7 @@ export function createApp(
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
+      .route("/", runRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))
