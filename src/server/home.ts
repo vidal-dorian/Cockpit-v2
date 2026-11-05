@@ -59,25 +59,29 @@ export function homeRoutes(db: Db) {
       )
       .where(and(mine, eq(runs.status, "running")))
       .orderBy(asc(runs.id));
-    const waiting = await db
-      .select({
-        ...storyColumns,
-        status: userStories.status,
-        prNumber: userStories.prNumber,
-        prCiState: userStories.prCiState,
-        prReviewState: userStories.prReviewState,
-      })
-      .from(userStories)
-      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-      .innerJoin(projects, eq(projects.id, tickets.projectId))
-      .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-      .where(
-        and(
-          mine,
-          inArray(userStories.status, ["to_validate", "in_review", "ready"]),
-        ),
-      )
-      .orderBy(asc(userStories.id));
+    // A story Claude works on has only its pending question to show: no review or check meanwhile.
+    const working = new Set(running.map((r) => r.storyId));
+    const waiting = (
+      await db
+        .select({
+          ...storyColumns,
+          status: userStories.status,
+          prNumber: userStories.prNumber,
+          prCiState: userStories.prCiState,
+          prReviewState: userStories.prReviewState,
+        })
+        .from(userStories)
+        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+        .innerJoin(projects, eq(projects.id, tickets.projectId))
+        .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+        .where(
+          and(
+            mine,
+            inArray(userStories.status, ["to_validate", "in_review", "ready"]),
+          ),
+        )
+        .orderBy(asc(userStories.id))
+    ).filter((w) => !working.has(w.storyId));
 
     const steps = running.length
       ? await db

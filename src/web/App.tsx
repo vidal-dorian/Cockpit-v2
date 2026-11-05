@@ -20,6 +20,7 @@ import { RunPage } from "./RunPage.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
 import { alertBox, button, focusRing, primaryButton } from "./ui.ts";
+import { useAnyChange } from "./useChanges.ts";
 import { Welcome } from "./Welcome.tsx";
 
 // Loaded on first visit: react-markdown stays out of the main bundle.
@@ -133,6 +134,7 @@ function Home() {
 
   return (
     <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
+      {me.data && <HomePage />}
       <h1 className="font-heading text-4xl font-extrabold">Cockpit</h1>
       <p className="mt-2 text-muted-foreground">
         Le centre de contrôle de tes repos GitHub avec Claude Code.
@@ -166,8 +168,6 @@ function Home() {
           </p>
         )}
       </div>
-
-      {me.data && <HomePage />}
     </main>
   );
 }
@@ -221,6 +221,8 @@ function TopBar() {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const account = me.data;
   // A failed read is no counter, not an error of the bar.
+  // The one stream of the tab: the home page reads the same query.
+  useAnyChange("home", !!account);
   const waiting = useHome(!!account).data?.forYou.length;
   return (
     <header className="border-b border-border bg-card">

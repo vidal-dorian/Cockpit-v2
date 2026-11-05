@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { REASONS } from "./RunVerdict.tsx";
 import { alertBox, card, focusRing } from "./ui.ts";
-import { useAnyChange } from "./useChanges.ts";
 
 async function fetchHome() {
   const res = await client.api.home.$get();
@@ -12,9 +12,8 @@ async function fetchHome() {
   return res.json();
 }
 
-/** What waits for the user (decision 040), shared by the page and the counter of the top bar; read again on every change of the stream. */
+/** What waits for the user (decision 040), shared by the page and the counter of the top bar. */
 export function useHome(enabled: boolean) {
-  useAnyChange("home", enabled);
   return useQuery({ queryKey: ["home"], queryFn: fetchHome, enabled });
 }
 
@@ -43,14 +42,22 @@ const link = `font-semibold underline ${focusRing}`;
 
 function Section({
   title,
+  headingRef,
   children,
 }: {
   title: string;
+  headingRef?: React.Ref<HTMLHeadingElement>;
   children: React.ReactNode;
 }) {
   return (
     <section className="mt-8">
-      <h2 className="font-heading text-xl font-bold">{title}</h2>
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="font-heading text-xl font-bold"
+      >
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -71,7 +78,13 @@ function Story({
   );
 }
 
-function ForYouItem({ item }: { item: Home["forYou"][number] }) {
+function ForYouItem({
+  item,
+  onSent,
+}: {
+  item: Home["forYou"][number];
+  onSent: () => void;
+}) {
   switch (item.kind) {
     case "answer":
       return (
@@ -84,6 +97,7 @@ function ForYouItem({ item }: { item: Home["forYou"][number] }) {
             id={item.questionId}
             suggestedAnswers={item.suggestedAnswers}
             queryKey={["home"]}
+            onSent={onSent}
           />
         </>
       );
@@ -133,6 +147,8 @@ function ForYouItem({ item }: { item: Home["forYou"][number] }) {
 /** The home of a logged-in user (decision 040): what waits for them, what Claude does, the projects. */
 export function HomePage() {
   const home = useHome(true);
+  // The answered card goes away: keep the keyboard focus in the section.
+  const headingRef = useRef<HTMLHeadingElement>(null);
   if (home.isPending)
     return <p className="mt-8 text-muted-foreground">Chargement…</p>;
   if (home.isError)
@@ -144,7 +160,7 @@ export function HomePage() {
   const { forYou, claudeWorks, projects } = home.data;
   return (
     <>
-      <Section title="À toi de jouer">
+      <Section title="À toi de jouer" headingRef={headingRef}>
         {forYou.length === 0 ? (
           <p className="mt-2 text-muted-foreground">Rien ne t'attend.</p>
         ) : (
@@ -154,7 +170,10 @@ export function HomePage() {
                 key={`${item.kind}-${item.kind === "answer" ? item.questionId : item.storyId}`}
                 className={`${card} p-3`}
               >
-                <ForYouItem item={item} />
+                <ForYouItem
+                  item={item}
+                  onSent={() => headingRef.current?.focus()}
+                />
               </li>
             ))}
           </ul>
