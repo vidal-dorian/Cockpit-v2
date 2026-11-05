@@ -161,7 +161,6 @@ describe("criterion 2: start_run refusals", () => {
     "to_validate",
     "to_rewrite",
     "in_progress",
-    "in_review",
     "done",
     "abandoned",
   ] as const)(

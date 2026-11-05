@@ -86,7 +86,7 @@ export function createApp(
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
-      .route("/", runRoutes(db))
+      .route("/", runRoutes(db, readGitHub))
       .route("/", questionRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))

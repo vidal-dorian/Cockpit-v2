@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
@@ -35,7 +35,7 @@ export const isUniqueViolation = (error: unknown) =>
 export const announce = (db: Db, found: Found, runId: number) =>
   publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
 
-/** `start_run` (decision 033 B): a ready story gets a running run and goes in_progress with its branch. */
+/** `start_run` (decision 033 B): a ready or in_review story gets a running run and goes in_progress with its branch. */
 export async function startRun(
   db: Db,
   userId: number,
@@ -50,7 +50,7 @@ export async function startRun(
       db,
       entry,
       found,
-      ["ready"],
+      ["ready", "in_review"],
       async (tx, locked) => {
         if (locked.branch && locked.branch !== args.branch)
           throw new Refused("branch_mismatch");
@@ -113,7 +113,7 @@ export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
   return found;
 }
 
-/** Checks the project and locks the run, which must still run. */
+/** Checks the project and locks the run, which must still run; answers it as locked. */
 export async function lockRunning(tx: Tx, projectId: number, runId: number) {
   await assertActive(tx, projectId);
   const [run] = await tx
@@ -123,6 +123,7 @@ export async function lockRunning(tx: Tx, projectId: number, runId: number) {
     .for("update");
   if (!run) throw new Refused("not_found");
   if (run.status !== "running") throw new Refused("run_finished");
+  return run;
 }
 
 /** `report_step` (decision 033 C). */
@@ -140,7 +141,8 @@ export async function reportStep(
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
   const step = await act(db, entry, async (tx) => {
-    await lockRunning(tx, found.project.id, args.run_id);
+    const run = await lockRunning(tx, found.project.id, args.run_id);
+    const stopRequested = run.stopRequestedAt !== null;
     const [open] = await tx
       .select({ id: runSteps.id })
       .from(runSteps)
@@ -158,7 +160,7 @@ export async function reportStep(
         .values({ runId: args.run_id, agent: args.agent, status: "running" })
         .returning({ id: runSteps.id });
       if (!row) throw new Error("step not created");
-      return row;
+      return { ...row, stopRequested };
     }
     if (!open) throw new Refused("no_open_step");
     await tx
@@ -169,11 +171,10 @@ export async function reportStep(
         finishedAt: sql`now()`,
       })
       .where(eq(runSteps.id, open.id));
-    return open;
+    return { ...open, stopRequested };
   });
   await announce(db, found, args.run_id);
-  // Asking for a stop comes with slice 7.5.
-  return { step_id: step.id, stop_requested: false };
+  return { step_id: step.id, stop_requested: step.stopRequested };
 }
 
 /** `report_criterion` (decision 035 B): the report replaces the previous one of the criterion. */
@@ -265,7 +266,35 @@ export async function linkPullRequest(
   return { pr_number: args.pr_number, story_status: "in_review" as const };
 }
 
-/** `finish_run` (decisions 033 D and 035 D): open steps close failed, a story still in_progress is ready again, and success needs a linked PR. */
+/** Ends a locked running run (decisions 033 D and 037 B, C): open steps close failed, and a story still in_progress goes back to in_review when it has a PR, else to ready. True when the story moved. */
+async function endRun(
+  tx: Tx,
+  runId: number,
+  storyId: number,
+  run: Pick<typeof runs.$inferInsert, "status" | "summary">,
+) {
+  await tx
+    .update(runSteps)
+    .set({ status: "failed", finishedAt: sql`now()` })
+    .where(and(eq(runSteps.runId, runId), eq(runSteps.status, "running")));
+  await tx
+    .update(runs)
+    .set({ ...run, finishedAt: sql`now()` })
+    .where(eq(runs.id, runId));
+  const changed = await tx
+    .update(userStories)
+    .set({
+      status: sql`case when ${userStories.prNumber} is null then 'ready' else 'in_review' end`,
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(eq(userStories.id, storyId), eq(userStories.status, "in_progress")),
+    )
+    .returning({ id: userStories.id });
+  return changed.length > 0;
+}
+
+/** `finish_run` (decisions 033 D, 035 D and 037 C): success needs a linked PR; a failure after a stop request is `stopped`. */
 export async function finishRun(
   db: Db,
   userId: number,
@@ -274,8 +303,8 @@ export async function finishRun(
   args: { run_id: number; outcome: "succeeded" | "failed"; summary: string },
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
-  const reopened = await act(db, entry, async (tx) => {
-    await lockRunning(tx, found.project.id, args.run_id);
+  const { moved, status } = await act(db, entry, async (tx) => {
+    const run = await lockRunning(tx, found.project.id, args.run_id);
     if (args.outcome === "succeeded") {
       const [row] = await tx
         .select({ prNumber: userStories.prNumber })
@@ -283,36 +312,26 @@ export async function finishRun(
         .where(eq(userStories.id, found.story.id));
       if (row?.prNumber == null) throw new Refused("no_pull_request");
     }
-    await tx
-      .update(runSteps)
-      .set({ status: "failed", finishedAt: sql`now()` })
-      .where(
-        and(eq(runSteps.runId, args.run_id), eq(runSteps.status, "running")),
-      );
-    await tx
-      .update(runs)
-      .set({
-        status: args.outcome,
-        summary: args.summary,
-        finishedAt: sql`now()`,
-      })
-      .where(eq(runs.id, args.run_id));
-    const changed = await tx
-      .update(userStories)
-      .set({ status: "ready", updatedAt: sql`now()` })
-      .where(
-        and(
-          eq(userStories.id, found.story.id),
-          eq(userStories.status, "in_progress"),
-        ),
-      )
-      .returning({ id: userStories.id });
-    return changed.length > 0;
+    const status =
+      args.outcome === "failed" && run.stopRequestedAt
+        ? "stopped"
+        : args.outcome;
+    const moved = await endRun(tx, args.run_id, found.story.id, {
+      status,
+      summary: args.summary,
+    });
+    return { moved, status };
   });
-  if (reopened) await syncIssue(db, readGitHub, userId, found.story.id);
+  if (moved) await syncIssue(db, readGitHub, userId, found.story.id);
   await announce(db, found, args.run_id);
-  return { run_id: args.run_id, status: args.outcome };
+  return { run_id: args.run_id, status };
 }
+
+const CONFLICTS = [
+  "run_finished",
+  "stop_already_requested",
+  "project_archived",
+];
 
 /** The running run of a story, for `get_user_story`. */
 export async function activeRunId(db: Db, storyId: number) {
@@ -336,8 +355,77 @@ export const storyRuns = (db: Db, storyId: number) =>
     .where(eq(runs.storyId, storyId))
     .orderBy(desc(runs.id));
 
-export function runRoutes(db: Db) {
+export function runRoutes(db: Db, readGitHub: ReadGitHub) {
+  /** The human controls of a running run (decision 037 A, B): one `act`, then the members and the issue are told. */
+  const control =
+    (action: "request_stop" | "close_run") => async (c: Context) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const id = Number(c.req.param("id"));
+      const [run] = isDatabaseId(id)
+        ? await db.select().from(runs).where(eq(runs.id, id))
+        : [];
+      const found = run && (await memberStory(db, user.userId, run.storyId));
+      if (!found) return c.json({ error: "Not found" }, 404);
+      const entry: Entry = {
+        userId: user.userId,
+        actor: "human",
+        origin: "ui",
+        action,
+        args: { runId: id },
+        projectId: found.project.id,
+        ticketId: found.ticket.id,
+        storyId: found.story.id,
+        runId: id,
+      };
+      // Told before the transaction, so a call that changes nothing leaves no entry.
+      if (run.status !== "running")
+        return c.json({ error: "run_finished" }, 409);
+      if (action === "request_stop" && run.stopRequestedAt)
+        return c.json({ error: "stop_already_requested" }, 409);
+      try {
+        const { moved, stopRequestedAt, status } = await act(
+          db,
+          entry,
+          async (tx) => {
+            const locked = await lockRunning(tx, found.project.id, id);
+            if (action === "request_stop") {
+              if (locked.stopRequestedAt)
+                throw new Refused("stop_already_requested");
+              const [row] = await tx
+                .update(runs)
+                .set({ stopRequestedAt: sql`now()` })
+                .where(eq(runs.id, id))
+                .returning({ at: runs.stopRequestedAt });
+              return {
+                moved: false,
+                stopRequestedAt: row?.at ?? null,
+                status: locked.status,
+              };
+            }
+            const moved = await endRun(tx, id, found.story.id, {
+              status: "closed_manually",
+            });
+            return {
+              moved,
+              stopRequestedAt: locked.stopRequestedAt,
+              status: "closed_manually" as const,
+            };
+          },
+        );
+        if (moved) await syncIssue(db, readGitHub, user.userId, found.story.id);
+        await announce(db, found, id);
+        return c.json({ run: { id, status, stopRequestedAt } });
+      } catch (error) {
+        if (!(error instanceof Refused)) throw error;
+        return CONFLICTS.includes(error.message)
+          ? c.json({ error: error.message }, 409)
+          : c.json({ error: "Not found" }, 404);
+      }
+    };
   return new Hono()
+    .post("/api/runs/:id/stop", control("request_stop"))
+    .post("/api/runs/:id/close", control("close_run"))
     .get("/api/runs/:id", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -378,6 +466,7 @@ export function runRoutes(db: Db) {
           branch: found.story.branch,
           model: run.modelActual,
           comment: run.comment,
+          stopRequestedAt: run.stopRequestedAt,
           summary: run.summary,
           startedAt: run.startedAt,
           finishedAt: run.finishedAt,
@@ -398,7 +487,11 @@ export function runRoutes(db: Db) {
             evidence: mine ? k.evidence : null,
           };
         }),
-        story: { id: found.story.id, iWant: found.story.iWant },
+        story: {
+          id: found.story.id,
+          iWant: found.story.iWant,
+          status: found.story.status,
+        },
         project: { id: found.project.id, name: found.project.fullName },
       });
     })

@@ -727,7 +727,7 @@ const tools = {
   ),
 
   start_run: tool(
-    "Start a development run on a ready user story (status ready), once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session and optionally a comment. Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is not ready, already has an active run, has another branch recorded, or the project is archived.",
+    "Start a development run on a ready or in_review user story, once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session and optionally a comment. Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is neither ready nor in_review, already has an active run, has another branch recorded, or the project is archived.",
     z.object({
       story_id: id.describe("Id of a ready story, from get_user_story"),
       branch: z
@@ -782,7 +782,7 @@ const tools = {
   ),
 
   report_step: tool(
-    "Report that an agent of the team starts or finishes a step of the run. Call it with event started just before the agent works and with event finished (and its status, succeeded or failed, and a short summary) right after. A redone step is a new started. Answers step_id and stop_requested (always false for now). Refused when the run is finished, when the agent already has an open step (started) or has none (finished).",
+    "Report that an agent of the team starts or finishes a step of the run. Call it with event started just before the agent works and with event finished (and its status, succeeded or failed, and a short summary) right after. A redone step is a new started. Answers step_id and stop_requested (true once the user asked to stop: call finish_run failed and stop). Refused when the run is finished, when the agent already has an open step (started) or has none (finished).",
     z
       .object({
         run_id: id.describe("The run_id of start_run"),
@@ -840,13 +840,13 @@ const tools = {
   ),
 
   get_answer: tool(
-    "Read the answer of a question asked with ask_user. Answers answered (false while the user has not answered), answer (null until then) and stop_requested (always false for now). Call it 30 seconds after ask_user, then after 1 minute, after 2 minutes, then every 5 minutes: each call is journaled, so do not poll faster. Works on a finished run too.",
+    "Read the answer of a question asked with ask_user. Answers answered (false while the user has not answered), answer (null until then) and stop_requested. Call it 30 seconds after ask_user, then after 1 minute, after 2 minutes, then every 5 minutes: each call is journaled, so do not poll faster. Works on a finished run too.",
     z.object({ question_id: id.describe("The question_id of ask_user") }),
     (call, args) => getAnswer(call.db, call.userId, call.entry, args),
   ),
 
   finish_run: tool(
-    "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure. Steps still open are closed as failed; a story still in_progress becomes ready again, one in_review stays so. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
+    "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure. Steps still open are closed as failed; a story still in_progress becomes ready again (in_review when a pull request is linked); after a stop request, failed is recorded as stopped. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
     z.object({
       run_id: id.describe("The run_id of start_run"),
       outcome: z.enum(["succeeded", "failed"]),
