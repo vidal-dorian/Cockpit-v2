@@ -14,7 +14,7 @@ import {
   type ReadGitHub,
 } from "./github.ts";
 import { type HealthLine, healthLines, webhookLine } from "./health.ts";
-import { AGENT_NAME, parseTeam } from "./team.ts";
+import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -93,17 +93,21 @@ const agentBody = z
   .refine(({ before, after }) => before !== after);
 
 // Decision 031 H: `after` is a team that `parseTeam` reads, at most 1 MiB, never null.
+// Decision 032 F: an optional `name` picks `.claude/teams/<name>.md`; only then may `after` be null (a removal).
 const teamBody = z
   .object({
+    name: z.string().max(MAX_TEAM_NAME).regex(AGENT_NAME).nullish(),
     before: z.string().nullable(),
     after: z
       .string()
       .refine(
         (text) =>
           Buffer.byteLength(text) <= 1_048_576 && parseTeam(text) !== null,
-      ),
+      )
+      .nullable(),
   })
-  .refine(({ before, after }) => before !== after);
+  .refine(({ before, after }) => before !== after)
+  .refine(({ name, after }) => name != null || after !== null);
 
 const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
@@ -589,6 +593,7 @@ export function projectRoutes(
         return c.json({
           agents: read.agents,
           team: read.team,
+          teams: read.teams,
           catalog: CATALOG_AGENTS.filter((agent) => !taken.has(agent.name)),
         });
       } catch (error) {
@@ -623,18 +628,21 @@ export function projectRoutes(
       if (!user) return c.json(unauthorized, 401);
       const parsed = teamBody.safeParse(await c.req.json().catch(() => null));
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
-      const path = ".claude/team.md";
+      const { name, before, after } = parsed.data;
+      const path = name ? `.claude/teams/${name}.md` : ".claude/team.md";
       return saveFile(
         c,
         {
           userId: user.userId,
           actor: "human",
           origin: "ui",
-          action: "save_team",
+          action: after === null ? "delete_team" : "save_team",
           args: { path },
         },
-        { path, ...parsed.data },
-        "feat: update the team (Cockpit)",
+        { path, before, after },
+        !name
+          ? "feat: update the team (Cockpit)"
+          : `feat: ${after === null ? "remove" : "update"} the team ${name} (Cockpit)`,
       );
     })
     .post("/api/projects/:id/archive", async (c) => {

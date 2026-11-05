@@ -80,9 +80,15 @@ export function healthLines(files: RepoFiles, publicUrl: string): HealthLine[] {
 // Decision 029 E: the agents wanted are the project's own team, or the three default ones.
 function agentsDetail(files: RepoFiles): HealthDetail {
   if (!files.devUsSkill.includes("SKILL.md")) return "missing";
-  const team = files.teamMd === null ? DEFAULT_TEAM : parseTeam(files.teamMd);
-  if (!team) return "invalid_team";
-  return team.every((name) => files.agents.includes(`${name}.md`))
+  // Decision 032 C: every named team is judged like team.md; an unreadable one first, then a missing agent.
+  const teams = [
+    files.teamMd === null ? DEFAULT_TEAM : parseTeam(files.teamMd),
+    ...files.teams.map(parseTeam),
+  ];
+  if (teams.includes(null)) return "invalid_team";
+  return teams.every((team) =>
+    team?.every((name) => files.agents.includes(`${name}.md`)),
+  )
     ? "ok"
     : "missing";
 }

@@ -27,6 +27,9 @@ import {
 const StepGraph = lazy(() => import("./ProjectTeamGraph.tsx"));
 
 const TDD_AGENTS = ["test-writer", "reviewer"];
+// A team name is an agent name that fits `.claude/teams/<name>.md` in 255 characters (decision 032 A).
+const TEAM_NAME = /^[a-z0-9][a-z0-9-]*$/;
+const MAX_TEAM_NAME = 238;
 
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
@@ -129,7 +132,7 @@ function StepPanel({
   );
 }
 
-/** Decision 031: the team of `.claude/team.md` as a graph and a list sharing one draft, saved by a commit shown before as a diff. */
+/** Decisions 031 and 032: a team (`.claude/team.md` or `.claude/teams/<name>.md`) as a graph and a list sharing one draft, saved by a commit shown before as a diff. */
 export function ProjectTeam({
   projectId,
   fullName,
@@ -137,6 +140,7 @@ export function ProjectTeam({
   hidden,
   agents,
   team,
+  teams,
   onSaved,
   onEditAgent,
 }: {
@@ -147,15 +151,31 @@ export function ProjectTeam({
   hidden: boolean;
   agents: Agent[];
   team: string | null;
+  teams: { name: string; text: string }[];
   onSaved: () => void;
   onEditAgent: (name: string) => void;
 }) {
+  // The team shown: null is the default one. A named team that is not in `teams` yet is a new one, started from `copy`.
+  const [name, setName] = useState<string | null>(null);
+  const [copy, setCopy] = useState<Draft>({ steps: DEFAULT_STEPS, body: "" });
+  const current =
+    name === null ? team : (teams.find((t) => t.name === name)?.text ?? null);
   const initial = useMemo<Draft | null>(
-    () => (team === null ? { steps: DEFAULT_STEPS, body: "" } : readTeam(team)),
-    [team],
+    () =>
+      current !== null
+        ? readTeam(current)
+        : name === null
+          ? { steps: DEFAULT_STEPS, body: "" }
+          : copy,
+    [current, name, copy],
   );
   const [draft, setDraft] = useState(initial);
-  const [seen, setSeen] = useState(team);
+  const key = `${name ?? ""}:${current}`;
+  const [seen, setSeen] = useState(key);
+  const [switchTo, setSwitchTo] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState("");
@@ -169,9 +189,9 @@ export function ProjectTeam({
   const [showDiff, setShowDiff] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
-  // A new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
-  if (seen !== team) {
-    setSeen(team);
+  // Another team or a new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
+  if (seen !== key) {
+    setSeen(key);
     setDraft(initial);
     setOpen(null);
     setShowDiff(false);
@@ -182,12 +202,16 @@ export function ProjectTeam({
   }
 
   const commit = useMutation({
-    mutationFn: async (after: string) => {
+    mutationFn: async (after: string | null) => {
       const res = await client.api.projects[":id"].team.apply.$post(
         { param: { id: projectId } },
         {
           init: {
-            body: JSON.stringify({ before: team, after }),
+            body: JSON.stringify({
+              name: name ?? undefined,
+              before: current,
+              after,
+            }),
             headers: { "content-type": "application/json" },
           },
         },
@@ -196,12 +220,13 @@ export function ProjectTeam({
         ? { done: await res.json() }
         : { failure: await failure(res) };
     },
-    onSuccess: (answer) => {
+    onSuccess: (answer, after) => {
       if (answer.failure) {
         setProblem(answer.failure);
         if (answer.failure.code !== "repo_changed") return;
       } else {
         const { commitSha, pullRequest } = answer.done;
+        if (after === null) setName(null); // the team is gone: back to the default one
         setDone({
           url:
             pullRequest?.url ??
@@ -226,6 +251,189 @@ export function ProjectTeam({
     target?.focus();
   }, [moved]);
 
+  const dirty =
+    draft !== null &&
+    initial !== null &&
+    writeTeam(draft.steps, draft.body) !==
+      writeTeam(initial.steps, initial.body);
+  const goTo = (next: string | null) => {
+    setName(next);
+    setSwitchTo(null);
+    setCreating(false);
+    setDeleting(false);
+    setProblem(null);
+    setDone(null);
+  };
+  const newNameProblem = !newName
+    ? null
+    : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
+      ? "Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début"
+      : teams.some((t) => t.name === newName)
+        ? "Ce nom est déjà pris"
+        : null;
+  const picker = (
+    <>
+      <label htmlFor="team-pick" className="mt-3 block">
+        Équipe
+      </label>
+      <select
+        id="team-pick"
+        className={field}
+        value={name ?? ""}
+        // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
+        disabled={commit.isPending}
+        onChange={(e) => {
+          const next = e.target.value || null;
+          if (!dirty) return goTo(next);
+          setCreating(false);
+          setDeleting(false);
+          setSwitchTo(next ?? "");
+        }}
+      >
+        <option value="">Par défaut (team.md)</option>
+        {/* A new team is not in the repo yet. */}
+        {(current === null && name !== null
+          ? [...teams.map((t) => t.name), name]
+          : teams.map((t) => t.name)
+        ).map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
+      {switchTo !== null && (
+        <div className="mt-3">
+          <p id="switch-team-warning">
+            Les changements non enregistrés seront perdus
+          </p>
+          <button
+            type="button"
+            aria-describedby="switch-team-warning"
+            disabled={commit.isPending}
+            onClick={() => goTo(switchTo || null)}
+            className={`mt-2 ${button}`}
+          >
+            Confirmer le changement
+          </button>
+          <button
+            type="button"
+            aria-describedby="switch-team-warning"
+            // The select that asked keeps its value: focus goes to the safe choice.
+            // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+            autoFocus
+            onClick={() => setSwitchTo(null)}
+            className={`mt-2 ml-2 ${button}`}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+      {name !== null && current !== null && (
+        <p className="mt-3">
+          Pour la lancer :{" "}
+          <code>
+            /dev-us {"<US>"} --team {name}
+          </code>
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={archived || commit.isPending}
+          onClick={() => {
+            setSwitchTo(null);
+            setDeleting(false);
+            setNewName("");
+            setCreating(true);
+          }}
+          className={button}
+        >
+          Nouvelle équipe
+        </button>
+        {name !== null && current !== null && !deleting && (
+          <button
+            type="button"
+            disabled={archived || commit.isPending}
+            onClick={() => {
+              setSwitchTo(null);
+              setCreating(false);
+              setDeleting(true);
+            }}
+            className={button}
+          >
+            Supprimer l'équipe
+          </button>
+        )}
+      </div>
+      {creating && (
+        <div className={`${card} mt-3 p-4`}>
+          <label htmlFor="team-new" className="block">
+            Nom de l'équipe
+          </label>
+          <input
+            id="team-new"
+            className={field}
+            value={newName}
+            aria-describedby="team-new-problem"
+            onChange={(e) => setNewName(e.target.value)}
+          />
+          <p id="team-new-problem" className="mt-2 empty:hidden">
+            {newNameProblem}
+          </p>
+          <button
+            type="button"
+            disabled={commit.isPending || !newName || newNameProblem !== null}
+            onClick={() => {
+              setCopy(draft ?? { steps: DEFAULT_STEPS, body: "" });
+              goTo(newName);
+            }}
+            className={`mt-3 ${button}`}
+          >
+            Créer l'équipe
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating(false)}
+            className={`mt-3 ml-2 ${button}`}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+      {deleting && (
+        <div className="mt-3">
+          <p id="delete-team-warning">
+            L'équipe sera retirée du repo par un commit
+          </p>
+          <button
+            type="button"
+            aria-describedby="delete-team-warning"
+            disabled={archived || commit.isPending}
+            onClick={() => {
+              setProblem(null);
+              setDone(null);
+              setDeleting(false);
+              commit.mutate(null);
+            }}
+            className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
+          >
+            Confirmer la suppression
+          </button>
+          <button
+            type="button"
+            aria-describedby="delete-team-warning"
+            // The button that asked is gone: keep the keyboard focus on the safe choice.
+            // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+            autoFocus
+            onClick={() => setDeleting(false)}
+            className={`mt-2 ml-2 ${button}`}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+    </>
+  );
   const heading = (
     <h2 id="team" className="font-heading text-xl font-bold">
       Équipe
@@ -235,9 +443,10 @@ export function ProjectTeam({
     return (
       <section className="mt-6" aria-labelledby="team" hidden={hidden}>
         {heading}
+        {picker}
         <p className="mt-3">
-          Ce team.md contient des lignes que Cockpit ne sait pas réécrire :
-          modifie-le sur GitHub
+          {name === null ? "Ce team.md contient" : "Cette équipe contient"} des
+          lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub
         </p>
       </section>
     );
@@ -255,10 +464,10 @@ export function ProjectTeam({
   const after = writeTeam(steps, body);
   // Compared with the draft as opened, not the file text: a file Cockpit would only reformat is not a change. Without a file the default steps are still worth a commit.
   const unchanged =
-    team !== null &&
+    current !== null &&
     initial !== null &&
     after === writeTeam(initial.steps, initial.body);
-  const lines = showDiff ? diffLines(team ?? "", after) : null;
+  const lines = showDiff ? diffLines(current ?? "", after) : null;
   const canCommit =
     !archived &&
     !commit.isPending &&
@@ -284,6 +493,7 @@ export function ProjectTeam({
   return (
     <section className="mt-6" aria-labelledby="team" hidden={hidden}>
       {heading}
+      {picker}
       <Suspense
         fallback={
           <p role="status" className="hidden text-muted-foreground sm:block">

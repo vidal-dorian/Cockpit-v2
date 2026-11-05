@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [006 — Connexion OAuth](006-connexion-oauth.md), [011 — Importer un projet](011-import-projets.md)
 - **Modifiée par** : [029 — Une équipe d'agents](029-equipe-d-agents.md) : la règle F (les agents exigés sont ceux de `.claude/team.md` quand il existe) et le code `invalid_team` de la ligne `agents` ; le nombre d'appels de la règle A (une vague de plus pour `team.md`)
+- **Modifiée par** : [032 — Plusieurs équipes](032-plusieurs-equipes.md) : la règle F vérifie aussi chaque équipe de `.claude/teams/` ; la règle A lit ce dossier quand il existe
 - **Tranche** : 2.2 du [découpage](../decoupage.md)
 
 ## Contexte

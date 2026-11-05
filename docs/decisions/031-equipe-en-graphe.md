@@ -39,5 +39,6 @@ Demande de Dorian (2026-11-04), avec une capture d'un graphe de cartes reliées 
 - **Tirer un lien à la souris ne se fait pas au clavier** : la liste (F) fait tout ce que fait le graphe.
 - **Les commentaires et les autres clés d'un `team.md` écrit à la main** empêchent de le modifier dans Cockpit (G) : c'est le prix de « sans rien perdre ».
 - **Un `team.md` écrit à la main que Cockpit ne ferait que remettre en forme** (valeurs sans guillemets, lignes vides) n'est pas proposé au commit tant que rien n'est modifié ; au premier changement, le diff montre aussi la remise en forme.
+- **Ce qu'on modifie pendant qu'un commit est en cours est perdu quand il réussit** : le brouillon repart du fichier relu. Le graphe et la liste restent modifiables pendant ce temps.
 - **`team.md` reste une consigne** que Claude suit, pas un programme (029, limites).
 - **Non vérifiable ici** : le glisser-déposer dans un vrai navigateur (les tests passent par les fonctions du brouillon et la liste) et un vrai commit sur un vrai repo.
