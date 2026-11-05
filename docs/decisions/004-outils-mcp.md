@@ -149,7 +149,7 @@ Valider, renvoyer, terminer ou abandonner une US ; modifier une US qui n'est pas
 
 ## Points ouverts
 
-1. ~~**Relancer une US en revue**~~ (tranché par la [037](037-arreter-relancer-fermer.md) E : `start_run` accepte une US `in_review`) (CI rouge après l'ouverture de la PR) : `start_run` n'accepte qu'une US `ready`. À trancher en tranche 7.5 : autoriser `in_review` → `in_progress` pour une relance, ou attendre la relance automatique (après le MVP).
+1. ~~**Relancer une US en revue**~~ (tranché par la [037](037-arreter-relancer-fermer.md) E : `start_run` accepte une US `in_review`) (CI rouge après l'ouverture de la PR) : ~~`start_run` n'accepte qu'une US `ready`. À trancher en tranche 7.5 : autoriser `in_review` → `in_progress` pour une relance, ou attendre la relance automatique (après le MVP).~~
 2. ~~**Modèle demandé** (`runs.model_requested`)~~ : réglé par la [005](005-lancement-local.md). Le modèle est fixé dans la fiche des agents ; la colonne est retirée.
 
 ## Pistes écartées

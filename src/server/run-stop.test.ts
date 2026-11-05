@@ -108,7 +108,7 @@ describe("criterion 1: the member asks Claude to stop", () => {
     expect((await runRow(s.db, s.runId))?.stop_requested_at).toBeNull();
   });
 
-  it("given a stop already requested, when it is posted again, then 409 stop_already_requested and one entry only", async () => {
+  it("given a stop already requested, when it is posted again, then 409 stop_already_requested and its refusal is journaled", async () => {
     const s = await running();
     expect(
       (await runRoute(s.app, s.alice.cookie, s.runId, "stop")).status,
