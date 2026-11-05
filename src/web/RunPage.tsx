@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
-import { RUN_STATUSES } from "./tickets.ts";
+import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
 import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
 
@@ -118,6 +118,35 @@ export function RunPage() {
                     {step.summary && (
                       <p className="mt-1 whitespace-pre-wrap">{step.summary}</p>
                     )}
+                  </li>
+                ))}
+              </ol>
+            </section>
+            <section className="mt-6">
+              <h2 className="font-heading text-xl font-bold">Critères</h2>
+              <ol className="mt-2 grid gap-2">
+                {(found.criteria ?? []).map((criterion) => (
+                  <li key={criterion.id} className={`${card} p-3`}>
+                    <p>
+                      <span className={label}>Étant donné</span>{" "}
+                      {criterion.given}
+                    </p>
+                    <p>
+                      <span className={label}>Quand</span> {criterion.when}
+                    </p>
+                    <p>
+                      <span className={label}>Alors</span> {criterion.then}
+                    </p>
+                    <p className="mt-1">
+                      <span className={label}>
+                        {criterion.result
+                          ? CRITERION_RESULTS[criterion.result]
+                          : "Non signalé dans ce run"}
+                      </span>{" "}
+                      <span className="whitespace-pre-wrap text-muted-foreground">
+                        {criterion.evidence}
+                      </span>
+                    </p>
                   </li>
                 ))}
               </ol>

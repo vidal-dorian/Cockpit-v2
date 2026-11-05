@@ -8,7 +8,7 @@ import { DevelopWindow } from "./DevelopWindow.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
-import { RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
+import { CRITERION_RESULTS, RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
   button,
@@ -142,6 +142,16 @@ export function StoryPage() {
                 <span className={label}>Afin de</span> {found.story.soThat}
               </p>
             </div>
+            {found.story.prNumber !== null && (
+              <p className="mt-4">
+                <a
+                  href={`https://github.com/${found.project.fullName}/pull/${found.story.prNumber}`}
+                  className={`underline ${focusRing}`}
+                >
+                  PR n° {found.story.prNumber}
+                </a>
+              </p>
+            )}
             {found.story.notesMd && (
               <section className="mt-6">
                 <h2 className="font-heading text-xl font-bold">Notes</h2>
@@ -168,6 +178,16 @@ export function StoryPage() {
                     <p>
                       <span className={label}>Alors</span> {criterion.then}
                     </p>
+                    {criterion.result && (
+                      <p className="mt-1">
+                        <span className={label}>
+                          {CRITERION_RESULTS[criterion.result]}
+                        </span>{" "}
+                        <span className="whitespace-pre-wrap text-muted-foreground">
+                          {criterion.evidence}
+                        </span>
+                      </p>
+                    )}
                   </li>
                 ))}
               </ol>

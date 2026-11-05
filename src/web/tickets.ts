@@ -17,6 +17,12 @@ export const RUN_STATUSES: Record<string, string> = {
   closed_manually: "Fermé à la main",
 };
 
+/** The result labels of an acceptance criterion (decision 035 F). */
+export const CRITERION_RESULTS: Record<string, string> = {
+  passed: "Réussi",
+  failed: "Échoué",
+};
+
 /** The status labels of a user story (decision 017 L). */
 export const STORY_STATUSES: Record<string, string> = {
   to_validate: "à valider",

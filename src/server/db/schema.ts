@@ -213,6 +213,8 @@ export const userStories = pgTable(
     }),
     // The branch of the first run (decision 033 A); empty until a run starts.
     branch: text("branch"),
+    // The pull request of the story (decision 035 A).
+    prNumber: integer("pr_number"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -296,16 +298,31 @@ export const runSteps = pgTable(
   ],
 );
 
-export const acceptanceCriteria = pgTable("acceptance_criteria", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  storyId: integer("story_id")
-    .notNull()
-    .references(() => userStories.id),
-  position: integer("position").notNull(),
-  givenText: text("given_text").notNull(),
-  whenText: text("when_text").notNull(),
-  thenText: text("then_text").notNull(),
-});
+export const CRITERION_RESULTS = ["passed", "failed"] as const;
+
+/** A criterion of a story; `result`, `evidence` and `resultRunId` are the last report of Claude (decision 035 A). */
+export const acceptanceCriteria = pgTable(
+  "acceptance_criteria",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    storyId: integer("story_id")
+      .notNull()
+      .references(() => userStories.id),
+    position: integer("position").notNull(),
+    givenText: text("given_text").notNull(),
+    whenText: text("when_text").notNull(),
+    thenText: text("then_text").notNull(),
+    result: text("result", { enum: CRITERION_RESULTS }),
+    evidence: text("evidence"),
+    resultRunId: integer("result_run_id").references(() => runs.id),
+  },
+  (t) => [
+    check(
+      "acceptance_criteria_result_check",
+      sql`${t.result} in ('passed', 'failed')`,
+    ),
+  ],
+);
 
 /** `storyId` needs `dependsOnId` done first. */
 export const storyDependencies = pgTable(

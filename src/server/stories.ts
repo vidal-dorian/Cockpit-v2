@@ -238,6 +238,7 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
   notesMd: story.notesMd,
   status: story.status,
   branch: story.branch,
+  prNumber: story.prNumber,
   rewriteComment: story.rewriteComment,
   criteria: parts.criteria.map((k) => ({
     id: k.id,
@@ -246,6 +247,9 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
     when: k.whenText,
     // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
     then: k.thenText,
+    result: k.result,
+    evidence: k.evidence,
+    resultRunId: k.resultRunId,
   })),
   dependsOn: parts.dependsOn.map(({ id, status, iWant }) => ({
     id,

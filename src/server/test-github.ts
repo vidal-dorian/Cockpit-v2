@@ -196,6 +196,7 @@ export function failOnUnexpectedFetch() {
  * `https://github.com/{o}/{r}/pull/{number}`; `pullRequestFailure` fails it). They are recorded apart from `created` (which the older tests compare with `toEqual`) as `git.refsCreated` (`{ branch, sha, force }`),
  * `git.refsDeleted` (branch names) and `git.pullRequests` (`{ number, head, base, title, body }`); `git.branch(name)` is the sha a branch points at (the default branch included), `undefined` when it does not exist.
  * `GET .../git/ref/heads/<name>` serves these branches too.
+ * Reading a PR (slice 7.3, decision 035 C), on any repo: `GET .../pulls/{n}` answers what `addPull(fullName, number, branch, headRepo?)` seeded (`head.ref`, `head.repo.full_name`), 404 otherwise; `failOn` applies.
  * `failOn` applies to these repos too. A tree that would replace anything is accepted, as GitHub does: it is the caller's job not to send it. A blob sent over a directory, a symlink, a submodule or a file replaces it (and
  * everything under a directory), and a blob under a path that is a file, a symlink or a submodule replaces that parent by a directory.
  * `gitRepos` entries take `entries` (see `FakeGitEntry`) next to `files`; `push(files, message, entries)` takes them as its third argument, and `git(...).entriesAt(sha)` reads them.
@@ -445,6 +446,8 @@ export function stubGitHub(initial: {
       return [fullName, git] as const;
     }),
   );
+  // Pull requests seeded by `addPull`, as `GET .../pulls/{n}` serves them (slice 7.3, decision 035 C).
+  const pulls = new Map<string, unknown>();
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -950,6 +953,22 @@ export function stubGitHub(initial: {
           );
         }
       }
+      const pullRoute =
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)$/.exec(
+          route,
+        );
+      if (pullRoute) {
+        const failed = options.failOn?.({ method, path: url.pathname });
+        if (failed)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: failed === true ? 500 : failed },
+          );
+        const pull = pulls.get(`${pullRoute[1]}#${pullRoute[2]}`);
+        if (!pull)
+          return Response.json({ message: "Not Found" }, { status: 404 });
+        return Response.json(pull);
+      }
       const issueRoute =
         /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:(labels)|issues(?:\/(\d+)(?:\/(labels)(?:\/(.+))?)?)?)$/.exec(
           route,
@@ -1091,6 +1110,21 @@ export function stubGitHub(initial: {
       const repo = repoOf(fullName);
       repo.labels.add(name);
       repo.issues.find((i) => i.number === number)?.labels.push(name);
+    },
+    /** Makes `GET /repos/{fullName}/pulls/{number}` answer a PR whose head is `branch`, from `headRepo` (default: the same repo, so not a fork); any other number is 404. */
+    addPull(
+      fullName: string,
+      number: number,
+      branch: string,
+      headRepo = fullName,
+    ) {
+      pulls.set(`${fullName}#${number}`, {
+        number,
+        state: "open",
+        html_url: `https://github.com/${fullName}/pull/${number}`,
+        head: { ref: branch, repo: { full_name: headRepo } },
+        base: { ref: "main", repo: { full_name: fullName } },
+      });
     },
     /** The live Git state of a repo named in `gitRepos` (decision 026), see the stub's comment. */
     git(fullName: string) {
