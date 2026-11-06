@@ -30,6 +30,7 @@ Test-driven, always with the agents of `.claude/agents/`, in this order. Never s
 1. **test-writer** writes the acceptance tests from the Given/When/Then criteria. They must fail, for the right reason.
 2. **developer** implements until those tests pass, without touching them.
 3. **reviewer** reviews the diff with a fresh context. Blocking findings go back to the developer, then to a new review, until the verdict is **ready**.
+4. **doc-writer** updates every documentation the change reaches (README, `docs/`, this file), without touching code or tests.
 
 Only then open the pull request.
 
