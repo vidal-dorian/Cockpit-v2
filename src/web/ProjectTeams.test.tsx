@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
 // Slice E4 (decision 032 E): several teams in the section « Équipe » of the tab « Agents » (/projets/:id/agents). Builds on ProjectTeam.test.tsx (031).
@@ -25,7 +25,22 @@ import { App } from "./App.tsx";
 // - A named team that Cockpit cannot rewrite shows the sentence of 031 (containing « modifie-le sur GitHub ») and no card, no commit; the select stays, and the other teams are not affected.
 // - The commit of the default team posts no name, or name null.
 
+// jsdom has no showModal/close on <dialog>: stub them and restore the originals.
+const realShowModal = HTMLDialogElement.prototype.showModal;
+const realClose = HTMLDialogElement.prototype.close;
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  };
+});
+
 afterEach(() => {
+  HTMLDialogElement.prototype.showModal = realShowModal;
+  HTMLDialogElement.prototype.close = realClose;
   cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState({}, "", "/");
@@ -192,10 +207,27 @@ const review = () => {
 };
 const commitButton = () =>
   screen.getByRole("button", { name: "Faire le commit" }) as HTMLButtonElement;
+const dialog = () => screen.getByRole("dialog", { name: "Nouvelle équipe" });
+const rowsOf = (items: HTMLElement[]) =>
+  items
+    .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
+    .map((li) => /^\s*\d+\s*([a-z0-9-]+)/.exec(li.textContent ?? "")?.[1]);
+const dialogRows = () =>
+  screen.queryByRole("dialog")
+    ? rowsOf(within(dialog()).queryAllByRole("listitem"))
+    : [];
+const outsideRows = () =>
+  rowsOf(
+    screen
+      .queryAllByRole("listitem", { hidden: true })
+      .filter((li) => !li.closest("dialog")),
+  );
 const nameField = () =>
-  screen.getByLabelText("Nom de l'équipe") as HTMLInputElement;
+  within(dialog()).getByLabelText("Nom de l'équipe") as HTMLInputElement;
 const create = () =>
-  screen.getByRole("button", { name: "Créer l'équipe" }) as HTMLButtonElement;
+  within(dialog()).getByRole("button", {
+    name: "Créer l'équipe",
+  }) as HTMLButtonElement;
 const typeName = (value: string) =>
   fireEvent.change(nameField(), { target: { value } });
 
@@ -327,40 +359,68 @@ describe("decision 032 E: the command to copy", () => {
   });
 });
 
-describe("decision 032 E: a new team", () => {
-  it("given the default team shown, when « Nouvelle équipe » is used with the name docs, then the team starts from a copy of the default one and the commit posts { name: docs, before: null, after }", async () => {
+describe("decision 032 E: a new team, in a dialog", () => {
+  it("given the Agents tab, when « Nouvelle équipe » is clicked, then a dialog « Nouvelle équipe » opens with the field « Nom de l'équipe », a copy of the team read from the repo (not the unsaved draft) and « Ajouter une étape », while the current editor is unchanged", async () => {
+    stubApi();
+    await openTeam();
+    moveFirstDown();
+    expect(dialogRows()).toEqual([]);
+
+    click("Nouvelle équipe");
+
+    const box = dialog();
+    expect(within(box).getByLabelText("Nom de l'équipe")).toBeDefined();
+    expect(dialogRows()).toEqual(["test-writer", "developer", "reviewer"]);
+    expect(
+      within(box).getByRole("button", { name: "Ajouter une étape" }),
+    ).toBeDefined();
+    expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
+    expect(picker().value).toBe("");
+  });
+
+  it("given the leger team shown, when « Nouvelle équipe » is clicked, then the dialog starts from leger as read from the repo", async () => {
+    stubApi();
+    await openTeam();
+    choose("leger");
+    await waitFor(() =>
+      expect(outsideRows()).toEqual(["developer", "doc-writer"]),
+    );
+
+    click("Nouvelle équipe");
+
+    expect(dialogRows()).toEqual(["developer", "doc-writer"]);
+  });
+
+  it("given the dialog, when a name is typed, a step added in it and « Créer l'équipe » clicked, then one POST { name, before: null, after } is sent, the dialog closes and the picker shows the new team with « C'est fait » and the commit link", async () => {
     const calls = stubApi();
     await openTeam();
 
     click("Nouvelle équipe");
     typeName("docs");
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Ajouter une étape" }),
+    );
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Ajouter à l'équipe" }),
+    );
+    expect(dialogRows()).toEqual([
+      "test-writer",
+      "developer",
+      "reviewer",
+      "doc-writer",
+    ]);
     expect(create().disabled).toBe(false);
     fireEvent.click(create());
 
-    await waitFor(() => expect(picker().value).toBe("docs"));
-    expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
-    review();
-    fireEvent.click(commitButton());
     await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
     const [sent] = calls.applyBodies;
     expect(sent).toMatchObject({ name: "docs", before: null });
-    expect(String(sent?.after)).toContain("agent: reviewer");
-  });
-
-  it("given the leger team shown, when a new team is created, then it starts from a copy of leger", async () => {
-    stubApi();
-    await openTeam();
-    choose("leger");
-    await waitFor(() =>
-      expect(rowAgents()).toEqual(["developer", "doc-writer"]),
-    );
-
-    click("Nouvelle équipe");
-    typeName("copie");
-    fireEvent.click(create());
-
-    await waitFor(() => expect(picker().value).toBe("copie"));
-    expect(rowAgents()).toEqual(["developer", "doc-writer"]);
+    expect(String(sent?.after)).toContain("agent: doc-writer");
+    await screen.findByText("C'est fait");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(picker().value).toBe("docs");
+    expect(screen.getByRole("link", { name: "Voir le commit" })).toBeDefined();
+    expect(calls.applyBodies).toHaveLength(1);
   });
 
   it.each([
@@ -372,7 +432,7 @@ describe("decision 032 E: a new team", () => {
     ["239 characters", "a".repeat(239), INVALID],
     ["a name already taken", "leger", TAKEN],
   ])(
-    "given the name %s, when « Nouvelle équipe » is open, then « Créer l'équipe » is disabled and the message is shown",
+    "given the name %s, when the dialog is open, then « Créer l'équipe » is disabled and the message is shown",
     async (_n, value, expected) => {
       stubApi();
       await openTeam();
@@ -381,9 +441,76 @@ describe("decision 032 E: a new team", () => {
       typeName(value);
 
       expect(create().disabled).toBe(true);
-      if (expected) expect(screen.getByText(expected)).toBeDefined();
+      if (expected) expect(within(dialog()).getByText(expected)).toBeDefined();
     },
   );
+
+  it("given a valid name, when every step is removed in the dialog, then « Créer l'équipe » is disabled", async () => {
+    stubApi({ teams: [{ name: "mini", text: team(["developer", "x"]) }] });
+    await openTeam();
+    choose("mini");
+    await waitFor(() => expect(outsideRows()).toEqual(["developer"]));
+
+    click("Nouvelle équipe");
+    typeName("vide");
+    expect(create().disabled).toBe(false);
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Modifier" }));
+    fireEvent.click(
+      within(dialog()).getByRole("button", { name: "Retirer l'étape" }),
+    );
+
+    expect(dialogRows()).toEqual([]);
+    expect(create().disabled).toBe(true);
+  });
+
+  it("given the dialog with a typed name, when « Annuler » is clicked, then nothing is sent, the dialog closes and the current team is as before", async () => {
+    const calls = stubApi();
+    await openTeam();
+    moveFirstDown();
+
+    click("Nouvelle équipe");
+    typeName("docs");
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Annuler" }));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.applyBodies).toEqual([]);
+    expect(picker().value).toBe("");
+    expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
+  });
+
+  it("given unsaved edits to the current team, when « Nouvelle équipe » is clicked, then the edits stay outside the dialog, are not copied into it, and are still there after « Annuler »", async () => {
+    stubApi();
+    await openTeam();
+    moveFirstDown();
+
+    click("Nouvelle équipe");
+
+    expect(dialogRows()).toEqual(["test-writer", "developer", "reviewer"]);
+    expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Annuler" }));
+    expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
+  });
+});
+
+describe("decision 032 E: layout of the tab", () => {
+  it("given the Agents tab, when it is shown, then the sections « Équipe » and « Agents » are the two columns of one lg:grid-cols- container, the team first", async () => {
+    stubApi();
+    await openTeam();
+
+    const sections = ["Équipe", "Agents"].map(
+      (name) =>
+        screen
+          .getByRole("heading", { level: 2, name })
+          .closest("section") as HTMLElement,
+    );
+    const [teamSection, agentsSection] = sections as [HTMLElement, HTMLElement];
+    expect(teamSection.parentElement).toBe(agentsSection.parentElement);
+    expect(teamSection.parentElement?.className).toContain("lg:grid-cols-");
+    expect(
+      teamSection.compareDocumentPosition(agentsSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });
 
 describe("decision 032 E: deleting a team", () => {
