@@ -9,6 +9,7 @@ import {
   Position,
   ReactFlow,
   useNodesState,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useRef } from "react";
@@ -69,6 +70,18 @@ function StepCard({ data }: NodeProps<CardNode>) {
       </button>
     </>
   );
+}
+
+/** Refits the view when steps are added, removed or reordered (not on drags or other renders). */
+function RefitOnSteps({ key_ }: { key_: string }) {
+  const { fitView } = useReactFlow();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key_ is the trigger
+  useEffect(() => {
+    // After the frame in which the nodes are set and drawn.
+    const frame = requestAnimationFrame(() => fitView());
+    return () => cancelAnimationFrame(frame);
+  }, [key_, fitView]);
+  return null;
 }
 
 const nodeTypes = { card: StepCard };
@@ -188,7 +201,9 @@ export default function StepGraph({
         deleteKeyCode={null}
         disableKeyboardA11y
         fitView
+        minZoom={0.2}
       >
+        <RefitOnSteps key_={steps.map((s) => s.agent).join("|")} />
         <Background />
         <Controls showInteractive={false} />
       </ReactFlow>
