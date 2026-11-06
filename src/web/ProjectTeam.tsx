@@ -190,8 +190,11 @@ function StepEditor({
     const target = focusAfter.current;
     focusAfter.current = null;
     // A frame later: React Flow sets its nodes in an effect of its own.
-    if (target)
-      requestAnimationFrame(() => document.getElementById(target)?.focus());
+    if (!target) return;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(target)?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
   }, [steps]);
   const remove = (agent: string) => {
     setWarn(TDD_AGENTS.includes(agent));
