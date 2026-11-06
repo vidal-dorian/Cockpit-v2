@@ -93,8 +93,7 @@ export function RoutineSettings() {
               <p className="font-semibold">1. Créer la tâche sur claude.ai</p>
               <p className="mt-1">
                 Choisis le déclencheur « API » seulement (ni planning, ni repo),
-                le modèle que tu veux, et garde seulement le connecteur Cockpit
-                : retire les autres (claude.ai les coche tous par défaut).
+                le modèle que tu veux.
               </p>
               <a
                 href="https://claude.ai/code/routines"
@@ -106,7 +105,15 @@ export function RoutineSettings() {
               </a>
             </li>
             <li className={`${card} p-4`}>
-              <p className="font-semibold">2. Copier la consigne</p>
+              <p className="font-semibold">2. Décocher les connecteurs</p>
+              <p className="mt-1">
+                claude.ai coche tous tes connecteurs par défaut : décoche-les
+                tous sauf Cockpit. La tâche n'a besoin que de lui pour écrire
+                les US, et n'a ainsi accès à rien d'autre.
+              </p>
+            </li>
+            <li className={`${card} p-4`}>
+              <p className="font-semibold">3. Copier la consigne</p>
               <p className="mt-1">Colle-la comme consigne de la tâche.</p>
               <textarea
                 readOnly
@@ -139,7 +146,7 @@ export function RoutineSettings() {
               </div>
             </li>
             <li className={`${card} p-4`}>
-              <p className="font-semibold">3. Coller l'adresse et le jeton</p>
+              <p className="font-semibold">4. Coller l'adresse et le jeton</p>
               {connected ? (
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <span className="rounded-full bg-done-soft px-3 py-1 font-semibold text-done-text">
