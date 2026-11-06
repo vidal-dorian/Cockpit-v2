@@ -433,7 +433,12 @@ function NewTeamDialog({
   const ref = useRef<HTMLDialogElement>(null);
   const [newName, setNewName] = useState("");
   const [draft, setDraft] = useState(start);
-  useEffect(() => ref.current?.showModal(), []);
+  // The graph measures its box when it mounts: only once the dialog is shown, or it fits into nothing.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    ref.current?.showModal();
+    setShown(true);
+  }, []);
   const nameProblem = !newName
     ? null
     : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
@@ -448,7 +453,7 @@ function NewTeamDialog({
       ref={ref}
       aria-labelledby="team-new-title"
       onClose={onCancel}
-      className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl bg-background p-4 text-foreground backdrop:bg-foreground/40"
+      className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
     >
       <h3 id="team-new-title" className="font-heading text-lg font-bold">
         Nouvelle équipe
@@ -466,12 +471,14 @@ function NewTeamDialog({
       <p id="team-new-problem" className="mt-2 empty:hidden">
         {nameProblem}
       </p>
-      <StepEditor
-        steps={steps}
-        onSteps={(next) => setDraft({ ...draft, steps: next })}
-        agents={agents}
-        archived={archived}
-      />
+      {shown && (
+        <StepEditor
+          steps={steps}
+          onSteps={(next) => setDraft({ ...draft, steps: next })}
+          agents={agents}
+          archived={archived}
+        />
+      )}
       {problem && <Problem problem={problem} />}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
