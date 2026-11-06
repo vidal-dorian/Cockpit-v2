@@ -1,5 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
@@ -35,6 +43,7 @@ type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
 function StepPanel({
+  uid,
   step,
   index,
   steps,
@@ -44,6 +53,7 @@ function StepPanel({
   canEditAgent,
   onEditAgent,
 }: {
+  uid: string;
   step: TeamStep;
   index: number;
   steps: TeamStep[];
@@ -51,16 +61,16 @@ function StepPanel({
   onChange: (next: TeamStep) => void;
   onRemove: () => void;
   canEditAgent: boolean;
-  onEditAgent: () => void;
+  onEditAgent?: () => void;
 }) {
   return (
     <div className={`${card} mt-4 p-4`}>
       <h3 className="font-mono font-semibold">{step.agent}</h3>
-      <label htmlFor="step-agent" className="mt-3 block">
+      <label htmlFor={`${uid}-step-agent`} className="mt-3 block">
         Agent
       </label>
       <select
-        id="step-agent"
+        id={`${uid}-step-agent`}
         className={field}
         value={step.agent}
         onChange={(e) => onChange({ ...step, agent: e.target.value })}
@@ -71,20 +81,20 @@ function StepPanel({
           </option>
         ))}
       </select>
-      <label htmlFor="step-does" className="mt-3 block">
+      <label htmlFor={`${uid}-step-does`} className="mt-3 block">
         Ce qu'il fait
       </label>
       <input
-        id="step-does"
+        id={`${uid}-step-does`}
         className={field}
         value={step.does}
         onChange={(e) => onChange({ ...step, does: e.target.value })}
       />
-      <label htmlFor="step-loop" className="mt-3 block">
+      <label htmlFor={`${uid}-step-loop`} className="mt-3 block">
         Boucle
       </label>
       <select
-        id="step-loop"
+        id={`${uid}-step-loop`}
         className={field}
         value={step.loopTo ?? ""}
         onChange={(e) =>
@@ -104,11 +114,11 @@ function StepPanel({
       </select>
       {step.loopTo !== null && (
         <>
-          <label htmlFor="step-until" className="mt-3 block">
+          <label htmlFor={`${uid}-step-until`} className="mt-3 block">
             Condition
           </label>
           <input
-            id="step-until"
+            id={`${uid}-step-until`}
             className={field}
             value={step.until}
             onChange={(e) => onChange({ ...step, until: e.target.value })}
@@ -119,16 +129,394 @@ function StepPanel({
         <button type="button" onClick={onRemove} className={button}>
           Retirer l'étape
         </button>
-        <button
-          type="button"
-          disabled={!canEditAgent}
-          onClick={onEditAgent}
-          className={button}
-        >
-          Modifier l'agent
-        </button>
+        {onEditAgent && (
+          <button
+            type="button"
+            disabled={!canEditAgent}
+            onClick={onEditAgent}
+            className={button}
+          >
+            Modifier l'agent
+          </button>
+        )}
       </div>
     </div>
+  );
+}
+
+/** The graph, the list of steps, the panel of one step and « Ajouter une étape » on a draft owned by the caller (the team shown, or the new one in its dialog). */
+function StepEditor({
+  steps,
+  onSteps,
+  agents,
+  archived,
+  onEditAgent,
+}: {
+  steps: TeamStep[];
+  onSteps: (next: TeamStep[]) => void;
+  agents: Agent[];
+  archived: boolean;
+  /** Absent in the dialog: the agent form would open behind it. */
+  onEditAgent?: (name: string) => void;
+}) {
+  const uid = useId();
+  const [open, setOpen] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [picked, setPicked] = useState("");
+  const [pending, setPending] = useState<{ from: string; to: string } | null>(
+    null,
+  );
+  const [until, setUntil] = useState("");
+  const [selectedLoop, setSelectedLoop] = useState<string | null>(null);
+  const [warn, setWarn] = useState(false);
+  const [moved, setMoved] = useState<{ agent: string; dir: "up" | "down" }>();
+  // A moved row's DOM node is reinserted, which drops the focus: put it back on the button that was used (or its sibling at the end of the list).
+  useEffect(() => {
+    if (!moved) return;
+    const at = (dir: string) =>
+      document.getElementById(
+        `${uid}-move-${dir}-${moved.agent}`,
+      ) as HTMLButtonElement | null;
+    const other = moved.dir === "up" ? "down" : "up";
+    const target = at(moved.dir)?.disabled ? at(other) : at(moved.dir);
+    target?.focus();
+  }, [moved, uid]);
+
+  // Any change other than the pending link itself drops the link prompt: it was about the old order.
+  const setSteps = (next: TeamStep[]) => {
+    setPending(null);
+    onSteps(next);
+  };
+  const free = agents
+    .map((a) => a.name)
+    .filter((name) => !steps.some((s) => s.agent === name));
+  const openStep = steps.find((s) => s.agent === open);
+  const link = (from: string, to: string) => {
+    const toIndex = steps.findIndex((s) => s.agent === to);
+    if (toIndex <= steps.findIndex((s) => s.agent === from)) {
+      setUntil("");
+      setPending({ from, to });
+    } else setSteps(linkSteps(steps, from, to));
+  };
+  // A selection is only kept while its loop exists.
+  const loopShown = steps.some((s) => s.agent === selectedLoop && s.loopTo)
+    ? selectedLoop
+    : null;
+  const select = (agent: string) => {
+    setAdding(false);
+    setOpen(agent);
+  };
+
+  return (
+    <>
+      <Suspense
+        fallback={
+          <p role="status" className="hidden text-muted-foreground sm:block">
+            Chargement du graphe…
+          </p>
+        }
+      >
+        <StepGraph
+          id={uid}
+          steps={steps}
+          agents={agents}
+          selectedLoop={loopShown}
+          onOpen={select}
+          onLink={link}
+          onSelectLoop={setSelectedLoop}
+        />
+      </Suspense>
+      {loopShown !== null && (
+        <button
+          type="button"
+          onClick={() => {
+            setSteps(
+              steps.map((s) =>
+                s.agent === loopShown ? { ...s, loopTo: null, until: "" } : s,
+              ),
+            );
+            setSelectedLoop(null);
+          }}
+          className={`mt-3 ${button}`}
+        >
+          Retirer la boucle
+        </button>
+      )}
+      {pending && (
+        <div className={`${card} mt-3 p-4`}>
+          <label htmlFor={`${uid}-link-until`} className="block">
+            Condition de la boucle
+          </label>
+          <input
+            id={`${uid}-link-until`}
+            className={field}
+            value={until}
+            // The prompt just appeared after a link: the keyboard goes straight to its field.
+            // biome-ignore lint/a11y/noAutofocus: focus moves with the prompt the user just asked for
+            autoFocus
+            onChange={(e) => setUntil(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={until.trim() === ""}
+            onClick={() => {
+              setSteps(linkSteps(steps, pending.from, pending.to, until));
+            }}
+            className={`mt-3 ${button}`}
+          >
+            Ajouter la boucle
+          </button>
+          <button
+            type="button"
+            onClick={() => setPending(null)}
+            className={`mt-3 ml-2 ${button}`}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+      <ul className="mt-3 grid gap-2">
+        {steps.map((s, i) => (
+          <li
+            key={s.agent}
+            className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}
+          >
+            <span className="font-semibold">{i + 1}</span>{" "}
+            <span className="font-mono font-semibold">{s.agent}</span>{" "}
+            <span>{s.does}</span>
+            {s.loopTo !== null && (
+              <span className="text-muted-foreground">
+                Boucle vers {s.loopTo} : {s.until}
+              </span>
+            )}
+            <span className="flex gap-2 sm:ml-auto">
+              <button
+                type="button"
+                id={`${uid}-move-up-${s.agent}`}
+                disabled={i === 0}
+                onClick={() => {
+                  setSteps(moveStep(steps, s.agent, "up"));
+                  setMoved({ agent: s.agent, dir: "up" });
+                }}
+                className={button}
+              >
+                Monter
+              </button>
+              <button
+                type="button"
+                id={`${uid}-move-down-${s.agent}`}
+                disabled={i === steps.length - 1}
+                onClick={() => {
+                  setSteps(moveStep(steps, s.agent, "down"));
+                  setMoved({ agent: s.agent, dir: "down" });
+                }}
+                className={button}
+              >
+                Descendre
+              </button>
+              <button
+                type="button"
+                onClick={() => select(s.agent)}
+                className={button}
+              >
+                Modifier
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p role="status" className="mt-3 empty:hidden">
+        {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
+      </p>
+      {openStep && (
+        <StepPanel
+          uid={uid}
+          step={openStep}
+          index={steps.indexOf(openStep)}
+          steps={steps}
+          freeAgents={free}
+          onChange={(next) => {
+            // A renamed agent keeps the loops that pointed to it, its own included.
+            const rename = (name: string | null) =>
+              name === openStep.agent ? next.agent : name;
+            setSteps(
+              steps.map((s) =>
+                s === openStep
+                  ? { ...next, loopTo: rename(next.loopTo) }
+                  : { ...s, loopTo: rename(s.loopTo) },
+              ),
+            );
+            setOpen(next.agent);
+          }}
+          onRemove={() => {
+            setWarn(TDD_AGENTS.includes(openStep.agent));
+            setSteps(removeStep(steps, openStep.agent));
+            setOpen(null);
+          }}
+          canEditAgent={
+            typeof agents.find((a) => a.name === openStep.agent)?.text ===
+            "string"
+          }
+          onEditAgent={onEditAgent && (() => onEditAgent(openStep.agent))}
+        />
+      )}
+      <button
+        type="button"
+        disabled={archived}
+        onClick={() => {
+          setOpen(null);
+          setAdding(true);
+        }}
+        className={`mt-3 ${button}`}
+      >
+        Ajouter une étape
+      </button>
+      {adding && (
+        <div className={`${card} mt-3 p-4`}>
+          <label htmlFor={`${uid}-step-add`} className="block">
+            Agent à ajouter
+          </label>
+          <select
+            id={`${uid}-step-add`}
+            className={field}
+            value={free.includes(picked) ? picked : (free[0] ?? "")}
+            onChange={(e) => setPicked(e.target.value)}
+          >
+            {free.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={free.length === 0}
+            onClick={() => {
+              setSteps(
+                addStep(
+                  steps,
+                  free.includes(picked) ? picked : (free[0] ?? ""),
+                ),
+              );
+              setAdding(false);
+            }}
+            className={`mt-3 ${button}`}
+          >
+            Ajouter à l'équipe
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Problem({ problem }: { problem: Failure }) {
+  return (
+    <div role="alert" className={`mt-3 ${alertBox}`}>
+      <p>{message(problem)}</p>
+      {problem.settingsUrl && (
+        <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
+          Réglages de l'App sur GitHub
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Decision 041: a new team is configured in a modal window, on its own draft, so the team shown behind it is never edited by mistake. */
+function NewTeamDialog({
+  start,
+  taken,
+  agents,
+  archived,
+  pending,
+  problem,
+  onCreate,
+  onCancel,
+}: {
+  start: Draft;
+  taken: string[];
+  agents: Agent[];
+  archived: boolean;
+  pending: boolean;
+  problem: Failure | null;
+  onCreate: (name: string, draft: Draft) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [newName, setNewName] = useState("");
+  const [draft, setDraft] = useState(start);
+  // The graph measures its box when it mounts: only once the dialog is shown, or it fits into nothing.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    // Unmounting an open modal skips the native close steps: give the focus back by hand.
+    const opener = document.activeElement as HTMLElement | null;
+    ref.current?.showModal();
+    setShown(true);
+    return () => opener?.focus();
+  }, []);
+  const nameProblem = !newName
+    ? null
+    : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
+      ? "Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début"
+      : taken.includes(newName)
+        ? "Ce nom est déjà pris"
+        : null;
+  const { steps } = draft;
+  return (
+    // Escape closes the dialog natively, which is « Annuler ».
+    <dialog
+      ref={ref}
+      aria-labelledby="team-new-title"
+      onClose={onCancel}
+      className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
+    >
+      <h3 id="team-new-title" className="font-heading text-lg font-bold">
+        Nouvelle équipe
+      </h3>
+      <label htmlFor="team-new" className="mt-3 block">
+        Nom de l'équipe
+      </label>
+      <input
+        id="team-new"
+        className={field}
+        value={newName}
+        aria-describedby="team-new-problem"
+        onChange={(e) => setNewName(e.target.value)}
+      />
+      <p id="team-new-problem" className="mt-2 empty:hidden">
+        {nameProblem}
+      </p>
+      {shown && (
+        <StepEditor
+          steps={steps}
+          onSteps={(next) => setDraft({ ...draft, steps: next })}
+          agents={agents}
+          archived={archived}
+        />
+      )}
+      {problem && <Problem problem={problem} />}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={
+            archived ||
+            pending ||
+            !newName ||
+            nameProblem !== null ||
+            steps.length === 0 ||
+            !steps.every((s) => s.loopTo === null || s.until.trim() !== "")
+          }
+          onClick={() => onCreate(newName, draft)}
+          className={primaryButton}
+        >
+          Créer l'équipe
+        </button>
+        <button type="button" onClick={onCancel} className={button}>
+          Annuler
+        </button>
+      </div>
+    </dialog>
   );
 }
 
@@ -173,19 +561,9 @@ export function ProjectTeam({
   const key = `${name ?? ""}:${current}`;
   const [seen, setSeen] = useState(key);
   const [switchTo, setSwitchTo] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
+  // The draft of the new team while its dialog is open, started from the current team as read.
+  const [creating, setCreating] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [picked, setPicked] = useState("");
-  const [pending, setPending] = useState<{ from: string; to: string } | null>(
-    null,
-  );
-  const [until, setUntil] = useState("");
-  const [selectedLoop, setSelectedLoop] = useState<string | null>(null);
-  const [warn, setWarn] = useState(false);
-  const [moved, setMoved] = useState<{ agent: string; dir: "up" | "down" }>();
   const [showDiff, setShowDiff] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -193,24 +571,24 @@ export function ProjectTeam({
   if (seen !== key) {
     setSeen(key);
     setDraft(initial);
-    setOpen(null);
     setShowDiff(false);
-    setPending(null);
-    setSelectedLoop(null);
-    setAdding(false);
-    setWarn(false);
   }
 
   const commit = useMutation({
-    mutationFn: async (after: string | null) => {
+    mutationFn: async (sent: {
+      name: string | null;
+      before: string | null;
+      after: string | null;
+      created?: Draft;
+    }) => {
       const res = await client.api.projects[":id"].team.apply.$post(
         { param: { id: projectId } },
         {
           init: {
             body: JSON.stringify({
-              name: name ?? undefined,
-              before: current,
-              after,
+              ...sent,
+              name: sent.name ?? undefined,
+              created: undefined,
             }),
             headers: { "content-type": "application/json" },
           },
@@ -220,13 +598,19 @@ export function ProjectTeam({
         ? { done: await res.json() }
         : { failure: await failure(res) };
     },
-    onSuccess: (answer, after) => {
+    onSuccess: (answer, { after, name: savedName, created }) => {
       if (answer.failure) {
         setProblem(answer.failure);
         if (answer.failure.code !== "repo_changed") return;
       } else {
         const { commitSha, pullRequest } = answer.done;
         if (after === null) setName(null); // the team is gone: back to the default one
+        if (created) {
+          // Not in `teams` until the reload below answers: the picker and the draft start from what was sent.
+          setCopy(created);
+          setName(savedName);
+          setCreating(null);
+        }
         setDone({
           url:
             pullRequest?.url ??
@@ -239,18 +623,6 @@ export function ProjectTeam({
     onError: () => setProblem({ code: "", status: 0 }),
   });
 
-  // A moved row's DOM node is reinserted, which drops the focus: put it back on the button that was used (or its sibling at the end of the list).
-  useEffect(() => {
-    if (!moved) return;
-    const at = (dir: string) =>
-      document.getElementById(
-        `move-${dir}-${moved.agent}`,
-      ) as HTMLButtonElement | null;
-    const other = moved.dir === "up" ? "down" : "up";
-    const target = at(moved.dir)?.disabled ? at(other) : at(moved.dir);
-    target?.focus();
-  }, [moved]);
-
   const dirty =
     draft !== null &&
     initial !== null &&
@@ -259,18 +631,11 @@ export function ProjectTeam({
   const goTo = (next: string | null) => {
     setName(next);
     setSwitchTo(null);
-    setCreating(false);
+    setCreating(null);
     setDeleting(false);
     setProblem(null);
     setDone(null);
   };
-  const newNameProblem = !newName
-    ? null
-    : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
-      ? "Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début"
-      : teams.some((t) => t.name === newName)
-        ? "Ce nom est déjà pris"
-        : null;
   const picker = (
     <>
       <label htmlFor="team-pick" className="mt-3 block">
@@ -285,7 +650,7 @@ export function ProjectTeam({
         onChange={(e) => {
           const next = e.target.value || null;
           if (!dirty) return goTo(next);
-          setCreating(false);
+          setCreating(null);
           setDeleting(false);
           setSwitchTo(next ?? "");
         }}
@@ -343,8 +708,9 @@ export function ProjectTeam({
           onClick={() => {
             setSwitchTo(null);
             setDeleting(false);
-            setNewName("");
-            setCreating(true);
+            setProblem(null);
+            setDone(null);
+            setCreating(initial ?? { steps: DEFAULT_STEPS, body: "" });
           }}
           className={button}
         >
@@ -356,7 +722,7 @@ export function ProjectTeam({
             disabled={archived || commit.isPending}
             onClick={() => {
               setSwitchTo(null);
-              setCreating(false);
+              setCreating(null);
               setDeleting(true);
             }}
             className={button}
@@ -366,39 +732,26 @@ export function ProjectTeam({
         )}
       </div>
       {creating && (
-        <div className={`${card} mt-3 p-4`}>
-          <label htmlFor="team-new" className="block">
-            Nom de l'équipe
-          </label>
-          <input
-            id="team-new"
-            className={field}
-            value={newName}
-            aria-describedby="team-new-problem"
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <p id="team-new-problem" className="mt-2 empty:hidden">
-            {newNameProblem}
-          </p>
-          <button
-            type="button"
-            disabled={commit.isPending || !newName || newNameProblem !== null}
-            onClick={() => {
-              setCopy(draft ?? { steps: DEFAULT_STEPS, body: "" });
-              goTo(newName);
-            }}
-            className={`mt-3 ${button}`}
-          >
-            Créer l'équipe
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreating(false)}
-            className={`mt-3 ml-2 ${button}`}
-          >
-            Annuler
-          </button>
-        </div>
+        <NewTeamDialog
+          start={creating}
+          taken={teams.map((t) => t.name)}
+          agents={agents}
+          archived={archived}
+          pending={commit.isPending}
+          problem={problem}
+          onCreate={(newName, created) =>
+            commit.mutate({
+              name: newName,
+              before: null,
+              after: writeTeam(created.steps, created.body),
+              created,
+            })
+          }
+          onCancel={() => {
+            setCreating(null);
+            setProblem(null);
+          }}
+        />
       )}
       {deleting && (
         <div className="mt-3">
@@ -413,7 +766,7 @@ export function ProjectTeam({
               setProblem(null);
               setDone(null);
               setDeleting(false);
-              commit.mutate(null);
+              commit.mutate({ name, before: current, after: null });
             }}
             className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
           >
@@ -441,7 +794,7 @@ export function ProjectTeam({
   );
   if (!draft)
     return (
-      <section className="mt-6" aria-labelledby="team" hidden={hidden}>
+      <section aria-labelledby="team" hidden={hidden}>
         {heading}
         {picker}
         <p className="mt-3">
@@ -452,15 +805,6 @@ export function ProjectTeam({
     );
 
   const { steps, body } = draft;
-  // Any change other than the pending link itself drops the link prompt: it was about the old order.
-  const setSteps = (next: TeamStep[]) => {
-    setPending(null);
-    setDraft({ steps: next, body });
-  };
-  const free = agents
-    .map((a) => a.name)
-    .filter((name) => !steps.some((s) => s.agent === name));
-  const openStep = steps.find((s) => s.agent === open);
   const after = writeTeam(steps, body);
   // Compared with the draft as opened, not the file text: a file Cockpit would only reformat is not a change. Without a file the default steps are still worth a commit.
   const unchanged =
@@ -474,235 +818,20 @@ export function ProjectTeam({
     !unchanged &&
     steps.length > 0 &&
     steps.every((s) => s.loopTo === null || s.until.trim() !== "");
-  const link = (from: string, to: string) => {
-    const toIndex = steps.findIndex((s) => s.agent === to);
-    if (toIndex <= steps.findIndex((s) => s.agent === from)) {
-      setUntil("");
-      setPending({ from, to });
-    } else setSteps(linkSteps(steps, from, to));
-  };
-  // A selection is only kept while its loop exists.
-  const loopShown = steps.some((s) => s.agent === selectedLoop && s.loopTo)
-    ? selectedLoop
-    : null;
-  const select = (agent: string) => {
-    setAdding(false);
-    setOpen(agent);
-  };
 
   return (
-    <section className="mt-6" aria-labelledby="team" hidden={hidden}>
+    <section aria-labelledby="team" hidden={hidden}>
       {heading}
       {picker}
-      <Suspense
-        fallback={
-          <p role="status" className="hidden text-muted-foreground sm:block">
-            Chargement du graphe…
-          </p>
-        }
-      >
-        <StepGraph
-          steps={steps}
-          agents={agents}
-          selectedLoop={loopShown}
-          onOpen={select}
-          onLink={link}
-          onSelectLoop={setSelectedLoop}
-        />
-      </Suspense>
-      {loopShown !== null && (
-        <button
-          type="button"
-          onClick={() => {
-            setSteps(
-              steps.map((s) =>
-                s.agent === loopShown ? { ...s, loopTo: null, until: "" } : s,
-              ),
-            );
-            setSelectedLoop(null);
-          }}
-          className={`mt-3 ${button}`}
-        >
-          Retirer la boucle
-        </button>
-      )}
-      {pending && (
-        <div className={`${card} mt-3 p-4`}>
-          <label htmlFor="link-until" className="block">
-            Condition de la boucle
-          </label>
-          <input
-            id="link-until"
-            className={field}
-            value={until}
-            // The prompt just appeared after a link: the keyboard goes straight to its field.
-            // biome-ignore lint/a11y/noAutofocus: focus moves with the prompt the user just asked for
-            autoFocus
-            onChange={(e) => setUntil(e.target.value)}
-          />
-          <button
-            type="button"
-            disabled={until.trim() === ""}
-            onClick={() => {
-              setDraft({
-                steps: linkSteps(steps, pending.from, pending.to, until),
-                body,
-              });
-              setPending(null);
-            }}
-            className={`mt-3 ${button}`}
-          >
-            Ajouter la boucle
-          </button>
-          <button
-            type="button"
-            onClick={() => setPending(null)}
-            className={`mt-3 ml-2 ${button}`}
-          >
-            Annuler
-          </button>
-        </div>
-      )}
-      <ul className="mt-3 grid gap-2">
-        {steps.map((s, i) => (
-          <li
-            key={s.agent}
-            className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}
-          >
-            <span className="font-semibold">{i + 1}</span>{" "}
-            <span className="font-mono font-semibold">{s.agent}</span>{" "}
-            <span>{s.does}</span>
-            {s.loopTo !== null && (
-              <span className="text-muted-foreground">
-                Boucle vers {s.loopTo} : {s.until}
-              </span>
-            )}
-            <span className="flex gap-2 sm:ml-auto">
-              <button
-                type="button"
-                id={`move-up-${s.agent}`}
-                disabled={i === 0}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "up"));
-                  setMoved({ agent: s.agent, dir: "up" });
-                }}
-                className={button}
-              >
-                Monter
-              </button>
-              <button
-                type="button"
-                id={`move-down-${s.agent}`}
-                disabled={i === steps.length - 1}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "down"));
-                  setMoved({ agent: s.agent, dir: "down" });
-                }}
-                className={button}
-              >
-                Descendre
-              </button>
-              <button
-                type="button"
-                onClick={() => select(s.agent)}
-                className={button}
-              >
-                Modifier
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p role="status" className="mt-3 empty:hidden">
-        {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
-      </p>
-      {openStep && (
-        <StepPanel
-          step={openStep}
-          index={steps.indexOf(openStep)}
-          steps={steps}
-          freeAgents={free}
-          onChange={(next) => {
-            // A renamed agent keeps the loops that pointed to it, its own included.
-            const rename = (name: string | null) =>
-              name === openStep.agent ? next.agent : name;
-            setSteps(
-              steps.map((s) =>
-                s === openStep
-                  ? { ...next, loopTo: rename(next.loopTo) }
-                  : { ...s, loopTo: rename(s.loopTo) },
-              ),
-            );
-            setOpen(next.agent);
-          }}
-          onRemove={() => {
-            setWarn(TDD_AGENTS.includes(openStep.agent));
-            setSteps(removeStep(steps, openStep.agent));
-            setOpen(null);
-          }}
-          canEditAgent={
-            typeof agents.find((a) => a.name === openStep.agent)?.text ===
-            "string"
-          }
-          onEditAgent={() => onEditAgent(openStep.agent)}
-        />
-      )}
-      <button
-        type="button"
-        disabled={archived}
-        onClick={() => {
-          setOpen(null);
-          setAdding(true);
-        }}
-        className={`mt-3 ${button}`}
-      >
-        Ajouter une étape
-      </button>
-      {adding && (
-        <div className={`${card} mt-3 p-4`}>
-          <label htmlFor="step-add" className="block">
-            Agent à ajouter
-          </label>
-          <select
-            id="step-add"
-            className={field}
-            value={free.includes(picked) ? picked : (free[0] ?? "")}
-            onChange={(e) => setPicked(e.target.value)}
-          >
-            {free.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={free.length === 0}
-            onClick={() => {
-              setSteps(
-                addStep(
-                  steps,
-                  free.includes(picked) ? picked : (free[0] ?? ""),
-                ),
-              );
-              setAdding(false);
-            }}
-            className={`mt-3 ${button}`}
-          >
-            Ajouter à l'équipe
-          </button>
-        </div>
-      )}
-      {problem && (
-        <div role="alert" className={`mt-3 ${alertBox}`}>
-          <p>{message(problem)}</p>
-          {problem.settingsUrl && (
-            <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
-              Réglages de l'App sur GitHub
-            </a>
-          )}
-        </div>
-      )}
+      <StepEditor
+        key={key}
+        steps={steps}
+        onSteps={(next) => setDraft({ steps: next, body })}
+        agents={agents}
+        archived={archived}
+        onEditAgent={onEditAgent}
+      />
+      {problem && !creating && <Problem problem={problem} />}
       {done && (
         <div className="mt-3 rounded-xl bg-done-soft p-4 text-done-text">
           <p>
@@ -730,7 +859,7 @@ export function ProjectTeam({
           onClick={() => {
             setProblem(null);
             setDone(null);
-            commit.mutate(after);
+            commit.mutate({ name, before: current, after });
           }}
           className={primaryButton}
         >

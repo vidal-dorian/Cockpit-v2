@@ -89,6 +89,7 @@ function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
 }
 
 export default function StepGraph({
+  id,
   steps,
   agents,
   selectedLoop,
@@ -96,6 +97,8 @@ export default function StepGraph({
   onLink,
   onSelectLoop,
 }: {
+  /** Tells apart the SVG ids of two graphs on one page. */
+  id: string;
   steps: TeamStep[];
   agents: Agent[];
   selectedLoop: string | null;
@@ -133,6 +136,7 @@ export default function StepGraph({
   return (
     <div className="mt-3 hidden h-72 sm:block">
       <ReactFlow
+        id={id}
         nodes={nodes}
         edges={edgesOf(steps, selectedLoop)}
         nodeTypes={nodeTypes}
