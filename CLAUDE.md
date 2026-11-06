@@ -41,6 +41,8 @@ Only then open the pull request.
 
 - Node runs the TypeScript directly (type stripping): only erasable syntax (no `enum`, `namespace` or constructor parameter properties) and relative imports end in `.ts` / `.tsx`.
 - UI text in French; code, comments, commit messages and prompts in English.
+- One changelog line per pull request (release-please, `.github/workflows/cd.yml`, reads every commit of `main`): commits on a branch start with `chore: `, which the changelog hides; the pull request title is the line, `feat(<slice>): <what the user gets>` or `fix(<area>): <what was wrong>`. GitHub copies that title into the merge commit, so merge with a merge commit or a squash, never a rebase.
+- Colors and fonts are the tokens of `src/web/styles.css` (decision 003). Never hard-code a color.
 - Every commit message starts with `feat: ` (release-please builds the changelog and the version from it, `.github/workflows/cd.yml`).
 - Colors and fonts are the tokens of `src/web/styles.css` (decisions 003 and 028). Never hard-code a color.
 - Components: Tailwind + shadcn/ui (decision 003).
