@@ -50,6 +50,7 @@
 - **Fait** : tranche 9.2 (changelog complet : la prochaine release liste chaque tranche une fois, et chaque PR y ajoute une ligne, son titre).
 - **Feuille de route** : les phases après le MVP, plus bas, sont ordonnées (décidé le 2026-11-06).
 - **Fait** : tranche 9.1 (ménage de la doc : `decoupage.md`, `architecture.md`, README et décisions relus contre le code).
+- **En cours** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
