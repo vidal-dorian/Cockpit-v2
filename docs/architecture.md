@@ -184,6 +184,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [027](decisions/027-preparer-pour-claude.md) | Préparer un repo pour Claude en un clic | Proposée | Catalogue (`test-writer`, `developer`, `reviewer`, `/dev-us`, `/write-us`, `CLAUDE.md` de départ si aucun), plan montré fichier par fichier puis un commit (ou une PR si la branche est protégée), entrée `prepare_repo`, bouton dans le bilan de santé |
 | [028](decisions/028-creme-sombre-onglets-journal.md) | Style Crème sombre, onglets, journal par pages, plus d'adresse publique dans Réglages | Proposée | Jetons de `styles.css` et Geist, barre du haut, journal de 25 entrées avec « Afficher plus » (`?before=<id>`), onglets du projet et de Réglages, plus de `public-url` (023 C et E, 024 G modifiés) |
 | [029](decisions/029-equipe-d-agents.md) | Une équipe d'agents configurable par projet | Proposée | `.claude/team.md` (étapes ordonnées, boucle possible) lu par `/dev-us` avec trois étapes par défaut, éditeur d'agent et écran « Équipe » (un commit, diff avant), règle F de la 013 modifiée (`invalid_team`), plusieurs équipes plus tard, le Leader est la session principale |
+| [041](decisions/041-nom-et-site-vitrine.md) | Le nom du produit et le site vitrine | Proposée | Dirigo, vitrine `dirigo.dev` dans un repo à part (Cloudflare Pages), app `app.dirigo.dev` au passage chez l'hébergeur, renommage du code dans une tranche dédiée |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts
@@ -195,6 +196,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Cloudflare ne doit bloquer ni les adresses d'Anthropic ni les webhooks (avec Cloudflare Access : `/mcp`, `/.well-known/*`, `/oauth/token` et `/api/webhooks/github` en « Bypass ») | [006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md), tranche 1.2 |
 | Repo déjà suivi par un autre compte : refus qui révèle l'existence du projet | [008](decisions/008-service-en-ligne.md), tranche 2.1 |
 | Choix de l'hébergeur ; facturation par personne ou par organisation | [008](decisions/008-service-en-ligne.md), [offres](offres.md) |
+| Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine | [041](decisions/041-nom-et-site-vitrine.md) |
 | Écrans restants et version téléphone | [003](decisions/003-interface.md) |
 | Granularité des règles et contrôle du mode « figer l'existant » | [007](decisions/007-reprise-app-existante.md) |
 | Trois permissions de plus sur la GitHub App pour lire les alertes de sécurité (tranche R6) | [007](decisions/007-reprise-app-existante.md), [012](decisions/012-configuration-automatique.md) |
