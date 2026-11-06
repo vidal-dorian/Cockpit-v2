@@ -1,6 +1,6 @@
 # 029 — Une équipe d'agents configurable par projet
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-03
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [005 — Lancement local](005-lancement-local.md), [013 — Bilan de santé](013-bilan-de-sante.md), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [027 — Préparer pour Claude](027-preparer-pour-claude.md)

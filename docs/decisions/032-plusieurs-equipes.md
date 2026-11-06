@@ -1,12 +1,12 @@
 # 032 — Plusieurs équipes par projet
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (G, B, E), [031 — L'équipe en graphe](031-equipe-en-graphe.md), [030 — Éditeur d'agent](030-editeur-d-agent.md), [013 — Bilan de santé](013-bilan-de-sante.md)
 - **Modifie** : la règle F de la [013](013-bilan-de-sante.md), déjà modifiée par la 029 E : elle vérifie aussi les équipes nommées
 - **Tranche** : E4 du [découpage](../decoupage.md)
-- **Modifiée par** : [041](041-nouvelle-equipe-fenetre.md) : « Nouvelle équipe » (E) s'ouvre dans une fenêtre, et l'onglet passe sur deux colonnes
+- **Modifiée par** : [042](042-nouvelle-equipe-fenetre.md) : « Nouvelle équipe » (E) s'ouvre dans une fenêtre, et l'onglet passe sur deux colonnes
 
 ## Contexte
 

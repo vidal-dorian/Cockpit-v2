@@ -1,6 +1,6 @@
 # 012 — Configuration automatique et consentements
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [008 — Service en ligne](008-service-en-ligne.md), [009 — Connexion avec GitHub](009-connexion-github.md), [011 — Importer un projet](011-import-projets.md)

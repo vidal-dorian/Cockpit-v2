@@ -1,6 +1,6 @@
 # 028 — Style Crème sombre, onglets, journal par pages, plus d'adresse publique dans Réglages
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-03
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [003 — Interface](003-interface.md), [010 — Historique](010-historique.md), [013 — Bilan de santé](013-bilan-de-sante.md), [023 — Réglages en onglets, adresse https](023-reglages-adresse-https.md), [024 — Webhooks](024-webhooks.md)

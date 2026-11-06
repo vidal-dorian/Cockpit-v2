@@ -1,6 +1,6 @@
 # 030 — L'éditeur d'agent
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-04
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (A), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [027 — Préparer pour Claude](027-preparer-pour-claude.md), [013 — Bilan de santé](013-bilan-de-sante.md), [010 — Historique](010-historique.md), [025 — Issue modifiée](025-issue-modifiee-sur-github.md) (E, le diff)

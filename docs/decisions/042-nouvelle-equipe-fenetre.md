@@ -1,6 +1,6 @@
-# 041 — « Nouvelle équipe » dans une fenêtre
+# 042 — « Nouvelle équipe » dans une fenêtre
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-06
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [031 — L'équipe en graphe](031-equipe-en-graphe.md), [032 — Plusieurs équipes par projet](032-plusieurs-equipes.md)

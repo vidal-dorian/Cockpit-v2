@@ -1,6 +1,6 @@
 # 009 — Connexion avec GitHub
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [008 — Service en ligne](008-service-en-ligne.md)

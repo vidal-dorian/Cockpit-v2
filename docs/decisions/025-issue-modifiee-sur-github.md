@@ -1,6 +1,6 @@
 # 025 — Une issue modifiée sur GitHub
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-30
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [020 — Issues GitHub](020-issues-github.md), [024 — Webhooks](024-webhooks.md), [018 — Décisions humaines](018-decisions-humaines.md), [010 — Historique](010-historique.md), [008 — Service en ligne](008-service-en-ligne.md)

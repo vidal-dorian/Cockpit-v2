@@ -1,6 +1,6 @@
 # 015 — Les jetons MCP
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-25
 - **Modifiée le 2026-10-25 à la demande de Dorian** : un jeton révoqué n'est plus affiché (G), il est gardé 3 mois puis supprimé par une purge quotidienne (G)
 - **Décidé par** : Dorian, avec Claude

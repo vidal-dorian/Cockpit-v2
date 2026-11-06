@@ -1,6 +1,6 @@
 # 035 — Critères et PR
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (`report_criterion`, `link_pull_request`, `finish_run`), [002 — Modèle de données](002-modele-donnees.md) (le résultat d'un critère est le dernier compte rendu), [033 — Le run minimal](033-run-minimal.md), [020 — Issues GitHub](020-issues-github.md)

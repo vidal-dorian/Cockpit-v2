@@ -1,6 +1,6 @@
 # 038 — Le suivi de la PR
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (la table des droits : seul GitHub termine une US), [002 — Modèle de données](002-modele-donnees.md) (`pr_ci_state`, `pr_review_state`, copies de cache), [024](024-webhooks.md) et [025](025-issue-modifiee-sur-github.md) (livraisons enregistrées puis traitées), [020](020-issues-github.md), [012](012-configuration-automatique.md) (les événements de l'App), [035](035-criteres-et-pr.md), [037](037-arreter-relancer-fermer.md)

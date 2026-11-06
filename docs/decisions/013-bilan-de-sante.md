@@ -1,6 +1,6 @@
 # 013 — Bilan de santé d'un projet (lecture)
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-24
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [006 — Connexion OAuth](006-connexion-oauth.md), [011 — Importer un projet](011-import-projets.md)

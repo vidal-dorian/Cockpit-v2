@@ -307,7 +307,7 @@ export function ProjectAgents({
     (agents.isError ? { code: "", status: 0 } : undefined);
   const list = agents.data?.data;
   return (
-    // Team (graph) on the left, repo agents on the right from `lg` (decision 041 B); the agents take the full width while a form is open and the team steps aside.
+    // Team (graph) on the left, repo agents on the right from `lg` (decision 042 B); the agents take the full width while a form is open and the team steps aside.
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
       {list && (
         <ProjectTeam

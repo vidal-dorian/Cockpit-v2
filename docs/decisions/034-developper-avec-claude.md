@@ -1,6 +1,6 @@
 # 034 — La fenêtre « Développer avec Claude »
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [005 — Lancement local](005-lancement-local.md) (le lien, le déroulé, A à D), [003 — Interface](003-interface.md), [032 — Plusieurs équipes](032-plusieurs-equipes.md) (« repoussé » : choisir l'équipe dans la fenêtre), [033 — Le run minimal](033-run-minimal.md) (B : le nom de branche, la consigne)

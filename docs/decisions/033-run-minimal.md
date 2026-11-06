@@ -1,6 +1,6 @@
 # 033 — Le run minimal
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md) (runs), [004 — Outils MCP](004-outils-mcp.md) (Développer), [001 — Stack](001-stack.md) (SSE minimal), [016 — Le serveur MCP](016-serveur-mcp.md), [029 — Équipe d'agents](029-equipe-d-agents.md) (B : nom d'agent)

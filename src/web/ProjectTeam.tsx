@@ -423,7 +423,7 @@ function Problem({ problem }: { problem: Failure }) {
   );
 }
 
-/** Decision 041: a new team is configured in a modal window, on its own draft, so the team shown behind it is never edited by mistake. */
+/** Decision 042: a new team is configured in a modal window, on its own draft, so the team shown behind it is never edited by mistake. */
 function NewTeamDialog({
   start,
   taken,
