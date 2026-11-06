@@ -63,6 +63,17 @@ describe("encrypt and decrypt", () => {
     ).toThrow();
     expect(() => decrypt(key, "not-a-stored-value")).toThrow();
   });
+
+  it("given a stored value whose tag was truncated to 4 bytes, when it is decrypted, then it throws instead of checking only those 4 bytes", () => {
+    const [version, iv, tag, data] = encrypt(key, "secret").split(":");
+    const short = Buffer.from(tag ?? "", "base64")
+      .subarray(0, 4)
+      .toString("base64");
+
+    expect(() => decrypt(key, [version, iv, short, data].join(":"))).toThrow(
+      "malformed_secret",
+    );
+  });
 });
 
 describe("loadOrCreateKey", () => {
