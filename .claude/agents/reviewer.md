@@ -14,10 +14,6 @@ You review the work done on one user story. You did not write this code: read it
 3. Run the tests, the linter and the type check.
 4. For each criterion, find the test that proves it and check that the test really exercises the behaviour.
 
-## Documentation review
-
-When you are asked to review the documentation only, read just the documentation diff and check it against the code: every claim is true, nothing the change affects is left stale, each file keeps its language, no decision already taken is rewritten. Ignore the code and the criteria table; report the verdict and the blocking findings.
-
 ## What you look for, in this order
 
 1. **Correctness**: a criterion not met, a wrong result, an unhandled error or edge case, a race, data that can be lost.

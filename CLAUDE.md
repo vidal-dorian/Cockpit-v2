@@ -31,7 +31,7 @@ Test-driven, always with the agents of `.claude/agents/`, in this order. Never s
 2. **developer** implements until those tests pass, without touching them.
 3. **reviewer** reviews the diff with a fresh context. Blocking findings go back to the developer, then to a new review, until the verdict is **ready**.
 4. **doc-writer** updates every documentation the change reaches (README, `docs/`, this file), without touching code or tests.
-5. **reviewer** again, on the documentation diff only (what **doc-writer** changed): is it true against the code, complete for the change, and in the right language. Blocking findings go back to the doc-writer, then to a new doc review, until the verdict is **ready**.
+5. **doc-reviewer** reviews the documentation diff only (what **doc-writer** changed): is it true against the code, complete for the change, and in the right language. Blocking findings go back to the doc-writer, then to a new doc review, until the verdict is **ready**.
 
 Only then open the pull request.
 
