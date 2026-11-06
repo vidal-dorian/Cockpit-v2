@@ -19,7 +19,7 @@ flowchart LR
         GH["GitHub<br/>GitHub App, API, webhooks"]
     end
     subgraph Serveur["Serveur : le Pi, puis un hébergeur"]
-        S["Cockpit (Node + Hono)<br/>/ page · /api · /mcp · /webhooks · SSE"]
+        S["Cockpit (Node + Hono)<br/>/ page · /api · /mcp · /oauth · /api/webhooks/github · SSE"]
         PG[("PostgreSQL 18")]
     end
     B -- "HTTP + SSE" --> CF
@@ -95,7 +95,7 @@ Conventions : dates en `timestamptz`, JSON en `jsonb`, identifiants entiers `ide
 | Cockpit | Image Docker (Node, serveur, page construite) | La même image |
 | PostgreSQL | Conteneur, données dans un volume | Service géré : sauvegarde continue, restauration à une date |
 | Sauvegarde | `scripts/backup.sh` lancé chaque jour par cron : `pg_dump` compressé, 14 jours gardés | Fournie par l'hébergeur |
-| Exposition | Cloudflare Tunnel (`cloudflared`), aucun port ouvert | Selon l'hébergeur |
+| Exposition | Cloudflare Tunnel (`cloudflared`), aucun port ouvert ; avec Cloudflare Access, `/mcp`, `/.well-known/*`, `/oauth/token` et `/api/webhooks/github` en « Bypass » ([021](decisions/021-connecter-claude.md)) | Selon l'hébergeur |
 | Mise en production | Workflow CD lancé à la main, runner sur le Pi, `scripts/deploy.sh` (refuse de partir sans ses secrets, vérifie la version servie) | À définir |
 | Secrets | `/etc/cockpit/cockpit.env` sur le Pi (`TUNNEL_TOKEN` à saisir, `POSTGRES_PASSWORD` généré par `deploy.sh`), hors du repo : le checkout du CD efface les fichiers non suivis. La clé de chiffrement des secrets de la GitHub App vit dans le volume `secrets`, dont une copie est gardée hors du Pi | Gestion des secrets de l'hébergeur |
 
@@ -104,7 +104,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 ## Montée en charge
 
 - **La charge est faible par nature** : Cockpit ne fait tourner aucun modèle d'IA. Mille runs en parallèle représentent de l'ordre de cent écritures par seconde, ce qu'un seul serveur tient.
-- **Une seule instance d'abord.** La règle : ce qui doit survivre à un redémarrage va en base. Cinq choses restent en mémoire et devront passer en base avant une deuxième instance : connexions SSE (par `LISTEN` / `NOTIFY`), codes d'autorisation OAuth et documents CIMD lus (021), sessions MCP (mode sans session) ([008](decisions/008-service-en-ligne.md)), et les créations de GitHub App en cours de l'assistant, valables une heure ([012](decisions/012-configuration-automatique.md)).
+- **Une seule instance d'abord.** La règle : ce qui doit survivre à un redémarrage va en base. Quatre choses restent en mémoire et devront passer en base avant une deuxième instance : connexions SSE (par `LISTEN` / `NOTIFY`), codes d'autorisation OAuth et documents CIMD lus (021), et les créations de GitHub App en cours de l'assistant, valables une heure ([012](decisions/012-configuration-automatique.md)). Le MCP ne garde rien : il tourne déjà en mode sans session ([016](decisions/016-serveur-mcp.md), ce que la [008](decisions/008-service-en-ligne.md) demandait). Le reste n'est que du cache, perdu sans dommage : bilans de santé, configuration du webhook de l'App, et la clé qui signe les plans d'écriture (026 H : un plan signé ailleurs est relu sur GitHub).
 - **Webhooks : enregistrés d'abord, traités ensuite**, sans doublon grâce à `X-GitHub-Delivery` (5.1) ; traités juste après le 202 puis chaque minute, une livraison réservée à la fois (5.2).
 - **La connexion à la base survit à un redémarrage de PostgreSQL** : le pool de connexions écoute ses erreurs au lieu de faire tomber le serveur (1.1 bis).
 
@@ -121,7 +121,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Historique inaltérable : table `history` (triggers qui refusent `UPDATE`, `DELETE`, `TRUNCATE`), fonction `act` (action + entrée dans une transaction), `/api/history`, page Journal | Fait (1.4) |
 | Projets : importer un repo de l'installation de l'App, lister, archiver (`/api/github/repositories`, `/api/projects`), tables `projects` et `project_members`, page Projets | Fait (2.1) |
 | Bilan de santé d'un projet, relu sur GitHub à chaque affichage et jamais stocké en base (cache en mémoire adressé par le commit) : `/api/projects/:id/health` (quatre lignes `claude_md`, `ci`, `mcp`, `agents` (code `invalid_team` si `.claude/team.md` est illisible, 028), plus la ligne `webhook` depuis la 5.1), page `/projets/:id` | Fait (2.2) |
-| Assistant de démarrage : `/api/setup/status`, `/start`, `/callback` (code de démarrage, manifeste de la GitHub App, secrets chiffrés dans `instance_settings`, clé dans le volume `secrets`), premier administrateur, page « Installer Cockpit » ; plus aucune variable GitHub | Fait (1.5) |
+| Assistant de démarrage : `/api/setup/status`, `/start`, `/callback` (code de démarrage, manifeste de la GitHub App, secrets chiffrés dans `instance_settings`, clé dans le volume `secrets`), premier administrateur, page « Installer Cockpit » ; plus aucune variable GitHub ; si l'App existe sans administrateur, `/api/setup/status` le dit (`hasAdmin: false`), le serveur réaffiche son code au lancement et la page « Récupérer l'administration » l'échange par `POST /api/setup/claim` (entrée `claim_admin`) contre un cookie à usage unique, comme l'assistant à sa fin (seule son empreinte en base, `instance_settings.admin_claim_hash`) : le compte qui se connecte ensuite avec lui devient administrateur | Fait (1.5) |
 | Accueil des utilisateurs : inscription ouverte, comptes bloqués (`users.blocked_at`), `/api/settings/users` (GET) et `/api/settings/users/:id/block` et `/unblock` (POST ; administrateur seulement), page « Réglages » ; `/api/installation` ; à la connexion, renvoi vers `/bienvenue` si l'App n'est pas installée, et bandeau « Installer » sur les autres pages | Fait (1.6) |
 | Tickets : créer, lister, lire, modifier, supprimer (`/api/projects/:id/tickets`, `/api/tickets/:id`), table `tickets`, étape « Nouveau » calculée, description rendue en markdown sans HTML brut (`react-markdown`), section « Tickets » de `/projets/:id` et page `/tickets/:id` | Fait (3.1) |
 | Jetons MCP : créer (secret `ckp_…` montré une fois, haché en base), lister, révoquer (`/api/me/tokens`, `/api/me/tokens/:id/revoke` ; chaque utilisateur, ses jetons seulement ; un jeton révoqué n'est plus listé, il est supprimé 3 mois plus tard par une purge quotidienne), table `mcp_tokens`, section « Jetons MCP » de « Réglages », désormais ouvert à tous (« Utilisateurs » reste à l'administrateur) | Fait (4.1) |
@@ -159,7 +159,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [003](decisions/003-interface.md) | Interface | Validée | « Qui doit agir ? », règles d'ergonomie, style |
 | [004](decisions/004-outils-mcp.md) | Outils MCP | Validée | Ce que Claude peut faire, et ce qu'aucun outil ne fait |
 | [005](decisions/005-lancement-local.md) | Lancement local | Validée | `claude://code/new`, modèle choisi par la fiche de chaque agent |
-| [006](decisions/006-connexion-oauth.md) | Connexion OAuth | Validée | Cockpit comme connecteur claude.ai, après le MVP |
+| [006](decisions/006-connexion-oauth.md) | Connexion OAuth | Validée, modifiée par 021 | Cockpit comme connecteur claude.ai ; prévue après le MVP, avancée en 4.7 par la 021 |
 | [007](decisions/007-reprise-app-existante.md) | Analyser et reprendre une app existante | Proposée | La fonctionnalité phare : carte du modèle par sous-projet, règles et constats (bugs, failles, architecture, stack, versions) déposés par Claude en citant le code vérifié ; règles validées en regard du code, constats triés en tickets |
 | [008](decisions/008-service-en-ligne.md) | Service en ligne | Validée | PostgreSQL, membres d'un projet, le Pi puis un hébergeur |
 | [009](decisions/009-connexion-github.md) | Connexion avec GitHub | Validée | Flux web de la GitHub App, cookie de session, inscription ouverte et comptes bloqués (depuis la 012) |
@@ -200,14 +200,14 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 
 ## Points ouverts
 
+La liste à jour, avec la tranche où chacun se tranche, est dans [`decoupage.md`](decoupage.md#points-ouverts). En bref :
+
 | Sujet | Où |
 |---|---|
-| Permissions ajoutées après le MVP : modification manuelle de l'App et approbation de chaque utilisateur | [012](decisions/012-configuration-automatique.md) |
-| Cloudflare ne doit bloquer ni les adresses d'Anthropic ni les webhooks (avec Cloudflare Access : `/mcp`, `/.well-known/*`, `/oauth/token` et `/api/webhooks/github` en « Bypass ») | [006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md), tranche 1.2 |
-| Repo déjà suivi par un autre compte : refus qui révèle l'existence du projet | [008](decisions/008-service-en-ligne.md), tranche 2.1 |
+| Permissions ajoutées après le MVP (`workflows` en 12.4, trois permissions de lecture des alertes de sécurité en R6) : modification manuelle de l'App et approbation de chaque utilisateur | [012](decisions/012-configuration-automatique.md), [007](decisions/007-reprise-app-existante.md) |
+| Plusieurs instances : quatre choses en mémoire à passer en base (« Montée en charge ») | [008](decisions/008-service-en-ligne.md) |
 | Choix de l'hébergeur ; facturation par personne ou par organisation | [008](decisions/008-service-en-ligne.md), [offres](offres.md) |
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine | [041](decisions/041-nom-et-site-vitrine.md) |
-| Écrans restants et version téléphone | [003](decisions/003-interface.md) |
-| Granularité des règles et contrôle du mode « figer l'existant » | [007](decisions/007-reprise-app-existante.md) |
-| Trois permissions de plus sur la GitHub App pour lire les alertes de sécurité (tranche R6) | [007](decisions/007-reprise-app-existante.md), [012](decisions/012-configuration-automatique.md) |
+| Version téléphone | [003](decisions/003-interface.md) |
+| Reprise : granularité des règles, contrôle du mode « figer l'existant » et le reste des points ouverts de la 007 | [007](decisions/007-reprise-app-existante.md) |
 | Analyse et reprise dans l'offre Pro, bloquées côté serveur | [007](decisions/007-reprise-app-existante.md), [offres](offres.md) |

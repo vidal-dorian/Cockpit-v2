@@ -77,6 +77,8 @@ Sur le Pi, une instance suffit. Pour pouvoir en lancer plusieurs plus tard, on s
 | Les codes d'autorisation OAuth (006) | Une table, avec expiration à 60 s |
 | Les sessions du transport MCP | Le mode sans session du SDK MCP |
 
+*Depuis la [016](016-serveur-mcp.md), le MCP tourne sans session : il ne garde plus rien en mémoire. La liste à jour est dans [l'architecture](../architecture.md#montée-en-charge), « Montée en charge ».*
+
 ## Webhooks : enregistrer d'abord, traiter ensuite
 
 Avec beaucoup de clients, les webhooks GitHub arrivent par rafales, et GitHub compte une livraison comme échouée si la réponse prend plus de 10 secondes ([docs GitHub](https://docs.github.com/en/enterprise-server@3.9/webhooks/using-webhooks/best-practices-for-using-webhooks)). La tranche 5.1 suit donc ce schéma : vérifier la signature, **enregistrer la livraison en base** (identifiée par son en-tête `X-GitHub-Delivery`, ce qui évite les doublons), répondre `2xx`, puis la traiter à part. Une livraison dont le traitement échoue reste en base et peut être relancée.
@@ -107,8 +109,8 @@ Un client peut demander l'effacement de ses données (RGPD), alors que l'histori
 
 1. **Hébergeur** : à choisir au premier client payant, de préférence en Europe (RGPD), avec PostgreSQL géré.
 2. **Facturation** : par utilisateur ou par organisation ? À décider avec les offres, dont les premières idées sont dans [`offres.md`](../offres.md).
-3. **Repo déjà suivi par un autre compte** : le refus révèle qu'un projet existe sur ce repo, alors que la 004 répond « introuvable » pour l'objet d'un autre utilisateur. Le risque est faible, puisque la personne a déjà accès au repo sur GitHub pour l'ajouter. À confirmer en 2.1.
-4. **Contenu des `args` de l'historique** : un titre de ticket peut contenir une donnée personnelle. Tranché par la [010](010-historique.md) (règle D) : jamais de texte libre ni de donnée personnelle dans les `args`.
+3. ~~**Repo déjà suivi par un autre compte** : le refus révèle qu'un projet existe sur ce repo, alors que la 004 répond « introuvable » pour l'objet d'un autre utilisateur. Le risque est faible, puisque la personne a déjà accès au repo sur GitHub pour l'ajouter. À confirmer en 2.1.~~ Confirmé en 2.1 par la [011](011-import-projets.md) C : le refus neutre est gardé, risque accepté.
+4. ~~**Contenu des `args` de l'historique** : un titre de ticket peut contenir une donnée personnelle.~~ Tranché par la [010](010-historique.md) (règle D) : jamais de texte libre ni de donnée personnelle dans les `args`.
 
 ## Pistes écartées
 
