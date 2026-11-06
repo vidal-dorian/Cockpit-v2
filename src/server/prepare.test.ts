@@ -433,6 +433,32 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
     expect(ctx.git.head).toBe(head);
   });
 
+  it("given a repo that gained a .claude/CLAUDE.md since a plan holding CLAUDE.md, when the plan is applied, then 409 repo_changed and no CLAUDE.md is written beside it (013 C)", async () => {
+    const ctx = await ready();
+    const plan = await planOf(ctx);
+    expect(statusesOf(plan)["CLAUDE.md"]).toBe("create");
+    ctx.git.push({ ".claude/CLAUDE.md": "# theirs\n" });
+
+    const res = await apply(ctx, { plan });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_changed" });
+    expect(ctx.git.created.commits).toEqual([]);
+    expect(ctx.git.filesAt(ctx.git.head)?.["CLAUDE.md"]).toBeUndefined();
+  });
+
+  it("given an unsigned plan creating CLAUDE.md in a repo that has a .claude/CLAUDE.md, when it is applied, then 409 repo_changed and nothing is written (013 C)", async () => {
+    const ctx = await ready({
+      files: { "README.md": "# app\n", ".claude/CLAUDE.md": "# theirs\n" },
+    });
+
+    const res = await apply(ctx, { plan: unsigned(ctx.git.head) });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_changed" });
+    noWrite(ctx);
+  });
+
   it("given a plan altered on its way (an exists file turned into create), when it is applied, then 409 repo_changed and the file is never overwritten", async () => {
     const ctx = await ready({
       files: {
