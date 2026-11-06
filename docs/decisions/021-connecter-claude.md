@@ -1,6 +1,6 @@
 # 021 — Connecter Claude à Cockpit en un minimum de clics
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-29
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [006 — Connexion OAuth](006-connexion-oauth.md), [015 — Les jetons MCP](015-jetons-mcp.md), [016 — Le serveur MCP](016-serveur-mcp.md), [010 — Historique](010-historique.md)

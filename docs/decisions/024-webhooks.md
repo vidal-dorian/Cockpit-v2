@@ -1,6 +1,6 @@
 # 024 — Recevoir les webhooks GitHub
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-30
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [008 — Service en ligne](008-service-en-ligne.md) (enregistrer d'abord, traiter ensuite), [012 — Configuration automatique](012-configuration-automatique.md) (l'App et son secret de webhook), [013 — Bilan de santé](013-bilan-de-sante.md), [010 — Historique](010-historique.md), [023 — Adresse publique](023-reglages-adresse-https.md)

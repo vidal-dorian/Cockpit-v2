@@ -1,6 +1,6 @@
 # 036 — Les questions de Claude
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (`ask_user`, `get_answer`, et pourquoi ce sont deux outils), [002 — Modèle de données](002-modele-donnees.md) (`questions`), [003 — Interface](003-interface.md) (réponses rapides), [033 — Le run minimal](033-run-minimal.md)

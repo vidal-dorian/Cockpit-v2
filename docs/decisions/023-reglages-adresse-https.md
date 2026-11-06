@@ -1,6 +1,6 @@
 # 023 — Réglages en onglets, adresse publique en https
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-30
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md), [021 — Connecter Claude](021-connecter-claude.md), [022 — Routine d'écriture des US](022-routine-ecriture-us.md), [010 — Historique](010-historique.md)

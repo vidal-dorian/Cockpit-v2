@@ -1,6 +1,6 @@
 # 018 — Les décisions humaines sur une US
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-28
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [004 — Outils MCP](004-outils-mcp.md), [010 — Historique](010-historique.md), [014 — Tickets](014-tickets.md), [017 — Claude écrit les US](017-user-stories.md)

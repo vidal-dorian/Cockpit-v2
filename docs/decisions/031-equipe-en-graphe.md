@@ -1,6 +1,6 @@
 # 031 — L'équipe en graphe
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-04
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (B, C, F), [030 — Éditeur d'agent](030-editeur-d-agent.md), [007 — Reprise d'une app existante](007-reprise-app-existante.md) (la librairie de graphe et la règle d'accessibilité), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md)

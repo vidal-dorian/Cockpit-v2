@@ -1,6 +1,6 @@
 # 027 — Préparer un repo pour Claude en un clic
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-31
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [013 — Bilan de santé](013-bilan-de-sante.md), [021 — Connecter Claude](021-connecter-claude.md), [005 — Lancement local](005-lancement-local.md), [017 — User stories](017-user-stories.md) (M), [010 — Historique](010-historique.md)

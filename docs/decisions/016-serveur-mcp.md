@@ -1,6 +1,6 @@
 # 016 — Le serveur MCP
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-25
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [010 — Historique](010-historique.md), [014 — Tickets](014-tickets.md), [015 — Les jetons MCP](015-jetons-mcp.md)

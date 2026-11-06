@@ -1,6 +1,6 @@
 # 019 — Le Kanban d'un projet
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-29
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [017 — Claude écrit les US](017-user-stories.md), [018 — Les décisions humaines](018-decisions-humaines.md)

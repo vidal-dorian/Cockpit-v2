@@ -1,6 +1,6 @@
 # 022 — Programmer l'écriture des US depuis Cockpit
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-29
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [021 — Connecter Claude](021-connecter-claude.md), [017 — Claude écrit les US](017-user-stories.md), [010 — Historique](010-historique.md), [012 — Configuration automatique](012-configuration-automatique.md) (secrets chiffrés)

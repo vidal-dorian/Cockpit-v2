@@ -1,6 +1,6 @@
 # 020 — La publication d'une US en issue GitHub
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-29
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [009 — Connexion à GitHub](009-connexion-github.md), [010 — Historique](010-historique.md), [012 — Configuration automatique](012-configuration-automatique.md), [018 — Les décisions humaines](018-decisions-humaines.md)

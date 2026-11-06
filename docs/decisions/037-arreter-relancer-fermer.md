@@ -1,6 +1,6 @@
 # 037 — Arrêter, relancer, fermer un run
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (`stop_requested`, `finish_run`, la table des droits, point ouvert 1), [002 — Modèle de données](002-modele-donnees.md) (`stop_requested_at`, `stopped`, `closed_manually`), [033](033-run-minimal.md), [035](035-criteres-et-pr.md), [036](036-questions-de-claude.md), [034](034-developper-avec-claude.md)

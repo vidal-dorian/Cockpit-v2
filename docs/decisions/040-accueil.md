@@ -1,6 +1,6 @@
 # 040 — L'accueil : qu'est-ce qui m'attend ?
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : brief §6.13, [003 — Interface](003-interface.md) (qui doit agir, les tâches clés, agir sur place, le compteur de l'onglet Accueil), [028](028-creme-sombre-onglets-journal.md) (barre du haut), [036](036-questions-de-claude.md) (répondre), [038](038-suivi-de-la-pr.md) (CI et revue), [039](039-aide-a-la-decision.md) (le verdict)

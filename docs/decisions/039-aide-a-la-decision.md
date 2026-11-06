@@ -1,6 +1,6 @@
 # 039 — L'aide à la décision
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md) (le verdict n'est pas stocké, il se calcule des critères et de `pr_ci_state`), [003 — Interface](003-interface.md) (« Décider en fin de run »), [035](035-criteres-et-pr.md), [037](037-arreter-relancer-fermer.md), [038](038-suivi-de-la-pr.md)
