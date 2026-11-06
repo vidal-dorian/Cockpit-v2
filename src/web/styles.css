@@ -1,44 +1,56 @@
 @import "tailwindcss";
 
-/* Design tokens of decision 003. Names follow the shadcn/ui conventions
-   (background, foreground, primary…) so its components use them as is. */
+/* Design tokens: decision 003 for the names and the ergonomics, decision 028 B for the values (Crème sombre).
+   Names follow the shadcn/ui conventions (background, foreground, primary…) so its components use them as is. */
 @theme {
-  --font-sans: "Figtree Variable", sans-serif;
-  --font-heading: "Bricolage Grotesque Variable", sans-serif;
+  --font-sans: "Geist Variable", sans-serif;
+  --font-heading: "Geist Variable", sans-serif;
+  --font-mono: "Geist Mono Variable", monospace;
 
-  --color-background: #f4f3f8;
-  --color-foreground: #1e1b2e;
-  --color-card: #ffffff;
-  --color-border: #e9e6f2;
-  --color-muted-foreground: #5f5a73;
+  --color-background: #1c1917;
+  --color-foreground: #f6eee6;
+  --color-card: #262220;
+  /* Sunken surface: panels and card footers. */
+  --color-sunken: #211d1b;
+  /* Secondary buttons, and their hover. */
+  --color-raised: #2f2a27;
+  --color-raised-hover: #36302c;
+  --color-border: #3a3430;
+  --color-border-strong: #4a433e;
+  --color-cream: #e9dfd5;
+  --color-muted-foreground: #a99e94;
 
-  /* Coral: waiting for you. Dark text on it, as decided in 003. */
-  --color-primary: #ff6a3d;
-  --color-primary-foreground: #1e1b2e;
-  --color-you-soft: #ffe9e0;
-  --color-you-text: #c2410c;
+  /* Orange: waiting for you. Dark text on it, as decided in 003. */
+  --color-primary: #ff8a57;
+  --color-primary-hover: #ff9a6c;
+  --color-primary-foreground: #1c1917;
+  --color-you-soft: #3d2a20;
+  --color-you-text: #ffab85;
 
-  /* Violet: Claude is working. */
-  --color-claude: #7c6cf0;
-  --color-claude-soft: #ece8ff;
-  --color-claude-text: #4a3ab0;
+  /* Cream: Claude is working. */
+  --color-claude: #e9dfd5;
+  --color-claude-soft: #36302c;
+  --color-claude-text: #f6eee6;
 
-  /* Green: done or validated. */
-  --color-done: #2fb57b;
-  --color-done-soft: #ddf5ea;
-  --color-done-text: #16603f;
+  /* Warm gray: done or validated, it fades. */
+  --color-done: #7a716a;
+  --color-done-soft: #2f2a27;
+  --color-done-text: #c9bfb4;
 
-  --color-destructive: #b4232a;
-  --color-destructive-soft: #fde4e4;
+  --color-destructive: #f0905f;
+  --color-destructive-soft: #3a2219;
+}
+
+:root {
+  color-scheme: dark;
 }
 
 body {
   @apply bg-background font-sans text-[15px] text-foreground;
 }
 
-/* Colors of the logo (Logo.tsx): the "crème sombre" palette of the mockups.
-   Plain variables, not @theme ones: Tailwind drops theme variables no utility uses.
-   The dark theme (brief §6.20) will redefine them with the others. */
+/* Colors of the logo (Logo.tsx), from the Crème sombre palette above (decision 028 B).
+   Plain variables, not @theme ones: Tailwind drops theme variables no utility uses. */
 :root {
   --logo-coral: #ff8a57;
   --logo-coral-soft: #ffab85;
@@ -199,4 +211,28 @@ body {
   100% {
     transform: scale(1);
   }
+}
+
+/* React Flow (decision 031 B), themed with the tokens above. */
+.react-flow {
+  --xy-background-color: var(--color-sunken);
+  --xy-background-pattern-color: var(--color-border);
+  --xy-edge-stroke: var(--color-muted-foreground);
+  --xy-edge-stroke-selected: var(--color-primary);
+  --xy-edge-label-color: var(--color-foreground);
+  --xy-edge-label-background-color: var(--color-card);
+  --xy-handle-background-color: var(--color-muted-foreground);
+  --xy-handle-border-color: var(--color-card);
+  --xy-connectionline-stroke: var(--color-primary);
+  --xy-controls-button-background-color: var(--color-raised);
+  --xy-controls-button-background-color-hover: var(--color-raised-hover);
+  --xy-controls-button-color: var(--color-foreground);
+  --xy-controls-button-border-color: var(--color-border);
+  --xy-attribution-background-color: var(--color-sunken);
+}
+.react-flow__attribution a {
+  color: var(--color-muted-foreground);
+}
+.react-flow__node {
+  color: var(--color-foreground);
 }

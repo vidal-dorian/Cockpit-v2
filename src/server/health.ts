@@ -1,13 +1,21 @@
 import type { RepoFiles } from "./github.ts";
+import { WEBHOOK_PATH } from "./instance.ts";
+import { parseTeam } from "./team.ts";
+
+const DEFAULT_TEAM = ["test-writer", "developer", "reviewer"];
 
 /** The fixed codes of decision 013; the page turns them into French. */
 export type HealthDetail =
   | "ok"
   | "missing"
   | "invalid_json"
-  | "secret_in_clear";
+  | "secret_in_clear"
+  | "invalid_team"
+  | "wrong_url"
+  | "last_delivery_failed"
+  | "unknown";
 export type HealthLine = {
-  key: "claude_md" | "ci" | "mcp" | "agents";
+  key: "claude_md" | "ci" | "mcp" | "agents" | "webhook";
   ok: boolean;
   detail: HealthDetail;
 };
@@ -58,8 +66,6 @@ function mcpDetail(mcpJson: string | null, publicUrl: string): HealthDetail {
 
 /** The four lines of the health check, in the order the page shows them (decision 013). */
 export function healthLines(files: RepoFiles, publicUrl: string): HealthLine[] {
-  const hasAll = (names: string[], wanted: string[]) =>
-    wanted.every((name) => names.includes(name));
   return [
     line("claude_md", files.claudeMd ? "ok" : "missing"),
     line(
@@ -67,12 +73,39 @@ export function healthLines(files: RepoFiles, publicUrl: string): HealthLine[] {
       files.workflows.some((n) => /\.ya?ml$/.test(n)) ? "ok" : "missing",
     ),
     line("mcp", mcpDetail(files.mcpJson, publicUrl)),
-    line(
-      "agents",
-      hasAll(files.agents, ["test-writer.md", "developer.md", "reviewer.md"]) &&
-        files.devUsSkill.includes("SKILL.md")
-        ? "ok"
-        : "missing",
-    ),
+    line("agents", agentsDetail(files)),
   ];
+}
+
+// Decision 029 E: the agents wanted are the project's own team, or the three default ones.
+function agentsDetail(files: RepoFiles): HealthDetail {
+  if (!files.devUsSkill.includes("SKILL.md")) return "missing";
+  // Decision 032 C: every named team is judged like team.md; an unreadable one first, then a missing agent.
+  const teams = [
+    files.teamMd === null ? DEFAULT_TEAM : parseTeam(files.teamMd),
+    ...files.teams.map(parseTeam),
+  ];
+  if (teams.includes(null)) return "invalid_team";
+  return teams.every((team) =>
+    team?.every((name) => files.agents.includes(`${name}.md`)),
+  )
+    ? "ok"
+    : "missing";
+}
+
+/** The fifth line (decision 024 F): the webhook reads are the App's, the same for every project; null when GitHub could not be asked. */
+export function webhookLine(
+  hook: { url: string; active?: boolean; lastStatus: number | null } | null,
+  publicUrl: string,
+): HealthLine {
+  if (!hook) return line("webhook", "unknown");
+  if (hook.url !== `${publicUrl}${WEBHOOK_PATH}` || hook.active === false)
+    return line("webhook", "wrong_url");
+  const { lastStatus } = hook;
+  return line(
+    "webhook",
+    lastStatus === null || (lastStatus >= 200 && lastStatus < 300)
+      ? "ok"
+      : "last_delivery_failed",
+  );
 }

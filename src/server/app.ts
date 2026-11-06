@@ -7,15 +7,19 @@ import { authRoutes } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
-import { instanceReader } from "./instance.ts";
+import { homeRoutes } from "./home.ts";
+import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
+import { questionRoutes } from "./questions.ts";
 import { type FireRoutine, routineRoutes } from "./routines.ts";
+import { runRoutes } from "./runs.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
 import { ticketRoutes } from "./tickets.ts";
 import { tokenRoutes } from "./tokens.ts";
+import { webhookRoutes } from "./webhooks.ts";
 
 export type AppOptions = {
   /** Decrypts the GitHub secrets stored in the database (decision 012 F). */
@@ -33,6 +37,11 @@ export type AppOptions = {
   /** The clock in milliseconds, for the life of authorization codes, of the CIMD cache and the next run of a schedule; Date.now when absent. */
   now?: () => number;
 };
+
+const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
+// The agent and team editors send a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
+const agentsBodyLimit = bodyLimit({ maxSize: 4 * 1024 * 1024 });
+const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/(agents|team)\/apply$/;
 
 export function createApp(
   db: Db,
@@ -57,8 +66,14 @@ export function createApp(
         c.res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
         c.res.headers.set("X-Frame-Options", "DENY");
       })
-      // A JSON body is read whole in memory: 256 KiB at most on every API route, before the session and the validation (decision 014).
-      .use("/api/*", bodyLimit({ maxSize: 256 * 1024 }))
+      // A JSON body is read whole in memory: 256 KiB at most on every API route (the apply routes of the agent and team editors have a larger one), before the session and the validation (decision 014). GitHub's webhook has its own limit (decision 024 A).
+      .use("/api/*", (c, next) =>
+        c.req.path === WEBHOOK_PATH
+          ? next()
+          : (AGENTS_APPLY_PATH.test(c.req.path)
+              ? agentsBodyLimit
+              : apiBodyLimit)(c, next),
+      )
       .get("/api/health", async (c) => {
         await db.execute(sql`select 1`);
         return c.json({ status: "ok", version });
@@ -67,10 +82,14 @@ export function createApp(
       .route("/", authRoutes(db, readInstance, readGitHub))
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
-      .route("/", projectRoutes(db, readGitHub, healthCacheSize))
+      .route("/", webhookRoutes(db, readInstance))
+      .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
+      .route("/", runRoutes(db, readGitHub))
+      .route("/", questionRoutes(db))
+      .route("/", homeRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))

@@ -24,6 +24,63 @@ export type GitHubRepo = {
 
 export const INSTALLATION_ID = 77;
 
+/**
+ * What a path of a fake Git repo can be besides a regular file of mode 100644 (`files`); a directory is never listed, it exists when a path is under it (decision 026).
+ * - `executable`: a regular file of mode 100755, Contents serves it like any file.
+ * - `symlink`: mode 120000 (a blob). `submodule`: a gitlink, tree entry of type `commit`, mode 160000.
+ * - `large`: a regular file (100644) too large for Contents, which answers 200 with `content: ""` and `encoding: "none"`.
+ */
+export type FakeGitEntry =
+  | { kind: "executable"; content: string }
+  | { kind: "symlink" }
+  // GitHub answers 422 or 404 to the tree of a submodule (decision 013 H did not verify which), or even 200 with the tree of its commit when that commit is in the repo's objects: `treeStatus` picks it, 422 by default.
+  | { kind: "submodule"; treeStatus?: 404 | 200 }
+  | { kind: "large" };
+
+/** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
+export type FakeGitRepoOptions = {
+  /** Default: "main". */
+  defaultBranch?: string;
+  /** The regular files of the first commit (all of mode 100644). */
+  files?: Record<string, string>;
+  /** The other kinds of entries of the first commit, by path. */
+  entries?: Record<string, FakeGitEntry>;
+  /** No commit at all: reading the default branch answers 409. */
+  empty?: boolean;
+  unreachable?: boolean;
+  refUpdateFailure?: { status: number; message: string };
+  /** Fails every `POST .../pulls` with that status and message (decision 026 G: 403 plays an App without Pull requests: write). */
+  pullRequestFailure?: { status: number; message: string };
+};
+
+/** The address of the App's webhook the stub starts with: the one of `configureTestInstance` (decision 024 F). */
+export const DEFAULT_WEBHOOK_URL =
+  "https://cockpit.example.com/api/webhooks/github";
+
+/** The App's webhook as the stub holds it (decision 024 F); read and change it between two calls. */
+export type FakeWebhook = {
+  url: string;
+  /** Sent in the answer of `GET /app/hook/config` only when set. */
+  active?: boolean;
+  /** Newest first, as GitHub lists them. */
+  deliveries: { status_code: number }[];
+  /** Fails the given call with that status (body message `github-boom-message`). */
+  configStatus?: number;
+  deliveriesStatus?: number;
+};
+
+/** A check run as GitHub's API serves it (slice 7.6, decision 038 E). */
+export type FakeCheckRun = {
+  name: string;
+  status: "queued" | "in_progress" | "completed";
+  conclusion: string | null;
+};
+/** A review of a PR, oldest first in the list given to `setReviews` (slice 7.6, decision 038 F). */
+export type FakeReview = {
+  login: string;
+  state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED";
+};
+
 /** An issue as the fake holds it (slice 4.6, decision 020); `labels` are names. */
 export type FakeIssue = {
   number: number;
@@ -124,8 +181,37 @@ export function failOnUnexpectedFetch() {
  * state: `issues(fullName)`, `labels(fullName)`, `addLabel(fullName, name)` and `addIssueLabel(fullName, number, name)`.
  * `issuesStatus` fails every call on an issue or a label with that status (body message `github-boom-message`),
  * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
- * with 500 every call it returns true for, to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
+ * with 500 every call it returns true for (or with the status it returns), to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
  * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
+ *
+ * The webhook of the App (decisions 002 and 024), read as the App itself (a JWT, never an installation token: 401 otherwise):
+ * `GET /app/hook/config` (`{ url, content_type, insecure_ssl }`, plus `active` when the test set it) and `GET /app/hook/deliveries?per_page=n` (the `n` newest
+ * deliveries, each `{ id, guid, status_code, event, action }`).
+ * It starts at DEFAULT_WEBHOOK_URL with no delivery, so a health check reads it green. The returned mock holds it as `webhook` (a live object: assign
+ * its fields between two calls, `initial.webhook` seeds them); `configStatus` and `deliveriesStatus` fail one of the two calls.
+ *
+ * Writing into a repo (slice 6.1, decision 026): `gitRepos` names the repos (`owner/repo`) that keep a real Git history, which the stub serves instead of the snapshots above:
+ * `GET /repos/{o}/{r}` (`default_branch`), `GET .../git/ref/heads/{branch}` (only the default branch exists; 409 on an empty repo), `GET .../git/commits/{sha}`,
+ * `GET .../git/trees/{sha}:{dir}` (the tree of a directory at a commit; the root is `{sha}` or `{sha}:`; nothing else is served, no query string, no `HEAD`, no branch name; entries are
+ * `{ path, mode, type, sha }` with `path` the name inside the directory, `040000`/`tree` for a directory, `100644`/`100755`/`120000` blobs, `160000`/`commit` for a submodule;
+ * 404 when the directory is missing, also when one of its parents is a file, a symlink or a submodule; 422 when the path itself is a file, a symlink or a submodule, as GitHub does),
+ * `GET .../contents/{path}?ref={sha}` (a regular file, or a file too large to read: `content: ""`, `encoding: "none"`; 404 when the path is absent at that commit; a directory, a symlink or a submodule at the path is not served,
+ * the code under test must have read the tree to know it: "Unexpected fetch"), `POST .../git/trees` (needs a known `base_tree`, blobs of mode 100644 with a string `content`),
+ * `POST .../git/commits` (known tree and parents) and `PATCH .../git/refs/heads/{branch}` (`{ sha, force }`: like GitHub, 422 "not a fast forward" when the current head is not
+ * an ancestor of `sha` and `force` is not `true`). Any other call on such a repo fails loudly. `git(fullName)` is the live state of one of them: `head`, `commit(sha)`, `filesAt(sha)`,
+ * `created` (what the code under test sent: `trees`, `commits`, `refUpdates` with their `force`, every attempt included), `push(files)` (another person's push on the default branch:
+ * adds or replaces files in a new commit on the head, returns its sha), `beforeRefUpdate(fn)` (runs `fn` once, right before the next ref update is judged: a push landing at that moment),
+ * and the fields `unreachable` (every call on the repo answers 404, the App lost access) and `refUpdateFailure` (`{ status, message }`, fails every ref update, to play a protected branch).
+ * Pull request on a protected branch (decision 026 G): `POST .../git/refs` (`{ ref: "refs/heads/<name>", sha }`: creates a branch, never moves one; 422 "Reference already exists" when the name is taken, by the default branch or by another
+ * branch; 422 when the sha is no known commit; any `force` key is recorded as sent), `DELETE .../git/refs/heads/<name>` (a branch other than the default one; 204, 422 when it does not exist) and `POST .../pulls`
+ * (`{ title, head, base, body }`: `head` must be an existing branch other than the default branch and `base` the default branch, else 422; answers 201 `{ number, html_url }`, numbers start at 1, `html_url` is
+ * `https://github.com/{o}/{r}/pull/{number}`; `pullRequestFailure` fails it). They are recorded apart from `created` (which the older tests compare with `toEqual`) as `git.refsCreated` (`{ branch, sha, force }`),
+ * `git.refsDeleted` (branch names) and `git.pullRequests` (`{ number, head, base, title, body }`); `git.branch(name)` is the sha a branch points at (the default branch included), `undefined` when it does not exist.
+ * `GET .../git/ref/heads/<name>` serves these branches too.
+ * Reading a PR (slice 7.3, decision 035 C), on any repo: `GET .../pulls/{n}` answers what `addPull(fullName, number, branch, headRepo?)` seeded (`head.ref`, `head.repo.full_name`), 404 otherwise; `failOn` applies.
+ * `failOn` applies to these repos too. A tree that would replace anything is accepted, as GitHub does: it is the caller's job not to send it. A blob sent over a directory, a symlink, a submodule or a file replaces it (and
+ * everything under a directory), and a blob under a path that is a file, a symlink or a submodule replaces that parent by a directory.
+ * `gitRepos` entries take `entries` (see `FakeGitEntry`) next to `files`; `push(files, message, entries)` takes them as its third argument, and `git(...).entriesAt(sha)` reads them.
  */
 export function stubGitHub(initial: {
   account: number | null;
@@ -147,10 +233,17 @@ export function stubGitHub(initial: {
   installations?: number[];
   issuesStatus?: number;
   issuesDelay?: number;
-  failOn?: (call: { method: string; path: string }) => boolean;
+  failOn?: (call: { method: string; path: string }) => boolean | number;
+  webhook?: Partial<FakeWebhook>;
+  gitRepos?: Record<string, FakeGitRepoOptions>;
 }) {
   // Mutable on purpose: `update` changes it between two calls.
   const options = { ...initial };
+  const webhook: FakeWebhook = {
+    url: DEFAULT_WEBHOOK_URL,
+    deliveries: [],
+    ...initial.webhook,
+  };
   let etagSalt = 0;
   let afterRoot: (() => void) | undefined;
   const served: string[] = [];
@@ -219,6 +312,157 @@ export function stubGitHub(initial: {
     repos.set(fullName, created);
     return created;
   };
+  // The repos that keep a Git history (decision 026): commits, trees and the default branch, changed by the code under test or by `push`.
+  const sha1 = (text: string) => createHash("sha1").update(text).digest("hex");
+  const gitRepos = new Map(
+    Object.entries(initial.gitRepos ?? {}).map(([fullName, opts]) => {
+      type Snap = {
+        files: Record<string, string>;
+        entries: Record<string, FakeGitEntry>;
+      };
+      const commits = new Map<
+        string,
+        Snap & { tree: string; parents: string[]; message: string }
+      >();
+      const trees = new Map<string, Snap>();
+      let counter = 0;
+      const addTree = (snap: Snap) => {
+        const sha = sha1(
+          JSON.stringify([
+            Object.entries(snap.files).sort(),
+            Object.entries(snap.entries).sort(),
+          ]),
+        );
+        trees.set(sha, snap);
+        return sha;
+      };
+      const addCommit = (snap: Snap, parents: string[], message: string) => {
+        const tree = addTree(snap);
+        const sha = sha1(
+          `${fullName}\0${counter++}\0${tree}\0${parents}\0${message}`,
+        );
+        commits.set(sha, { ...snap, tree, parents, message });
+        return sha;
+      };
+      /** `snap` with `path` set to `put`, GitHub's way: whatever was at the path, under it or as one of its parents is replaced. */
+      const place = (snap: Snap, path: string, put: Partial<Snap>): Snap => {
+        const clashes = (key: string) =>
+          key === path ||
+          key.startsWith(`${path}/`) ||
+          path.startsWith(`${key}/`);
+        const keep = <T>(record: Record<string, T>) =>
+          Object.fromEntries(
+            Object.entries(record).filter(([key]) => !clashes(key)),
+          );
+        return {
+          files: { ...keep(snap.files), ...put.files },
+          entries: { ...keep(snap.entries), ...put.entries },
+        };
+      };
+      let current: string | null = opts.empty
+        ? null
+        : addCommit(
+            { files: opts.files ?? {}, entries: opts.entries ?? {} },
+            [],
+            "initial commit",
+          );
+      let before: (() => void) | undefined;
+      const otherBranches = new Map<string, string>();
+      const git = {
+        defaultBranch: opts.defaultBranch ?? "main",
+        unreachable: opts.unreachable ?? false,
+        refUpdateFailure: opts.refUpdateFailure,
+        pullRequestFailure: opts.pullRequestFailure,
+        /** The branches the code under test created (decision 026 G), in order of creation. */
+        refsCreated: [] as { branch: string; sha: string; force: unknown }[],
+        refsDeleted: [] as string[],
+        pullRequests: [] as {
+          number: number;
+          head: string;
+          base: string;
+          title: string;
+          body: string;
+        }[],
+        /** The sha a branch points at (the default branch included), `undefined` when it does not exist. */
+        branch: (name: string) =>
+          name === git.defaultBranch
+            ? current === null
+              ? undefined
+              : current
+            : otherBranches.get(name),
+        _otherBranches: otherBranches,
+        /** What the code under test sent. */
+        created: {
+          trees: [] as {
+            baseTree: unknown;
+            entries: {
+              path: string;
+              mode: string;
+              type: string;
+              content?: string;
+              sha?: null;
+            }[];
+          }[],
+          commits: [] as {
+            sha: string;
+            message: string;
+            parents: string[];
+            tree: string;
+          }[],
+          refUpdates: [] as { branch: string; sha: string; force: unknown }[],
+        },
+        /** The sha of the default branch. */
+        get head() {
+          if (current === null) throw new Error(`${fullName} has no commit`);
+          return current;
+        },
+        commit: (sha: string) => commits.get(sha),
+        /** The regular files (mode 100644) of a commit. */
+        filesAt: (sha: string) => commits.get(sha)?.files,
+        /** The other entries of a commit (executables, symlinks, submodules, files too large). */
+        entriesAt: (sha: string) => commits.get(sha)?.entries,
+        /** Another person's push on the default branch (files, then other entries, each replacing what is there); returns the new head. */
+        push(
+          files: Record<string, string>,
+          message = "a push by someone else",
+          entries: Record<string, FakeGitEntry> = {},
+        ) {
+          const parent = git.head;
+          let snap = commits.get(parent) as Snap;
+          for (const [path, text] of Object.entries(files))
+            snap = place(snap, path, { files: { [path]: text } });
+          for (const [path, entry] of Object.entries(entries))
+            snap = place(snap, path, { entries: { [path]: entry } });
+          current = addCommit(snap, [parent], message);
+          return current;
+        },
+        beforeRefUpdate(fn: () => void) {
+          before = fn;
+        },
+        // The stub's handlers of the git routes, below.
+        _trees: trees,
+        _commits: commits,
+        _addTree: addTree,
+        _addCommit: addCommit,
+        _place: place,
+        _runBefore() {
+          const hook = before;
+          before = undefined;
+          hook?.();
+        },
+        _setHead(sha: string) {
+          current = sha;
+        },
+        _head: () => current,
+      };
+      return [fullName, git] as const;
+    }),
+  );
+  // Pull requests seeded by `addPull`, as `GET .../pulls/{n}` serves them (slice 7.3, decision 035 C).
+  const pulls = new Map<string, Record<string, unknown>>();
+  // Slice 7.6 (decision 038 B): the check runs of a commit (`owner/repo@sha`) and the reviews of a PR (`owner/repo#number`), as seeded.
+  const checkRuns = new Map<string, FakeCheckRun[]>();
+  const reviews = new Map<string, FakeReview[]>();
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -282,6 +526,295 @@ export function stubGitHub(initial: {
           total_count: repositories.length,
           repositories,
         });
+      }
+      const gitRoute =
+        /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)((?:\/.*)?)$/.exec(
+          route,
+        );
+      const git = gitRoute && gitRepos.get(gitRoute[2] as string);
+      if (gitRoute && git) {
+        const verb = gitRoute[1] as string;
+        const rest = gitRoute[3] as string;
+        const reply = (status: number, body: unknown) =>
+          Response.json(body, { status });
+        const sent = (() => {
+          const raw = init?.body;
+          return typeof raw === "string" && raw ? JSON.parse(raw) : {};
+        })() as Record<string, unknown>;
+        const failed = options.failOn?.({ method: verb, path: url.pathname });
+        if (failed)
+          return reply(failed === true ? 500 : failed, {
+            message: "github-boom-message",
+          });
+        if (git.unreachable) return reply(404, { message: "Not Found" });
+        const empty = git._head() === null;
+        const sha = /^[0-9a-f]{40}$/;
+        if (verb === "GET" && rest === "")
+          return reply(200, {
+            id: 1,
+            full_name: gitRoute[2],
+            default_branch: git.defaultBranch,
+            private: false,
+          });
+        // Slice 7.2 (decision 034 C): the branches, in alphabetical order like GitHub, the default one included.
+        if (verb === "GET" && rest === "/branches") {
+          if (empty) return reply(200, []);
+          return reply(
+            200,
+            [git.defaultBranch, ...git._otherBranches.keys()]
+              .sort()
+              .map((name) => ({ name })),
+          );
+        }
+        const ref = /^\/git\/ref\/(.+)$/.exec(rest);
+        if (verb === "GET" && ref) {
+          if (empty) return reply(409, { message: "Git Repository is empty." });
+          const wanted = decodeURIComponent(ref[1] as string);
+          const at = wanted.startsWith("heads/")
+            ? git.branch(wanted.slice("heads/".length))
+            : undefined;
+          if (at === undefined) return reply(404, { message: "Not Found" });
+          return reply(200, {
+            ref: `refs/${wanted}`,
+            object: { sha: at, type: "commit" },
+          });
+        }
+        const commitRoute = /^\/git\/commits\/(.+)$/.exec(rest);
+        if (verb === "GET" && commitRoute) {
+          const found = git.commit(commitRoute[1] as string);
+          if (!found) return reply(404, { message: "Not Found" });
+          return reply(200, {
+            sha: commitRoute[1],
+            tree: { sha: found.tree },
+            parents: found.parents.map((parent) => ({ sha: parent })),
+            message: found.message,
+          });
+        }
+        const contents = /^\/contents\/(.+)$/.exec(rest);
+        if (verb === "GET" && contents) {
+          const at = url.searchParams.get("ref");
+          if (!at || !sha.test(at))
+            throw unexpectedFetch(`${route}${url.search}`);
+          const path = decodeURIComponent(contents[1] as string);
+          const atCommit = git.commit(at);
+          const entry = atCommit?.entries[path];
+          const text =
+            atCommit?.files[path] ??
+            (entry?.kind === "executable" ? entry.content : undefined);
+          if (text !== undefined) return reply(200, contentsFile(path, text));
+          if (entry?.kind === "large")
+            return reply(200, {
+              ...contentsFile(path, ""),
+              size: 2_000_000,
+              encoding: "none",
+              content: "",
+            });
+          // A directory, a symlink or a submodule: only the tree tells them, the code under test must have read it.
+          const under = [
+            ...Object.keys(atCommit?.files ?? {}),
+            ...Object.keys(atCommit?.entries ?? {}),
+          ].some((key) => key.startsWith(`${path}/`));
+          if (entry || under) throw unexpectedFetch(`${route}${url.search}`);
+          return reply(404, { message: "Not Found" });
+        }
+        const treeRoute = /^\/git\/trees\/(.+)$/.exec(rest);
+        if (verb === "GET" && treeRoute) {
+          const wanted = /^([0-9a-f]{40})(?::(.*))?$/.exec(
+            decodeURIComponent(treeRoute[1] as string),
+          );
+          if (!wanted || url.search !== "")
+            throw unexpectedFetch(`${route}${url.search}`);
+          const snap = git.commit(wanted[1] as string);
+          const dir = wanted[2] ?? "";
+          if (!snap) return reply(404, { message: "Not Found" });
+          const all = { ...snap.files, ...snap.entries };
+          if (dir in all) {
+            const at = snap.entries[dir];
+            if (at?.kind === "submodule" && at.treeStatus === 200)
+              return reply(200, {
+                sha: sha1(`${wanted[1]}:${dir}`),
+                truncated: false,
+                tree: [
+                  {
+                    path: "README.md",
+                    mode: "100644",
+                    type: "blob",
+                    sha: sha1(`${dir}/README.md`),
+                  },
+                ],
+              });
+            return at?.kind === "submodule" && at.treeStatus === 404
+              ? reply(404, { message: "Not Found" })
+              : reply(422, { message: "not a tree" });
+          }
+          const prefix = dir === "" ? "" : `${dir}/`;
+          const children = new Map<string, string>();
+          for (const path of Object.keys(all))
+            if (path.startsWith(prefix)) {
+              const [name, ...more] = path.slice(prefix.length).split("/");
+              children.set(name as string, more.length > 0 ? "" : path);
+            }
+          if (dir !== "" && children.size === 0)
+            return reply(404, { message: "Not Found" });
+          const kinds = {
+            symlink: { mode: "120000", type: "blob" },
+            submodule: { mode: "160000", type: "commit" },
+            executable: { mode: "100755", type: "blob" },
+            large: { mode: "100644", type: "blob" },
+          };
+          return reply(200, {
+            sha: sha1(`${wanted[1]}:${dir}`),
+            truncated: false,
+            tree: [...children].map(([name, leaf]) => ({
+              path: name,
+              ...(leaf === ""
+                ? { mode: "040000", type: "tree" }
+                : (kinds[snap.entries[leaf]?.kind as keyof typeof kinds] ?? {
+                    mode: "100644",
+                    type: "blob",
+                  })),
+              sha: sha1(`${prefix}${name}:${wanted[1]}`),
+            })),
+          });
+        }
+        if (verb === "POST" && rest === "/git/trees") {
+          const entries = Array.isArray(sent.tree) ? sent.tree : [];
+          const base =
+            typeof sent.base_tree === "string"
+              ? git._trees.get(sent.base_tree)
+              : undefined;
+          const valid = entries.every(
+            (e: Record<string, unknown>) =>
+              typeof e.path === "string" &&
+              e.mode === "100644" &&
+              e.type === "blob" &&
+              // `sha: null` removes the path (decision 030 E).
+              (typeof e.content === "string" || e.sha === null),
+          );
+          if (!base || !valid)
+            return reply(422, { message: "Validation Failed" });
+          git.created.trees.push({ baseTree: sent.base_tree, entries });
+          let snap = base;
+          for (const e of entries)
+            snap = git._place(
+              snap,
+              e.path,
+              e.sha === null ? {} : { files: { [e.path]: e.content } },
+            );
+          const tree = git._addTree(snap);
+          return reply(201, { sha: tree, truncated: false, tree: [] });
+        }
+        if (verb === "POST" && rest === "/git/commits") {
+          const parents = Array.isArray(sent.parents) ? sent.parents : [];
+          const snap =
+            typeof sent.tree === "string"
+              ? git._trees.get(sent.tree)
+              : undefined;
+          if (
+            !snap ||
+            typeof sent.message !== "string" ||
+            !parents.every((p) => typeof p === "string" && git.commit(p))
+          )
+            return reply(422, { message: "Validation Failed" });
+          const created = git._addCommit(snap, parents, sent.message);
+          git.created.commits.push({
+            sha: created,
+            message: sent.message,
+            parents,
+            tree: sent.tree as string,
+          });
+          return reply(201, {
+            sha: created,
+            tree: { sha: sent.tree },
+            parents: parents.map((parent) => ({ sha: parent })),
+            message: sent.message,
+          });
+        }
+        const refs = /^\/git\/refs\/(.+)$/.exec(rest);
+        if (verb === "PATCH" && refs) {
+          git._runBefore();
+          const name = decodeURIComponent(refs[1] as string);
+          git.created.refUpdates.push({
+            branch: name.replace(/^heads\//, ""),
+            sha: String(sent.sha),
+            force: sent.force,
+          });
+          if (name !== `heads/${git.defaultBranch}` || empty)
+            return reply(422, { message: "Reference does not exist" });
+          if (typeof sent.sha !== "string" || !git.commit(sent.sha))
+            return reply(422, { message: "Object does not exist" });
+          if (git.refUpdateFailure)
+            return reply(git.refUpdateFailure.status, {
+              message: git.refUpdateFailure.message,
+            });
+          // Fast forward: the current head is the new commit or one of its ancestors.
+          const seen = new Set<string>();
+          const todo = [sent.sha];
+          while (todo.length > 0) {
+            const next = todo.pop() as string;
+            if (seen.has(next)) continue;
+            seen.add(next);
+            todo.push(...(git.commit(next)?.parents ?? []));
+          }
+          if (sent.force !== true && !seen.has(git.head))
+            return reply(422, { message: "Update is not a fast forward" });
+          git._setHead(sent.sha);
+          return reply(200, {
+            ref: `refs/${name}`,
+            object: { sha: sent.sha, type: "commit" },
+          });
+        }
+        if (verb === "POST" && rest === "/git/refs") {
+          const branch = /^refs\/heads\/(.+)$/.exec(String(sent.ref))?.[1];
+          git.refsCreated.push({
+            branch: branch ?? String(sent.ref),
+            sha: String(sent.sha),
+            force: sent.force,
+          });
+          if (!branch || typeof sent.sha !== "string" || !git.commit(sent.sha))
+            return reply(422, { message: "Object does not exist" });
+          if (git.branch(branch) !== undefined)
+            return reply(422, { message: "Reference already exists" });
+          git._otherBranches.set(branch, sent.sha);
+          return reply(201, {
+            ref: sent.ref,
+            object: { sha: sent.sha, type: "commit" },
+          });
+        }
+        const deleted = /^\/git\/refs\/heads\/(.+)$/.exec(rest);
+        if (verb === "DELETE" && deleted) {
+          const branch = decodeURIComponent(deleted[1] as string);
+          git.refsDeleted.push(branch);
+          if (!git._otherBranches.delete(branch))
+            return reply(422, { message: "Reference does not exist" });
+          return new Response(null, { status: 204 });
+        }
+        if (verb === "POST" && rest === "/pulls") {
+          if (git.pullRequestFailure)
+            return reply(git.pullRequestFailure.status, {
+              message: git.pullRequestFailure.message,
+            });
+          if (
+            typeof sent.title !== "string" ||
+            typeof sent.head !== "string" ||
+            !git._otherBranches.has(sent.head) ||
+            sent.base !== git.defaultBranch
+          )
+            return reply(422, { message: "Validation Failed" });
+          const number = git.pullRequests.length + 1;
+          git.pullRequests.push({
+            number,
+            head: sent.head,
+            base: sent.base,
+            title: sent.title,
+            body: typeof sent.body === "string" ? sent.body : "",
+          });
+          return reply(201, {
+            number,
+            html_url: `https://github.com/${gitRoute[2]}/pull/${number}`,
+          });
+        }
+        throw unexpectedFetch(route);
       }
       const repoRoute =
         /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)(?:\/contents\/(.+)|\/git\/trees\/(.+))$/.exec(
@@ -403,6 +936,84 @@ export function stubGitHub(initial: {
         if (file === undefined) throw unexpectedFetch(`${route}${url.search}`);
         return Response.json(contentsFile(path, file));
       }
+      if (/^(GET|PATCH) https:\/\/api\.github\.com\/app\/hook\//.test(route)) {
+        // Only the App itself (a JWT) may read or write its webhook.
+        if (!/^bearer eyJ/i.test(headers.get("authorization") ?? ""))
+          return Response.json({ message: "Bad credentials" }, { status: 401 });
+        const boom = (status: number | undefined) =>
+          status
+            ? Response.json({ message: "github-boom-message" }, { status })
+            : undefined;
+        const config = () =>
+          Response.json({
+            content_type: "json",
+            insecure_ssl: "0",
+            url: webhook.url,
+            ...(webhook.active !== undefined && { active: webhook.active }),
+          });
+        if (route === "GET https://api.github.com/app/hook/config")
+          return boom(webhook.configStatus) ?? config();
+        if (route === "GET https://api.github.com/app/hook/deliveries") {
+          const failure = boom(webhook.deliveriesStatus);
+          if (failure) return failure;
+          const perPage = Number(url.searchParams.get("per_page") ?? 30);
+          return Response.json(
+            webhook.deliveries.slice(0, perPage).map((d, i) => ({
+              id: 1000 - i,
+              guid: `guid-${i}`,
+              event: "push",
+              action: null,
+              ...d,
+            })),
+          );
+        }
+      }
+      const pullRoute =
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)$/.exec(
+          route,
+        );
+      if (pullRoute) {
+        const failed = options.failOn?.({ method, path: url.pathname });
+        if (failed)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: failed === true ? 500 : failed },
+          );
+        const pull = pulls.get(`${pullRoute[1]}#${pullRoute[2]}`);
+        if (!pull)
+          return Response.json({ message: "Not Found" }, { status: 404 });
+        return Response.json(pull);
+      }
+      // Slice 7.6 (decision 038 B): the check runs of a commit and the reviews of a PR, `failOn` applies; a PR or a commit nobody seeded is 404 / empty.
+      const followRoute =
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:commits\/([^/]+)\/check-runs|pulls\/(\d+)\/reviews)$/.exec(
+          route,
+        );
+      if (followRoute) {
+        const failed = options.failOn?.({ method, path: url.pathname });
+        if (failed)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: failed === true ? 500 : failed },
+          );
+        const [, fullName, sha, number] = followRoute;
+        if (sha !== undefined) {
+          const runs = checkRuns.get(`${fullName}@${sha}`) ?? [];
+          return Response.json({ total_count: runs.length, check_runs: runs });
+        }
+        if (!pulls.has(`${fullName}#${number}`))
+          return Response.json({ message: "Not Found" }, { status: 404 });
+        return Response.json(
+          (reviews.get(`${fullName}#${number}`) ?? []).map((r, i) => ({
+            id: i + 1,
+            user: { login: r.login },
+            state: r.state,
+            submitted_at: new Date(
+              1_700_000_000_000 + i * 60_000,
+            ).toISOString(),
+          })),
+        );
+      }
       const issueRoute =
         /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:(labels)|issues(?:\/(\d+)(?:\/(labels)(?:\/(.+))?)?)?)$/.exec(
           route,
@@ -425,8 +1036,14 @@ export function stubGitHub(initial: {
           return reply(options.issuesStatus, {
             message: "github-boom-message",
           });
-        if (options.failOn?.({ method: verb as string, path: url.pathname }))
-          return reply(500, { message: "github-boom-message" });
+        const failed = options.failOn?.({
+          method: verb as string,
+          path: url.pathname,
+        });
+        if (failed)
+          return reply(failed === true ? 500 : failed, {
+            message: "github-boom-message",
+          });
         // GitHub's limits, in characters (here UTF-16 units).
         const tooLong = () =>
           (typeof sent.title === "string" && sent.title.length > 256) ||
@@ -523,6 +1140,8 @@ export function stubGitHub(initial: {
   );
   vi.stubGlobal("fetch", fetchMock);
   return Object.assign(fetchMock, {
+    /** The App's webhook as GitHub holds it now (live object: assign its fields to change it between two calls). */
+    webhook,
     /** The issues of a repo, as GitHub holds them now (live objects: read them after the call under test). */
     issues: (fullName: string) => repoOf(fullName).issues,
     /** The names of the labels that exist in a repo. */
@@ -536,6 +1155,53 @@ export function stubGitHub(initial: {
       const repo = repoOf(fullName);
       repo.labels.add(name);
       repo.issues.find((i) => i.number === number)?.labels.push(name);
+    },
+    /** Makes `GET /repos/{fullName}/pulls/{number}` answer a PR whose head is `branch`, from `headRepo` (default: the same repo, so not a fork); any other number is 404. */
+    addPull(
+      fullName: string,
+      number: number,
+      branch: string,
+      headRepo = fullName,
+    ) {
+      pulls.set(`${fullName}#${number}`, {
+        number,
+        state: "open",
+        html_url: `https://github.com/${fullName}/pull/${number}`,
+        merged: false,
+        head: {
+          ref: branch,
+          sha: `sha-${number}`,
+          repo: { full_name: headRepo },
+        },
+        base: { ref: "main", repo: { full_name: fullName } },
+      });
+    },
+    /** Slice 7.6: changes a PR seeded by `addPull` (state "closed", merged true, the sha of its head commit), as GitHub would after a merge or a push. */
+    setPull(
+      fullName: string,
+      number: number,
+      patch: { state?: "open" | "closed"; merged?: boolean; headSha?: string },
+    ) {
+      const pull = pulls.get(`${fullName}#${number}`);
+      if (!pull) throw new Error(`PR ${number} of ${fullName} is not seeded`);
+      if (patch.state) pull.state = patch.state;
+      if (patch.merged !== undefined) pull.merged = patch.merged;
+      if (patch.headSha)
+        pull.head = { ...(pull.head as object), sha: patch.headSha };
+    },
+    /** Slice 7.6: the check runs `GET /repos/{o}/{r}/commits/{sha}/check-runs` answers for a commit (`{ total_count, check_runs: [{ name, status, conclusion }] }`); the default head sha of a seeded PR is `sha-<number>`. */
+    setCheckRuns(fullName: string, sha: string, runs: FakeCheckRun[]) {
+      checkRuns.set(`${fullName}@${sha}`, runs);
+    },
+    /** Slice 7.6: the reviews `GET /repos/{o}/{r}/pulls/{n}/reviews` answers, oldest first (`{ id, user: { login }, state, submitted_at }`); 404 when the PR is not seeded. */
+    setReviews(fullName: string, number: number, list: FakeReview[]) {
+      reviews.set(`${fullName}#${number}`, list);
+    },
+    /** The live Git state of a repo named in `gitRepos` (decision 026), see the stub's comment. */
+    git(fullName: string) {
+      const git = gitRepos.get(fullName);
+      if (!git) throw new Error(`${fullName} is not in gitRepos`);
+      return git;
     },
     /** The commit sha of each root answer 200, in order. */
     served,

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { history, mcpTokens, users } from "./db/schema.ts";
+import { history, mcpTokens, users, webhookDeliveries } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 
 // Limits of decision 015. PostgreSQL text cannot hold a NUL character: refused here, not left to fail as a 500.
@@ -72,12 +72,23 @@ export async function purgeRevokedTokens(
   });
 }
 
+/** Deletes the webhook deliveries received more than 30 days ago, processed or not (decision 024 H). */
+const purgeWebhookDeliveries = (db: Db) =>
+  db
+    .delete(webhookDeliveries)
+    .where(sql`${webhookDeliveries.receivedAt} < now() - interval '30 days'`);
+
 /** Purges now, then every 24 hours; a failed run is logged and the next one tries again. */
 export function schedulePurge(db: Db): NodeJS.Timeout {
   const run = () =>
-    purgeRevokedTokens(db).catch((error) =>
-      console.error("Purge of revoked tokens failed:", error),
-    );
+    Promise.all([
+      purgeRevokedTokens(db).catch((error) =>
+        console.error("Purge of revoked tokens failed:", error),
+      ),
+      purgeWebhookDeliveries(db).catch((error) =>
+        console.error("Purge of webhook deliveries failed:", error),
+      ),
+    ]);
   void run();
   return setInterval(run, PURGE_EVERY_MS).unref();
 }

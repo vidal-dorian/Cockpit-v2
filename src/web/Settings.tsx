@@ -4,11 +4,8 @@ import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude } from "./ConnectClaude.tsx";
 import { RoutineSettings } from "./RoutineSettings.tsx";
-import { PublicUrl } from "./SettingsPublicUrl.tsx";
 import { Tokens } from "./SettingsTokens.tsx";
-import { focusRing } from "./ui.ts";
-
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
+import { alertBox, button, card, focusRing, tabLink } from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -57,10 +54,7 @@ function UserList() {
     return <p className="text-muted-foreground">Chargement…</p>;
   if (users.isError) {
     return (
-      <p
-        role="alert"
-        className="rounded-xl bg-destructive-soft p-4 text-destructive"
-      >
+      <p role="alert" className={alertBox}>
         {users.error.message}
       </p>
     );
@@ -71,7 +65,7 @@ function UserList() {
         {users.data.map((user) => (
           <li
             key={user.id}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
+            className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
           >
             <span className="font-semibold">{user.login}</span>
             {user.isAdmin && (
@@ -97,7 +91,7 @@ function UserList() {
                     type="button"
                     onClick={() => change.mutate({ id: user.id, block: true })}
                     disabled={change.isPending}
-                    className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                    className={`min-h-10 rounded-xl bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
                   >
                     Confirmer le blocage
                   </button>
@@ -126,10 +120,7 @@ function UserList() {
         ))}
       </ul>
       {change.error && (
-        <p
-          role="alert"
-          className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-3 ${alertBox}`}>
           {change.error.message}
         </p>
       )}
@@ -137,11 +128,10 @@ function UserList() {
   );
 }
 
-const tab = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex min-h-10 items-center rounded-lg px-4 font-semibold ${focusRing} ${isActive ? "bg-card" : "text-muted-foreground"}`;
+export type SettingsTab = "claude" | "jetons" | "utilisateurs" | "ecriture-us";
 
-/** The two tabs of the page (decision 023 E): « Général » and the routine of decision 022. */
-export function Settings({ routine = false }: { routine?: boolean }) {
+/** Réglages in four tabs (decision 028 H); Utilisateurs is the administrator's. */
+export function Settings({ tab }: { tab: SettingsTab }) {
   // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
   const me = useQuery({
     queryKey: ["me"],
@@ -154,29 +144,51 @@ export function Settings({ routine = false }: { routine?: boolean }) {
   });
   if (me.isPending)
     return <p className="p-4 text-muted-foreground">Chargement…</p>;
+  if (me.isError)
+    return (
+      <div role="alert" className={`m-4 ${alertBox}`}>
+        <p>Impossible de lire ton compte : {me.error.message}</p>
+        <button
+          type="button"
+          onClick={() => me.refetch()}
+          className={`mt-3 ${button}`}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 py-8 sm:px-7">
       <h1 className="font-heading text-3xl font-extrabold">Réglages</h1>
-      <nav aria-label="Réglages" className="mt-4 flex gap-2">
-        <NavLink to="/reglages" end className={tab}>
-          Général
+      <nav
+        aria-label="Réglages"
+        className="mt-4 flex flex-wrap gap-x-2 border-b border-border"
+      >
+        <NavLink to="/reglages" end className={tabLink}>
+          Connecter Claude
         </NavLink>
-        <NavLink to="/reglages/ecriture-us" className={tab}>
+        <NavLink to="/reglages/jetons" className={tabLink}>
+          Jetons MCP
+        </NavLink>
+        {me.data?.isAdmin && (
+          <NavLink to="/reglages/utilisateurs" className={tabLink}>
+            Utilisateurs
+          </NavLink>
+        )}
+        <NavLink to="/reglages/ecriture-us" className={tabLink}>
           Écriture automatique des US
         </NavLink>
       </nav>
-      {routine ? (
-        <div className="mt-8">
-          <RoutineSettings />
-        </div>
-      ) : (
-        <>
-          <div className="mt-8">
-            <ConnectClaude />
-          </div>
-          {me.data?.isAdmin && <PublicUrl />}
-          {me.data?.isAdmin && (
-            <section className="mt-8" aria-labelledby="utilisateurs">
+      <div className="mt-8">
+        {tab === "claude" && <ConnectClaude />}
+        {tab === "jetons" && (
+          <section aria-labelledby="jetons">
+            <Tokens />
+          </section>
+        )}
+        {tab === "utilisateurs" &&
+          (me.data?.isAdmin ? (
+            <section aria-labelledby="utilisateurs">
               <h2 id="utilisateurs" className="font-heading text-xl font-bold">
                 Utilisateurs
               </h2>
@@ -188,12 +200,11 @@ export function Settings({ routine = false }: { routine?: boolean }) {
                 <UserList />
               </div>
             </section>
-          )}
-          <section className="mt-8" aria-labelledby="jetons">
-            <Tokens />
-          </section>
-        </>
-      )}
+          ) : (
+            <p>Cette page est réservée à l'administrateur.</p>
+          ))}
+        {tab === "ecriture-us" && <RoutineSettings />}
+      </div>
     </main>
   );
 }

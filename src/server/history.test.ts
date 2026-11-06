@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
-import { history, sessions, users } from "./db/schema.ts";
+import { history, projects, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
 import {
   configureTestInstance,
@@ -81,6 +81,7 @@ describe("GET /api/history", () => {
       "at",
       "id",
       "origin",
+      "project",
       "result",
     ]);
     expect(first).toMatchObject({
@@ -93,7 +94,7 @@ describe("GET /api/history", () => {
     );
   });
 
-  it("given 105 entries for A, when A asks for the history, then only the 100 most recent come back", async () => {
+  it("given 105 entries for A, when A asks for the history, then only the 25 most recent come back (decision 028 F)", async () => {
     const { app, db } = await setup();
     const a = await userWithSession(db, 1);
     await db.insert(history).values(
@@ -110,12 +111,49 @@ describe("GET /api/history", () => {
     });
 
     const body = (await res.json()) as { entries: { at: string }[] };
-    expect(body.entries).toHaveLength(100);
+    expect(body.entries).toHaveLength(25);
     expect(body.entries[0]?.at).toBe(
       new Date(Date.UTC(2026, 0, 1, 0, 104)).toISOString(),
     );
-    expect(body.entries[99]?.at).toBe(
-      new Date(Date.UTC(2026, 0, 1, 0, 5)).toISOString(),
+    expect(body.entries[24]?.at).toBe(
+      new Date(Date.UTC(2026, 0, 1, 0, 80)).toISOString(),
     );
+  });
+
+  it("given entries on a project and one without, when A asks for the history, then each entry has project as owner/repo or null", async () => {
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1);
+    const [project] = await db
+      .insert(projects)
+      .values({
+        githubRepoId: 77,
+        fullName: "octocat/hello",
+        defaultBranch: "main",
+        installationId: 1,
+      })
+      .returning({ id: projects.id });
+    assert(project);
+    await db.insert(history).values([
+      {
+        ...base,
+        userId: a.id,
+        action: "login",
+        at: new Date("2026-01-01"),
+        projectId: project.id,
+      },
+      { ...base, userId: a.id, action: "logout", at: new Date("2026-01-02") },
+    ]);
+
+    const res = await app.request("/api/history", {
+      headers: { cookie: a.cookie },
+    });
+
+    const body = (await res.json()) as {
+      entries: { action: string; project: string | null }[];
+    };
+    expect(body.entries.map((e) => [e.action, e.project])).toEqual([
+      ["logout", null],
+      ["login", "octocat/hello"],
+    ]);
   });
 });

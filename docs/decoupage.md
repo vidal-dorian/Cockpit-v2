@@ -14,24 +14,40 @@
 
 ## Avancement
 
-- **Fait** : étape 0 (décisions 001 à 006 validées ; 007 et 008 proposées, à valider), tranches 1.1 et 1.1 bis.
-- **En cours** : tranche 1.2 (déploiement sur le Pi) : écrite et testée, le premier déploiement réel sur le Pi reste à faire.
+- **Fait** : étape 0 (décisions 001 à 006 validées), tranches 1.1 et 1.1 bis.
+- **Fait** : tranche 1.2 (déploiement sur le Pi, en service : plusieurs déploiements réels et la boucle complète sur un vrai repo).
 - **Fait** : tranche 1.3 (connexion GitHub, [décision 009](decisions/009-connexion-github.md)).
 - **Fait** : tranche 1.4 (historique inaltérable, [décision 010](decisions/010-historique.md)).
 - **Fait** : tranche 2.1 (importer et archiver un projet, [décision 011](decisions/011-import-projets.md)).
 - **Fait** : tranche 1.5 (assistant de démarrage, [décision 012](decisions/012-configuration-automatique.md)).
-- **En cours** : tranche 1.6 (accueil des utilisateurs, [décision 012](decisions/012-configuration-automatique.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 2.2 (bilan de santé en lecture, [décision 013](decisions/013-bilan-de-sante.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 3.1 (ticket, [décision 014](decisions/014-tickets.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.1 (jetons MCP, [décision 015](decisions/015-jetons-mcp.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.2 (serveur MCP minimal, [décision 016](decisions/016-serveur-mcp.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.3 (Claude écrit les US, [décision 017](decisions/017-user-stories.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.4 (décisions humaines sur une US, [décision 018](decisions/018-decisions-humaines.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.5 (Kanban par projet, [décision 019](decisions/019-kanban.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.6 (publication en issue GitHub, [décision 020](decisions/020-issues-github.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.7 (connecter Claude en un minimum de clics, [décision 021](decisions/021-connecter-claude.md), qui met en œuvre la [006](decisions/006-connexion-oauth.md)) : écrite et testée, en relecture.
-- **En cours** : tranche 4.8 (programmer l'écriture des US, [décision 022](decisions/022-routine-ecriture-us.md)) : écrite et testée, en relecture.
-- **Ensuite** : tranche 5.1.
+- **Fait** : tranche 1.6 (accueil des utilisateurs, [décision 012](decisions/012-configuration-automatique.md)).
+- **Fait** : tranche 2.2 (bilan de santé en lecture, [décision 013](decisions/013-bilan-de-sante.md)).
+- **Fait** : tranche 3.1 (ticket, [décision 014](decisions/014-tickets.md)).
+- **Fait** : tranche 4.1 (jetons MCP, [décision 015](decisions/015-jetons-mcp.md)).
+- **Fait** : tranche 4.2 (serveur MCP minimal, [décision 016](decisions/016-serveur-mcp.md)).
+- **Fait** : tranche 4.3 (Claude écrit les US, [décision 017](decisions/017-user-stories.md)).
+- **Fait** : tranche 4.4 (décisions humaines sur une US, [décision 018](decisions/018-decisions-humaines.md)).
+- **Fait** : tranche 4.5 (Kanban par projet, [décision 019](decisions/019-kanban.md)).
+- **Fait** : tranche 4.6 (publication en issue GitHub, [décision 020](decisions/020-issues-github.md)).
+- **Fait** : tranche 4.7 (connecter Claude en un minimum de clics, [décision 021](decisions/021-connecter-claude.md), qui met en œuvre la [006](decisions/006-connexion-oauth.md)).
+- **Fait** : tranche 4.8 (programmer l'écriture des US, [décision 022](decisions/022-routine-ecriture-us.md)).
+- **Fait** : tranche 5.1 (recevoir les webhooks, [décision 024](decisions/024-webhooks.md)).
+- **Fait** : tranche 5.2 (issue modifiée sur GitHub, [décision 025](decisions/025-issue-modifiee-sur-github.md)).
+- **Fait** : tranche 6.1 (écrire dans un repo sans rien écraser, [décision 026](decisions/026-ecrire-dans-un-repo.md)).
+- **Fait** : tranche 6.2 (préparer un repo pour Claude en un clic, [décision 027](decisions/027-preparer-pour-claude.md)).
+- **Fait** : décision 028 (style « Crème sombre », onglets) et tranche E1 (`/dev-us` lit `.claude/team.md`, [décision 029](decisions/029-equipe-d-agents.md)).
+- **Fait** : tranche E2 (éditeur d'agent, [décision 030](decisions/030-editeur-d-agent.md)).
+- **Fait** : tranche E3 (l'équipe en graphe, [décision 031](decisions/031-equipe-en-graphe.md)).
+- **Fait** : tranche E4 (plusieurs équipes, [décision 032](decisions/032-plusieurs-equipes.md)), puis « Nouvelle équipe » dans une fenêtre ([décision 042](decisions/042-nouvelle-equipe-fenetre.md)).
+- **Fait** : tranche 7.1 (run minimal, [décision 033](decisions/033-run-minimal.md)).
+- **Fait** : tranche 7.2 (fenêtre « Développer avec Claude », [décision 034](decisions/034-developper-avec-claude.md)).
+- **Fait** : tranche 7.3 (critères et PR, [décision 035](decisions/035-criteres-et-pr.md)).
+- **Fait** : tranche 7.4 (questions de Claude, [décision 036](decisions/036-questions-de-claude.md)).
+- **Fait** : tranche 7.5 (arrêter, relancer, fermer, [décision 037](decisions/037-arreter-relancer-fermer.md)).
+- **Fait** : tranche 7.6 (suivi de la PR, [décision 038](decisions/038-suivi-de-la-pr.md)).
+- **Fait** : tranche 7.7 (aide à la décision, [décision 039](decisions/039-aide-a-la-decision.md)), et avec elle la phase 7.
+- **Fait** : tranche 8.1 (l'accueil, [décision 040](decisions/040-accueil.md)), et avec elle le MVP.
+- **Feuille de route** : les phases après le MVP, plus bas, sont ordonnées (décidé le 2026-11-06).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -153,30 +169,127 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 
 ---
 
-## Après le MVP (ordre à rediscuter le moment venu)
+## Après le MVP : la feuille de route
 
-- **Analyser et reprendre une app existante** (fonctionnalité phare) : sur un repo construit sans Cockpit, Claude dépose par le MCP la carte du modèle (un diagramme par sous-projet), les règles métier et des constats (bugs, failles, architecture, stack, versions), chacun en citant le code, vérifié sur GitHub ; je valide chaque règle en regard du code lu, un test la fige, et chaque constat retenu devient un ticket. Six tranches, voir [`decisions/007-reprise-app-existante.md`](decisions/007-reprise-app-existante.md) :
+L'ordre ci-dessous a été décidé le 2026-11-06, avec Dorian. Chaque phase est une suite de tranches, une tranche = une PR, comme plus haut.
 
-  | # | Tranche | Démo |
-  |---|---|---|
-  | R1 | **Carte** : vérification des citations, `submit_code_map`, écran « Conception », vue « Modèle », skill `/analyser` | Sur un repo web + API, je vois deux diagrammes ; un clic sur un objet montre son code |
-  | R2 | **Règles** : `create_takeover_stories`, écran de reprise | Je vois le code à gauche et la règle à droite, je la valide |
-  | R3 | **Graphe par fonctionnalité** : acteurs, fonctionnalités, règles, objets ; export Markdown | Je clique une règle dans le graphe et j'arrive sur l'écran de reprise |
-  | R4 | **Figer l'existant** : mode de `/dev-us` | La règle validée a son test, qui passe |
-  | R5 | **Constats de Claude** : bugs, failles, architecture, stack ; page Constats et tri | Une faille trouvée devient un ticket en un clic |
-  | R6 | **Constats de GitHub et versions** : alertes Dependabot, code scanning, secret scanning ; fin de vie des runtimes | Node 20 en fin de vie est signalé sur la carte |
-- **Projets** : créer depuis un repo modèle, gérer le repo modèle.
-- **Configuration Claude** : éditer `CLAUDE.md`, règles, agents, skills et `.mcp.json` depuis Cockpit ; configuration globale (repo de plugins).
-- **Tickets** : pièces jointes, priorité et tags, capture rapide depuis n'importe quel écran, recherche plein texte, import des issues GitHub existantes.
-- **GitHub** : supprimer la branche d'une US mergée, changelog par projet.
-- **Plusieurs utilisateurs** : invitations, administration, plusieurs membres par projet (008).
-- **Service payant** : passage chez un hébergeur ; facturation, offre gratuite et offre payante, fonctions payantes bloquées côté serveur (008). Idées d'offres et de prix : [`offres.md`](offres.md).
-- **Connexion OAuth** : Cockpit devient un connecteur claude.ai, disponible en local, dans le cloud et sur le téléphone sans jeton à copier ; démo : j'ajoute Cockpit sur claude.ai, je me connecte, « liste mes projets » marche depuis le téléphone. Voir [`decisions/006-connexion-oauth.md`](decisions/006-connexion-oauth.md). À faire avant ou avec le cloud.
-- **Cloud** : sessions cloud, routines. Première routine voulue : l'écriture des US, configurée par Cockpit, l'utilisateur ne choisissant que la fréquence (API, chaque jour, chaque semaine…) ; voir le brief §6.14, demande du 2026-10-29.
-- **Automatisations** : file d'attente ; la relance automatique est peut-être remplacée par l'Auto-fix natif de Claude Code (à étudier).
-- **Coût et budget** (télémétrie OpenTelemetry), **notifications** sur le téléphone, **CI/CD proposée par Claude** (« brancher un PC en une commande » est couvert par la connexion OAuth).
-- **Ergonomie** : raccourcis clavier, recherche globale, thème clair/sombre, version mobile (PWA).
+### Pourquoi cet ordre
+
+- **La reprise d'abord** : c'est la fonctionnalité qui distingue Cockpit et qui justifie l'offre Pro, et elle ne demande rien d'autre que ce qui existe.
+- **Le confort ensuite** : c'est ce que Dorian sent chaque jour, de petites tranches à faible risque.
+- **La configuration de Claude avant le payant**, pour que le produit vendu soit complet.
+- **Le payant avant le cloud et les automatisations**, qui coûtent plus cher en complexité : les premiers clients peuvent attendre.
+- **Le téléphone en dernier** : ce n'est pas une priorité.
+
+L'ordre des phases 11 à 14 peut changer : rien ne dépend d'elles, la seule dépendance dure est C1 (mise à jour du catalogue) avant R4, qui change `/dev-us`.
+
+## Phase 9 — Remise au propre
+
+| # | Tranche | Démo |
+|---|---|---|
+| 9.1 | **Ménage de la doc** : `decoupage.md` et `architecture.md` disent la vérité, la décision en double devient la [042](decisions/042-nouvelle-equipe-fenetre.md), les statuts des décisions sont justes | Les docs décrivent le code d'aujourd'hui, et chaque décision implémentée est « validée » (007 et 041 restent à valider) |
+| 9.2 | **Changelog complet** : les tranches 1.5 à 4.8, commitées avant la règle `feat:`, apparaissent dans la prochaine release | La PR de release liste toutes les tranches |
+
+## Phase 10 — Reprendre une app existante (la fonctionnalité phare)
+
+Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MCP la carte du modèle (un diagramme par sous-projet), les règles métier et des constats (bugs, failles, architecture, stack, versions), chacun en citant le code, vérifié sur GitHub ; je valide chaque règle en regard du code lu, un test la fige, et chaque constat retenu devient un ticket. C'est l'argument de l'offre Pro. Voir [`decisions/007-reprise-app-existante.md`](decisions/007-reprise-app-existante.md).
+
+| # | Tranche | Démo |
+|---|---|---|
+| R1 | **Carte** : vérification des citations, `submit_code_map`, écran « Conception », vue « Modèle », skill `/analyser` | Sur un repo web + API, je vois deux diagrammes ; un clic sur un objet montre son code |
+| R2 | **Règles** : `create_takeover_stories`, écran de reprise | Je vois le code à gauche et la règle à droite, je la valide |
+| R3 | **Graphe par fonctionnalité** : acteurs, fonctionnalités, règles, objets ; export Markdown | Je clique une règle dans le graphe et j'arrive sur l'écran de reprise |
+| C1 | **Mise à jour du catalogue** : quand Cockpit améliore `/dev-us` ou un agent, un repo déjà préparé reçoit un bouton « Mettre à jour » (diff, puis un seul commit), seulement si sa copie n'a pas été modifiée à la main. **À faire avant R4**, qui change `/dev-us` | Je change le catalogue, un repo préparé affiche « Mettre à jour », je vois le diff et je valide ; une copie modifiée à la main n'est pas touchée |
+| R4 | **Figer l'existant** : mode de `/dev-us` | La règle validée a son test, qui passe |
+| R5 | **Constats de Claude** : bugs, failles, architecture, stack ; page Constats et tri | Une faille trouvée devient un ticket en un clic |
+| R6 | **Constats de GitHub et versions** : alertes Dependabot, code scanning, secret scanning ; fin de vie des runtimes | Node 20 en fin de vie est signalé sur la carte |
+
+## Phase 11 — Le confort de tous les jours
+
+| # | Tranche | Démo |
+|---|---|---|
+| 11.1 | **Journal filtrable et historique par projet** : filtrer par projet, outil, origine, auteur, résultat et période ; un onglet « Historique » dans chaque projet (brief §6.12, repoussé par 010 et 028) | Je filtre le Journal sur « Claude, refus, cette semaine » ; l'onglet d'un projet n'affiche que ses entrées |
+| 11.2 | **Tickets complets** : capture rapide depuis n'importe quel écran, priorité et tags, recherche plein texte sur les tickets et les US (brief §6.2) | Depuis n'importe quelle page, je note une idée en deux clics ; je retrouve un ticket par un mot de sa description |
+| 11.3 | **Importer les issues GitHub** : une issue déjà écrite comme une US devient un ticket avec son US validée, les autres des tickets « Nouveau » ; rien n'est écrit sur GitHub, et on peut relancer sans doublon | J'importe les issues d'un repo, je les retrouve en tickets ; je relance, rien n'est dupliqué |
+| 11.4 | **Pièces jointes** : images, PDF et texte sur un ticket, que Claude lit quand il écrit les US | J'ajoute une capture à un ticket, Claude en tient compte dans les US |
+| 11.5 | **Après le merge** : supprimer la branche d'une US mergée (sur clic, après vérification) ; changelog par projet (brief §6.8) | Je merge, je clique « Supprimer la branche » ; le projet affiche son changelog |
+| 11.6 | **E5, profils d'équipe** : à redéfinir avec Dorian. Le besoin sera réexpliqué, puis une décision l'écrira | À définir avec la décision |
+
+## Phase 12 — Configurer Claude depuis Cockpit (brief §6.9 et §6.10)
+
+| # | Tranche | Démo |
+|---|---|---|
+| 12.1 | **Éditer la configuration du repo** : `CLAUDE.md`, règles (`.claude/rules/`), skills et `.mcp.json`, chaque fois avec un diff puis un commit, comme l'éditeur d'agent (030) | Je modifie le `CLAUDE.md` d'un projet depuis Cockpit, je vois le diff, je valide |
+| 12.2 | **Catalogue enrichi** : nouveaux agents prêts à l'emploi (`doc-writer`, `doc-reviewer`, `security-reviewer`, `analyst`) | Dans l'éditeur d'agent, j'ajoute un `doc-writer` du catalogue |
+| 12.3 | **Configuration globale** : les agents et skills communs à tous les projets, dans un repo de plugins personnel | Un agent défini une fois est disponible dans tous mes projets |
+| 12.4 | **CI/CD** : lister les workflows ; proposer une CI de départ adaptée au repo ; Claude propose un changement de workflow et l'humain le committe (permission `workflows` à ajouter à la GitHub App) | Sur un repo sans CI, je vois la CI proposée, je valide, la ligne CI du bilan passe au vert |
+| 12.5 | **Repo modèle** : créer un projet à partir d'un repo modèle déjà prêt pour Claude (brief §6.1), gérer ce repo modèle | Je crée un projet depuis le modèle, le bilan est vert d'emblée |
+
+## Phase 13 — Le service payant (au passage chez l'hébergeur)
+
+| # | Tranche | Démo |
+|---|---|---|
+| 13.1 | **Plusieurs utilisateurs** : invitations, partager un projet, l'administrateur voit l'activité des comptes (008, brief §6.19) | J'invite quelqu'un, il voit le projet partagé et rien d'autre |
+| 13.2 | **Offres et quotas** : gratuit (3 repos) et Pro (la reprise), bloqués côté serveur dans l'API et le MCP ; paiement. Idées d'offres et de prix : [`offres.md`](offres.md) | Un compte gratuit se voit refuser le 4e repo, par l'API comme par le MCP |
+| 13.3 | **Hébergeur** : choisir l'hébergeur (en Europe, PostgreSQL géré), y déplacer l'image et la base, faire tenir le serveur sur plusieurs instances (008) | Cockpit répond à son adresse chez l'hébergeur, avec ses données |
+| 13.4 | **Dirigo** : renommer l'app, la passer sur `app.dirigo.dev`, et un site vitrine dans un repo à part ([041](decisions/041-nom-et-site-vitrine.md)) | `dirigo.dev` affiche la vitrine, `app.dirigo.dev` l'application |
+| 13.5 | **RGPD** : une page qui dit ce que Cockpit garde, et la suppression de son compte | Je supprime mon compte, mes données disparaissent |
+
+## Phase 14 — Cloud et automatisations (brief §6.5, §6.14 à §6.16)
+
+| # | Tranche | Démo |
+|---|---|---|
+| 14.1 | **Lancer dans le cloud** : « Développer avec Claude » propose aussi une session cloud, pas seulement Claude Desktop | Je choisis « Cloud », la session démarre sans PC allumé |
+| 14.2 | **Routines** : d'autres routines que l'écriture des US (consigne libre, agents, planning) | Je programme une routine de mon choix, elle se lance à l'heure dite |
+| 14.3 | **File d'attente** : je mets des US prêtes en file, Cockpit les lance une par une | Trois US en file, la suivante démarre quand la précédente est finie |
+| 14.4 | **Relance automatique** : CI rouge, Claude relancé sur la même branche. À comparer d'abord avec l'Auto-fix natif de Claude Code | Une CI rouge relance le développement sans que je clique |
+| 14.5 | **Coût et budget** : le coût de chaque run (télémétrie OpenTelemetry) et un plafond qui demande l'arrêt du run | La page d'un run affiche son coût ; au plafond, l'arrêt est demandé |
+
+## Phase 15 — Téléphone et ergonomie (pas prioritaire)
+
+| # | Tranche | Démo |
+|---|---|---|
+| 15.1 | **Les trois gestes au téléphone** : noter une idée, valider une US et répondre à Claude, vérifiés et corrigés en largeur téléphone | Sur mon téléphone, je fais les trois gestes sans zoom ni défilement latéral |
+| 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17) | Claude pose une question, mon téléphone vibre |
+| 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
+| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
+
+## Équipe d'agents (fait)
+
+Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, modifie ou retire des agents dans ce schéma, et définit d'autres structures par projet. Voir [`decisions/029-equipe-d-agents.md`](decisions/029-equipe-d-agents.md) :
+
+| # | Tranche | Démo |
+|---|---|---|
+| E1 | **`/dev-us` lit `.claude/team.md`** (trois étapes par défaut sans fichier), règle `agents` du bilan adaptée | Un `team.md` sans `reviewer` : le bilan reste vert, `/dev-us` saute l'étape |
+| E2 | **Éditeur d'agent** ([030](decisions/030-editeur-d-agent.md)) : description, outils, modèle, prompt, aperçu ; ajouter, supprimer ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
+| E3 | **Écran « Équipe »** en graphe ([031](decisions/031-equipe-en-graphe.md)) : cartes déplaçables, liens « puis » et « boucle », liste pour le clavier, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
+| E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
+
+Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les profils de départ selon l'abonnement Claude (E5) sont à redéfinir, voir la tranche 11.6.
+
+## Après la V1
+
+- **Ouvrir le MCP aux autres IA** (demande du 2026-11-05, **après la V1**) : ChatGPT et les autres assistants qui parlent MCP se branchent sur Cockpit, pas seulement Claude. Les outils MCP (004) n'ont rien de propre à Claude ; ce qui l'est, c'est la connexion et le reste :
+  - **OAuth** : seuls les deux clients de Claude (claude.ai et Claude Code) sont acceptés, et seulement par CIMD (006 C, 021 B). Il faudra accepter d'autres clients, et sans doute l'enregistrement dynamique (DCR), que la 006 écarte : ChatGPT semble encore s'en servir. **Cette tranche rouvre donc la 006 C.**
+  - **Les jetons MCP (015)** marchent déjà avec tout client capable d'envoyer un en-tête `Authorization` : à vérifier avant de développer quoi que ce soit.
+  - **Restent propres à Claude** : les skills `/write-us` et `/dev-us`, les agents de `.claude/agents/`, le lancement par `claude://` (005) et les routines (022). Une autre IA pourra lire et écrire tickets et US par le MCP, mais pas développer avec `/dev-us`.
+
+Deux sujets déjà tranchés ne sont pas des tranches de plus : la connexion OAuth de Claude (cloud et téléphone sans jeton à copier) est faite en 4.7 ([006](decisions/006-connexion-oauth.md), [021](decisions/021-connecter-claude.md)), et « brancher un PC en une commande » est couvert par elle.
 
 ## Points ouverts
 
-- **Relancer une US en revue** (CI rouge après l'ouverture de la PR) : à trancher en 7.5, voir [`decisions/004-outils-mcp.md`](decisions/004-outils-mcp.md).
+Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée :
+
+| Sujet | Où |
+|---|---|
+| Repo déjà suivi par un autre compte : le refus révèle l'existence du projet | [008](decisions/008-service-en-ligne.md), point ouvert 3 |
+| Une routine déclenchée par API reçoit-elle les connecteurs claude.ai ? À vérifier avant la phase 14 (routines) | [006](decisions/006-connexion-oauth.md), point ouvert 1 |
+| Permissions de l'App ajoutées après le MVP : modification manuelle de l'App et approbation de chaque utilisateur (12.4, R6) | [012](decisions/012-configuration-automatique.md) |
+| Plusieurs instances : cinq choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
+| Hébergeur ; facturation par personne ou par organisation (13.2, 13.3) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
+| Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
+| Reprise : granularité des règles (R2), contrôle du mode « figer » (R4), coloration du code (R2), modèle de chaque agent d'analyse, doublons entre analyses (R5), `object_names` absent (R2) | [007](decisions/007-reprise-app-existante.md), points ouverts 1 à 6 |
+| Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
+| Écrans restants et version téléphone (phase 15) | [003](decisions/003-interface.md) |
+
+- ~~**Relancer une US en revue**~~ : tranché par la [037](decisions/037-arreter-relancer-fermer.md) E, `start_run` accepte une US `in_review`.

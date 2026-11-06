@@ -205,15 +205,25 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
     expect(link.getAttribute("rel")).toMatch(/\bnoreferrer\b/);
   });
 
-  it("given a user, when the section loads, then the first step tells to keep only the Cockpit connector and remove the others (022 A)", async () => {
+  it("given a user on /reglages/ecriture-us, when the section loads, then step 2 « Décocher les connecteurs » is its own step telling to uncheck every connector sauf Cockpit, step 1 no longer talks about connectors and the next steps are 3 and 4 (022 A)", async () => {
     stubApi({ routine: NOT_CONNECTED });
 
     renderAt("/reglages/ecriture-us");
 
     const section = await loadedSection();
-    expect(section.textContent).toMatch(
-      /seulement le connecteur Cockpit|retire les autres/i,
-    );
+    const steps = within(section)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent ?? "");
+    const step = (title: string) => steps.find((t) => t.startsWith(title));
+
+    const step1 = step("1. Créer la tâche sur claude.ai");
+    expect(step1, "step 1 exists").toBeDefined();
+    expect(step1).not.toMatch(/connecteur/i);
+    const step2 = step("2. Décocher les connecteurs");
+    expect(step2, "its own step 2. Décocher les connecteurs").toBeDefined();
+    expect(step2).toContain("sauf Cockpit");
+    expect(step("3. Copier la consigne"), "step 3").toBeDefined();
+    expect(step("4. Coller l'adresse et le jeton"), "step 4").toBeDefined();
   });
 
   it("given nothing connected, when the section loads, then the prompt is shown and « Copier la consigne » writes exactly the prompt of the server to the clipboard", async () => {

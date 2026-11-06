@@ -7,19 +7,39 @@ Service en ligne de pilotage des repos GitHub développés avec Claude Code. Le 
 Rien à faire à la main : Cockpit crée lui-même sa GitHub App au premier lancement, avec ton accord ([décision 012](docs/decisions/012-configuration-automatique.md)). L'assistant « Installer Cockpit » s'ouvre tout seul à l'adresse de Cockpit tant que l'App n'existe pas :
 
 1. Entrer le **code de démarrage** que le serveur affiche dans ses logs (`Cockpit setup code: …`).
-2. Vérifier l'**adresse publique**, détectée à partir de ta requête (derrière un tunnel Cloudflare, l'en-tête `CF-Visitor` donne le bon protocole) : c'est celle que GitHub utilisera pour renvoyer vers Cockpit. Elle doit commencer par `https://` (claude.ai l'exige) ; seul `http://localhost` (ou `127.0.0.1`, `[::1]`) est accepté pour développer sur sa machine.
-3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos, des PR et de la CI ; écriture du contenu et des issues).
+2. Rien à saisir pour l'adresse : Cockpit utilise celle avec laquelle tu l'ouvres (derrière un tunnel Cloudflare, l'en-tête `CF-Visitor` donne le bon protocole) ; c'est celle que GitHub utilisera pour renvoyer vers Cockpit. Elle doit commencer par `https://` (claude.ai l'exige) ; seul `http://localhost` (ou `127.0.0.1`, `[::1]`) est accepté pour développer sur sa machine.
+3. Cliquer sur « Créer l'App GitHub » : GitHub affiche l'App et ses permissions (lecture des repos et de la CI ; écriture du contenu, des issues et des PR).
 4. Cliquer sur « Create GitHub App » sur GitHub. Cockpit récupère l'App, chiffre ses secrets en base et te renvoie vers la connexion GitHub : **le premier compte qui se connecte devient administrateur**.
 
 Pour que Cockpit voie des repos, il faut ensuite **installer l'App sur le compte** en choisissant les repos : `https://github.com/apps/<slug>/installations/new`, ou le lien « Installer l'App sur mes repos » de la page Projets. Seuls les repos cochés peuvent être importés. L'App est publique (« Any account ») et l'inscription est ouverte : tout compte GitHub qui se connecte à Cockpit obtient un compte non administrateur, sans que l'administrateur ait rien à accepter.
 
+### Donner « Pull requests » en écriture à une App déjà créée
+
+Une App créée avant la [décision 026](docs/decisions/026-ecrire-dans-un-repo.md) n'a que la lecture des PR, et Cockpit ne peut alors pas ouvrir de PR quand la branche par défaut d'un repo est protégée. Sur GitHub : réglages de l'App → Permissions → Pull requests : **Read and write**, puis, en tant que propriétaire de l'installation, accepter la nouvelle permission sur l'installation (GitHub envoie un message à ce sujet).
+
 ### Réglages
 
-La page « Réglages » a deux onglets : « Général » (Connecter Claude, Adresse publique et Utilisateurs pour l'administrateur, Jetons MCP) et « Écriture automatique des US » (voir plus bas).
+La page « Réglages » (l'icône en forme de roue, en haut à droite) a quatre onglets : « Connecter Claude », « Jetons MCP », « Utilisateurs » (pour l'administrateur seulement) et « Écriture automatique des US » (voir plus bas). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
-### Corriger l'adresse publique d'une instance installée
+### La page d'un projet
 
-Si Cockpit a été installé avec une mauvaise adresse (par exemple en `http://` derrière un tunnel), l'administrateur ouvre « Réglages », section « Adresse publique », tape la nouvelle adresse et clique « Enregistrer l'adresse » : Cockpit l'utilise tout de suite, sans redémarrer. **Avant**, sur GitHub, dans les réglages de l'App (le lien est dans la section, `https://github.com/settings/apps/<slug>`) : ajouter l'adresse de retour `<nouvelle adresse>/api/auth/callback` (sinon la connexion GitHub échoue) et remplacer l'adresse du webhook par `<nouvelle adresse>/api/webhooks/github`. Cockpit ne peut pas les changer lui-même. Un connecteur déjà ajouté sur claude.ai avec l'ancienne adresse est à rajouter. Décision [023](docs/decisions/023-reglages-adresse-https.md).
+La page d'un projet a quatre onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude ») et « Écriture des US ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+### Le Journal
+
+Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+### Webhooks GitHub
+
+Cockpit reçoit les webhooks de l'App sur `POST /api/webhooks/github` : la signature (`X-Hub-Signature-256`, secret de l'App) est vérifiée sur le corps brut, la livraison est enregistrée (`webhook_deliveries`, gardée 30 jours) avec une entrée « Webhook reçu » du Journal, puis Cockpit répond 202. Cockpit les traite ensuite, juste après sa réponse puis chaque minute (cinq essais au plus par livraison) ; seule la modification d'une issue l'est pour l'instant (PR, CI : tranches suivantes). Le bilan de santé d'un projet a une cinquième ligne, « Webhook de Cockpit » : verte quand l'adresse du webhook de l'App est `<adresse publique>/api/webhooks/github` et que sa dernière livraison a réussi (ou qu'il n'y en a pas encore), lue sur GitHub avec l'identité de l'App et gardée une minute. Décision [024](docs/decisions/024-webhooks.md).
+
+### Une issue modifiée sur GitHub
+
+L'issue d'une user story est un rendu de Cockpit : on modifie l'US dans Cockpit, pas sur GitHub. Si quelqu'un modifie quand même le titre ou le corps de l'issue sur GitHub (pas l'App elle-même), Cockpit garde sa version, **n'écrit plus sur cette issue** et le dit : la carte du Kanban porte « Issue modifiée sur GitHub » et la page de l'US (`/us/:id`) montre la date, le titre s'il a changé et le diff ligne à ligne du corps. Deux choix : « Garder la version de Cockpit » efface l'écart et réécrit l'issue avec le rendu de Cockpit (quel que soit le statut de l'US) ; « Reprendre la version de GitHub » relit le récit, les notes et les critères de l'issue et les applique comme « Modifier » (US à valider, à réécrire ou prête), puis réécrit l'issue. Si le corps ne suit plus le gabarit de Cockpit, la reprise est refusée : garde la version de Cockpit ou recopie les changements avec « Modifier ». Le Journal garde « Issue modifiée sur GitHub », « Version de Cockpit gardée » et « Version de GitHub reprise », jamais le texte. Décision [025](docs/decisions/025-issue-modifiee-sur-github.md).
+
+### Préparer pour Claude
+
+Quand la ligne « CLAUDE.md » ou « Agents et skill de développement » du bilan de santé est rouge, la page du projet propose **« Préparer pour Claude »**. Le bouton lit le repo (sans rien écrire) et montre, fichier par fichier, ce qui serait ajouté : les agents `test-writer`, `developer` et `reviewer`, les skills `/dev-us` et `/write-us` (le dossier `catalog/`, livré avec Cockpit) et un `CLAUDE.md` de départ, seulement s'il n'y a ni `CLAUDE.md` ni `.claude/CLAUDE.md`. Un fichier déjà là est laissé tel quel (avec le diff s'il est différent). **« Faire le commit »** fait un seul commit sur la branche par défaut ; si elle est protégée, une pull request est ouverte, ce qui demande à l'App la permission « Pull requests » en écriture (réglages de l'App sur GitHub). Le bilan est relu ensuite, et le Journal garde « Préparer pour Claude ». Il n'y a ni `.mcp.json` ni workflow de CI : Claude passe par le connecteur, et la ligne CI reste à ta charge. Le `CLAUDE.md` de départ ne fait que passer la ligne au vert : il faut le remplir. Décision [027](docs/decisions/027-preparer-pour-claude.md).
 
 ### Bloquer quelqu'un
 
@@ -91,7 +111,7 @@ npm start
 
 Les migrations sont appliquées au démarrage. Au premier lancement, le serveur crée sa clé de chiffrement dans `secrets/master.key` (`COCKPIT_KEY_FILE` pour la changer) et affiche le code de démarrage. Ouvrir http://localhost:3000 : l'assistant crée la GitHub App de développement (voir « Créer la GitHub App »).
 
-Pour développer, lancer `npm run dev:server` et `npm run dev:web` dans deux terminaux, puis ouvrir http://localhost:5173 : la page se recharge à chaque modification. L'App est créée avec l'adresse que tu confirmes dans l'assistant : pour `npm run dev:web`, confirmer `http://localhost:5173`.
+Pour développer, lancer `npm run dev:server` et `npm run dev:web` dans deux terminaux, puis ouvrir http://localhost:5173 : la page se recharge à chaque modification. L'App est créée avec l'adresse par laquelle tu ouvres l'assistant : pour `npm run dev:web`, ouvrir `http://localhost:5173` (le proxy de Vite garde l'en-tête `Host`).
 
 ## Vérifier
 
@@ -128,7 +148,7 @@ Dans GitHub : Actions → CD → Run workflow. `scripts/deploy.sh` vérifie le f
 
 Le premier déploiement affiche dans son journal la ligne `Cockpit setup code: XXXX-XXXX-XXXX-XXXX — open …/installation` (on la retrouve avec `docker compose --env-file /etc/cockpit/cockpit.env logs app`). Ensuite :
 
-1. Ouvrir l'adresse publique de Cockpit, entrer le code de démarrage et confirmer l'adresse.
+1. Ouvrir l'adresse publique de Cockpit, entrer le code de démarrage.
 2. Cliquer sur « Créer l'App GitHub », puis sur « Create GitHub App » sur GitHub.
 3. Se connecter avec GitHub : on devient administrateur.
 

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { decisionError } from "./tickets.ts";
-import { focusRing } from "./ui.ts";
+import { alertBox, button, focusRing } from "./ui.ts";
 
 /** The GitHub issue of a story (decision 020 J): its link, and « Republier » when GitHub is behind the story. */
 export function StoryIssue({
@@ -11,7 +11,12 @@ export function StoryIssue({
   archived,
 }: {
   id: number;
-  issue: { number: number | null; url: string | null; upToDate: boolean };
+  issue: {
+    number: number | null;
+    url: string | null;
+    upToDate: boolean;
+    diverged?: unknown;
+  };
   archived: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -63,21 +68,19 @@ export function StoryIssue({
           <p className="mt-2">L'issue GitHub n'est pas à jour.</p>
         )}
       </div>
-      {!issue.upToDate && (
+      {/* While the issue is diverged the sync writes nothing: the choice is in the section below. */}
+      {!issue.upToDate && !issue.diverged && (
         <button
           type="button"
           disabled={archived || publish.isPending}
           onClick={() => publish.mutate()}
-          className={`mt-2 min-h-10 rounded-lg border border-border bg-card px-4 font-semibold disabled:opacity-50 ${focusRing}`}
+          className={`mt-2 ${button}`}
         >
           Republier
         </button>
       )}
       {publish.error && (
-        <p
-          role="alert"
-          className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-3 ${alertBox}`}>
           {publish.error.message}
         </p>
       )}

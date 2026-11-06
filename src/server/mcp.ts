@@ -25,6 +25,15 @@ import {
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
 import { memberProject, memberProjects } from "./projects.ts";
+import { askUser, getAnswer } from "./questions.ts";
+import {
+  activeRunId,
+  finishRun,
+  linkPullRequest,
+  reportCriterion,
+  reportStep,
+  startRun,
+} from "./runs.ts";
 import {
   changeStory,
   memberStory,
@@ -36,6 +45,7 @@ import {
   ticketStories,
   WrongStatus,
 } from "./stories.ts";
+import { AGENT_NAME } from "./team.ts";
 import {
   assertActive,
   createTicket,
@@ -96,6 +106,9 @@ async function ownProject(call: Call, id: number) {
   call.entry.projectId = project.id;
   return project;
 }
+
+// The safe subset of Git's branch names (decision 033 B); `..` is refused next to it.
+const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
 
 const id = z.number().int().min(1).max(2_147_483_647);
 
@@ -682,6 +695,9 @@ const tools = {
             notes_md: story.notesMd,
             status: story.status,
             rewrite_comment: story.rewriteComment,
+            branch: story.branch,
+            pr_number: story.prNumber,
+            active_run_id: await activeRunId(tx, story.id),
           },
           criteria: criteria.map((k) => ({
             id: k.id,
@@ -690,6 +706,8 @@ const tools = {
             when: k.whenText,
             // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the tool (decision 004)
             then: k.thenText,
+            result: k.result,
+            evidence: k.evidence,
           })),
           depends_on: dependsOn.map((d) => ({
             id: d.id,
@@ -707,6 +725,138 @@ const tools = {
       });
     },
   ),
+
+  start_run: tool(
+    "Start a development run on a ready or in_review user story, once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session and optionally a comment. Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is neither ready nor in_review, already has an active run, has another branch recorded, or the project is archived.",
+    z.object({
+      story_id: id.describe(
+        "Id of a ready or in_review story, from get_user_story",
+      ),
+      branch: z
+        .string()
+        .min(1)
+        .max(255)
+        .regex(BRANCH)
+        .refine((b) => !b.includes(".."))
+        .describe("The git branch of the story, e.g. us/42-login"),
+      model: z
+        .string()
+        .min(1)
+        .max(100)
+        .refine(noNul)
+        .describe("The model of this session"),
+      comment: z
+        .string()
+        .max(10_000)
+        .refine(noNul)
+        .optional()
+        .describe("An optional note"),
+    }),
+    async (call, args) => {
+      const found = await memberStory(call.db, call.userId, args.story_id);
+      if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
+      const { runId, story, criteria } = await startRun(
+        call.db,
+        call.userId,
+        call.readGitHub,
+        call.entry,
+        found,
+        args,
+      );
+      return {
+        run_id: runId,
+        story: {
+          id: story.id,
+          status: story.status,
+          branch: story.branch,
+          active_run_id: runId,
+        },
+        criteria: criteria.map((k) => ({
+          id: k.id,
+          position: k.position,
+          given: k.givenText,
+          when: k.whenText,
+          // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the tool (decision 004)
+          then: k.thenText,
+        })),
+      };
+    },
+  ),
+
+  report_step: tool(
+    "Report that an agent of the team starts or finishes a step of the run. Call it with event started just before the agent works and with event finished (and its status, succeeded or failed, and a short summary) right after. A redone step is a new started. Answers step_id and stop_requested (true once the user asked to stop: call finish_run failed and stop). Refused when the run is finished, when the agent already has an open step (started) or has none (finished).",
+    z
+      .object({
+        run_id: id.describe("The run_id of start_run"),
+        agent: z
+          .string()
+          .max(255)
+          .regex(AGENT_NAME)
+          .describe("The agent name, e.g. developer"),
+        event: z.enum(["started", "finished"]),
+        status: z
+          .enum(["succeeded", "failed"])
+          .optional()
+          .describe("Required with event finished"),
+        summary: z.string().max(10_000).refine(noNul).optional(),
+      })
+      .refine((a) => a.event === "started" || a.status !== undefined, {
+        message: "status is required with event finished",
+        path: ["status"],
+      }),
+    (call, args) => reportStep(call.db, call.userId, call.entry, args),
+  ),
+
+  report_criterion: tool(
+    "Report the result of one acceptance criterion of the story, from the criteria start_run or get_user_story gave. Use it in /dev-us once the checks have run, for each criterion: result passed or failed, and as evidence the test that proves it (file and test name) or what failed (1 to 10,000 characters). A new report of the same criterion replaces the previous one. Refused when the run is finished, the criterion is not one of the story of the run, or the project is archived.",
+    z.object({
+      run_id: id.describe("The run_id of start_run"),
+      criterion_id: id.describe("The id of a criterion of the story"),
+      result: z.enum(["passed", "failed"]),
+      evidence: z.string().min(1).max(10_000).refine(noNul),
+    }),
+    (call, args) => reportCriterion(call.db, call.userId, call.entry, args),
+  ),
+
+  link_pull_request: tool(
+    "Link the pull request you opened to the story, once it is open and before finish_run. Send the run_id and the number of the pull request; Cockpit reads it on GitHub: it must come from the branch of the story, in the repository itself. The story becomes in_review (a pull request already linked is replaced). Answers pr_number and story_status. Refused when the pull request does not exist or comes from another branch, when the story is not in_progress, when the run is finished or the project is archived. A GitHub failure is an error: retry in a moment.",
+    z.object({
+      run_id: id.describe("The run_id of start_run"),
+      pr_number: id.describe("The number of the pull request"),
+    }),
+    async (call, args) =>
+      linkPullRequest(call.db, call.userId, call.readGitHub, call.entry, args),
+  ),
+
+  ask_user: tool(
+    "Ask the user a question when a choice belongs to them: never guess it. Send the run_id, the question (1 to 2,000 characters) and, only when one or two answers are obvious, suggested_answers (at most 2, 1 to 200 characters each). Answers the question_id at once, without waiting: keep working on what does not depend on the answer, then read it with get_answer. Refused when a question of the run is still waiting, the run is finished or the project is archived.",
+    z.object({
+      run_id: id.describe("The run_id of start_run"),
+      question: z.string().min(1).max(2_000).refine(noNul),
+      suggested_answers: z
+        .array(z.string().min(1).max(200).refine(noNul))
+        .max(2)
+        .optional(),
+    }),
+    (call, args) => askUser(call.db, call.userId, call.entry, args),
+  ),
+
+  get_answer: tool(
+    "Read the answer of a question asked with ask_user. Answers answered (false while the user has not answered), answer (null until then) and stop_requested. Call it 30 seconds after ask_user, then after 1 minute, after 2 minutes, then every 5 minutes: each call is journaled, so do not poll faster. Works on a finished run too.",
+    z.object({ question_id: id.describe("The question_id of ask_user") }),
+    (call, args) => getAnswer(call.db, call.userId, call.entry, args),
+  ),
+
+  finish_run: tool(
+    "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure. Steps still open are closed as failed; a story still in_progress becomes ready again (in_review when a pull request is linked); after a stop request, failed is recorded as stopped. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
+    z.object({
+      run_id: id.describe("The run_id of start_run"),
+      outcome: z.enum(["succeeded", "failed"]),
+      summary: z.string().min(1).max(10_000).refine(noNul),
+    }),
+    (call, args) =>
+      finishRun(call.db, call.userId, call.readGitHub, call.entry, args),
+  ),
 };
 
 const TOOL_NAME = /^[a-z][a-z0-9_]{0,39}$/;
@@ -715,8 +865,29 @@ const TOOL_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 const ADVICE: Record<string, string | ((written: number) => string)> = {
   not_found:
     "not found. The project, ticket or story does not exist or is not yours. Find the right id with list_projects, search or list_tickets_needing_us, then call again.",
+  wrong_status:
+    "the story is not in the status this call needs (start_run: ready, link_pull_request: in_progress). Check get_user_story, and tell the user if it needs their validation.",
+  wrong_criterion:
+    "this criterion is not one of the story of the run. Use the ids of the criteria given by start_run or get_user_story.",
+  pr_not_found:
+    "GitHub does not know this pull request in the repository of the project. Check its number (gh pr view), then call again.",
+  pr_wrong_branch:
+    "this pull request does not come from the branch of the story (or comes from a fork). Open it from the branch given by get_user_story (branch), in the repository itself.",
+  no_pull_request:
+    "no pull request is linked to the story. Open it, link it with link_pull_request, then finish the run; or finish with outcome failed if you stop.",
+  run_active:
+    "this story already has an active run. Use its run_id (get_user_story gives active_run_id), or finish it with finish_run.",
+  branch_mismatch:
+    "another branch is already recorded on this story. Use the branch given by get_user_story (branch).",
+  run_finished:
+    "this run is finished. Start a new one with start_run if the story is ready.",
+  step_open:
+    "this agent already has an open step. Report it finished before starting another.",
+  no_open_step: "this agent has no open step. Report started first.",
   project_archived:
     "this project is archived, so it is read-only. Tell the user, or use another project from list_projects.",
+  question_pending:
+    "a question of this run is still waiting for an answer. Read it with get_answer and wait for the user; ask the next one once it is answered.",
   ticket_abandoned:
     "this ticket is abandoned, so none of its stories can be written or rewritten. Tell the user, or pick another ticket from list_tickets_needing_us.",
   ticket_has_stories:

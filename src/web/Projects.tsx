@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
+import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 
 /** The message the server put in an error answer, or the status when there is none. */
 async function failure(res: Response) {
@@ -29,15 +29,11 @@ async function fetchRepositories() {
   return res.json();
 }
 
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
 const badge = "rounded-full px-3 py-1 font-semibold";
 
 function ErrorAlert({ error }: { error: Error }) {
   return (
-    <p
-      role="alert"
-      className="mt-3 rounded-xl bg-destructive-soft p-4 text-destructive"
-    >
+    <p role="alert" className={`mt-3 ${alertBox}`}>
       {error.message}
     </p>
   );
@@ -68,10 +64,7 @@ function ProjectList() {
     return <p className="text-muted-foreground">Chargement…</p>;
   if (projects.isError) {
     return (
-      <div
-        role="alert"
-        className="rounded-xl bg-destructive-soft p-4 text-destructive"
-      >
+      <div role="alert" className={alertBox}>
         <p>Impossible de lire tes projets : {projects.error.message}</p>
         <button
           type="button"
@@ -94,7 +87,7 @@ function ProjectList() {
         {projects.data.map((project) => (
           <li
             key={project.id}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
+            className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
           >
             <Link
               to={`/projets/${project.id}`}
@@ -122,7 +115,7 @@ function ProjectList() {
                     type="button"
                     onClick={() => archive.mutate(project.id)}
                     disabled={archive.isPending}
-                    className={`min-h-10 rounded-lg bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                    className={`min-h-10 rounded-xl bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
                   >
                     Confirmer l'archivage
                   </button>
@@ -157,10 +150,7 @@ function ProjectList() {
 
 function LoginLink() {
   return (
-    <a
-      href="/api/auth/login"
-      className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-    >
+    <a href="/api/auth/login" className={primaryButton}>
       Se connecter avec GitHub
     </a>
   );
@@ -188,10 +178,7 @@ function Importable() {
     return <p className="text-muted-foreground">Chargement…</p>;
   if (repositories.isError) {
     return (
-      <div
-        role="alert"
-        className="rounded-xl bg-destructive-soft p-4 text-destructive"
-      >
+      <div role="alert" className={alertBox}>
         <p>
           Impossible de lire tes repos GitHub : {repositories.error.message}
         </p>
@@ -216,10 +203,7 @@ function Importable() {
             Cockpit ne voit aucun repo : installe l'App sur ceux que tu veux
             suivre.
           </p>
-          <a
-            href={installUrl}
-            className={`mt-3 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+          <a href={installUrl} className={`mt-3 ${primaryButton}`}>
             Installer l'App sur mes repos
           </a>
         </>
@@ -237,7 +221,7 @@ function Importable() {
           {repos.map((repo) => (
             <li
               key={repo.githubRepoId}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-card p-4"
+              className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
             >
               <span className="font-semibold">{repo.fullName}</span>
               <span className="text-muted-foreground">
@@ -270,7 +254,7 @@ function Importable() {
 
 export function Projects() {
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
       <h1 className="font-heading text-3xl font-extrabold">Projets</h1>
       <section className="mt-6" aria-labelledby="mes-projets">
         <h2 id="mes-projets" className="font-heading text-xl font-bold">

@@ -8,6 +8,21 @@ export const STEPS: Record<string, string> = {
   validated: "Validé",
 };
 
+/** The status labels of a run and of its steps (decision 033 I). */
+export const RUN_STATUSES: Record<string, string> = {
+  running: "En cours",
+  succeeded: "Réussi",
+  failed: "Échoué",
+  stopped: "Arrêté",
+  closed_manually: "Fermé à la main",
+};
+
+/** The result labels of an acceptance criterion (decision 035 F). */
+export const CRITERION_RESULTS: Record<string, string> = {
+  passed: "Réussi",
+  failed: "Échoué",
+};
+
 /** The status labels of a user story (decision 017 L). */
 export const STORY_STATUSES: Record<string, string> = {
   to_validate: "à valider",
@@ -48,6 +63,12 @@ export async function decisionError(res: Response) {
   if (error === "wrong_status")
     return new Error(
       "Le statut de cette user story a changé entre-temps : la page montre son statut actuel.",
+    );
+  if (error === "no_divergence")
+    return new Error("L'issue n'attend plus de choix : la page est à jour.");
+  if (error === "not_template")
+    return new Error(
+      "La version de GitHub ne suit plus le gabarit de Cockpit : garde la version de Cockpit, ou recopie les changements avec « Modifier ».",
     );
   return new Error("L'opération a échoué, réessaie.");
 }

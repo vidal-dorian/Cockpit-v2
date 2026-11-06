@@ -588,6 +588,8 @@ describe("GET /api/projects/:id/health", () => {
     { key: "ci", ok: true, detail: OK },
     { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: true, detail: OK },
+    // Decision 024 F: the stub's webhook is the one of the test instance, with no failed delivery.
+    { key: "webhook", ok: true, detail: OK },
   ];
 
   type Line = { key: string; ok: boolean; detail: string };
@@ -605,7 +607,12 @@ describe("GET /api/projects/:id/health", () => {
   // What the server asked of the repo (not the installation token), as "METHOD path?query", sorted: the reads run in parallel. Every read but the root is pinned to the commit sha the root returned (decision 013).
   const repoCalls = (fetchMock: ReturnType<typeof stubGitHub>) =>
     githubCalls(fetchMock)
-      .filter((c) => !c.path.startsWith("/app/installations/"))
+      // Nor the App's own reads of the webhook (decision 024 F), which no repo owns.
+      .filter(
+        (c) =>
+          !c.path.startsWith("/app/installations/") &&
+          !c.path.startsWith("/app/hook/"),
+      )
       // The commit sha the root returned shows as SHA; the tests below check which sha it is.
       .map((c) =>
         `${c.method} ${decodeURIComponent(c.path)}${c.search}`.replace(
@@ -625,6 +632,7 @@ describe("GET /api/projects/:id/health", () => {
     { key: "ci", ok: false, detail: "missing" },
     { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: false, detail: "missing" },
+    { key: "webhook", ok: true, detail: OK },
   ];
 
   /** A user A with one project user1000/app, and the stubbed GitHub holding `files`. */
@@ -649,7 +657,7 @@ describe("GET /api/projects/:id/health", () => {
     return { fetchMock, app, db, a, id };
   }
 
-  it("given a repo with everything in place, when the health is requested, then 200 with the four lines in order, all ok", async () => {
+  it("given a repo with everything in place, when the health is requested, then 200 with the five lines in order, all ok", async () => {
     const { app, a, id } = await withRepo(readyRepo());
 
     const res = await health(app, a.cookie, id);
@@ -812,6 +820,7 @@ describe("GET /api/projects/:id/health", () => {
           READY_LINES[1],
           { key: "mcp", ok: false, detail: "invalid_json" },
           READY_LINES[3],
+          READY_LINES[4],
         ],
       });
     },
@@ -1222,6 +1231,7 @@ describe("GET /api/projects/:id/health", () => {
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: OK },
         READY_LINES[3],
+        READY_LINES[4],
       ],
     });
     expect(repoCalls(fetchMock)).toEqual(
@@ -1250,6 +1260,7 @@ describe("GET /api/projects/:id/health", () => {
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: OK },
         { key: "agents", ok: false, detail: "missing" },
+        READY_LINES[4],
       ],
     });
   });
@@ -1762,6 +1773,7 @@ describe("GET /api/projects/:id/health", () => {
       READY_LINES[1],
       READY_LINES[2],
       { key: "agents", ok: false, detail: "missing" },
+      READY_LINES[4],
     ]);
     const [oldSha] = fetchMock.served;
     expect(pinnedShas(fetchMock)).toEqual([oldSha, oldSha, oldSha]);
@@ -1977,5 +1989,105 @@ describe("GET /api/projects/:id/health", () => {
 
     await show("r2");
     expect(callsOn("r2")).toHaveLength(4);
+  });
+
+  // Decision 029 (slice E1): a project may describe its own team in .claude/team.md.
+  const TEAM_MD = ".claude/team.md";
+  const TEAM_MD_CALL = `${REPO}/contents/${TEAM_MD}?ref=SHA`;
+  const team = (...agents: string[]) =>
+    `---\nsteps:\n${agents.map((a) => `  - agent: ${a}\n    does: something`).join("\n")}\n---\n\n# Team\n`;
+  const SKILL = ".claude/skills/dev-us/SKILL.md";
+  const agentFile = (name: string) => `.claude/agents/${name}.md`;
+  const agentsLine = async (files: Record<string, string>) => {
+    const { app, a, id } = await withRepo(files);
+    return lineOf(await health(app, a.cookie, id), "agents");
+  };
+
+  it("given the three default agents, the dev-us skill and no team.md, when the health is requested, then the agents line is green", async () => {
+    expect(await agentsLine(readyRepo())).toEqual({
+      key: "agents",
+      ok: true,
+      detail: OK,
+    });
+  });
+
+  it("given a team.md naming only developer and doc-writer, with their files and the skill but no test-writer.md or reviewer.md, when the health is requested, then the agents line is green", async () => {
+    const line = await agentsLine({
+      [TEAM_MD]: team("developer", "doc-writer"),
+      [agentFile("developer")]: "x",
+      [agentFile("doc-writer")]: "x",
+      [SKILL]: "x",
+    });
+
+    expect(line).toEqual({ key: "agents", ok: true, detail: OK });
+  });
+
+  it("given a team.md naming reviewer but no reviewer.md in .claude/agents, when the health is requested, then the agents line is red with detail missing", async () => {
+    const files = readyRepo();
+    delete files[agentFile("reviewer")];
+
+    const line = await agentsLine({
+      ...files,
+      [TEAM_MD]: team("developer", "reviewer"),
+    });
+
+    expect(line).toEqual({ key: "agents", ok: false, detail: "missing" });
+  });
+
+  it.each([
+    ["no front matter", "# Team\n\n- agent: developer\n"],
+    ["zero steps", "---\nsteps:\n---\n"],
+    ["no steps key", "---\nname: x\n---\n"],
+    ["a name like Doc Writer", team("Doc Writer")],
+  ])(
+    "given a team.md with %s, when the health is requested, then the agents line is red with detail invalid_team",
+    async (_name, text) => {
+      const line = await agentsLine({ ...readyRepo(), [TEAM_MD]: text });
+
+      expect(line).toEqual({
+        key: "agents",
+        ok: false,
+        detail: "invalid_team",
+      });
+    },
+  );
+
+  it("given a team.md but no dev-us skill, when the health is requested, then the agents line is red with detail missing, not invalid_team", async () => {
+    for (const text of [team("developer"), "not a team"]) {
+      const files = readyRepo();
+      delete files[SKILL];
+
+      const line = await agentsLine({ ...files, [TEAM_MD]: text });
+
+      expect(line).toEqual({ key: "agents", ok: false, detail: "missing" });
+    }
+  });
+
+  it("given a repo with a team.md, when the health is requested twice, then the first reads team.md once at the commit sha and the second reads only the root (cache)", async () => {
+    const { app, a, id, fetchMock } = await withRepo({
+      ...readyRepo(),
+      [TEAM_MD]: team("test-writer", "developer", "reviewer"),
+    });
+
+    const first = await linesOf(await health(app, a.cookie, id));
+    expect(first[3]).toEqual({ key: "agents", ok: true, detail: OK });
+    expect(repoCalls(fetchMock)).toContain(TEAM_MD_CALL);
+    expect(repoCalls(fetchMock).filter((c) => c === TEAM_MD_CALL)).toHaveLength(
+      1,
+    );
+    fetchMock.mockClear();
+
+    const second = await linesOf(await health(app, a.cookie, id));
+
+    expect(second).toEqual(first);
+    expect(repoCalls(fetchMock)).toEqual([ROOT]);
+  });
+
+  it("given a repo without team.md, when the health is requested, then team.md is never read", async () => {
+    const { app, a, id, fetchMock } = await withRepo(readyRepo());
+
+    await health(app, a.cookie, id);
+
+    expect(repoCalls(fetchMock)).not.toContain(TEAM_MD_CALL);
   });
 });

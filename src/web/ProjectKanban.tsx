@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { STORY_STATUSES } from "./tickets.ts";
-import { focusRing } from "./ui.ts";
+import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
 
 /** The non-abandoned stories of a project, by ticket then position (decision 019), or null when the server answers 401. */
 async function fetchStories(id: string) {
@@ -54,25 +54,19 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
           <p className="text-muted-foreground">Chargement…</p>
         )}
         {stories.isError && (
-          <div
-            role="alert"
-            className="rounded-xl bg-destructive-soft p-4 text-destructive"
-          >
+          <div role="alert" className={alertBox}>
             <p>Impossible de lire les user stories.</p>
             <button
               type="button"
               onClick={() => stories.refetch()}
-              className={`mt-3 min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`}
+              className={`mt-3 ${button}`}
             >
               Réessayer
             </button>
           </div>
         )}
         {stories.isSuccess && stories.data === null && (
-          <a
-            href="/api/auth/login"
-            className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
-          >
+          <a href="/api/auth/login" className={primaryButton}>
             Se connecter avec GitHub
           </a>
         )}
@@ -99,19 +93,27 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                   ) : (
                     <ul className="mt-2 grid gap-2">
                       {cards.map((story) => (
-                        <li key={story.id} className="rounded-xl bg-card">
+                        <li
+                          key={story.id}
+                          className={`${card} hover:border-border-strong hover:bg-raised`}
+                        >
                           <Link
                             to={`/us/${story.id}`}
                             className={`block p-4 ${focusRing}`}
                           >
                             {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
-                            <span className="block font-semibold underline">
+                            <span className="block font-semibold">
                               {story.iWant}
                             </span>{" "}
                             <span className="block text-muted-foreground">
                               <span className="sr-only">Ticket : </span>
                               {story.ticketTitle}
                             </span>{" "}
+                            {story.issueDiverged && (
+                              <span className="mt-1 mr-2 inline-block rounded-full bg-destructive-soft px-3 py-1 font-semibold text-destructive">
+                                Issue modifiée sur GitHub
+                              </span>
+                            )}
                             {story.status === "to_rewrite" && (
                               <span className="mt-1 inline-block rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text">
                                 {STORY_STATUSES.to_rewrite}

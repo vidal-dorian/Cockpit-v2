@@ -1,6 +1,6 @@
 # 014 — Les tickets
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-10-25
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [010 — Historique](010-historique.md), [011 — Importer un projet](011-import-projets.md)

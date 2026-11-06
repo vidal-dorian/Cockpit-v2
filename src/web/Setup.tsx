@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
+import { alertBox, card, field, primaryButton } from "./ui.ts";
 
 // What the App asks of GitHub and why (decision 012 D); the same list as the manifest of the server.
 const PERMISSIONS = [
@@ -20,7 +20,11 @@ const PERMISSIONS = [
     "lecture et écriture",
     "suivre tes user stories et, plus tard, les créer.",
   ],
-  ["Pull requests", "lecture", "suivre l'avancement des PR de Claude."],
+  [
+    "Pull requests",
+    "lecture et écriture",
+    "suivre l'avancement des PR de Claude et, si la branche par défaut est protégée, ouvrir une PR au lieu d'y écrire.",
+  ],
   [
     "Vérifications et statuts",
     "lecture",
@@ -28,8 +32,6 @@ const PERMISSIONS = [
   ],
   ["Actions", "lecture", "voir où en sont tes workflows."],
 ] as const;
-
-const field = `mt-1 block min-h-10 w-full rounded-lg border border-border bg-card px-3 ${focusRing}`;
 
 /** Makes the browser POST the manifest to GitHub, as GitHub's manifest flow requires (a fetch cannot follow its pages). */
 function postToGitHub(action: string, manifest: unknown) {
@@ -46,13 +48,12 @@ function postToGitHub(action: string, manifest: unknown) {
 }
 
 /** The start-up wizard: shown instead of the whole app until the GitHub App exists (decision 012). */
-export function Setup({ detectedUrl }: { detectedUrl: string }) {
+export function Setup() {
   const [code, setCode] = useState("");
-  const [publicUrl, setPublicUrl] = useState(detectedUrl);
   const start = useMutation({
     mutationFn: async () => {
       const res = await client.api.setup.start.$post({
-        json: { code: code.trim(), publicUrl: publicUrl.trim() },
+        json: { code: code.trim() },
       });
       if (res.status === 403) throw new Error("Code de démarrage incorrect.");
       if (res.status === 400) {
@@ -60,9 +61,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
         const body = (await res.json().catch(() => null)) as {
           error?: string;
         } | null;
-        throw new Error(
-          body?.error || "L'adresse publique n'est pas une adresse web valide.",
-        );
+        throw new Error(body?.error || "La demande n'est pas valide.");
       }
       if (!res.ok) throw new Error(`Le serveur a répondu ${res.status}.`);
       const { action, manifest } = await res.json();
@@ -75,11 +74,11 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
   const message = start.isError
     ? start.error.message
     : failed
-      ? "La création de l'App GitHub a échoué. Vérifie l'adresse publique, puis réessaie."
+      ? "La création de l'App GitHub a échoué. Réessaie."
       : null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
       <h1 className="font-heading text-4xl font-extrabold">
         Installer Cockpit
       </h1>
@@ -89,10 +88,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
       </p>
 
       {message && (
-        <p
-          role="alert"
-          className="mt-8 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-8 ${alertBox}`}>
           {message}
         </p>
       )}
@@ -123,31 +119,12 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
             className={field}
           />
         </div>
-        <div>
-          <label htmlFor="setup-url" className="font-semibold">
-            Adresse publique
-          </label>
-          <p id="setup-url-help" className="text-muted-foreground">
-            Celle que Cockpit a détectée. Corrige-la si ce n'est pas l'adresse
-            où tu ouvres Cockpit.
-          </p>
-          <input
-            id="setup-url"
-            type="url"
-            value={publicUrl}
-            onChange={(event) => setPublicUrl(event.target.value)}
-            aria-describedby="setup-url-help"
-            autoComplete="off"
-            required
-            className={field}
-          />
-        </div>
 
         <section aria-labelledby="setup-permissions">
           <h2 id="setup-permissions" className="font-heading text-xl font-bold">
             Ce que l'App demandera
           </h2>
-          <ul className="mt-2 space-y-2 rounded-xl bg-card p-4">
+          <ul className={`mt-2 space-y-2 ${card} p-4`}>
             {PERMISSIONS.map(([name, access, why]) => (
               <li key={name}>
                 <strong>{name}</strong> ({access}) : {why}
@@ -165,7 +142,7 @@ export function Setup({ detectedUrl }: { detectedUrl: string }) {
         <button
           type="submit"
           disabled={start.isPending}
-          className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+          className={primaryButton}
         >
           Créer l'App GitHub
         </button>
@@ -189,7 +166,7 @@ export function ClaimAdmin() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16">
+    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
       <h1 className="font-heading text-4xl font-extrabold">
         Récupérer l'administration
       </h1>
@@ -199,10 +176,7 @@ export function ClaimAdmin() {
         avec GitHub : tu deviendras administrateur.
       </p>
       {claim.isError && (
-        <p
-          role="alert"
-          className="mt-8 rounded-xl bg-destructive-soft p-4 text-destructive"
-        >
+        <p role="alert" className={`mt-8 ${alertBox}`}>
           {claim.error.message}
         </p>
       )}
@@ -231,7 +205,7 @@ export function ClaimAdmin() {
         <button
           type="submit"
           disabled={claim.isPending}
-          className={`inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+          className={primaryButton}
         >
           Devenir administrateur
         </button>

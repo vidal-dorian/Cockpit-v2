@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { client } from "./api.ts";
-import { focusRing } from "./ui.ts";
-
-const field = `mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 ${focusRing}`;
-const button = `min-h-10 rounded-lg border border-border bg-card px-4 font-semibold ${focusRing}`;
-const errorBox = "rounded-xl bg-destructive-soft p-4 text-destructive";
+import {
+  alertBox,
+  button,
+  card,
+  field,
+  focusRing,
+  primaryButton,
+} from "./ui.ts";
 
 /** The routine of the user (decision 022 C), read by Réglages and by the project page. */
 export async function fetchRoutine() {
@@ -79,31 +82,38 @@ export function RoutineSettings() {
           <p className="text-muted-foreground">Chargement…</p>
         )}
         {routine.isError && (
-          <p role="alert" className={errorBox}>
+          <p role="alert" className={alertBox}>
             Impossible de lire la tâche. Recharge la page ; si cela continue,
             réessaie plus tard.
           </p>
         )}
         {data && (
           <ol className="grid gap-3">
-            <li className="rounded-xl bg-card p-4">
+            <li className={`${card} p-4`}>
               <p className="font-semibold">1. Créer la tâche sur claude.ai</p>
               <p className="mt-1">
                 Choisis le déclencheur « API » seulement (ni planning, ni repo),
-                le modèle que tu veux, et garde seulement le connecteur Cockpit
-                : retire les autres (claude.ai les coche tous par défaut).
+                le modèle que tu veux.
               </p>
               <a
                 href="https://claude.ai/code/routines"
                 target="_blank"
                 rel="noreferrer noopener"
-                className={`mt-2 inline-flex min-h-10 items-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+                className={`mt-2 ${primaryButton}`}
               >
                 Ouvrir les tâches de claude.ai
               </a>
             </li>
-            <li className="rounded-xl bg-card p-4">
-              <p className="font-semibold">2. Copier la consigne</p>
+            <li className={`${card} p-4`}>
+              <p className="font-semibold">2. Décocher les connecteurs</p>
+              <p className="mt-1">
+                claude.ai coche tous tes connecteurs par défaut : décoche-les
+                tous sauf Cockpit. La tâche n'a besoin que de lui pour écrire
+                les US, et n'a ainsi accès à rien d'autre.
+              </p>
+            </li>
+            <li className={`${card} p-4`}>
+              <p className="font-semibold">3. Copier la consigne</p>
               <p className="mt-1">Colle-la comme consigne de la tâche.</p>
               <textarea
                 readOnly
@@ -135,8 +145,8 @@ export function RoutineSettings() {
                 </span>
               </div>
             </li>
-            <li className="rounded-xl bg-card p-4">
-              <p className="font-semibold">3. Coller l'adresse et le jeton</p>
+            <li className={`${card} p-4`}>
+              <p className="font-semibold">4. Coller l'adresse et le jeton</p>
               {connected ? (
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <span className="rounded-full bg-done-soft px-3 py-1 font-semibold text-done-text">
@@ -154,7 +164,7 @@ export function RoutineSettings() {
               ) : (
                 <>
                   {data.needsReconnect && (
-                    <p className={`mt-2 ${errorBox}`}>
+                    <p className={`mt-2 ${alertBox}`}>
                       La tâche est à reconnecter : claude.ai a refusé le jeton.
                       Clique « Régénérer » sur la tâche, puis colle le nouveau
                       jeton ici.{" "}
@@ -201,7 +211,7 @@ export function RoutineSettings() {
                     <button
                       type="submit"
                       disabled={save.isPending}
-                      className={`justify-self-start min-h-10 rounded-lg bg-primary px-4 font-semibold text-primary-foreground ${focusRing}`}
+                      className={`justify-self-start ${primaryButton}`}
                     >
                       Enregistrer
                     </button>
@@ -212,7 +222,7 @@ export function RoutineSettings() {
           </ol>
         )}
         {(save.error ?? remove.error) && (
-          <p role="alert" className={`mt-3 ${errorBox}`}>
+          <p role="alert" className={`mt-3 ${alertBox}`}>
             {(save.error ?? remove.error)?.message}
           </p>
         )}

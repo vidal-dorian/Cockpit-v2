@@ -17,13 +17,17 @@ import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
   history,
+  STORY_STATUSES,
   storyDependencies,
   tickets,
   userStories,
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
+import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
+import { followPullRequest } from "./pr-follow.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
+import { storyRuns } from "./runs.ts";
 import {
   assertActive,
   body,
@@ -125,6 +129,8 @@ export function changeStory(
   { story, ticket, project }: Found,
   from: StoryStatus[],
   change: (tx: Tx, locked: Story) => Promise<Story>,
+  // keep-cockpit may settle a divergence on a story whose ticket was abandoned afterwards: the story is not edited, only its stored GitHub text goes.
+  { allowAbandonedTicket = false } = {},
 ) {
   entry.projectId = project.id;
   entry.ticketId = ticket.id;
@@ -143,7 +149,8 @@ export function changeStory(
       .select({ abandonedAt: tickets.abandonedAt })
       .from(tickets)
       .where(eq(tickets.id, locked.ticketId));
-    if (parent?.abandonedAt) throw new Refused("ticket_abandoned");
+    if (parent?.abandonedAt && !allowAbandonedTicket)
+      throw new Refused("ticket_abandoned");
     if (!from.includes(locked.status)) throw new WrongStatus(locked.status);
     return change(tx, locked);
   });
@@ -199,6 +206,27 @@ export async function rewriteStory(
   return updateStory(tx, id, set);
 }
 
+/** Ends the divergence of a locked story (decision 025 F and G). The stored hash goes too, so the sync that follows writes even when the render did not change: GitHub holds someone else's text. */
+async function settleDivergence(tx: Tx, id: number) {
+  const [row] = await tx
+    .update(userStories)
+    .set({
+      issueGithubTitle: null,
+      issueGithubBody: null,
+      issueDivergedAt: null,
+      issueBodyHash: null,
+    })
+    .where(eq(userStories.id, id))
+    .returning();
+  if (!row) throw new Refused("not_found");
+  return row;
+}
+
+const diverged = (story: Story) => {
+  if (!story.issueDivergedAt) throw new Refused("no_divergence");
+  return story.issueGithubBody ?? "";
+};
+
 type Parts = Awaited<ReturnType<typeof storyParts>>;
 
 const presentStory = (story: Story, parts: Parts, fullName: string) => ({
@@ -210,6 +238,10 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
   soThat: story.soThat,
   notesMd: story.notesMd,
   status: story.status,
+  branch: story.branch,
+  prNumber: story.prNumber,
+  prCiState: story.prCiState,
+  prReviewState: story.prReviewState,
   rewriteComment: story.rewriteComment,
   criteria: parts.criteria.map((k) => ({
     id: k.id,
@@ -218,6 +250,9 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
     when: k.whenText,
     // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
     then: k.thenText,
+    result: k.result,
+    evidence: k.evidence,
+    resultRunId: k.resultRunId,
   })),
   dependsOn: parts.dependsOn.map(({ id, status, iWant }) => ({
     id,
@@ -244,6 +279,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
     action: string,
     from: StoryStatus[],
     change: (tx: Tx, locked: Story) => Promise<Story>,
+    options?: { allowAbandonedTicket: boolean },
   ) => {
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -257,7 +293,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       args: {},
     };
     try {
-      const story = await changeStory(db, entry, found, from, change);
+      const story = await changeStory(db, entry, found, from, change, options);
       await syncIssue(db, readGitHub, user.userId, story.id);
       return c.json({ story: await reread(story.id, found.project.fullName) });
     } catch (error) {
@@ -298,15 +334,19 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
       return c.json({
-        story: presentStory(
-          story,
-          await storyParts(db, story.id),
-          project.fullName,
-        ),
+        story: {
+          ...presentStory(
+            story,
+            await storyParts(db, story.id),
+            project.fullName,
+          ),
+          runs: await storyRuns(db, story.id),
+        },
         ticket: { id: ticket.id, title: ticket.title },
         project: {
           id: project.id,
           fullName: project.fullName,
+          defaultBranch: project.defaultBranch,
           archived: project.archivedAt !== null,
         },
       });
@@ -371,6 +411,27 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
         story: await reread(found.story.id, found.project.fullName),
       });
     })
+    .post("/api/stories/:id/pr/refresh", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const found = await memberStory(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!found) return c.json({ error: "Not found" }, 404);
+      if (found.story.prNumber === null)
+        return c.json({ error: "no_pull_request" }, 409);
+      try {
+        await followPullRequest(db, readGitHub, found, user.userId, "ui");
+      } catch (error) {
+        console.error(`Refresh of the PR of story ${found.story.id}:`, error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+      return c.json({
+        story: await reread(found.story.id, found.project.fullName),
+      });
+    })
     .post("/api/stories/:id/validate", (c) =>
       decide(c, "validate_story", ["to_validate", "to_rewrite"], (tx, story) =>
         updateStory(tx, story.id, { status: "ready", rewriteComment: null }),
@@ -390,6 +451,32 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
         "update_story",
         ["to_validate", "to_rewrite", "ready"],
         (tx, story) => rewriteStory(tx, story.id, c.req.valid("json")),
+      ),
+    )
+    .post("/api/stories/:id/issue/keep-cockpit", (c) =>
+      decide(
+        c,
+        "keep_cockpit_issue",
+        [...STORY_STATUSES],
+        (tx, story) => {
+          diverged(story);
+          return settleDivergence(tx, story.id);
+        },
+        { allowAbandonedTicket: true },
+      ),
+    )
+    .post("/api/stories/:id/issue/take-github", (c) =>
+      decide(
+        c,
+        "take_github_issue",
+        ["to_validate", "to_rewrite", "ready"],
+        async (tx, story) => {
+          // The same fields and limits as « Modifier » (decision 018 C): what does not read back or does not fit is not a template.
+          const fields = editBody.safeParse(parseIssue(diverged(story)));
+          if (!fields.success) throw new Refused("not_template");
+          await rewriteStory(tx, story.id, fields.data);
+          return settleDivergence(tx, story.id);
+        },
       ),
     )
     .post("/api/stories/:id/abandon", (c) =>

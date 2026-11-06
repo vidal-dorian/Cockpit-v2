@@ -171,7 +171,7 @@ export const tickets = pgTable("tickets", {
     .defaultNow(),
 });
 
-const STORY_STATUSES = [
+export const STORY_STATUSES = [
   "to_validate",
   "to_rewrite",
   "ready",
@@ -180,6 +180,9 @@ const STORY_STATUSES = [
   "done",
   "abandoned",
 ] as const;
+
+export const PR_CI_STATES = ["pending", "success", "failure"] as const;
+export const PR_REVIEW_STATES = ["approved", "changes_requested"] as const;
 
 /** A user story of a ticket (decisions 002 and 017 A); the branch and PR columns come with their slices. */
 export const userStories = pgTable(
@@ -204,6 +207,20 @@ export const userStories = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    // The issue as someone edited it on GitHub and when (decision 025 C): all null while Cockpit's render and GitHub agree.
+    issueGithubTitle: text("issue_github_title"),
+    issueGithubBody: text("issue_github_body"),
+    issueDivergedAt: timestamp("issue_diverged_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    // The branch of the first run (decision 033 A); empty until a run starts.
+    branch: text("branch"),
+    // The pull request of the story (decision 035 A).
+    prNumber: integer("pr_number"),
+    // Cache of the PR as GitHub shows it (decision 038 A): null when it has no check run or no review that counts.
+    prCiState: text("pr_ci_state", { enum: PR_CI_STATES }),
+    prReviewState: text("pr_review_state", { enum: PR_REVIEW_STATES }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -216,19 +233,133 @@ export const userStories = pgTable(
       "user_stories_status_check",
       sql`${t.status} in ('to_validate', 'to_rewrite', 'ready', 'in_progress', 'in_review', 'done', 'abandoned')`,
     ),
+    check(
+      "user_stories_pr_ci_state_check",
+      sql`${t.prCiState} in ('pending', 'success', 'failure')`,
+    ),
+    check(
+      "user_stories_pr_review_state_check",
+      sql`${t.prReviewState} in ('approved', 'changes_requested')`,
+    ),
   ],
 );
 
-export const acceptanceCriteria = pgTable("acceptance_criteria", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  storyId: integer("story_id")
-    .notNull()
-    .references(() => userStories.id),
-  position: integer("position").notNull(),
-  givenText: text("given_text").notNull(),
-  whenText: text("when_text").notNull(),
-  thenText: text("then_text").notNull(),
-});
+export const RUN_STATUSES = [
+  "running",
+  "succeeded",
+  "failed",
+  "stopped",
+  "closed_manually",
+] as const;
+export const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
+
+/** A run of Claude on a story (decisions 002 and 033 A); one running run per story at most. `stopRequestedAt` is filled from slice 7.5. */
+export const runs = pgTable(
+  "runs",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    storyId: integer("story_id")
+      .notNull()
+      .references(() => userStories.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status", { enum: RUN_STATUSES }).notNull(),
+    modelActual: text("model_actual").notNull(),
+    stopRequestedAt: timestamp("stop_requested_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    comment: text("comment"),
+    summary: text("summary"),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("runs_one_running_per_story_idx")
+      .on(t.storyId)
+      .where(sql`${t.status} = 'running'`),
+    check(
+      "runs_status_check",
+      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually')`,
+    ),
+  ],
+);
+
+/** A question Claude asks during a run (decision 036 A); one unanswered question per run at most. */
+export const questions = pgTable(
+  "questions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id),
+    question: text("question").notNull(),
+    suggestedAnswers: jsonb("suggested_answers").$type<string[]>(),
+    answer: text("answer"),
+    askedAt: timestamp("asked_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    answeredAt: timestamp("answered_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("questions_one_pending_per_run_idx")
+      .on(t.runId)
+      .where(sql`${t.answer} is null`),
+  ],
+);
+
+/** A step of a run: one agent's turn (decision 033 C). A redone step is a new row. */
+export const runSteps = pgTable(
+  "run_steps",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => runs.id),
+    agent: text("agent").notNull(),
+    status: text("status", { enum: STEP_STATUSES }).notNull(),
+    summary: text("summary"),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    check(
+      "run_steps_status_check",
+      sql`${t.status} in ('running', 'succeeded', 'failed')`,
+    ),
+  ],
+);
+
+export const CRITERION_RESULTS = ["passed", "failed"] as const;
+
+/** A criterion of a story; `result`, `evidence` and `resultRunId` are the last report of Claude (decision 035 A). */
+export const acceptanceCriteria = pgTable(
+  "acceptance_criteria",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    storyId: integer("story_id")
+      .notNull()
+      .references(() => userStories.id),
+    position: integer("position").notNull(),
+    givenText: text("given_text").notNull(),
+    whenText: text("when_text").notNull(),
+    thenText: text("then_text").notNull(),
+    result: text("result", { enum: CRITERION_RESULTS }),
+    evidence: text("evidence"),
+    resultRunId: integer("result_run_id").references(() => runs.id),
+  },
+  (t) => [
+    check(
+      "acceptance_criteria_result_check",
+      sql`${t.result} in ('passed', 'failed')`,
+    ),
+  ],
+);
 
 /** `storyId` needs `dependsOnId` done first. */
 export const storyDependencies = pgTable(
@@ -283,6 +414,8 @@ export const history = pgTable(
     projectId: integer("project_id"),
     ticketId: integer("ticket_id"),
     storyId: integer("story_id"),
+    // The run of a run tool (decision 033 A); no foreign key, like the other ids.
+    runId: integer("run_id"),
     // The MCP token behind an entry of origin mcp (decision 016); no foreign key, like the other ids.
     tokenId: integer("token_id"),
     actor: text("actor", {
@@ -295,12 +428,11 @@ export const history = pgTable(
     args: jsonb("args").notNull().default({}).$type<HistoryArgs>(),
     result: text("result", { enum: ["ok", "error", "refused"] }).notNull(),
     detail: jsonb("detail").$type<Record<string, string>>(),
-    // What a sync_issue did on GitHub (decisions 002 and 020 H).
-    githubEffects: jsonb("github_effects").$type<{
-      issueNumber: number;
-      created: boolean;
-      closed: boolean;
-    }>(),
+    // What a sync_issue (decisions 002 and 020 H) or a prepare_repo (decision 027 E) did on GitHub; the pull request is its number, null when the commit went to the default branch.
+    githubEffects: jsonb("github_effects").$type<
+      | { issueNumber: number; created: boolean; closed: boolean }
+      | { commitSha: string; pullRequest: number | null }
+    >(),
   },
   (t) => [
     check(
@@ -317,6 +449,25 @@ export const history = pgTable(
     ),
   ],
 );
+
+/** What GitHub delivered at /api/webhooks/github, recorded before any processing (decisions 008 and 024 C). Purged after 30 days. */
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  // The X-GitHub-Delivery header: GitHub resends a delivery with the same one.
+  id: text("id").primaryKey(),
+  event: text("event").notNull(),
+  action: text("action"),
+  installationId: bigint("installation_id", { mode: "number" }),
+  repoId: bigint("repo_id", { mode: "number" }),
+  payload: jsonb("payload").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  // Null: still to process (decision 025 A).
+  processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
+  // The reservation of a pass (a claim older than a minute is a pass that died), and the failures so far (decision 025 A).
+  claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
+  attempts: integer("attempts").notNull().default(0),
+});
 
 /** Ids, closed values and numbers only: never free text or personal data (decision 010 D). */
 export type HistoryArgs = Record<string, string | number | boolean | null>;

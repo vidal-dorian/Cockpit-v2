@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
+const TAG_BYTES = 16;
 
 /** AES-256-GCM, stored as `v1:<iv>:<tag>:<data>` (base64 parts); the version leaves room to change the format (decision 012 F). */
 export function encrypt(key: Buffer, text: string) {
@@ -21,12 +22,15 @@ export function decrypt(key: Buffer, stored: string) {
   const [version, iv, tag, data, ...rest] = stored.split(":");
   if (version !== "v1" || !iv || !tag || data === undefined || rest.length > 0)
     throw new Error("malformed_secret");
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    key,
-    Buffer.from(iv, "base64"),
-  );
-  decipher.setAuthTag(Buffer.from(tag, "base64"));
+  const ivBytes = Buffer.from(iv, "base64");
+  const tagBytes = Buffer.from(tag, "base64");
+  // GCM accepts tags down to 4 bytes: a truncated tag would weaken the integrity check.
+  if (ivBytes.length !== IV_BYTES || tagBytes.length !== TAG_BYTES)
+    throw new Error("malformed_secret");
+  const decipher = createDecipheriv("aes-256-gcm", key, ivBytes, {
+    authTagLength: TAG_BYTES,
+  });
+  decipher.setAuthTag(tagBytes);
   return Buffer.concat([
     decipher.update(Buffer.from(data, "base64")),
     decipher.final(),
