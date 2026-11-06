@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
-import { expect, inject, onTestFinished } from "vitest";
+import { inject, onTestFinished } from "vitest";
 import type { Db } from "./db.ts";
 import * as schema from "./schema.ts";
 
 // A new PGlite takes seconds (initdb in WASM), loading a migrated one about one, emptying its tables milliseconds.
-// So test-db-setup.ts migrates once per run, each test file (vitest gives each its own module) loads that database
-// once, and every test gets it back emptied instead of a new one.
+// So test-db-setup.ts migrates once per run, each worker (the server's files share their modules, vitest.config.ts)
+// loads that database once, and every test gets it back emptied instead of a new one.
 let shared:
   | Promise<{ client: PGlite; db: Db; empty: Blob; reset: string }>
   | undefined;
@@ -29,13 +29,19 @@ async function openShared() {
 export async function openTestDatabase(): Promise<Db> {
   shared ??= openShared();
   const { client, db, empty, reset } = await shared;
-  // Outside a test (beforeAll) or for a second database in the same test, the shared one is not free: a new one.
-  if (claimed || !expect.getState().currentTestName)
-    return drizzle(new PGlite({ loadDataDir: empty }), { schema });
-  claimed = true;
-  onTestFinished(() => {
-    claimed = false;
-  });
-  await client.exec(reset);
-  return db;
+  if (!claimed) {
+    try {
+      // Throws outside a test (beforeAll): such a database outlives the test, the shared one cannot be it.
+      onTestFinished(() => {
+        claimed = false;
+      });
+      claimed = true;
+    } catch {}
+    if (claimed) {
+      await client.exec(reset);
+      return db;
+    }
+  }
+  // Outside a test, or a second database in the same test: a new one.
+  return drizzle(new PGlite({ loadDataDir: empty }), { schema });
 }
