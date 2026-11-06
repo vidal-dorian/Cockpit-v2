@@ -47,6 +47,7 @@
 - **Fait** : tranche 7.6 (suivi de la PR, [décision 038](decisions/038-suivi-de-la-pr.md)).
 - **Fait** : tranche 7.7 (aide à la décision, [décision 039](decisions/039-aide-a-la-decision.md)), et avec elle la phase 7.
 - **Fait** : tranche 8.1 (l'accueil, [décision 040](decisions/040-accueil.md)), et avec elle le MVP.
+- **Fait** : tranche 9.2 (changelog complet : la prochaine release liste chaque tranche une fois, et chaque PR y ajoute une ligne, son titre).
 - **Feuille de route** : les phases après le MVP, plus bas, sont ordonnées (décidé le 2026-11-06).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).

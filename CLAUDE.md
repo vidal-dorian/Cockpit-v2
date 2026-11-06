@@ -39,7 +39,7 @@ Only then open the pull request.
 
 - Node runs the TypeScript directly (type stripping): only erasable syntax (no `enum`, `namespace` or constructor parameter properties) and relative imports end in `.ts` / `.tsx`.
 - UI text in French; code, comments, commit messages and prompts in English.
-- Every commit message starts with `feat: ` (release-please builds the changelog and the version from it, `.github/workflows/cd.yml`).
+- One changelog line per pull request (release-please, `.github/workflows/cd.yml`, reads every commit of `main`): commits on a branch start with `chore: `, which the changelog hides; the pull request title is the line, `feat(<slice>): <what the user gets>` or `fix(<area>): <what was wrong>`. GitHub copies that title into the merge commit, so merge with a merge commit or a squash, never a rebase.
 - Colors and fonts are the tokens of `src/web/styles.css` (decision 003). Never hard-code a color.
 - Components: Tailwind + shadcn/ui (decision 003).
 - Tests never call Claude or the real GitHub. Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite: migrated once per run, one database per worker, emptied at the start of each test, so never `it.concurrent` on it). The server's test files are not isolated from each other (they share their modules, `isolate: false`): a test leaves no global state behind (timers and stubbed globals are reset after each test); screens with Testing Library and a stubbed `fetch`.
