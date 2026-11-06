@@ -49,6 +49,7 @@
 - **Fait** : tranche 8.1 (l'accueil, [décision 040](decisions/040-accueil.md)), et avec elle le MVP.
 - **Fait** : tranche 9.2 (changelog complet : la prochaine release liste chaque tranche une fois, et chaque PR y ajoute une ligne, son titre).
 - **Feuille de route** : les phases après le MVP, plus bas, sont ordonnées (décidé le 2026-11-06).
+- **Fait** : tranche 9.1 (ménage de la doc : `decoupage.md`, `architecture.md`, README et décisions relus contre le code).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -103,7 +104,7 @@ Des discussions, chacune conclue par un court fichier dans `docs/decisions/`.
 | 1.2 | **Déploiement sur le Pi** : `deploy.sh` réel, Docker Compose (Cockpit, PostgreSQL dans un volume, `cloudflared`), sauvegarde quotidienne de la base | La page s'affiche à l'adresse publique du Pi après un lancement du CD |
 | 1.3 | **Connexion GitHub** : connexion via la GitHub App, liste des comptes autorisés en configuration (remplacée en 1.6 par l'inscription ouverte, [012](decisions/012-configuration-automatique.md)), déconnexion | Je me connecte avec GitHub et je vois mon nom |
 | 1.4 | **Historique inaltérable** : table du journal protégée par la base, fonction « action métier » (vérifie le droit → applique → journalise, dans une seule transaction), connexion et déconnexion journalisées, page Journal simple | Ma connexion apparaît dans le journal ; un test prouve qu'une entrée ne peut être ni modifiée ni supprimée |
-| 1.5 | **Assistant de démarrage** ([012](decisions/012-configuration-automatique.md)) : code de démarrage, création de la GitHub App par le flux du manifeste avec toutes les permissions du MVP, secrets chiffrés en base et clé dans son volume, adresse publique détectée puis confirmée, premier compte administrateur ; suppression des variables GitHub et de `PUBLIC_URL` ; `deploy.sh` génère le mot de passe de la base ; README réécrit | Sur une installation neuve, j'entre le code, je clique « Créer l'App GitHub » puis « Create GitHub App » sur GitHub, et je me connecte en administrateur, sans rien écrire dans le fichier d'environnement que le jeton du tunnel |
+| 1.5 | **Assistant de démarrage** ([012](decisions/012-configuration-automatique.md)) : code de démarrage, création de la GitHub App par le flux du manifeste avec toutes les permissions du MVP, secrets chiffrés en base et clé dans son volume, adresse publique détectée puis confirmée (sans confirmation depuis la [028](decisions/028-creme-sombre-onglets-journal.md) J), premier compte administrateur ; suppression des variables GitHub et de `PUBLIC_URL` ; `deploy.sh` génère le mot de passe de la base ; README réécrit | Sur une installation neuve, j'entre le code, je clique « Créer l'App GitHub » puis « Create GitHub App » sur GitHub, et je me connecte en administrateur, sans rien écrire dans le fichier d'environnement que le jeton du tunnel |
 | 1.6 | **Accueil des utilisateurs** ([012](decisions/012-configuration-automatique.md)) : inscription ouverte, liste des utilisateurs et blocage dans la page « Réglages » de l'administrateur ; renvoi automatique vers une page d'accueil et bandeau tant que l'App n'est pas installée | Un proche se connecte avec son compte GitHub, sans que j'aie rien à accepter ; je peux le bloquer dans « Réglages » ; à sa première connexion, il arrive sur la page qui explique l'installation de l'App, et un bandeau le lui rappelle tant qu'elle n'est pas installée |
 
 ## Phase 2 — Projets
@@ -146,7 +147,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 | # | Tranche | Démo |
 |---|---|---|
 | 6.1 | **Écrire dans un repo sans rien écraser** : diff montré avant, un commit, refus si le fichier a changé sur GitHub entre-temps | Mécanisme testé contre un faux GitHub |
-| 6.2 | **Catalogue + « Préparer pour Claude en un clic »** : skill `/dev-us`, agents test-writer, developer, reviewer, `.mcp.json` sans secret ; un seul commit montré fichier par fichier | Sur un repo rouge, un clic → je vois les fichiers → je valide → le bilan passe au vert |
+| 6.2 | **Catalogue + « Préparer pour Claude en un clic »** : skills `/dev-us` et `/write-us`, agents test-writer, developer, reviewer, `CLAUDE.md` de départ s'il n'y en a pas (ni `.mcp.json` ni CI, [027](decisions/027-preparer-pour-claude.md)) ; un seul commit montré fichier par fichier | Sur un repo rouge, un clic → je vois les fichiers → je valide → le bilan passe au vert |
 
 ## Phase 7 — Développer une US en local
 
@@ -164,7 +165,7 @@ Doit précéder le développement : le skill `/dev-us` et ses agents doivent êt
 
 | # | Tranche | Démo |
 |---|---|---|
-| 8.1 | **« Qu'est-ce qui m'attend ? »** : À toi de jouer, Claude travaille, Projets ; pastille par projet dans la barre latérale | L'accueil liste exactement ce qui attend mon action, chaque élément mène où agir |
+| 8.1 | **« Qu'est-ce qui m'attend ? »** : À toi de jouer, Claude travaille, Projets ; pastille par projet dans la section « Projets » (Cockpit n'a pas de barre latérale, [040](decisions/040-accueil.md) D) | L'accueil liste exactement ce qui attend mon action, chaque élément mène où agir |
 
 **→ Fin du MVP : la boucle complète idée → US → validation → développement → PR → merge fonctionne en local.**
 
@@ -283,14 +284,14 @@ Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée 
 
 | Sujet | Où |
 |---|---|
-| Repo déjà suivi par un autre compte : le refus révèle l'existence du projet | [008](decisions/008-service-en-ligne.md), point ouvert 3 |
-| Une routine déclenchée par API reçoit-elle les connecteurs claude.ai ? À vérifier avant la phase 14 (routines) | [006](decisions/006-connexion-oauth.md), point ouvert 1 |
 | Permissions de l'App ajoutées après le MVP : modification manuelle de l'App et approbation de chaque utilisateur (12.4, R6) | [012](decisions/012-configuration-automatique.md) |
-| Plusieurs instances : cinq choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
+| Plusieurs instances : quatre choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
 | Hébergeur ; facturation par personne ou par organisation (13.2, 13.3) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
 | Reprise : granularité des règles (R2), contrôle du mode « figer » (R4), coloration du code (R2), modèle de chaque agent d'analyse, doublons entre analyses (R5), `object_names` absent (R2) | [007](decisions/007-reprise-app-existante.md), points ouverts 1 à 6 |
 | Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
-| Écrans restants et version téléphone (phase 15) | [003](decisions/003-interface.md) |
+| Version téléphone (phase 15) | [003](decisions/003-interface.md), point ouvert 4 |
 
 - ~~**Relancer une US en revue**~~ : tranché par la [037](decisions/037-arreter-relancer-fermer.md) E, `start_run` accepte une US `in_review`.
+- ~~**Repo déjà suivi par un autre compte**~~ : confirmé en 2.1 par la [011](decisions/011-import-projets.md) C, le refus neutre est gardé ([008](decisions/008-service-en-ligne.md), point ouvert 3).
+- ~~**Une routine déclenchée par API reçoit-elle les connecteurs claude.ai ?**~~ : oui, la [022](decisions/022-routine-ecriture-us.md) s'en sert en 4.8 ([006](decisions/006-connexion-oauth.md), point ouvert 1).

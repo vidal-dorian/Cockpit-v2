@@ -84,9 +84,9 @@ Au rafraîchissement, les deux empreintes sont remplacées **sur la même ligne*
 
 ## Points ouverts
 
-1. **Routines** : une routine déclenchée par API reçoit-elle les connecteurs claude.ai ? À vérifier avant la tranche des routines.
-2. **Exposition (1.2)** : Cloudflare Tunnel est retenu (008). Vérifier qu'aucune protection de Cloudflare (anti-bots, pare-feu) ne bloque `160.79.104.0/21`, ni les webhooks GitHub, et que `/.well-known/*` est servi. **Vu le 2026-11-05** : Cloudflare Access sur tout l'hôte bloque `/mcp`, `/.well-known/*`, `/oauth/token` et les webhooks ; les chemins à ouvrir sont dans [021, déploiement derrière Cloudflare Access](021-connecter-claude.md#déploiement-derrière-cloudflare-access-point-ouvert-2-de-la-006).
-3. **SDK MCP** : regarder ce que `@modelcontextprotocol/sdk` fournit côté serveur d'autorisation, en sachant que ses aides visent Express et non Hono.
+1. ~~**Routines** : une routine déclenchée par API reçoit-elle les connecteurs claude.ai ? À vérifier avant la tranche des routines.~~ Tranché par la [022](022-routine-ecriture-us.md) (tranche 4.8) : une tâche planifiée reçoit les connecteurs du compte, dont Cockpit, et Cockpit la lance par son déclencheur API.
+2. ~~**Exposition (1.2)**~~ (réglé par la [021](021-connecter-claude.md), chemins en « Bypass ») : Cloudflare Tunnel est retenu (008). Vérifier qu'aucune protection de Cloudflare (anti-bots, pare-feu) ne bloque `160.79.104.0/21`, ni les webhooks GitHub, et que `/.well-known/*` est servi. **Vu le 2026-11-05** : Cloudflare Access sur tout l'hôte bloque `/mcp`, `/.well-known/*`, `/oauth/token` et les webhooks ; les chemins à ouvrir sont dans [021, déploiement derrière Cloudflare Access](021-connecter-claude.md#déploiement-derrière-cloudflare-access-point-ouvert-2-de-la-006).
+3. ~~**SDK MCP** : regarder ce que `@modelcontextprotocol/sdk` fournit côté serveur d'autorisation, en sachant que ses aides visent Express et non Hono.~~ Réglé par la [021](021-connecter-claude.md) (tranche 4.7) : le serveur d'autorisation est écrit dans Cockpit, en Hono (`src/server/oauth.ts`), sans les aides du SDK.
 
 ## Pistes écartées
 

@@ -15,13 +15,15 @@ Self-hosted control center for the GitHub repos developed with Claude Code. Read
 | `npm run typecheck` | `tsc`, no emit |
 | `npm run db:generate` | New migration in `drizzle/` from `src/server/db/schema.ts` |
 
-CI runs lint, typecheck, test and build. All four must pass before a PR.
+CI runs lint, typecheck, test and build, plus a Docker smoke test of the stack (`scripts/smoke-test.sh`, job `docker`). All of them must pass before a PR.
 
 ## Layout
 
 - `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`: PostgreSQL in production, PGlite in tests via `test-db.ts`).
 - `src/web`: React page built by Vite. `api.ts` is the typed client of the server routes.
 - `drizzle/`: generated SQL migrations, applied at startup. Never edit an applied migration; add a new one.
+- `catalog/`: the agents, skills (`/dev-us`, `/write-us`) and starter `CLAUDE.md` that « Préparer pour Claude » writes into a user's repo (decision 027); copied into the Docker image.
+- `scripts/`: deployment on the Pi (`deploy.sh`), daily backup (`backup.sh`) and the stack's smoke test (`smoke-test.sh`).
 
 ## Developing a user story
 
@@ -41,6 +43,8 @@ Only then open the pull request.
 - UI text in French; code, comments, commit messages and prompts in English.
 - One changelog line per pull request (release-please, `.github/workflows/cd.yml`, reads every commit of `main`): commits on a branch start with `chore: `, which the changelog hides; the pull request title is the line, `feat(<slice>): <what the user gets>` or `fix(<area>): <what was wrong>`. GitHub copies that title into the merge commit, so merge with a merge commit or a squash, never a rebase.
 - Colors and fonts are the tokens of `src/web/styles.css` (decision 003). Never hard-code a color.
+- Every commit message starts with `feat: ` (release-please builds the changelog and the version from it, `.github/workflows/cd.yml`).
+- Colors and fonts are the tokens of `src/web/styles.css` (decisions 003 and 028). Never hard-code a color.
 - Components: Tailwind + shadcn/ui (decision 003).
 - Tests never call Claude or the real GitHub. Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite: migrated once per run, one database per worker, emptied at the start of each test, so never `it.concurrent` on it). The server's test files are not isolated from each other (they share their modules, `isolate: false`): a test leaves no global state behind (timers and stubbed globals are reset after each test); screens with Testing Library and a stubbed `fetch`.
 - Every PR has a "Notions TS utilisées ici" section, in French, for Dorian who is learning TypeScript.

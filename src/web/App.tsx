@@ -14,6 +14,7 @@ import { HomePage, useHome } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
+import { Logo } from "./Logo.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
@@ -176,28 +177,6 @@ function Home() {
 const navLink = ({ isActive }: { isActive: boolean }) =>
   `inline-flex min-h-10 items-center rounded-full px-4 font-semibold ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
 
-/** The logo: a circle and two sectors, in tokens (decision 028 D). */
-function Logo() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-7"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10.5"
-        className="fill-none stroke-cream"
-        strokeWidth="1.5"
-      />
-      <path d="M12 12V1.5A10.5 10.5 0 0 1 22.5 12Z" className="fill-primary" />
-      <path d="M12 12H1.5A10.5 10.5 0 0 0 12 22.5Z" className="fill-cream" />
-    </svg>
-  );
-}
-
 function SettingsIcon() {
   return (
     <svg
@@ -232,7 +211,7 @@ function TopBar() {
           to="/"
           className={`inline-flex items-center gap-2 rounded-xl font-heading text-lg font-extrabold ${focusRing}`}
         >
-          <Logo />
+          <Logo className="h-8 w-auto" />
           Cockpit
         </Link>
         <nav aria-label="Navigation principale" className="flex gap-1">

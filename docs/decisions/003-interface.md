@@ -108,8 +108,8 @@ Le thème sombre (brief §6.20) se fera plus tard en redéfinissant ces mêmes v
 ## Points ouverts
 
 1. ~~**Composants et CSS**~~ : **décidé le 2026-10-21 : Tailwind (v4) + shadcn/ui.** Les composants accessibles (panneau latéral, fenêtre, menus, bandeau) sont copiés dans le repo et bâtis sur Radix ; les valeurs de ce document sont des variables Tailwind dans `src/web/styles.css`, nommées selon les conventions de shadcn/ui. shadcn/ui est initialisé avec le premier composant qui en a besoin. Écartés : CSS écrit à la main (toute l'accessibilité à refaire), CSS Modules + Radix (plus lent à construire, pour le même résultat).
-2. **État des projets sur l'accueil.** Le brief (§6.13) prévoit une liste des projets avec leur état et une pastille par projet ; la version retenue ne les montre plus sur l'accueil. À décider en maquettant l'écran Projets : les remettre (sous la colonne Claude, par exemple) ou les laisser à l'écran Projets.
-3. **Écrans restants** : projet et Kanban, page complète d'une US, ticket, run en cours, journal, réglages, connexion. Ils suivront les règles et le style ci-dessus.
+2. ~~**État des projets sur l'accueil.** Le brief (§6.13) prévoit une liste des projets avec leur état et une pastille par projet ; la version retenue ne les montre plus sur l'accueil. À décider en maquettant l'écran Projets : les remettre (sous la colonne Claude, par exemple) ou les laisser à l'écran Projets.~~ Tranché par la [040](040-accueil.md) D : l'accueil a une section « Projets », chaque projet actif avec sa pastille (« À toi », « Claude travaille » ou « Rien en cours »).
+3. ~~**Écrans restants** : projet et Kanban, page complète d'une US, ticket, run en cours, journal, réglages, connexion. Ils suivront les règles et le style ci-dessus.~~ Faits, chacun avec sa tranche (2.1 à 8.1), dans le style de la [028](028-creme-sombre-onglets-journal.md).
 4. **Téléphone** : les trois gestes (noter une idée, valider une US, répondre à une question) restent à maquetter en largeur mobile.
 
 ## Pistes écartées
