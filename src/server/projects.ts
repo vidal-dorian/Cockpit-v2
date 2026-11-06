@@ -12,6 +12,7 @@ import {
   checkWriteFiles,
   type githubClient,
   type ReadGitHub,
+  type WriteFile,
 } from "./github.ts";
 import { type HealthLine, healthLines, webhookLine } from "./health.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
@@ -65,7 +66,10 @@ const CLAUDE_MD = {
 };
 
 /** Every file the prepare routes may write (decision 027 B). */
-const PREPARE_FILES = [...CATALOG_FILES, CLAUDE_MD];
+const PREPARE_FILES: (WriteFile & { unlessExists?: string[] })[] = [
+  ...CATALOG_FILES,
+  CLAUDE_MD,
+];
 
 /** The catalogue agents by name (decision 030 B). */
 const CATALOG_AGENTS = CATALOG_FILES.filter((f) =>
@@ -536,14 +540,20 @@ export function projectRoutes(
       }
       let result: Awaited<ReturnType<GitHub["applyRepoWrite"]>>;
       try {
-        result = await c
-          .get("github")
-          .applyRepoWrite(
-            project.installationId,
-            project.fullName,
-            plan,
-            PREPARE_MESSAGE,
-          );
+        result = await c.get("github").applyRepoWrite(
+          project.installationId,
+          project.fullName,
+          // The plan went through the browser: the CLAUDE.md rule is taken from the catalogue again.
+          {
+            ...plan,
+            files: plan.files.map((file) => ({
+              ...file,
+              unlessExists: PREPARE_FILES.find((f) => f.path === file.path)
+                ?.unlessExists,
+            })),
+          },
+          PREPARE_MESSAGE,
+        );
       } catch (error) {
         await record(error);
         return c.json({ error: "github_unavailable" }, 502);

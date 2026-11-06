@@ -737,7 +737,10 @@ export function githubClient(config: GitHubAppConfig) {
     async applyRepoWrite(
       installationId: number,
       fullName: string,
-      plan: RepoWritePlan,
+      // `unlessExists` (never part of the signature) is checked again with the create files, as `planRepoWrite` did (decision 013 C).
+      plan: Omit<RepoWritePlan, "files"> & {
+        files: (RepoWritePlan["files"][number] & { unlessExists?: string[] })[];
+      },
       message: string,
     ): Promise<
       | {
@@ -756,7 +759,9 @@ export function githubClient(config: GitHubAppConfig) {
       if ("refused" in head) return head;
       if (!(isSigned(plan) && head.sha === plan.baseSha)) {
         const found = await Promise.all(
-          toCreate.map((file) => repo.inspect(file.path, head.sha)),
+          toCreate
+            .flatMap((file) => [file.path, ...(file.unlessExists ?? [])])
+            .map((path) => repo.inspect(path, head.sha)),
         );
         if (found.some((state) => state !== null))
           return { refused: "repo_changed" };
