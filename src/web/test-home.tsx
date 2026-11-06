@@ -52,7 +52,10 @@ export class FakeEventSource {
 
 /** A logged-in user (or not) and a fake GET /api/home; every call is recorded. */
 export function stubHome(initial: HomeData, loggedIn = true) {
-  const state = { home: initial };
+  const state = {
+    home: initial,
+    history: { entries: [] as Record<string, unknown>[], hasMore: false },
+  };
   const calls: { method: string; path: string; body: unknown }[] = [];
   FakeEventSource.all = [];
   vi.stubGlobal("EventSource", FakeEventSource);
@@ -88,6 +91,8 @@ export function stubHome(initial: HomeData, loggedIn = true) {
         return Response.json({ installed: true, installUrl: "https://x" });
       if (path === "/api/home" && method === "GET")
         return Response.json(state.home);
+      if (path === "/api/history" && method === "GET")
+        return Response.json(state.history);
       if (/^\/api\/questions\/\d+\/answer$/.test(path) && method === "POST")
         return Response.json({ question: { id: 1, answer: body?.answer } });
       throw new Error(`Unexpected fetch ${method} ${raw}`);

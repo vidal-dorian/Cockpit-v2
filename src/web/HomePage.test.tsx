@@ -312,3 +312,81 @@ describe("criterion 9: logged out", () => {
     expect(api.homeReads()).toBe(0);
   });
 });
+
+const entry = (i: number, project: string | null, action = "login") => ({
+  id: 100 - i,
+  at: `2026-10-${20 - i}T12:00:00.000Z`,
+  actor: "human",
+  origin: "ui",
+  action,
+  result: "ok",
+  project,
+});
+
+describe("open a project and see what was done lately", () => {
+  it("given active projects, when the home loads, then each project of Projets is a link to /projets/:id named after it", async () => {
+    await show({
+      projects: [
+        { id: 5, name: "octocat/hello", state: "idle" },
+        { id: 8, name: "octocat/world", state: "claude" },
+      ],
+    });
+
+    const s = section("Projets");
+    expect(
+      within(s)
+        .getByRole("link", { name: /octocat\/hello/ })
+        .getAttribute("href"),
+    ).toBe("/projets/5");
+    expect(
+      within(s)
+        .getByRole("link", { name: /octocat\/world/ })
+        .getAttribute("href"),
+    ).toBe("/projets/8");
+    expect(s.textContent).toContain("Rien en cours");
+    expect(s.textContent).toContain("Claude travaille");
+  });
+
+  it("given more than 5 history entries, when the home loads, then Dernièrement lists the first 5 with action, project and date, and links to /journal", async () => {
+    const api = stubHome(empty());
+    api.state.history = {
+      entries: [
+        entry(0, "octocat/p0"),
+        entry(1, "octocat/p1"),
+        entry(2, "octocat/p2"),
+        entry(3, "octocat/p3"),
+        entry(4, null),
+        entry(5, "octocat/sixth", "revoke_token"),
+      ],
+      hasMore: true,
+    };
+    renderAt("/");
+    await screen.findByRole("heading", { name: "Dernièrement" });
+
+    const s = section("Dernièrement");
+    const items = within(s).getAllByRole("listitem");
+    expect(items).toHaveLength(5);
+    expect(items[0]?.textContent).toContain("Connexion");
+    expect(items[0]?.textContent).toContain("octocat/p0");
+    expect(items[0]?.textContent).toMatch(/2026/);
+    expect(items[3]?.textContent).toContain("octocat/p3");
+    expect(items[4]?.textContent).not.toContain("octocat/");
+    expect(s.textContent).not.toContain("octocat/sixth");
+    expect(s.textContent).not.toContain("Jeton révoqué");
+    expect(
+      within(s)
+        .getByRole("link", { name: "Voir tout le journal" })
+        .getAttribute("href"),
+    ).toBe("/journal");
+  });
+
+  it("given no history entry, when the home loads, then Dernièrement says Rien de fait pour l'instant.", async () => {
+    stubHome(empty());
+    renderAt("/");
+    await screen.findByRole("heading", { name: "Dernièrement" });
+
+    expect(section("Dernièrement").textContent).toContain(
+      "Rien de fait pour l'instant.",
+    );
+  });
+});

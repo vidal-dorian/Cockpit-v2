@@ -3,7 +3,7 @@ import { client } from "./api.ts";
 import { alertBox, button, card, primaryButton } from "./ui.ts";
 
 /** A page of the caller's entries (25), the one after the entry `before`; null when the server answers 401. */
-async function fetchHistory(before: number | undefined) {
+export async function fetchHistory(before: number | undefined) {
   const res = await client.api.history.$get({
     query: before === undefined ? {} : { before: String(before) },
   });
@@ -79,6 +79,37 @@ export const RESULTS: Record<string, { label: string; style: string }> = {
   error: { label: "Erreur", style: "bg-destructive-soft text-destructive" },
 };
 
+type Entry = NonNullable<
+  Awaited<ReturnType<typeof fetchHistory>>
+>["entries"][number];
+
+export function JournalEntry({ entry }: { entry: Entry }) {
+  const result = RESULTS[entry.result];
+  return (
+    <li className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-4 ${card}`}>
+      <span className="font-semibold">
+        {ACTIONS[entry.action] ??
+          (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
+        {"event" in entry && ` (${entry.event})`}
+      </span>
+      <span
+        className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}
+      >
+        {result?.label ?? entry.result}
+      </span>
+      <span className="text-muted-foreground">
+        {ORIGINS[entry.origin] ?? entry.origin}
+      </span>
+      {entry.project && (
+        <span className="text-muted-foreground">{entry.project}</span>
+      )}
+      <time dateTime={entry.at} className="text-muted-foreground sm:ml-auto">
+        {new Date(entry.at).toLocaleString("fr-FR")}
+      </time>
+    </li>
+  );
+}
+
 export function Journal() {
   const pages = useInfiniteQuery({
     queryKey: ["history"],
@@ -121,37 +152,9 @@ export function Journal() {
         {entries && entries.length > 0 && (
           <>
             <ul className="grid gap-2">
-              {entries.map((entry) => {
-                const result = RESULTS[entry.result];
-                return (
-                  <li
-                    key={entry.id}
-                    className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-4 ${card}`}
-                  >
-                    <span className="font-semibold">
-                      {ACTIONS[entry.action] ??
-                        (entry.origin === "mcp"
-                          ? "Outil inconnu"
-                          : entry.action)}
-                      {"event" in entry && ` (${entry.event})`}
-                    </span>
-                    <span
-                      className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}
-                    >
-                      {result?.label ?? entry.result}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {ORIGINS[entry.origin] ?? entry.origin}
-                    </span>
-                    <time
-                      dateTime={entry.at}
-                      className="text-muted-foreground sm:ml-auto"
-                    >
-                      {new Date(entry.at).toLocaleString("fr-FR")}
-                    </time>
-                  </li>
-                );
-              })}
+              {entries.map((entry) => (
+                <JournalEntry key={entry.id} entry={entry} />
+              ))}
             </ul>
             {pages.isFetchNextPageError && (
               <div role="alert" className={`mt-3 ${alertBox}`}>

@@ -168,6 +168,29 @@ describe("Journal page", () => {
     },
   );
 
+  it("given an entry with a project, when /journal loads, then the row shows the project name", async () => {
+    stubApi(() =>
+      Response.json({
+        entries: [
+          {
+            id: 1,
+            at: "2026-10-21T12:00:00.000Z",
+            actor: "human",
+            origin: "ui",
+            action: "login",
+            result: "ok",
+            project: "octocat/hello",
+          },
+        ],
+      }),
+    );
+
+    renderAt("/journal");
+
+    const row = (await screen.findByText("Connexion")).closest("li, tr");
+    expect(row?.textContent).toContain("octocat/hello");
+  });
+
   it("given an empty history, when /journal loads, then it says there is no entry yet", async () => {
     stubApi(() => Response.json({ entries: [] }));
 

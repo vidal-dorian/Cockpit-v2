@@ -2,7 +2,7 @@ import { and, desc, eq, type SQL, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { history } from "./db/schema.ts";
+import { history, projects } from "./db/schema.ts";
 
 const PAGE_SIZE = 25;
 const MAX_ID = 2147483647;
@@ -40,9 +40,11 @@ export function historyRoutes(db: Db) {
         origin: history.origin,
         action: history.action,
         result: history.result,
+        project: projects.fullName,
         args: history.args,
       })
       .from(history)
+      .leftJoin(projects, eq(projects.id, history.projectId))
       .where(and(eq(history.userId, user.userId), after))
       .orderBy(desc(history.at), desc(history.id))
       .limit(PAGE_SIZE + 1);
