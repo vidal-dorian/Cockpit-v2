@@ -43,7 +43,10 @@ const clip = (text: string, max: number) =>
  */
 const inert = (text: string) =>
   text
-    .replace(/(^|[\s([{"'<>,;:!?*_~])@(?=[\p{L}\p{N}])/gu, "$1@\u200B")
+    // GitHub sees a mention after any character that is not a letter or a digit (`.@x`, `-@x`, `)@x` too); `/` and backquotes are left alone.
+    .replace(/(^|[^\p{L}\p{N}/`])@(?=[\p{L}\p{N}])/gu, "$1@\u200B")
+    // An entity of `@` becomes one once rendered: shown as written instead.
+    .replace(/&(#0*64|#x0*40|commat);/gi, "&amp;$1;")
     .replaceAll("<!--", "&lt;!--");
 
 /** User text for a one-line place (a criterion): the newlines become spaces, so it cannot open a title or another checkbox. */

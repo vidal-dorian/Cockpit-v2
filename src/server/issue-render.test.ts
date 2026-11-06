@@ -243,6 +243,40 @@ describe("review S5: the text of the user triggers nothing on GitHub", () => {
   );
 
   it.each([
+    ".@dorian",
+    "-@dorian",
+    "(x)@dorian",
+    "[x]@dorian",
+    "|@dorian",
+    "_@dorian_",
+  ])(
+    "given « %s » in the notes, when it is rendered, then the @ is followed by a zero-width space",
+    (text) => {
+      const { body } = renderIssue(story({ notesMd: text }));
+
+      expect(body).not.toMatch(mention);
+      expect(body).toContain("@​dorian");
+    },
+  );
+
+  it.each(["&#64;dorian", "&#x40;dorian", "&commat;dorian"])(
+    "given the entity « %s » in the notes, when it is rendered, then its & is escaped so GitHub shows it as written",
+    (text) => {
+      const { body } = renderIssue(story({ notesMd: text }));
+
+      expect(body).toContain(`&amp;${text.slice(1)}`);
+    },
+  );
+
+  it("given « a@b.fr », « /package/@scope » and « `@x` », when they are rendered, then they stay intact", () => {
+    const { body } = renderIssue(
+      story({ notesMd: "a@b.fr /package/@scope `@x`" }),
+    );
+
+    expect(body).toContain("a@b.fr /package/@scope `@x`");
+  });
+
+  it.each([
     ["notesMd", { notesMd: "avant <!-- caché --> après <!-- jamais fermé" }],
     ["iWant", { iWant: "voir <!-- caché" }],
     [
