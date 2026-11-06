@@ -108,4 +108,18 @@ describe("the top bar (decision 028 D)", () => {
       expect(screen.queryByRole("link", { name: "Réglages" })).toBeNull(),
     );
   });
+
+  it.each([true, false])(
+    "given a visitor (logged in: %s), when the page is displayed, then the Cockpit link starts with the handshake logo, which screen readers skip",
+    async (loggedIn) => {
+      renderAt("/", loggedIn);
+
+      const cockpit = await screen.findByRole("link", { name: "Cockpit" });
+      const logo = cockpit.querySelector("svg.logo");
+      expect(logo).not.toBeNull();
+      expect(logo?.getAttribute("aria-hidden")).toBe("true");
+      // Next to the word, on its left.
+      expect(cockpit.firstElementChild).toBe(logo);
+    },
+  );
 });
