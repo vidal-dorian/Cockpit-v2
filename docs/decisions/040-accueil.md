@@ -36,3 +36,7 @@ Le brief veut un accueil qui répond à une question, « qu'est-ce qui m'attend 
 - **Toutes les écritures ne préviennent pas le flux SSE** : les US écrites par Claude (4.3) et les décisions humaines sur une US (4.4) ne rechargent pas l'accueil ; elles apparaissent au prochain affichage ou au retour sur l'onglet.
 - **Une question par carte** : chaque question en attente a son propre bouton « Répondre » ; chaque carte compte comme une zone (003, règle 2).
 - **Une US validée par erreur ou un run muet** ne reviennent pas dans « À toi de jouer » : l'US `ready` sans run n'attend personne, et un run `running` muet est dans « Claude travaille » (037 : l'humain le ferme).
+
+## Mise à jour du 2026-11-06
+
+À la demande de Dorian (ticket « Pouvoir ouvrir un projet depuis la page d'accueil »), chaque projet de « Projets » mène à sa page, et une section « Dernièrement » montre les 5 dernières entrées du Journal (les siennes, 028 F), avec leur projet ; le Journal affiche aussi le projet de chaque entrée. Rien d'autre de cette décision n'est rouvert.

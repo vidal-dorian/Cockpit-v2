@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
+import { fetchHistory, JournalEntry } from "./Journal.tsx";
 import { REASONS } from "./RunVerdict.tsx";
 import { alertBox, card, focusRing } from "./ui.ts";
 
@@ -214,21 +215,62 @@ export function HomePage() {
         ) : (
           <ul className="mt-2 grid gap-2">
             {projects.map((p) => (
-              <li
-                key={p.id}
-                className={`${card} flex items-center justify-between gap-3 p-3`}
-              >
-                <span className="font-semibold">{p.name}</span>
-                <span
-                  className={`rounded-full px-3 py-1 font-semibold ${PASTILLES[p.state][1]}`}
+              <li key={p.id}>
+                <Link
+                  to={`/projets/${p.id}`}
+                  className={`${card} flex items-center justify-between gap-3 p-3 ${focusRing}`}
                 >
-                  {PASTILLES[p.state][0]}
-                </span>
+                  <span className="font-semibold">{p.name}</span>
+                  <span
+                    className={`rounded-full px-3 py-1 font-semibold ${PASTILLES[p.state][1]}`}
+                  >
+                    {PASTILLES[p.state][0]}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
         )}
       </Section>
+      <Recent />
     </>
+  );
+}
+
+/** The 5 latest entries of the Journal; its own query, so it never blocks the rest of the home. */
+function Recent() {
+  const history = useQuery({
+    queryKey: ["home", "history"],
+    queryFn: () => fetchHistory(undefined),
+  });
+  const entries = history.data?.entries.slice(0, 5);
+  if (history.isPending) return null;
+  return (
+    <Section title="Dernièrement">
+      {history.isError ? (
+        <p className="mt-2 text-muted-foreground">
+          Impossible de lire le journal.
+        </p>
+      ) : entries?.length === 0 ? (
+        <p className="mt-2 text-muted-foreground">
+          Rien de fait pour l'instant.
+        </p>
+      ) : (
+        entries && (
+          <>
+            <ul className="mt-2 grid gap-2">
+              {entries.map((entry) => (
+                <JournalEntry key={entry.id} entry={entry} />
+              ))}
+            </ul>
+            <p className="mt-2">
+              <Link to="/journal" className={link}>
+                Voir tout le journal
+              </Link>
+            </p>
+          </>
+        )
+      )}
+    </Section>
   );
 }
