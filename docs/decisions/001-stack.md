@@ -74,6 +74,6 @@ Cockpit v2 est réécrit de zéro (aucun code de la v1). Il tourne sur un Raspbe
 
 ## À vérifier au moment de la tranche concernée
 
-- **4.2** : le branchement du transport HTTP du SDK MCP sur Hono.
+- **4.2** : le branchement du transport HTTP du SDK MCP sur Hono. **Vérifié** : le transport « web standard » du SDK prend et rend les `Request` / `Response` de Hono ([016](016-serveur-mcp.md) A).
 - ~~**1.1** : que better-sqlite3 s'installe sur l'image Docker ARM64 du Pi sans compilation.~~ Sans objet depuis la 008 (`pg` est en JavaScript pur).
 - **1.1 bis** : la version de PostgreSQL de PGlite. **Vérifié** : PGlite 0.5.11 fait tourner PostgreSQL 18.6, la même version majeure que la production.

@@ -23,7 +23,9 @@ La page « Réglages » (l'icône en forme de roue, en haut à droite) a quatre 
 
 ### La page d'un projet
 
-La page d'un projet a quatre onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude ») et « Écriture des US ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page d'un projet a cinq onglets : « Kanban » (`/projets/:id`), « Tickets », « Santé » (le bilan, « Revérifier », « Préparer pour Claude »), « Écriture des US » et « Agents ». L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+L'onglet « Agents » (`/projets/:id/agents`) modifie les agents de `.claude/agents/` du repo et ses équipes (`.claude/team.md` et `.claude/teams/<nom>.md`, en graphe ou en liste) : chaque changement montre son diff, puis fait un seul commit. Décisions [030](docs/decisions/030-editeur-d-agent.md), [031](docs/decisions/031-equipe-en-graphe.md), [032](docs/decisions/032-plusieurs-equipes.md) et [042](docs/decisions/042-nouvelle-equipe-fenetre.md).
 
 ### Le Journal
 
@@ -31,7 +33,7 @@ Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute l
 
 ### Webhooks GitHub
 
-Cockpit reçoit les webhooks de l'App sur `POST /api/webhooks/github` : la signature (`X-Hub-Signature-256`, secret de l'App) est vérifiée sur le corps brut, la livraison est enregistrée (`webhook_deliveries`, gardée 30 jours) avec une entrée « Webhook reçu » du Journal, puis Cockpit répond 202. Cockpit les traite ensuite, juste après sa réponse puis chaque minute (cinq essais au plus par livraison) ; seule la modification d'une issue l'est pour l'instant (PR, CI : tranches suivantes). Le bilan de santé d'un projet a une cinquième ligne, « Webhook de Cockpit » : verte quand l'adresse du webhook de l'App est `<adresse publique>/api/webhooks/github` et que sa dernière livraison a réussi (ou qu'il n'y en a pas encore), lue sur GitHub avec l'identité de l'App et gardée une minute. Décision [024](docs/decisions/024-webhooks.md).
+Cockpit reçoit les webhooks de l'App sur `POST /api/webhooks/github` : la signature (`X-Hub-Signature-256`, secret de l'App) est vérifiée sur le corps brut, la livraison est enregistrée (`webhook_deliveries`, gardée 30 jours) avec une entrée « Webhook reçu » du Journal, puis Cockpit répond 202. Cockpit les traite ensuite, juste après sa réponse puis chaque minute (cinq essais au plus par livraison) ; Cockpit traite la modification d'une issue (voir plus bas) et le suivi de la PR d'une US (`pull_request`, `pull_request_review`, `check_suite` : voir « Développer une US avec Claude »). Le bilan de santé d'un projet a une cinquième ligne, « Webhook de Cockpit » : verte quand l'adresse du webhook de l'App est `<adresse publique>/api/webhooks/github` et que sa dernière livraison a réussi (ou qu'il n'y en a pas encore), lue sur GitHub avec l'identité de l'App et gardée une minute. Décision [024](docs/decisions/024-webhooks.md).
 
 ### Une issue modifiée sur GitHub
 
@@ -79,6 +81,12 @@ Dans le repo, un fichier `.mcp.json` ne garde que le nom de la variable (le type
 
 Sans fichier : `claude mcp add --transport http cockpit https://cockpit.example.com/mcp --header 'Authorization: Bearer ${COCKPIT_MCP_TOKEN}'`. Source : la [documentation de Claude Code sur MCP](https://code.claude.com/docs/en/mcp). Puis demander à Claude « liste mes projets » ou « note cette idée sur X » (ou « écris les user stories de mes tickets » : `create_user_stories`, avec le skill `/write-us` du dossier `catalog/skills/write-us/`, à copier dans `.claude/skills/` du repo ; les stories attendent ta validation, que tu donnes sur la page de la story ; si tu en renvoies une avec un commentaire, Claude la réécrit avec `update_user_story`, toujours avec le skill `/write-us`, et ne valide jamais rien lui-même) : chaque appel apparaît dans le Journal. Un faux jeton est refusé et inscrit dans l'historique, mais cette ligne n'a pas d'utilisateur et n'est donc visible par personne pour l'instant ; elle le sera avec l'administration (010 G). La décision [016](docs/decisions/016-serveur-mcp.md) donne le détail).
 
+## Développer une US avec Claude
+
+Sur la page d'une US prête, ou en revue pour la reprendre (`/us/:id`), « Développer avec Claude » ouvre une fenêtre : la branche (nouvelle ou existante), le dossier du clone sur ton PC (retenu par le navigateur) et un prompt complémentaire facultatif. « Lancer Claude » ouvre Claude Desktop dans ce dossier avec `/dev-us` prérempli ; « Copier le prompt » sert si le lien ne marche pas. Le skill `/dev-us` (du catalogue, voir « Préparer pour Claude ») suit l'équipe du projet et rend compte par le MCP : la page du run (`/runs/:id`) montre ses étapes en direct, les résultats des critères et la PR liée ; Claude y pose ses questions, auxquelles tu réponds sur place ou depuis l'accueil. « Demander l'arrêt » arrête Claude à l'étape suivante, « Fermer le run » ferme un run muet, « Relancer » ramène à la page de l'US pour en lancer un autre. À la fin, le run dit « Acceptable » ou « À vérifier », avec ses raisons. Le merge reste à faire sur GitHub : Cockpit suit la PR par ses webhooks (« Actualiser » la relit) et passe l'US « terminée » au merge. Décisions [033](docs/decisions/033-run-minimal.md) à [039](docs/decisions/039-aide-a-la-decision.md).
+
+L'accueil (`/`) répond à « qu'est-ce qui m'attend ? » : « À toi de jouer » (questions, US à valider, PR à relire, runs à vérifier), « Claude travaille », et chaque projet avec sa pastille. Décision [040](docs/decisions/040-accueil.md).
+
 ## Écrire les US automatiquement
 
 Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que tu choisis pour chaque projet. Il faut d'abord relier une tâche planifiée de claude.ai, une seule fois : « Réglages », onglet « Écriture automatique des US » (section « Écrire les US automatiquement »), donne les étapes.
@@ -119,7 +127,10 @@ Pour développer, lancer `npm run dev:server` et `npm run dev:web` dans deux ter
 npm test
 npm run lint
 npm run typecheck
+npm run build
 ```
+
+La CI lance ces quatre commandes, plus `scripts/smoke-test.sh` (voir « Tester la pile »).
 
 ## Déployer sur le Pi
 
