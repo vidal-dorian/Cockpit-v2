@@ -46,7 +46,7 @@
 - **Fait** : tranche 7.5 (arrêter, relancer, fermer, [décision 037](decisions/037-arreter-relancer-fermer.md)).
 - **Fait** : tranche 7.6 (suivi de la PR, [décision 038](decisions/038-suivi-de-la-pr.md)).
 - **Fait** : tranche 7.7 (aide à la décision, [décision 039](decisions/039-aide-a-la-decision.md)), et avec elle la phase 7.
-- **En cours** : tranche 8.1 (l'accueil, [décision 040](decisions/040-accueil.md)), la dernière du MVP.
+- **Fait** : tranche 8.1 (l'accueil, [décision 040](decisions/040-accueil.md)), et avec elle le MVP.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
