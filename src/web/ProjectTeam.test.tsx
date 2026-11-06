@@ -611,6 +611,137 @@ describe("decision 042 A: the keyboard on the cards", () => {
   });
 });
 
+describe("decision 042 A: focus follows the card (review)", () => {
+  const helpText = () =>
+    screen.getByText(
+      (text) => /Alt/.test(text) && /Entrée/.test(text) && /Suppr/.test(text),
+    );
+  const focusIs = (el: HTMLElement) =>
+    waitFor(() => expect(document.activeElement).toBe(el));
+
+  it("given the developer card focused, when Alt+ArrowRight is pressed, then the developer card, now third, keeps the focus, and once last it still does", async () => {
+    stubApi();
+    await openTeam();
+
+    later("developer");
+
+    await waitFor(() =>
+      expect(cardAgents()).toEqual(["test-writer", "reviewer", "developer"]),
+    );
+    await focusIs(card("developer"));
+    later("developer");
+    expect(cardAgents()).toEqual(["test-writer", "reviewer", "developer"]);
+    await focusIs(card("developer"));
+  });
+
+  it("given the developer card focused, when Alt+ArrowLeft is pressed, then the developer card keeps the focus, and once first it still does", async () => {
+    stubApi();
+    await openTeam();
+
+    earlier("developer");
+
+    await waitFor(() =>
+      expect(cardAgents()).toEqual(["developer", "test-writer", "reviewer"]),
+    );
+    await focusIs(card("developer"));
+    earlier("developer");
+    expect(cardAgents()).toEqual(["developer", "test-writer", "reviewer"]);
+    await focusIs(card("developer"));
+  });
+
+  it("given the developer card focused, when Delete is pressed, then the focus goes to the card now at its position (the reviewer)", async () => {
+    stubApi();
+    await openTeam();
+
+    press("developer", "Delete");
+
+    expect(cardAgents()).toEqual(["test-writer", "reviewer"]);
+    await focusIs(card("reviewer"));
+  });
+
+  it("given the last card focused, when Delete is pressed, then the focus goes to the previous card", async () => {
+    stubApi();
+    await openTeam();
+
+    press("reviewer", "Delete");
+
+    expect(cardAgents()).toEqual(["test-writer", "developer"]);
+    await focusIs(card("developer"));
+  });
+
+  it("given a team of one step, when Delete is pressed on its card, then the focus goes to the help text under the graph", async () => {
+    stubApi({
+      team: '---\nsteps:\n  - agent: developer\n    does: "implements"\n---\n',
+    });
+    await openTeam();
+
+    press("developer", "Delete");
+
+    expect(screen.queryAllByTestId(/^team-card-/)).toEqual([]);
+    await focusIs(helpText());
+  });
+
+  it("given a card focused, when Backspace is pressed, then the step is removed like with Delete", async () => {
+    stubApi();
+    await openTeam();
+
+    press("developer", "Backspace");
+
+    expect(cardAgents()).toEqual(["test-writer", "reviewer"]);
+    await focusIs(card("reviewer"));
+  });
+
+  it("given the panel of the developer, when « Retirer l'étape » is clicked, then the focus goes to the card at that position (the reviewer)", async () => {
+    stubApi();
+    await openTeam();
+    edit("developer");
+
+    click("Retirer l'étape");
+
+    expect(cardAgents()).toEqual(["test-writer", "reviewer"]);
+    await focusIs(card("reviewer"));
+  });
+
+  it("given the panel of the last step, when « Retirer l'étape » is clicked, then the focus goes to the previous card", async () => {
+    stubApi();
+    await openTeam();
+    edit("reviewer");
+
+    click("Retirer l'étape");
+
+    await focusIs(card("developer"));
+  });
+
+  it("given the panel of the only step, when « Retirer l'étape » is clicked, then the focus goes to the help text", async () => {
+    stubApi({
+      team: '---\nsteps:\n  - agent: developer\n    does: "implements"\n---\n',
+    });
+    await openTeam();
+    edit("developer");
+
+    click("Retirer l'étape");
+
+    expect(screen.queryAllByTestId(/^team-card-/)).toEqual([]);
+    await focusIs(helpText());
+  });
+
+  it("given an agent form open (« Ouvrir » on a repo agent), when the right column is looked at, then it shows no « Ajouter … à l'équipe » button", async () => {
+    stubApi();
+    await openTeam();
+    expect(
+      screen.getByRole("button", { name: "Ajouter doc-writer à l'équipe" }),
+    ).toBeDefined();
+
+    click("Ouvrir doc-writer");
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /^Ajouter .* à l'équipe$/ }),
+      ).toBeNull(),
+    );
+  });
+});
+
 describe("decision 042 B: a loop gets its condition at once", () => {
   it.each(["test-writer", "developer"])(
     "given a loop to %s chosen in the panel of the developer with an empty condition, when it is chosen, then the condition is « l'étape <target> valide le travail » and it is posted with loop_to and until",

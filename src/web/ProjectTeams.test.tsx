@@ -324,6 +324,30 @@ describe("decision 032 E: choosing a team", () => {
     await screen.findByText("C'est fait");
   });
 
+  it("given the leger team chosen, when « Ajouter reviewer à l'équipe » is clicked and the commit made, then name is leger and after ends with reviewer", async () => {
+    const calls = stubApi();
+    await openTeam();
+    choose("leger");
+    await waitFor(() =>
+      expect(rowAgents()).toEqual(["developer", "doc-writer"]),
+    );
+
+    click("Ajouter reviewer à l'équipe");
+    await waitFor(() =>
+      expect(rowAgents()).toEqual(["developer", "doc-writer", "reviewer"]),
+    );
+    review();
+    fireEvent.click(commitButton());
+
+    await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
+    const [sent] = calls.applyBodies;
+    expect(sent).toMatchObject({ name: "leger", before: LEGER });
+    const after = String(sent?.after);
+    expect(after.lastIndexOf("agent: reviewer")).toBeGreaterThan(
+      after.lastIndexOf("agent: doc-writer"),
+    );
+  });
+
   it("given the default team changed, when the commit is made, then no name is posted (absent or null)", async () => {
     const calls = stubApi();
     await openTeam();

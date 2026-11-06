@@ -14,7 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useRef } from "react";
 import { parseAgent } from "./agent-file.ts";
-import { DRAGGED_AGENT, type TeamStep } from "./team-file.ts";
+import { cardId, DRAGGED_AGENT, type TeamStep } from "./team-file.ts";
 import { card, focusRing } from "./ui.ts";
 
 const SESSION_MODEL = "Celui de la session";
@@ -24,6 +24,7 @@ type Agent = { name: string; text: string | null };
 
 /** Decision 031 B: the cards of the team in a React Flow graph, loaded on demand with its styles. */
 type CardData = {
+  id: string;
   step: TeamStep;
   model: string | null;
   absent: boolean;
@@ -34,7 +35,7 @@ type CardData = {
 type CardNode = Node<CardData, "card">;
 
 function StepCard({ data }: NodeProps<CardNode>) {
-  const { step, model, absent, onOpen, onMove, onRemove } = data;
+  const { id, step, model, absent, onOpen, onMove, onRemove } = data;
   return (
     <>
       <Handle type="target" position={Position.Left} id="in" />
@@ -43,6 +44,7 @@ function StepCard({ data }: NodeProps<CardNode>) {
       <Handle type="source" position={Position.Bottom} id="loop-out" />
       <button
         type="button"
+        id={cardId(id, step.agent)}
         data-testid={`team-card-${step.agent}`}
         onClick={onOpen}
         // Decision 042 A: the keys are handled here, and stop here so React Flow never sees them.
@@ -55,7 +57,7 @@ function StepCard({ data }: NodeProps<CardNode>) {
                 : null;
           if (direction) onMove(direction);
           else if (e.key === "Enter") onOpen();
-          else if (e.key === "Delete") onRemove();
+          else if (e.key === "Delete" || e.key === "Backspace") onRemove();
           else return;
           e.preventDefault(); // Enter would also click the button
           e.stopPropagation();
@@ -158,6 +160,7 @@ export default function StepGraph({
           width: 240,
           height: 110,
           data: {
+            id,
             step,
             model: (text && parseAgent(text)?.model) || null,
             absent: !agents.some((a) => a.name === step.agent),
@@ -168,7 +171,7 @@ export default function StepGraph({
           },
         };
       }),
-    [steps, agents],
+    [id, steps, agents],
   );
   // A card moved by hand is only for reading: any change of the draft puts them back in place.
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOut);

@@ -14,6 +14,7 @@ import { diffLines } from "./diff.ts";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
 import {
   addStep,
+  cardId,
   DEFAULT_STEPS,
   defaultUntil,
   linkSteps,
@@ -182,14 +183,29 @@ function StepEditor({
   const loopShown = steps.some((s) => s.agent === selectedLoop && s.loopTo)
     ? selectedLoop
     : null;
+  // Re-rendering the graph drops the focus of a card: the card to focus is remembered and focused again after the render.
+  const focusAfter = useRef<string | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: steps is the trigger
+  useEffect(() => {
+    const target = focusAfter.current;
+    focusAfter.current = null;
+    // A frame later: React Flow sets its nodes in an effect of its own.
+    if (target)
+      requestAnimationFrame(() => document.getElementById(target)?.focus());
+  }, [steps]);
   const remove = (agent: string) => {
     setWarn(TDD_AGENTS.includes(agent));
-    onSteps(removeStep(steps, agent));
+    const next = removeStep(steps, agent);
+    const i = steps.findIndex((s) => s.agent === agent);
+    const near = next[i] ?? next[i - 1];
+    focusAfter.current = near ? cardId(uid, near.agent) : `${uid}-help`;
+    onSteps(next);
     if (open === agent) setOpen(null);
   };
   const move = (agent: string, direction: "up" | "down") => {
     const next = moveStep(steps, agent, direction);
     if (next === steps) return; // an end of the team
+    focusAfter.current = cardId(uid, agent);
     onSteps(next);
     setAnnounced(
       `${agent} : étape ${next.findIndex((s) => s.agent === agent) + 1} sur ${next.length}`,
@@ -224,7 +240,11 @@ function StepEditor({
           }}
         />
       </Suspense>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p
+        id={`${uid}-help`}
+        tabIndex={-1}
+        className="mt-2 text-sm text-muted-foreground"
+      >
         Au clavier, sur une carte : Alt+← / Alt+→ déplace, Entrée ouvre, Suppr
         retire.
       </p>

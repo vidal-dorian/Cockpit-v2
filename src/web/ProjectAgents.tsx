@@ -385,6 +385,7 @@ export function ProjectAgents({
                   className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}
                   draggable={
                     !archived &&
+                    editing === null &&
                     team !== null &&
                     !team.agents.includes(agent.name)
                   }
@@ -422,17 +423,19 @@ export function ProjectAgents({
                   >
                     Ouvrir
                   </button>
-                  {team && !team.agents.includes(agent.name) && (
-                    <button
-                      type="button"
-                      aria-label={`Ajouter ${agent.name} à l'équipe`}
-                      disabled={archived}
-                      onClick={() => team.add(agent.name)}
-                      className={button}
-                    >
-                      Ajouter à l'équipe
-                    </button>
-                  )}
+                  {team &&
+                    editing === null &&
+                    !team.agents.includes(agent.name) && (
+                      <button
+                        type="button"
+                        aria-label={`Ajouter ${agent.name} à l'équipe`}
+                        disabled={archived}
+                        onClick={() => team.add(agent.name)}
+                        className={button}
+                      >
+                        Ajouter à l'équipe
+                      </button>
+                    )}
                 </li>
               ))}
             </ul>

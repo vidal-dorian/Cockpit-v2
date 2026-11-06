@@ -4,7 +4,7 @@
 - **Date** : 2026-11-06
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [030 — L'éditeur d'agents](030-editeur-d-agent.md), [031 — L'équipe en graphe](031-equipe-en-graphe.md), [032 — Plusieurs équipes par projet](032-plusieurs-equipes.md), [041 — « Nouvelle équipe » dans une fenêtre](041-nouvelle-equipe-fenetre.md)
-- **Modifie** : la 031 C (condition demandée tout de suite), D (« Modifier » dans la liste), E (« Ajouter une étape »), F (la liste des étapes) et H (un commit par équipe) ; la 030 (un commit par agent) ; la 041 A (« Créer l'équipe » fait le commit)
+- **Modifie** : la 031 C (condition demandée tout de suite), D (« Modifier » dans la liste), E (« Ajouter une étape »), F (la liste des étapes) et H (un commit par équipe) ; la 030 (un commit par agent) ; la 007 (écran « Conception » : chaque vue existe aussi en liste pour le clavier et les lecteurs d'écran, et sans graphe en largeur téléphone) ; la 041 A (« Créer l'équipe » fait le commit)
 - **Répond à** : le ticket « Graphe de modification des agents » : « je ne le trouve pas assez simple d'utilisation ; il faut supprimer la partie où on monte et descend les agents, tout doit se faire depuis le graphe ; pourquoi doit-on donner une action pour la création d'une boucle ? ; il faut commit une seule fois quand on veut quitter la page des agents plutôt que commit chaque truc un par un »
 
 ## Contexte

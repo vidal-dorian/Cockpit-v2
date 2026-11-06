@@ -162,3 +162,7 @@ export function addStep(
     ? steps
     : [...steps, { agent, does, loopTo: null, until: "" }];
 }
+
+/** The DOM id of a step's card: the graph's id and the agent, so focus can be given back after a render (decision 042 A). */
+export const cardId = (graph: string, agent: string) =>
+  `${graph}-card-${agent}`;
