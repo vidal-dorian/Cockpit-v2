@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -39,8 +40,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  HTMLDialogElement.prototype.showModal = realShowModal;
-  HTMLDialogElement.prototype.close = realClose;
+  // jsdom 29 has neither: delete the stub instead of assigning undefined.
+  if (realShowModal) HTMLDialogElement.prototype.showModal = realShowModal;
+  else Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+  if (realClose) HTMLDialogElement.prototype.close = realClose;
+  else Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
   cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState({}, "", "/");
@@ -207,7 +211,8 @@ const review = () => {
 };
 const commitButton = () =>
   screen.getByRole("button", { name: "Faire le commit" }) as HTMLButtonElement;
-const dialog = () => screen.getByRole("dialog", { name: "Nouvelle équipe" });
+const dialog = () =>
+  screen.getByRole("dialog", { name: "Nouvelle équipe" }) as HTMLDialogElement;
 const rowsOf = (items: HTMLElement[]) =>
   items
     .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
@@ -490,6 +495,72 @@ describe("decision 032 E: a new team, in a dialog", () => {
     fireEvent.click(within(dialog()).getByRole("button", { name: "Annuler" }));
     expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
   });
+
+  it("given the dialog with a typed name, when it is closed like Escape does (close event), then nothing is sent, the dialog is gone and the current team is as before", async () => {
+    const calls = stubApi();
+    await openTeam();
+    moveFirstDown();
+
+    click("Nouvelle équipe");
+    typeName("docs");
+    act(() => dialog().close());
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls.applyBodies).toEqual([]);
+    expect(picker().value).toBe("");
+    expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
+  });
+
+  it.each([
+    [409, { error: "repo_changed" }],
+    [502, { error: "github_unavailable" }],
+  ])(
+    "given a POST answering %s, when « Créer l'équipe » fails, then the error alert is inside the dialog, and after « Annuler » no alert remains on the page",
+    async (status, body) => {
+      const calls = stubApi({ applies: [{ status, body }] });
+      await openTeam();
+
+      click("Nouvelle équipe");
+      typeName("docs");
+      fireEvent.click(create());
+
+      await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
+      expect(await within(dialog()).findByRole("alert")).toBeDefined();
+      fireEvent.click(
+        within(dialog()).getByRole("button", { name: "Annuler" }),
+      );
+
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryAllByRole("alert", { hidden: true })).toEqual([]);
+    },
+  );
+
+  it("given « Nouvelle équipe » clicked, when « Annuler » is clicked, then focus is back on the « Nouvelle équipe » button", async () => {
+    stubApi();
+    await openTeam();
+    const opener = screen.getByRole("button", { name: "Nouvelle équipe" });
+    opener.focus();
+    fireEvent.click(opener);
+
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Annuler" }));
+
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("given a successful « Créer l'équipe », when the dialog closes, then focus is on the « Nouvelle équipe » button, outside the dialog", async () => {
+    stubApi();
+    await openTeam();
+    const opener = screen.getByRole("button", { name: "Nouvelle équipe" });
+    opener.focus();
+    fireEvent.click(opener);
+    typeName("docs");
+
+    fireEvent.click(create());
+
+    await screen.findByText("C'est fait");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
 });
 
 describe("decision 032 E: layout of the tab", () => {
@@ -510,6 +581,18 @@ describe("decision 032 E: layout of the tab", () => {
       teamSection.compareDocumentPosition(agentsSection) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("given an agent form open, when it is shown, then the « Agents » section spans both columns (lg:col-span-2)", async () => {
+    stubApi();
+    await openTeam();
+
+    click("Ouvrir developer");
+
+    const agentsSection = screen
+      .getByRole("heading", { level: 2, name: "Agents" })
+      .closest("section") as HTMLElement;
+    expect(agentsSection.className).toContain("lg:col-span-2");
   });
 });
 

@@ -1,5 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
@@ -35,6 +43,7 @@ type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
 function StepPanel({
+  uid,
   step,
   index,
   steps,
@@ -44,6 +53,7 @@ function StepPanel({
   canEditAgent,
   onEditAgent,
 }: {
+  uid: string;
   step: TeamStep;
   index: number;
   steps: TeamStep[];
@@ -56,11 +66,11 @@ function StepPanel({
   return (
     <div className={`${card} mt-4 p-4`}>
       <h3 className="font-mono font-semibold">{step.agent}</h3>
-      <label htmlFor="step-agent" className="mt-3 block">
+      <label htmlFor={`${uid}-step-agent`} className="mt-3 block">
         Agent
       </label>
       <select
-        id="step-agent"
+        id={`${uid}-step-agent`}
         className={field}
         value={step.agent}
         onChange={(e) => onChange({ ...step, agent: e.target.value })}
@@ -71,20 +81,20 @@ function StepPanel({
           </option>
         ))}
       </select>
-      <label htmlFor="step-does" className="mt-3 block">
+      <label htmlFor={`${uid}-step-does`} className="mt-3 block">
         Ce qu'il fait
       </label>
       <input
-        id="step-does"
+        id={`${uid}-step-does`}
         className={field}
         value={step.does}
         onChange={(e) => onChange({ ...step, does: e.target.value })}
       />
-      <label htmlFor="step-loop" className="mt-3 block">
+      <label htmlFor={`${uid}-step-loop`} className="mt-3 block">
         Boucle
       </label>
       <select
-        id="step-loop"
+        id={`${uid}-step-loop`}
         className={field}
         value={step.loopTo ?? ""}
         onChange={(e) =>
@@ -104,11 +114,11 @@ function StepPanel({
       </select>
       {step.loopTo !== null && (
         <>
-          <label htmlFor="step-until" className="mt-3 block">
+          <label htmlFor={`${uid}-step-until`} className="mt-3 block">
             Condition
           </label>
           <input
-            id="step-until"
+            id={`${uid}-step-until`}
             className={field}
             value={step.until}
             onChange={(e) => onChange({ ...step, until: e.target.value })}
@@ -149,6 +159,7 @@ function StepEditor({
   /** Absent in the dialog: the agent form would open behind it. */
   onEditAgent?: (name: string) => void;
 }) {
+  const uid = useId();
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState("");
@@ -164,12 +175,12 @@ function StepEditor({
     if (!moved) return;
     const at = (dir: string) =>
       document.getElementById(
-        `move-${dir}-${moved.agent}`,
+        `${uid}-move-${dir}-${moved.agent}`,
       ) as HTMLButtonElement | null;
     const other = moved.dir === "up" ? "down" : "up";
     const target = at(moved.dir)?.disabled ? at(other) : at(moved.dir);
     target?.focus();
-  }, [moved]);
+  }, [moved, uid]);
 
   // Any change other than the pending link itself drops the link prompt: it was about the old order.
   const setSteps = (next: TeamStep[]) => {
@@ -206,6 +217,7 @@ function StepEditor({
         }
       >
         <StepGraph
+          id={uid}
           steps={steps}
           agents={agents}
           selectedLoop={loopShown}
@@ -232,11 +244,11 @@ function StepEditor({
       )}
       {pending && (
         <div className={`${card} mt-3 p-4`}>
-          <label htmlFor="link-until" className="block">
+          <label htmlFor={`${uid}-link-until`} className="block">
             Condition de la boucle
           </label>
           <input
-            id="link-until"
+            id={`${uid}-link-until`}
             className={field}
             value={until}
             // The prompt just appeared after a link: the keyboard goes straight to its field.
@@ -280,7 +292,7 @@ function StepEditor({
             <span className="flex gap-2 sm:ml-auto">
               <button
                 type="button"
-                id={`move-up-${s.agent}`}
+                id={`${uid}-move-up-${s.agent}`}
                 disabled={i === 0}
                 onClick={() => {
                   setSteps(moveStep(steps, s.agent, "up"));
@@ -292,7 +304,7 @@ function StepEditor({
               </button>
               <button
                 type="button"
-                id={`move-down-${s.agent}`}
+                id={`${uid}-move-down-${s.agent}`}
                 disabled={i === steps.length - 1}
                 onClick={() => {
                   setSteps(moveStep(steps, s.agent, "down"));
@@ -318,6 +330,7 @@ function StepEditor({
       </p>
       {openStep && (
         <StepPanel
+          uid={uid}
           step={openStep}
           index={steps.indexOf(openStep)}
           steps={steps}
@@ -360,11 +373,11 @@ function StepEditor({
       </button>
       {adding && (
         <div className={`${card} mt-3 p-4`}>
-          <label htmlFor="step-add" className="block">
+          <label htmlFor={`${uid}-step-add`} className="block">
             Agent à ajouter
           </label>
           <select
-            id="step-add"
+            id={`${uid}-step-add`}
             className={field}
             value={free.includes(picked) ? picked : (free[0] ?? "")}
             onChange={(e) => setPicked(e.target.value)}
@@ -436,8 +449,11 @@ function NewTeamDialog({
   // The graph measures its box when it mounts: only once the dialog is shown, or it fits into nothing.
   const [shown, setShown] = useState(false);
   useEffect(() => {
+    // Unmounting an open modal skips the native close steps: give the focus back by hand.
+    const opener = document.activeElement as HTMLElement | null;
     ref.current?.showModal();
     setShown(true);
+    return () => opener?.focus();
   }, []);
   const nameProblem = !newName
     ? null
@@ -731,7 +747,10 @@ export function ProjectTeam({
               created,
             })
           }
-          onCancel={() => setCreating(null)}
+          onCancel={() => {
+            setCreating(null);
+            setProblem(null);
+          }}
         />
       )}
       {deleting && (
