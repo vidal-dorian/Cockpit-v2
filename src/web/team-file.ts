@@ -7,6 +7,9 @@ export type TeamStep = {
   until: string;
 };
 
+/** The `dataTransfer` type of an agent dragged from the right column onto the graph (decision 042 C). */
+export const DRAGGED_AGENT = "application/x-cockpit-agent";
+
 /** The team of a repo without `.claude/team.md` (decision 029 C). */
 export const DEFAULT_STEPS: TeamStep[] = [
   {
@@ -100,6 +103,10 @@ export function writeTeam(steps: TeamStep[], body: string): string {
   ]);
   return `---\nsteps:\n${lines.join("\n")}\n---\n${body}`;
 }
+
+/** Decision 042 B: the condition a loop gets when it is made, until its author changes it. */
+export const defaultUntil = (target: string) =>
+  `l'étape ${target} valide le travail`;
 
 /** A loop only goes back (or to its own step): the others are removed. */
 const keepBackLoops = (steps: TeamStep[]): TeamStep[] =>

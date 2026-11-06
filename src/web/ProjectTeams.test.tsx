@@ -17,7 +17,7 @@ import { App } from "./App.tsx";
 // Pinned where the decision leaves it open:
 // - GET /api/projects/:id/agents answers { agents, catalog, team, teams: [{ name, text }] } (server tests: teams.test.ts).
 // - A select labelled « Équipe » (role combobox, name « Équipe »; the section itself is also labelled « Équipe », so getByLabelText would be ambiguous): the first option has value "" and the label « Par défaut (team.md) », then one option per named team (value and label = the name).
-//   Choosing one loads its draft in the same cards (data-testid="team-card-<agent>") and list as in 031.
+//   Choosing one loads its draft in the same cards (data-testid="team-card-<agent>") as in 031. Decision 042: no list of steps; Alt+ArrowRight on a focused card moves it one place later; the dialog keeps its own select « Agent à ajouter » and button « Ajouter à l'équipe » (the right column is behind the modal).
 // - Switching with an unsaved change shows « Les changements non enregistrés seront perdus » with buttons « Confirmer le changement » and « Annuler »; nothing changes (select, draft) until the first one is clicked, and « Annuler » keeps both.
 // - « Nouvelle équipe » reveals a text field « Nom de l'équipe » and a button « Créer l'équipe », disabled while the name is empty, invalid or taken. The messages are
 //   « Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début » and « Ce nom est déjà pris ». Creating selects the new team (the select value is its name) with a copy of the steps shown; « Faire le commit » then posts { name, before: null, after }.
@@ -188,20 +188,17 @@ const picker = () =>
   screen.getByRole("combobox", { name: "Équipe" }) as HTMLSelectElement;
 const choose = (value: string) =>
   fireEvent.change(picker(), { target: { value } });
-const rowAgents = () =>
-  screen
-    .getAllByRole("listitem")
-    .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
-    .map((li) => /^\s*\d+\s*([a-z0-9-]+)/.exec(li.textContent ?? "")?.[1]);
+const agentsOf = (root: ParentNode) =>
+  Array.from(root.querySelectorAll('[data-testid^="team-card-"]')).map((el) =>
+    el.getAttribute("data-testid")?.slice("team-card-".length),
+  );
+const rowAgents = () => outsideRows();
 const click = (name: string) =>
   fireEvent.click(screen.getByRole("button", { name }));
 const moveFirstDown = () => {
-  const first = screen
-    .getAllByRole("listitem")
-    .find((li) =>
-      within(li).queryByRole("button", { name: "Descendre" }),
-    ) as HTMLElement;
-  fireEvent.click(within(first).getByRole("button", { name: "Descendre" }));
+  const first = screen.getByTestId(`team-card-${outsideRows()[0]}`);
+  first.focus();
+  fireEvent.keyDown(first, { key: "ArrowRight", altKey: true });
 };
 const review = () => {
   const see = screen.getByRole("button", {
@@ -213,20 +210,12 @@ const commitButton = () =>
   screen.getByRole("button", { name: "Faire le commit" }) as HTMLButtonElement;
 const dialog = () =>
   screen.getByRole("dialog", { name: "Nouvelle équipe" }) as HTMLDialogElement;
-const rowsOf = (items: HTMLElement[]) =>
-  items
-    .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
-    .map((li) => /^\s*\d+\s*([a-z0-9-]+)/.exec(li.textContent ?? "")?.[1]);
 const dialogRows = () =>
-  screen.queryByRole("dialog")
-    ? rowsOf(within(dialog()).queryAllByRole("listitem"))
-    : [];
+  screen.queryByRole("dialog") ? agentsOf(dialog()) : [];
 const outsideRows = () =>
-  rowsOf(
-    screen
-      .queryAllByRole("listitem", { hidden: true })
-      .filter((li) => !li.closest("dialog")),
-  );
+  Array.from(document.querySelectorAll('[data-testid^="team-card-"]'))
+    .filter((el) => !el.closest("dialog"))
+    .map((el) => el.getAttribute("data-testid")?.slice("team-card-".length));
 const nameField = () =>
   within(dialog()).getByLabelText("Nom de l'équipe") as HTMLInputElement;
 const create = () =>
@@ -365,7 +354,7 @@ describe("decision 032 E: the command to copy", () => {
 });
 
 describe("decision 032 E: a new team, in a dialog", () => {
-  it("given the Agents tab, when « Nouvelle équipe » is clicked, then a dialog « Nouvelle équipe » opens with the field « Nom de l'équipe », a copy of the team read from the repo (not the unsaved draft) and « Ajouter une étape », while the current editor is unchanged", async () => {
+  it("given the Agents tab, when « Nouvelle équipe » is clicked, then a dialog « Nouvelle équipe » opens with the field « Nom de l'équipe », a copy of the team read from the repo (not the unsaved draft), a select « Agent à ajouter » with « Ajouter à l'équipe » and no « Ajouter une étape », while the current editor is unchanged", async () => {
     stubApi();
     await openTeam();
     moveFirstDown();
@@ -376,9 +365,14 @@ describe("decision 032 E: a new team, in a dialog", () => {
     const box = dialog();
     expect(within(box).getByLabelText("Nom de l'équipe")).toBeDefined();
     expect(dialogRows()).toEqual(["test-writer", "developer", "reviewer"]);
+    expect(within(box).getByLabelText("Agent à ajouter")).toBeDefined();
     expect(
-      within(box).getByRole("button", { name: "Ajouter une étape" }),
+      within(box).getByRole("button", { name: "Ajouter à l'équipe" }),
     ).toBeDefined();
+    expect(
+      within(box).queryByRole("button", { name: "Ajouter une étape" }),
+    ).toBeNull();
+    expect(within(box).queryByRole("button", { name: "Monter" })).toBeNull();
     expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
     expect(picker().value).toBe("");
   });
@@ -402,9 +396,6 @@ describe("decision 032 E: a new team, in a dialog", () => {
 
     click("Nouvelle équipe");
     typeName("docs");
-    fireEvent.click(
-      within(dialog()).getByRole("button", { name: "Ajouter une étape" }),
-    );
     fireEvent.click(
       within(dialog()).getByRole("button", { name: "Ajouter à l'équipe" }),
     );
@@ -459,7 +450,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
     click("Nouvelle équipe");
     typeName("vide");
     expect(create().disabled).toBe(false);
-    fireEvent.click(within(dialog()).getByRole("button", { name: "Modifier" }));
+    fireEvent.click(within(dialog()).getByTestId("team-card-developer"));
     fireEvent.click(
       within(dialog()).getByRole("button", { name: "Retirer l'étape" }),
     );

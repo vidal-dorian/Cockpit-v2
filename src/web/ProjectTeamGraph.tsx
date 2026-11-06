@@ -13,7 +13,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useRef } from "react";
 import { parseAgent } from "./agent-file.ts";
-import type { TeamStep } from "./team-file.ts";
+import { DRAGGED_AGENT, type TeamStep } from "./team-file.ts";
 import { card, focusRing } from "./ui.ts";
 
 const SESSION_MODEL = "Celui de la session";
@@ -27,11 +27,13 @@ type CardData = {
   model: string | null;
   absent: boolean;
   onOpen: () => void;
+  onMove: (direction: "up" | "down") => void;
+  onRemove: () => void;
 };
 type CardNode = Node<CardData, "card">;
 
 function StepCard({ data }: NodeProps<CardNode>) {
-  const { step, model, absent, onOpen } = data;
+  const { step, model, absent, onOpen, onMove, onRemove } = data;
   return (
     <>
       <Handle type="target" position={Position.Left} id="in" />
@@ -42,6 +44,21 @@ function StepCard({ data }: NodeProps<CardNode>) {
         type="button"
         data-testid={`team-card-${step.agent}`}
         onClick={onOpen}
+        // Decision 042 A: the keys are handled here, and stop here so React Flow never sees them.
+        onKeyDown={(e) => {
+          const direction =
+            e.altKey && e.key === "ArrowLeft"
+              ? "up"
+              : e.altKey && e.key === "ArrowRight"
+                ? "down"
+                : null;
+          if (direction) onMove(direction);
+          else if (e.key === "Enter") onOpen();
+          else if (e.key === "Delete") onRemove();
+          else return;
+          e.preventDefault(); // Enter would also click the button
+          e.stopPropagation();
+        }}
         className={`${card} block w-60 p-3 text-left ${focusRing}`}
       >
         <span className="block font-mono font-semibold">{step.agent}</span>
@@ -96,6 +113,9 @@ export default function StepGraph({
   onOpen,
   onLink,
   onSelectLoop,
+  onMove,
+  onRemove,
+  onDropAgent,
 }: {
   /** Tells apart the SVG ids of two graphs on one page. */
   id: string;
@@ -105,10 +125,14 @@ export default function StepGraph({
   onOpen: (agent: string) => void;
   onLink: (from: string, to: string) => void;
   onSelectLoop: (agent: string | null) => void;
+  onMove: (agent: string, direction: "up" | "down") => void;
+  onRemove: (agent: string) => void;
+  /** An agent dragged from the right column and dropped on the graph. */
+  onDropAgent: (agent: string) => void;
 }) {
-  // The click handler is read through a ref: a new function each render must not put moved cards back.
-  const opener = useRef(onOpen);
-  opener.current = onOpen;
+  // The handlers are read through a ref: a new function each render must not put moved cards back.
+  const handlers = useRef({ onOpen, onMove, onRemove });
+  handlers.current = { onOpen, onMove, onRemove };
   const laidOut = useMemo(
     () =>
       steps.map((step, i): CardNode => {
@@ -124,7 +148,10 @@ export default function StepGraph({
             step,
             model: (text && parseAgent(text)?.model) || null,
             absent: !agents.some((a) => a.name === step.agent),
-            onOpen: () => opener.current(step.agent),
+            onOpen: () => handlers.current.onOpen(step.agent),
+            onMove: (direction) =>
+              handlers.current.onMove(step.agent, direction),
+            onRemove: () => handlers.current.onRemove(step.agent),
           },
         };
       }),
@@ -134,7 +161,17 @@ export default function StepGraph({
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOut);
   useEffect(() => setNodes(laidOut), [laidOut, setNodes]);
   return (
-    <div className="mt-3 hidden h-72 sm:block">
+    // biome-ignore lint/a11y/noStaticElementInteractions: a mouse-only drop target; « Ajouter à l'équipe » is the keyboard way (decision 042 C)
+    <div
+      className="mt-3 h-72"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(DRAGGED_AGENT)) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        const agent = e.dataTransfer.getData(DRAGGED_AGENT);
+        if (agent) onDropAgent(agent);
+      }}
+    >
       <ReactFlow
         id={id}
         nodes={nodes}
@@ -147,6 +184,9 @@ export default function StepGraph({
         }
         onPaneClick={() => onSelectLoop(null)}
         nodesConnectable
+        // Delete and Backspace are the cards' own (a card removes its step); React Flow must not delete a node or a loop behind our back, nor move a selected node with the arrows.
+        deleteKeyCode={null}
+        disableKeyboardA11y
         fitView
       >
         <Background />

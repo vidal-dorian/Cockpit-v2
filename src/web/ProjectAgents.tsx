@@ -6,6 +6,7 @@ import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
 import { ProjectTeam } from "./ProjectTeam.tsx";
+import { DRAGGED_AGENT } from "./team-file.ts";
 import {
   alertBox,
   button,
@@ -262,6 +263,11 @@ export function ProjectAgents({
   const [adding, setAdding] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+  // The team shown in the left column, for « Ajouter à l'équipe » (decision 042 C).
+  const [team, setTeam] = useState<{
+    agents: string[];
+    add: (agent: string) => void;
+  } | null>(null);
   const reload = () =>
     queryClient.invalidateQueries({ queryKey: ["agents", projectId] });
 
@@ -319,6 +325,7 @@ export function ProjectAgents({
           team={list.team ?? null}
           teams={list.teams ?? []}
           onSaved={reload}
+          onTeamSteps={setTeam}
           onEditAgent={(name) => {
             const text = list.agents.find((a) => a.name === name)?.text;
             if (text === undefined || text === null) return;
@@ -375,7 +382,15 @@ export function ProjectAgents({
               {list.agents.map((agent) => (
                 <li
                   key={agent.name}
-                  className={`${card} flex items-center gap-x-4 p-4`}
+                  className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}
+                  draggable={
+                    !archived &&
+                    team !== null &&
+                    !team.agents.includes(agent.name)
+                  }
+                  onDragStart={(e) =>
+                    e.dataTransfer.setData(DRAGGED_AGENT, agent.name)
+                  }
                 >
                   <span className="font-mono font-semibold">{agent.name}</span>
                   <span className="text-muted-foreground">
@@ -407,6 +422,17 @@ export function ProjectAgents({
                   >
                     Ouvrir
                   </button>
+                  {team && !team.agents.includes(agent.name) && (
+                    <button
+                      type="button"
+                      aria-label={`Ajouter ${agent.name} à l'équipe`}
+                      disabled={archived}
+                      onClick={() => team.add(agent.name)}
+                      className={button}
+                    >
+                      Ajouter à l'équipe
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

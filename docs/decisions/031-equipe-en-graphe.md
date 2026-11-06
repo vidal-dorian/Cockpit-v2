@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (B, C, F), [030 — Éditeur d'agent](030-editeur-d-agent.md), [007 — Reprise d'une app existante](007-reprise-app-existante.md) (la librairie de graphe et la règle d'accessibilité), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md)
 - **Modifie** : la [029](029-equipe-d-agents.md) F : l'écran « Équipe » est un **graphe** de cartes qu'on déplace et qu'on relie, en plus de la liste ; un ajout d'agent du catalogue passe par l'éditeur (030) avant l'équipe
+- **Modifiée par** : [042](042-graphe-seul-un-commit.md) : C (condition par défaut), D (plus de « Modifier »), E (plus d'« Ajouter une étape »), F (plus de liste) et H
 - **Tranche** : E3 du [découpage](../decoupage.md)
 
 ## Contexte

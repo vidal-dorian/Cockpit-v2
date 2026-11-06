@@ -18,10 +18,13 @@ import { readTeam } from "./team-file.ts";
 // - GET /api/projects/:id/agents answers { agents, catalog, team: <text | null> } (server tests: team-routes.test.ts).
 // - A card (the React Flow node) is an element with data-testid="team-card-<agent>" holding the agent name, its model (or « Celui de la session »), its `does`, and « Agent absent du repo » when the agent is not in the repo.
 //   Clicking the card opens the step panel, as « Modifier » does. Whether React Flow draws in jsdom (ResizeObserver, DOMMatrix, getBoundingClientRect) is the developer's setup problem: nothing is stubbed here.
-// - The list of steps: one list item (`li`) per step, whose text starts with its number then its agent, holding its `does`, its loop target and condition, and the buttons « Monter », « Descendre », « Modifier ».
-// - The step panel (opened by « Modifier »): a select « Agent » (repo agents not in the team, plus its own, option values = names), a text field « Ce qu'il fait », a select « Boucle » (value "" labelled « Aucune », then
+// - Decision 042 A to C: there is no list of steps and no « Monter » / « Descendre » / « Modifier » / « Ajouter une étape ». Everything is on the graph, shown at every width.
+//   A card is focusable: Alt+ArrowRight / Alt+ArrowLeft move it one place, Enter opens its panel, Delete removes it; a polite live region (aria-live="polite") announces « <agent> : étape N sur M ».
+//   A help text under the graph names « Alt », « Entrée » and « Suppr ». A loop made by a link is created at once with the condition « l'étape <cible> valide le travail » (the same default fills an empty condition in the panel).
+//   Jsdom cannot drag a link between two handles: the loop is driven through the select « Boucle » of the step panel.
+//   In the right column, every repo agent not in the team has a button « Ajouter <agent> à l'équipe » (visible text « Ajouter à l'équipe »), which appends it last.
+// - The step panel (opened by a click on the card): a select « Agent » (repo agents not in the team, plus its own, option values = names), a text field « Ce qu'il fait », a select « Boucle » (value "" labelled « Aucune », then
 //   the names of the earlier steps and of itself), a text field « Condition », and buttons « Retirer l'étape » (removes at once, with the warning for test-writer and reviewer) and « Modifier l'agent ».
-// - « Ajouter une étape » reveals a select « Agent à ajouter » (repo agents not in the team) and a button « Ajouter à l'équipe » that appends the step last.
 // - « Voir les changements » shows the DiffList of team.md; « Faire le commit » is always rendered in the section and is enabled only with a difference, a step, and a condition on every loop; it posts to /api/projects/:id/team/apply.
 //   The tests click « Voir les changements » (when it is enabled) before they look at « Faire le commit ».
 // - After the commit: « C'est fait » with the commit link, and the agents (with team) are read again. Refusals are shown as in the agent editor.
@@ -185,29 +188,33 @@ function renderAt(path: string) {
 const openTeam = async () => {
   renderAt("/projets/5/agents");
   await screen.findByRole("heading", { name: "Équipe" });
+  // The right column lists the repo agents once the read is back.
+  await screen.findByRole("button", { name: "Ouvrir developer" });
   // The graph is loaded lazily (031 limits): wait until it has replaced its fallback.
   await waitFor(() =>
     expect(screen.queryByText("Chargement du graphe…")).toBeNull(),
   );
 };
 const card = (agent: string) => screen.getByTestId(`team-card-${agent}`);
-const row = (agent: string) => {
-  const found = screen
-    .getAllByRole("listitem")
-    .filter(
-      (li) =>
-        new RegExp(`^\\s*\\d+\\s*${agent}(?![\\w-])`).test(
-          li.textContent ?? "",
-        ) && within(li).queryByRole("button", { name: "Monter" }) !== null,
-    );
-  expect(found.length, `a step row for ${agent}`).toBe(1);
-  return found[0] as HTMLElement;
-};
-const rowAgents = () =>
+const cardAgents = () =>
   screen
-    .getAllByRole("listitem")
-    .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
-    .map((li) => /^\s*\d+\s*([a-z0-9-]+)/.exec(li.textContent ?? "")?.[1]);
+    .getAllByTestId(/^team-card-/)
+    .map((el) => el.getAttribute("data-testid")?.slice("team-card-".length));
+const press = (agent: string, key: string, altKey = false) => {
+  const target = card(agent);
+  target.focus();
+  fireEvent.keyDown(target, { key, altKey });
+};
+const later = (agent: string) => press(agent, "ArrowRight", true);
+const earlier = (agent: string) => press(agent, "ArrowLeft", true);
+const announcement = () =>
+  Array.from(document.querySelectorAll('[aria-live="polite"]'))
+    .map((el) => el.textContent ?? "")
+    .join(" | ");
+const addToTeam = (agent: string) =>
+  fireEvent.click(
+    screen.getByRole("button", { name: `Ajouter ${agent} à l'équipe` }),
+  );
 const click = (name: string, scope: HTMLElement | typeof screen = screen) =>
   fireEvent.click(
     (scope === screen ? screen : within(scope as HTMLElement)).getByRole(
@@ -215,7 +222,7 @@ const click = (name: string, scope: HTMLElement | typeof screen = screen) =>
       { name },
     ),
   );
-const edit = (agent: string) => click("Modifier", row(agent));
+const edit = (agent: string) => fireEvent.click(card(agent));
 const control = (label: string) =>
   screen.getByLabelText(label) as HTMLInputElement;
 const commitButton = () =>
@@ -242,7 +249,7 @@ const posted = (calls: ReturnType<typeof stubApi>) => {
 };
 
 describe("decision 031 B, F: the section Équipe", () => {
-  it("given a valid team.md with three steps, when the tab opens, then a card per step shows the agent, its model and what it does, and the list shows number, agent, does and the loop with its condition", async () => {
+  it("given a valid team.md with three steps, when the tab opens, then a card per step shows the agent, its model and what it does, and there is no list of steps with « Monter » / « Descendre »", async () => {
     stubApi();
 
     await openTeam();
@@ -253,17 +260,25 @@ describe("decision 031 B, F: the section Équipe", () => {
     expect(card("developer").textContent).toContain("sonnet");
     expect(card("reviewer").textContent).toContain(SESSION_MODEL);
     expect(card("reviewer").textContent).toContain("reviews the diff");
-    expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
-    expect(row("test-writer").textContent).toMatch(/^\s*1/);
-    expect(row("developer").textContent).toMatch(/^\s*2/);
-    expect(row("reviewer").textContent).toMatch(/^\s*3/);
-    expect(row("developer").textContent).toContain("implements");
-    expect(row("reviewer").textContent).toContain("developer");
-    expect(row("reviewer").textContent).toContain("the verdict is ready");
+    expect(cardAgents()).toEqual(["test-writer", "developer", "reviewer"]);
     for (const name of ["Monter", "Descendre", "Modifier"])
+      expect(screen.queryAllByRole("button", { name })).toEqual([]);
+  });
+
+  it("given a team of three steps, when the tab opens, then the graph is not hidden at any width (no hidden class on the card or its ancestors)", async () => {
+    stubApi();
+
+    await openTeam();
+
+    for (
+      let el: HTMLElement | null = card("developer");
+      el;
+      el = el.parentElement
+    )
       expect(
-        within(row("developer")).getByRole("button", { name }),
-      ).toBeDefined();
+        el.classList.contains("hidden"),
+        `${el.tagName}.${el.className}`,
+      ).toBe(false);
   });
 
   it("given team null, when the tab opens, then the three default steps are shown and a step whose agent is not in the repo is marked « Agent absent du repo »", async () => {
@@ -274,8 +289,7 @@ describe("decision 031 B, F: the section Équipe", () => {
 
     await openTeam();
 
-    expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
-    expect(row("reviewer").textContent).toContain("the verdict is ready");
+    expect(cardAgents()).toEqual(["test-writer", "developer", "reviewer"]);
     expect(card("test-writer").textContent).toContain(ABSENT);
     expect(card("developer").textContent).not.toContain(ABSENT);
     expect(card("reviewer").textContent).not.toContain(ABSENT);
@@ -283,7 +297,7 @@ describe("decision 031 B, F: the section Équipe", () => {
 });
 
 describe("decision 031 D: the step panel", () => {
-  it("given « Modifier » on a step, when the panel opens, then it shows the agent select limited to free repo agents plus its own, what it does, the loop choices and the condition", async () => {
+  it("given a click on a card, when the panel opens, then it shows the agent select limited to free repo agents plus its own, what it does, the loop choices and the condition", async () => {
     stubApi();
     await openTeam();
 
@@ -391,7 +405,7 @@ describe("decision 031 D: the step panel", () => {
       click("Retirer l'étape");
 
       expect(screen.getByText(TDD_WARNING)).toBeDefined();
-      expect(rowAgents()).not.toContain(agent);
+      expect(cardAgents()).not.toContain(agent);
       review();
       expect(commitButton().disabled).toBe(false);
     },
@@ -415,24 +429,41 @@ describe("decision 031 D: the step panel", () => {
   });
 });
 
-describe("decision 031 E: adding a step", () => {
-  it("given « Ajouter une étape », when it is opened, then only the repo agents not in the team are offered and the added step is last", async () => {
+describe("decision 042 C: adding an agent from the right column", () => {
+  it("given repo agents not in the team, when the tab opens, then only they have « Ajouter <agent> à l'équipe », and « Ajouter une étape » is gone", async () => {
+    stubApi();
+
+    await openTeam();
+
+    expect(
+      screen.getByRole("button", { name: "Ajouter doc-writer à l'équipe" }),
+    ).toBeDefined();
+    for (const agent of ["test-writer", "developer", "reviewer"])
+      expect(
+        screen.queryByRole("button", { name: `Ajouter ${agent} à l'équipe` }),
+      ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Ajouter une étape" }),
+    ).toBeNull();
+  });
+
+  it("given « Ajouter doc-writer à l'équipe », when it is clicked, then the step is last, its button is gone and the posted after ends with it", async () => {
     const calls = stubApi();
     await openTeam();
 
-    click("Ajouter une étape");
+    addToTeam("doc-writer");
 
-    const options = within(control("Agent à ajouter")).getAllByRole("option");
-    expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual([
-      "doc-writer",
-    ]);
-    click("Ajouter à l'équipe");
-    expect(rowAgents()).toEqual([
-      "test-writer",
-      "developer",
-      "reviewer",
-      "doc-writer",
-    ]);
+    await waitFor(() =>
+      expect(cardAgents()).toEqual([
+        "test-writer",
+        "developer",
+        "reviewer",
+        "doc-writer",
+      ]),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Ajouter doc-writer à l'équipe" }),
+    ).toBeNull();
     review();
     fireEvent.click(commitButton());
     await screen.findByText(/C'est fait/);
@@ -445,25 +476,118 @@ describe("decision 031 E: adding a step", () => {
   });
 });
 
-describe("decision 031 F: the list moves steps", () => {
-  it("given « Monter » on the developer, when it is clicked, then it is first, and the reviewer's loop (to developer) still points back", async () => {
+describe("decision 042 A: the keyboard on the cards", () => {
+  it("given a card, when it is looked at, then it is focusable", async () => {
     stubApi();
     await openTeam();
 
-    click("Monter", row("developer"));
-
-    expect(rowAgents()).toEqual(["developer", "test-writer", "reviewer"]);
-    expect(row("reviewer").textContent).toContain("the verdict is ready");
+    for (const agent of ["test-writer", "developer", "reviewer"]) {
+      expect(card(agent).tabIndex).toBeGreaterThanOrEqual(0);
+      card(agent).focus();
+      expect(document.activeElement).toBe(card(agent));
+    }
   });
 
-  it("given « Descendre » on the developer, when it is clicked, then the reviewer's loop to it no longer points back and is removed", async () => {
+  it("given the developer focused, when Alt+ArrowRight is pressed, then it is last, the live region says « developer : étape 3 sur 3 » and the reviewer's loop to it no longer points back and is removed", async () => {
     const calls = stubApi();
     await openTeam();
 
-    click("Descendre", row("developer"));
+    later("developer");
 
-    expect(rowAgents()).toEqual(["test-writer", "reviewer", "developer"]);
-    expect(row("reviewer").textContent).not.toContain("the verdict is ready");
+    await waitFor(() =>
+      expect(cardAgents()).toEqual(["test-writer", "reviewer", "developer"]),
+    );
+    expect(announcement()).toContain("developer : étape 3 sur 3");
+    review();
+    fireEvent.click(commitButton());
+    await screen.findByText(/C'est fait/);
+    expect(posted(calls).after?.steps.map((s) => s.agent)).toEqual([
+      "test-writer",
+      "reviewer",
+      "developer",
+    ]);
+    expect(posted(calls).after?.steps[1]).toMatchObject({
+      agent: "reviewer",
+      loopTo: null,
+    });
+  });
+
+  it("given the developer focused, when Alt+ArrowLeft is pressed, then it is first with « developer : étape 1 sur 3 », and the reviewer's loop (to developer) still points back", async () => {
+    const calls = stubApi();
+    await openTeam();
+
+    earlier("developer");
+
+    await waitFor(() =>
+      expect(cardAgents()).toEqual(["developer", "test-writer", "reviewer"]),
+    );
+    expect(announcement()).toContain("developer : étape 1 sur 3");
+    review();
+    fireEvent.click(commitButton());
+    await screen.findByText(/C'est fait/);
+    expect(posted(calls).after?.steps.map((s) => s.agent)).toEqual([
+      "developer",
+      "test-writer",
+      "reviewer",
+    ]);
+    expect(posted(calls).after?.steps[2]).toMatchObject({
+      loopTo: "developer",
+      until: "the verdict is ready",
+    });
+  });
+
+  it("given the first card with Alt+ArrowLeft and the last with Alt+ArrowRight, when they are pressed, then nothing moves and nothing is announced or committable", async () => {
+    stubApi();
+    await openTeam();
+
+    earlier("test-writer");
+    later("reviewer");
+
+    expect(cardAgents()).toEqual(["test-writer", "developer", "reviewer"]);
+    expect(announcement()).not.toMatch(/étape \d+ sur/);
+    review();
+    expect(commitButton().disabled).toBe(true);
+  });
+
+  it("given a card focused, when ArrowRight is pressed without Alt, then nothing moves", async () => {
+    stubApi();
+    await openTeam();
+
+    press("developer", "ArrowRight");
+
+    expect(cardAgents()).toEqual(["test-writer", "developer", "reviewer"]);
+  });
+
+  it("given a card focused, when Enter is pressed, then the step panel opens like a click", async () => {
+    stubApi();
+    await openTeam();
+
+    press("developer", "Enter");
+
+    expect(control("Ce qu'il fait").value).toBe("implements");
+  });
+
+  it.each(["test-writer", "reviewer"])(
+    "given the %s card focused, when Delete is pressed, then the step goes and the TDD warning is shown",
+    async (agent) => {
+      stubApi();
+      await openTeam();
+
+      press(agent, "Delete");
+
+      expect(cardAgents()).not.toContain(agent);
+      expect(screen.getByText(TDD_WARNING)).toBeDefined();
+    },
+  );
+
+  it("given the developer card focused, when Delete is pressed, then the step goes, the reviewer has no loop and there is no TDD warning", async () => {
+    const calls = stubApi();
+    await openTeam();
+
+    press("developer", "Delete");
+
+    expect(cardAgents()).toEqual(["test-writer", "reviewer"]);
+    expect(screen.queryByText(TDD_WARNING)).toBeNull();
     review();
     fireEvent.click(commitButton());
     await screen.findByText(/C'est fait/);
@@ -472,6 +596,45 @@ describe("decision 031 F: the list moves steps", () => {
       loopTo: null,
     });
   });
+
+  it("given the graph, when the page is read, then a help text under it names the keys Alt, Entrée and Suppr", async () => {
+    stubApi();
+    await openTeam();
+
+    const help = screen.getByText(
+      (text) => /Alt/.test(text) && /Entrée/.test(text) && /Suppr/.test(text),
+    );
+    expect(
+      card("developer").compareDocumentPosition(help) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
+
+describe("decision 042 B: a loop gets its condition at once", () => {
+  it.each(["test-writer", "developer"])(
+    "given a loop to %s chosen in the panel of the developer with an empty condition, when it is chosen, then the condition is « l'étape <target> valide le travail » and it is posted with loop_to and until",
+    async (target) => {
+      const calls = stubApi();
+      await openTeam();
+      edit("developer");
+
+      fireEvent.change(control("Boucle"), { target: { value: target } });
+
+      const until = `l'étape ${target} valide le travail`;
+      expect(control("Condition").value).toBe(until);
+      expect(screen.queryByLabelText("Condition de la boucle")).toBeNull();
+      review();
+      fireEvent.click(commitButton());
+      await screen.findByText(/C'est fait/);
+      expect(posted(calls).after?.steps[1]).toEqual({
+        agent: "developer",
+        does: "implements",
+        loopTo: target,
+        until,
+      });
+    },
+  );
 });
 
 describe("decision 031 H: the commit", () => {
@@ -539,7 +702,7 @@ describe("decision 031 H: the commit", () => {
       ],
     });
     await openTeam();
-    click("Descendre", row("test-writer"));
+    later("test-writer");
     review();
 
     fireEvent.click(commitButton());
@@ -557,7 +720,7 @@ describe("decision 031 H: the commit", () => {
       applies: [{ status: 409, body: { error: "repo_changed" } }],
     });
     await openTeam();
-    click("Descendre", row("test-writer"));
+    later("test-writer");
     review();
 
     fireEvent.click(commitButton());
@@ -579,7 +742,7 @@ describe("decision 031 H: the commit", () => {
       ],
     });
     await openTeam();
-    click("Descendre", row("test-writer"));
+    later("test-writer");
     review();
 
     fireEvent.click(commitButton());
@@ -594,17 +757,17 @@ describe("decision 031 H: the commit", () => {
     ).toBe(true);
   });
 
-  it("given an archived project, when the tab opens, then « Faire le commit » and « Ajouter une étape » are disabled", async () => {
+  it("given an archived project, when the tab opens, then « Faire le commit » and « Ajouter doc-writer à l'équipe » are disabled", async () => {
     const calls = stubApi({ archived: true });
     await openTeam();
-    click("Descendre", row("test-writer"));
+    later("test-writer");
     review();
 
     expect(commitButton().disabled).toBe(true);
     expect(
       (
         screen.getByRole("button", {
-          name: "Ajouter une étape",
+          name: "Ajouter doc-writer à l'équipe",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
@@ -614,7 +777,7 @@ describe("decision 031 H: the commit", () => {
 });
 
 describe("decision 031 G: a team.md Cockpit cannot rewrite", () => {
-  it("given a comment line in the front matter, when the tab opens, then the sentence is shown and no card, no editable list, no commit", async () => {
+  it("given a comment line in the front matter, when the tab opens, then the sentence is shown and no card, no commit", async () => {
     stubApi({
       team: "---\n# why\nsteps:\n  - agent: developer\n---\n",
     });
@@ -631,13 +794,13 @@ describe("decision 031 G: a team.md Cockpit cannot rewrite", () => {
 });
 
 describe("decision 029 demo: adding doc-writer after developer", () => {
-  it("given the agents test-writer, developer, reviewer, doc-writer and no team.md, when I add doc-writer, move it up once and commit, then the posted after lists test-writer, developer, doc-writer, reviewer with reviewer looping to developer", async () => {
+  it("given the agents test-writer, developer, reviewer, doc-writer and no team.md, when I add doc-writer, move it one place earlier and commit, then the posted after lists test-writer, developer, doc-writer, reviewer with reviewer looping to developer", async () => {
     const calls = stubApi({ team: null });
     await openTeam();
 
-    click("Ajouter une étape");
-    click("Ajouter à l'équipe");
-    click("Monter", row("doc-writer"));
+    addToTeam("doc-writer");
+    await screen.findByTestId("team-card-doc-writer");
+    earlier("doc-writer");
     review();
     fireEvent.click(commitButton());
 

@@ -15,6 +15,7 @@ import { type Failure, failure, message } from "./ProjectPrepare.tsx";
 import {
   addStep,
   DEFAULT_STEPS,
+  defaultUntil,
   linkSteps,
   moveStep,
   readTeam,
@@ -31,7 +32,7 @@ import {
   primaryButton,
 } from "./ui.ts";
 
-// React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
+// React Flow stays out of the main bundle, as react-markdown does (App.tsx); the panel works while it loads.
 const StepGraph = lazy(() => import("./ProjectTeamGraph.tsx"));
 
 const TDD_AGENTS = ["test-writer", "reviewer"];
@@ -101,7 +102,11 @@ function StepPanel({
           onChange({
             ...step,
             loopTo: e.target.value || null,
-            until: e.target.value ? step.until : "",
+            until: e.target.value
+              ? step.until.trim() === ""
+                ? defaultUntil(e.target.value)
+                : step.until
+              : "",
           })
         }
       >
@@ -144,74 +149,58 @@ function StepPanel({
   );
 }
 
-/** The graph, the list of steps, the panel of one step and « Ajouter une étape » on a draft owned by the caller (the team shown, or the new one in its dialog). */
+/** The graph and the panel of one step on a draft owned by the caller (the team shown, or the new one in its dialog). With `withAdd`, a select and « Ajouter à l'équipe » too: the dialog has no right column behind it. */
 function StepEditor({
   steps,
   onSteps,
   agents,
   archived,
+  withAdd,
   onEditAgent,
 }: {
   steps: TeamStep[];
   onSteps: (next: TeamStep[]) => void;
   agents: Agent[];
   archived: boolean;
+  withAdd?: boolean;
   /** Absent in the dialog: the agent form would open behind it. */
   onEditAgent?: (name: string) => void;
 }) {
   const uid = useId();
   const [open, setOpen] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState("");
-  const [pending, setPending] = useState<{ from: string; to: string } | null>(
-    null,
-  );
-  const [until, setUntil] = useState("");
   const [selectedLoop, setSelectedLoop] = useState<string | null>(null);
   const [warn, setWarn] = useState(false);
-  const [moved, setMoved] = useState<{ agent: string; dir: "up" | "down" }>();
-  // A moved row's DOM node is reinserted, which drops the focus: put it back on the button that was used (or its sibling at the end of the list).
-  useEffect(() => {
-    if (!moved) return;
-    const at = (dir: string) =>
-      document.getElementById(
-        `${uid}-move-${dir}-${moved.agent}`,
-      ) as HTMLButtonElement | null;
-    const other = moved.dir === "up" ? "down" : "up";
-    const target = at(moved.dir)?.disabled ? at(other) : at(moved.dir);
-    target?.focus();
-  }, [moved, uid]);
+  const [announced, setAnnounced] = useState("");
 
-  // Any change other than the pending link itself drops the link prompt: it was about the old order.
-  const setSteps = (next: TeamStep[]) => {
-    setPending(null);
-    onSteps(next);
-  };
   const free = agents
     .map((a) => a.name)
     .filter((name) => !steps.some((s) => s.agent === name));
+  const toAdd = free.includes(picked) ? picked : (free[0] ?? "");
   const openStep = steps.find((s) => s.agent === open);
-  const link = (from: string, to: string) => {
-    const toIndex = steps.findIndex((s) => s.agent === to);
-    if (toIndex <= steps.findIndex((s) => s.agent === from)) {
-      setUntil("");
-      setPending({ from, to });
-    } else setSteps(linkSteps(steps, from, to));
-  };
   // A selection is only kept while its loop exists.
   const loopShown = steps.some((s) => s.agent === selectedLoop && s.loopTo)
     ? selectedLoop
     : null;
-  const select = (agent: string) => {
-    setAdding(false);
-    setOpen(agent);
+  const remove = (agent: string) => {
+    setWarn(TDD_AGENTS.includes(agent));
+    onSteps(removeStep(steps, agent));
+    if (open === agent) setOpen(null);
+  };
+  const move = (agent: string, direction: "up" | "down") => {
+    const next = moveStep(steps, agent, direction);
+    if (next === steps) return; // an end of the team
+    onSteps(next);
+    setAnnounced(
+      `${agent} : étape ${next.findIndex((s) => s.agent === agent) + 1} sur ${next.length}`,
+    );
   };
 
   return (
     <>
       <Suspense
         fallback={
-          <p role="status" className="hidden text-muted-foreground sm:block">
+          <p role="status" className="text-muted-foreground">
             Chargement du graphe…
           </p>
         }
@@ -221,16 +210,32 @@ function StepEditor({
           steps={steps}
           agents={agents}
           selectedLoop={loopShown}
-          onOpen={select}
-          onLink={link}
+          onOpen={setOpen}
+          // A loop drawn is made at once, with the default condition (decision 042 B).
+          onLink={(from, to) =>
+            onSteps(linkSteps(steps, from, to, defaultUntil(to)))
+          }
           onSelectLoop={setSelectedLoop}
+          onMove={move}
+          onRemove={remove}
+          onDropAgent={(agent) => {
+            if (!archived && agents.some((a) => a.name === agent))
+              onSteps(addStep(steps, agent));
+          }}
         />
       </Suspense>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Au clavier, sur une carte : Alt+← / Alt+→ déplace, Entrée ouvre, Suppr
+        retire.
+      </p>
+      <p aria-live="polite" className="sr-only">
+        {announced}
+      </p>
       {loopShown !== null && (
         <button
           type="button"
           onClick={() => {
-            setSteps(
+            onSteps(
               steps.map((s) =>
                 s.agent === loopShown ? { ...s, loopTo: null, until: "" } : s,
               ),
@@ -242,89 +247,6 @@ function StepEditor({
           Retirer la boucle
         </button>
       )}
-      {pending && (
-        <div className={`${card} mt-3 p-4`}>
-          <label htmlFor={`${uid}-link-until`} className="block">
-            Condition de la boucle
-          </label>
-          <input
-            id={`${uid}-link-until`}
-            className={field}
-            value={until}
-            // The prompt just appeared after a link: the keyboard goes straight to its field.
-            // biome-ignore lint/a11y/noAutofocus: focus moves with the prompt the user just asked for
-            autoFocus
-            onChange={(e) => setUntil(e.target.value)}
-          />
-          <button
-            type="button"
-            disabled={until.trim() === ""}
-            onClick={() => {
-              setSteps(linkSteps(steps, pending.from, pending.to, until));
-            }}
-            className={`mt-3 ${button}`}
-          >
-            Ajouter la boucle
-          </button>
-          <button
-            type="button"
-            onClick={() => setPending(null)}
-            className={`mt-3 ml-2 ${button}`}
-          >
-            Annuler
-          </button>
-        </div>
-      )}
-      <ul className="mt-3 grid gap-2">
-        {steps.map((s, i) => (
-          <li
-            key={s.agent}
-            className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}
-          >
-            <span className="font-semibold">{i + 1}</span>{" "}
-            <span className="font-mono font-semibold">{s.agent}</span>{" "}
-            <span>{s.does}</span>
-            {s.loopTo !== null && (
-              <span className="text-muted-foreground">
-                Boucle vers {s.loopTo} : {s.until}
-              </span>
-            )}
-            <span className="flex gap-2 sm:ml-auto">
-              <button
-                type="button"
-                id={`${uid}-move-up-${s.agent}`}
-                disabled={i === 0}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "up"));
-                  setMoved({ agent: s.agent, dir: "up" });
-                }}
-                className={button}
-              >
-                Monter
-              </button>
-              <button
-                type="button"
-                id={`${uid}-move-down-${s.agent}`}
-                disabled={i === steps.length - 1}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "down"));
-                  setMoved({ agent: s.agent, dir: "down" });
-                }}
-                className={button}
-              >
-                Descendre
-              </button>
-              <button
-                type="button"
-                onClick={() => select(s.agent)}
-                className={button}
-              >
-                Modifier
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
       <p role="status" className="mt-3 empty:hidden">
         {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
       </p>
@@ -339,7 +261,7 @@ function StepEditor({
             // A renamed agent keeps the loops that pointed to it, its own included.
             const rename = (name: string | null) =>
               name === openStep.agent ? next.agent : name;
-            setSteps(
+            onSteps(
               steps.map((s) =>
                 s === openStep
                   ? { ...next, loopTo: rename(next.loopTo) }
@@ -348,11 +270,7 @@ function StepEditor({
             );
             setOpen(next.agent);
           }}
-          onRemove={() => {
-            setWarn(TDD_AGENTS.includes(openStep.agent));
-            setSteps(removeStep(steps, openStep.agent));
-            setOpen(null);
-          }}
+          onRemove={() => remove(openStep.agent)}
           canEditAgent={
             typeof agents.find((a) => a.name === openStep.agent)?.text ===
             "string"
@@ -360,18 +278,7 @@ function StepEditor({
           onEditAgent={onEditAgent && (() => onEditAgent(openStep.agent))}
         />
       )}
-      <button
-        type="button"
-        disabled={archived}
-        onClick={() => {
-          setOpen(null);
-          setAdding(true);
-        }}
-        className={`mt-3 ${button}`}
-      >
-        Ajouter une étape
-      </button>
-      {adding && (
+      {withAdd && (
         <div className={`${card} mt-3 p-4`}>
           <label htmlFor={`${uid}-step-add`} className="block">
             Agent à ajouter
@@ -379,7 +286,7 @@ function StepEditor({
           <select
             id={`${uid}-step-add`}
             className={field}
-            value={free.includes(picked) ? picked : (free[0] ?? "")}
+            value={toAdd}
             onChange={(e) => setPicked(e.target.value)}
           >
             {free.map((name) => (
@@ -390,16 +297,8 @@ function StepEditor({
           </select>
           <button
             type="button"
-            disabled={free.length === 0}
-            onClick={() => {
-              setSteps(
-                addStep(
-                  steps,
-                  free.includes(picked) ? picked : (free[0] ?? ""),
-                ),
-              );
-              setAdding(false);
-            }}
+            disabled={archived || free.length === 0}
+            onClick={() => onSteps(addStep(steps, toAdd))}
             className={`mt-3 ${button}`}
           >
             Ajouter à l'équipe
@@ -493,6 +392,7 @@ function NewTeamDialog({
           onSteps={(next) => setDraft({ ...draft, steps: next })}
           agents={agents}
           archived={archived}
+          withAdd
         />
       )}
       {problem && <Problem problem={problem} />}
@@ -520,7 +420,7 @@ function NewTeamDialog({
   );
 }
 
-/** Decisions 031 and 032: a team (`.claude/team.md` or `.claude/teams/<name>.md`) as a graph and a list sharing one draft, saved by a commit shown before as a diff. */
+/** Decisions 031 and 032: a team (`.claude/team.md` or `.claude/teams/<name>.md`) as a graph on one draft, saved by a commit shown before as a diff. */
 export function ProjectTeam({
   projectId,
   fullName,
@@ -531,6 +431,7 @@ export function ProjectTeam({
   teams,
   onSaved,
   onEditAgent,
+  onTeamSteps,
 }: {
   projectId: string;
   fullName: string;
@@ -542,6 +443,10 @@ export function ProjectTeam({
   teams: { name: string; text: string }[];
   onSaved: () => void;
   onEditAgent: (name: string) => void;
+  /** Tells the right column which agents the team shown has, and how to add one last (decision 042 C); null while the team cannot be edited. */
+  onTeamSteps: (
+    team: { agents: string[]; add: (agent: string) => void } | null,
+  ) => void;
 }) {
   // The team shown: null is the default one. A named team that is not in `teams` yet is a new one, started from `copy`.
   const [name, setName] = useState<string | null>(null);
@@ -573,6 +478,21 @@ export function ProjectTeam({
     setDraft(initial);
     setShowDiff(false);
   }
+
+  const shownSteps = draft?.steps;
+  useEffect(
+    () =>
+      onTeamSteps(
+        shownSteps
+          ? {
+              agents: shownSteps.map((s) => s.agent),
+              add: (agent) =>
+                setDraft((d) => d && { ...d, steps: addStep(d.steps, agent) }),
+            }
+          : null,
+      ),
+    [shownSteps, onTeamSteps],
+  );
 
   const commit = useMutation({
     mutationFn: async (sent: {
