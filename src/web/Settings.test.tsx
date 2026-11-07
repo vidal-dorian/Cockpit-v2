@@ -180,15 +180,15 @@ describe("navigation to Réglages", () => {
 });
 
 describe("Réglages page, for a user who is not an administrator", () => {
-  it("given a user who is not an administrator, when /reglages/jetons loads, then it has the heading Réglages and the section Jetons MCP but no section Utilisateurs", async () => {
+  it("given a user who is not an administrator, when /reglages loads, then it has the heading Réglages and the section Jetons MCP but no section Utilisateurs", async () => {
     const calls = stubApi({ isAdmin: false, users: [admin, user(2, "alice")] });
 
-    renderAt("/reglages/jetons");
+    renderAt("/reglages");
 
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: /^Les jetons/,
+        name: /^Connecte Claude/,
       }),
     ).toBeDefined();
     expect(
@@ -216,10 +216,10 @@ describe("Réglages page, for a user who is not an administrator", () => {
     expect(screen.queryByText(/^Voici ceux/)).toBeNull();
   });
 
-  it("given an administrator, when /reglages/jetons loads, then the section Jetons MCP is there and the users are not asked (decision 028 H)", async () => {
+  it("given an administrator, when /reglages loads, then the section Jetons MCP is there and the users are not asked (decision 028 H)", async () => {
     const calls = stubApi({ isAdmin: true, users: [admin] });
 
-    renderAt("/reglages/jetons");
+    renderAt("/reglages");
 
     expect(
       await screen.findByRole("heading", { name: "Jetons MCP" }),

@@ -4,7 +4,7 @@ import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
 import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
-import { day, fetchTokens, Tokens } from "./SettingsTokens.tsx";
+import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -150,17 +150,13 @@ function UserList() {
   );
 }
 
-type SettingsTab = "claude" | "jetons" | "utilisateurs" | "ecriture-us";
+type SettingsTab = "claude" | "utilisateurs" | "ecriture-us";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
 const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
   claude: {
     title: "Connecte Claude à Cockpit.",
     rest: "Une seule fois, sur claude.ai ; ça marche ensuite partout.",
-  },
-  jetons: {
-    title: "Les jetons MCP lient un client à ton compte.",
-    rest: "Pour un client sans connexion OAuth.",
   },
   "ecriture-us": {
     title: "Une tâche de Claude écrit tes US.",
@@ -180,11 +176,6 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
     queryFn: fetchConnect,
     enabled: on("claude"),
   });
-  const tokens = useQuery({
-    queryKey: ["tokens"],
-    queryFn: fetchTokens,
-    enabled: on("jetons"),
-  });
   const routine = useQuery({
     queryKey: ["routine"],
     queryFn: fetchRoutine,
@@ -201,13 +192,6 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
     return {
       title: "Claude est connecté à Cockpit.",
       rest: `Depuis ${connect.data.client}, le ${day(connect.data.connectedAt)}.`,
-    };
-  if (tab === "jetons" && tokens.data)
-    return {
-      title: tokens.data.length
-        ? `${tokens.data.length} jeton${tokens.data.length > 1 ? "s" : ""} MCP actif${tokens.data.length > 1 ? "s" : ""}.`
-        : "Aucun jeton MCP n'est actif.",
-      rest: SENTENCES.jetons.rest,
     };
   if (tab === "ecriture-us" && routine.data?.connected)
     return routine.data.needsReconnect
@@ -230,9 +214,6 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
 // The left menu of 045 I: only the entries whose slice is built.
 const menuItem = ({ isActive }: { isActive: boolean }) =>
   `flex h-8 items-center rounded-[9px] px-2.5 text-sm font-semibold ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
-const subMenuItem = ({ isActive }: { isActive: boolean }) =>
-  `${menuItem({ isActive })} pl-[22px] text-[13.5px] font-medium`;
-
 /** Réglages: a menu on the left, one entry per page (decisions 028 H and 045 I); Instance is the administrator's. */
 export function Settings({ tab }: { tab: SettingsTab }) {
   // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
@@ -262,9 +243,6 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           <NavLink to="/reglages" end className={menuItem}>
             Connecter Claude
           </NavLink>
-          <NavLink to="/reglages/jetons" className={subMenuItem}>
-            Jetons MCP
-          </NavLink>
           <NavLink to="/reglages/ecriture-us" className={menuItem}>
             Tâches cloud
           </NavLink>
@@ -275,11 +253,13 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           )}
         </nav>
         <div className="min-w-0">
-          {tab === "claude" && <ConnectClaude />}
-          {tab === "jetons" && (
-            <section aria-labelledby="jetons">
-              <Tokens />
-            </section>
+          {tab === "claude" && (
+            <div className="grid gap-[22px]">
+              <ConnectClaude />
+              <section aria-labelledby="jetons">
+                <Tokens />
+              </section>
+            </div>
           )}
           {tab === "utilisateurs" &&
             (me.data?.isAdmin ? (

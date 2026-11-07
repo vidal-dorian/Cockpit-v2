@@ -235,7 +235,7 @@ function Shell() {
             <Route path="/reglages" element={<Settings tab="claude" />} />
             <Route
               path="/reglages/jetons"
-              element={<Settings tab="jetons" />}
+              element={<Navigate to="/reglages" replace />}
             />
             <Route
               path="/reglages/utilisateurs"
