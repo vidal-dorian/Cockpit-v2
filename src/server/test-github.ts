@@ -814,6 +814,32 @@ export function stubGitHub(initial: {
             html_url: `https://github.com/${gitRoute[2]}/pull/${number}`,
           });
         }
+        // Slice R1 (decision 043 G): `GET .../compare/{sha}...{branch}`, how many commits the branch has that the sha has not; 404 when the sha is no commit of the repo (a force-push) or the branch does not exist.
+        const compare = /^\/compare\/([0-9a-f]{40})\.\.\.(.+)$/.exec(rest);
+        if (verb === "GET" && compare) {
+          const tip = git.branch(decodeURIComponent(compare[2] as string));
+          if (!git.commit(compare[1] as string) || tip === undefined)
+            return reply(404, { message: "Not Found" });
+          const reach = (from: string) => {
+            const seen = new Set<string>();
+            const todo = [from];
+            while (todo.length > 0) {
+              const next = todo.pop() as string;
+              if (seen.has(next)) continue;
+              seen.add(next);
+              todo.push(...(git.commit(next)?.parents ?? []));
+            }
+            return seen;
+          };
+          const known = reach(compare[1] as string);
+          const ahead = [...reach(tip)].filter((c) => !known.has(c)).length;
+          return reply(200, {
+            status: ahead > 0 ? "ahead" : "identical",
+            ahead_by: ahead,
+            behind_by: 0,
+            total_commits: ahead,
+          });
+        }
         throw unexpectedFetch(route);
       }
       const repoRoute =
