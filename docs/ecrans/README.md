@@ -10,7 +10,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 ## Comment s'en servir pour développer
 
-- **Un écran se développe avec sa tranche** : la colonne « Tranche » renvoie à [`decoupage.md`](../decoupage.md). La tranche 9.3 a posé la coque commune (jetons, polices, barre latérale, panneau de droite et barre d'idée) et refait dans ce style les écrans qui existaient ; les autres écrans suivent avec leur tranche.
+- **Un écran se développe avec sa tranche** : la colonne « Tranche » renvoie à [`decoupage.md`](../decoupage.md). La tranche 9.3 a posé la coque commune (jetons, polices, barre latérale, panneau de droite et barre d'idée) et refait dans ce style les écrans qui existaient (la tranche R1 y a ajouté l'onglet Conception) ; les autres écrans suivent avec leur tranche.
 - **L'écran montre le but, la décision dit les règles.** Quand les deux se contredisent, la décision l'emporte, et on le signale. Les données des écrans sont des exemples : les projets, les noms et les montants n'existent pas.
 - **« À trancher »** veut dire que l'écran montre une proposition, pas une décision. Il faut une décision avant de développer cette partie.
 - Les règles visuelles (une seule chose en rouge, un seul bouton blanc par zone, la phrase d'état en haut) sont dans la décision 045.
@@ -96,7 +96,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S41](S41_Reprise_Carte.png) | Onglet Conception : la carte du modèle, un objet et son code | R1 | 007 | |
+| [S41](S41_Reprise_Carte.png) | Onglet Conception : la carte du modèle, un objet et son code | R1 (existe) | 007, 043 | |
 | [S42](S42_Reprise_Regle.png) | Valider une règle à côté de son code | R2 | 007 | points ouverts de la 007 |
 | [S43](S43_Reprise_Graphe.png) | Le graphe d'une fonctionnalité | R3 | 007 | |
 | [S44](S44_Reprise_Constats.png) | Les constats : failles, versions, architecture | R5, R6 | 007 | |

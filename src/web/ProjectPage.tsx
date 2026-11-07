@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router";
 import { client } from "./api.ts";
+import { fetchCodeMap } from "./conception.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
+import { ProjectConception } from "./ProjectConception.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { ProjectRoutine } from "./ProjectRoutine.tsx";
@@ -59,11 +61,18 @@ const EXPLANATIONS: Record<string, string> = {
     "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
 };
 
-type ProjectTab = "kanban" | "tickets" | "sante" | "agents" | "reglages";
+type ProjectTab =
+  | "kanban"
+  | "tickets"
+  | "conception"
+  | "sante"
+  | "agents"
+  | "reglages";
 
 const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "kanban", to: "", label: "Kanban" },
   { tab: "tickets", to: "/tickets", label: "Tickets" },
+  { tab: "conception", to: "/conception", label: "Conception" },
   { tab: "sante", to: "/sante", label: "Santé" },
   { tab: "agents", to: "/agents", label: "Agents" },
   { tab: "reglages", to: "/reglages", label: "Réglages" },
@@ -76,12 +85,13 @@ const plural = (n: number, one: string, many: string) =>
 const TAB_REST: Record<ProjectTab, string> = {
   kanban: "",
   tickets: "Claude écrit les user stories de chaque ticket.",
+  conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
   agents: "Les agents et les équipes qui développent les user stories.",
   reglages: "L'écriture automatique des US de ce projet.",
 };
 
-/** The page of a project in five tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
+/** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { id = "" } = useParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
@@ -130,6 +140,11 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
     queryFn: () => fetchTickets(id),
     enabled: tab === "tickets",
   });
+  const codeMap = useQuery({
+    queryKey: ["code-map", id],
+    queryFn: () => fetchCodeMap(id),
+    enabled: tab === "conception",
+  });
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
   const sentence =
@@ -145,15 +160,24 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
               title: `${name} est prêt pour Claude.`,
               rest: "Tout le bilan est au vert.",
             }
-        : tab === "tickets" && tickets.data
+        : tab === "conception" && codeMap.data && codeMap.data.length > 0
           ? {
-              title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-              rest: TAB_REST[tab],
+              title: `Claude a lu ${name} : voici son modèle.`,
+              rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
+                "objet",
+                "objets",
+              )}, chacun avec le code qui le prouve.`,
             }
-          : {
-              title: tab === "reglages" ? `Réglages de ${name}.` : name,
-              rest: TAB_REST[tab],
-            };
+          : tab === "tickets" && tickets.data
+            ? {
+                title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                rest: TAB_REST[tab],
+              }
+            : {
+                title: tab === "reglages" ? `Réglages de ${name}.` : name,
+                rest: TAB_REST[tab],
+              };
 
   return (
     <main className="pb-6">
@@ -308,6 +332,13 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
       )}
       {!notFound && tab === "kanban" && <ProjectKanban projectId={id} />}
       {!notFound && tab === "tickets" && <ProjectTickets projectId={id} />}
+      {!notFound && tab === "conception" && project && (
+        <ProjectConception
+          projectId={id}
+          fullName={project.fullName}
+          archived={project.archived}
+        />
+      )}
       {!notFound && tab === "agents" && project && (
         <ProjectAgents
           projectId={id}

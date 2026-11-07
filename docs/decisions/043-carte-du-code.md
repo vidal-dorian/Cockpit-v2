@@ -1,6 +1,6 @@
 # 043 — La carte du code
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R1)
 - **Date** : 2026-11-06
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (la carte, la vérification des citations, l'écran « Conception »), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [031 — L'équipe en graphe](031-equipe-en-graphe.md) (React Flow), [034 — Développer avec Claude](034-developper-avec-claude.md) (le lancement)
@@ -24,7 +24,7 @@ Cette décision ne fixe que ce que la 007 laisse ouvert pour R1. Elle ne revient
 | F | Les liens entre sous-projets ? | **Aucun** en R1 : un lien relie deux objets du même module. Un type de l'API repris par le web est un objet de chacun |
 | G | La lecture ? | `GET /api/projects/:id/code-map` : les modules, chacun avec son commit, sa date et son `data`, et pour chaque commit distinct le **nombre de commits depuis** sur la branche par défaut (`compare`, un appel par commit distinct ; `null` si GitHub ne le retrouve plus, par exemple après un force-push). Réservé aux membres du projet |
 | H | Le code d'un objet ? | `GET /api/projects/:id/code?sha=&path=&start=&end=` : les lignes citées et trois lignes avant et après, **lues sur GitHub à l'affichage**, sans copie gardée (007). Réservé aux membres, et seulement pour un fichier et un commit qui figurent dans la carte du projet, pour que la route ne lise pas n'importe quoi dans le repo. R2 s'en servira pour l'écran de reprise. Pas de coloration du code (point ouvert 3 de la 007, en R2) |
-| I | L'écran ? | Un onglet **« Conception »** dans la page du projet (`/projets/:id/conception`), après « Agents ». En R1, la vue **« Modèle »** seule : un onglet par sous-projet (nom et type), avec ses runtimes (« node 20 · react 18.3 ») ; en tête, « Analysé au commit a1b2c3d · 12 commits depuis » et « Relancer l'analyse ». Le graphe : React Flow (déjà là pour la 031), une carte par objet (nom, nature, les huit premiers champs, puis « + 4 champs »), les liens nommés avec leur cardinalité, et la mise en page automatique de la 007, **`@dagrejs/dagre`**, la seule dépendance ajoutée. **Clic sur un objet** : un panneau avec tous ses champs, « Défini dans `src/db/schema.ts`, lignes 18 à 24 », le code (H) et « Voir sur GitHub » (lien permanent au commit) |
+| I | L'écran ? | Un onglet **« Conception »** dans la page du projet (`/projets/:id/conception`), entre « Tickets » et « Santé » (l'ordre de la 045 H ; l'« après Agents » d'origine est plus ancien que la 045). En R1, la vue **« Modèle »** seule : un onglet par sous-projet (nom et type), avec ses runtimes (« node 20 · react 18.3 ») ; en tête, « Analysé au commit a1b2c3d · 12 commits depuis » et « Relancer l'analyse ». Le graphe : React Flow (déjà là pour la 031), une carte par objet (nom, nature, les huit premiers champs, puis « + 4 champs »), les liens nommés avec leur cardinalité, et la mise en page automatique de la 007, **`@dagrejs/dagre`**, la seule dépendance ajoutée. **Clic sur un objet** : un panneau avec tous ses champs, « Défini dans `src/db/schema.ts`, lignes 18 à 24 », le code (H) et « Voir sur GitHub » (lien permanent au commit) |
 | J | Clavier, lecteurs d'écran, téléphone ? | Chaque sous-projet existe aussi **en liste** (objets, champs, liens), derrière une bascule « Graphe / Liste ». En dessous de `md`, la liste seule (007) |
 | K | Sans carte ? | « Pas encore de carte. Claude lit le repo et dessine le modèle de chaque sous-projet. » et le bouton principal **« Analyser avec Claude »** |
 | L | Le lancement ? | « Analyser avec Claude » (et « Relancer l'analyse ») ouvre une fenêtre comme celle de la 034 : le dossier du clone, **déjà retenu par le navigateur pour ce projet** (034), puis « Ouvrir Claude », qui ouvre Claude Desktop sur le clone avec `/analyser` prérempli, et « Copier le prompt » en secours. **Pas encore de cases** : la carte est la seule analyse de R1. Les cases de la 007 arrivent avec R2 et R5 |
@@ -45,3 +45,15 @@ Cette décision ne fixe que ce que la 007 laisse ouvert pour R1. Elle ne revient
 - **Une citation juste peut montrer le mauvais code** : Cockpit prouve que les lignes existent, pas qu'elles définissent l'objet. Le panneau (I) sert à le voir.
 - **« Commits depuis »** compte les commits de la branche par défaut, pas seulement ceux qui touchent un sous-projet.
 - **Un gros repo** demande plusieurs appels de `submit_code_map` (B), et beaucoup de crédits Claude (007).
+
+## Ce que le code a précisé (tranche R1)
+
+Là où la décision laissait le choix, le code a retenu :
+
+- **Le texte d'un refus** (B) : `modules[1].objects[3].citation: <ce qui ne va pas>`, l'endroit puis la raison, pour Claude seulement ; l'historique garde le code fixe du refus. Les refus sans GitHub (chemin en double, objet en double, lien vers un objet inconnu, plus de 100 fichiers) sont vérifiés avant tout appel à GitHub.
+- **Les 100 fichiers** (B) comptent les manifestes, les runtimes et les objets : un fichier cité plusieurs fois compte une fois.
+- **Le commit inconnu** (B) : l'arbre de la racine est lu **une seule fois par appel**, au commit déposé ; un 404 de GitHub est le refus « commit inconnu ».
+- **La lecture** (G) : `commitsSince` vaut `null` si GitHub ne retrouve pas le commit, **et aussi si la comparaison de ce commit échoue** (la carte s'affiche quand même) ; si l'App n'est pas configurée, la route répond 502 `github_unavailable`. Une ligne de `code_maps` dont `data` ne passe plus le schéma est **ignorée et journalisée** (`console.error`), les autres modules restent affichés.
+- **Le code d'un objet** (H) : la réponse est `{ firstLine, lines }`, `firstLine` étant la première ligne rendue (au plus trois avant la citation, jamais avant la 1). Le fichier ou le commit absent de la carte, un commit disparu de GitHub et un fichier introuvable répondent tous 404.
+- **« Ajouter /analyser au repo »** (M) réutilise `POST /api/projects/:id/prepare` puis `/prepare/apply` avec les deux fichiers du skill et de l'agent : pas de route nouvelle, et un fichier déjà présent reste hors du plan.
+- **La vérification** (C) passe par `fileReader` de `github.ts`, la lecture `inspect` de la 026 seule, sans le reste de l'écriture ; `inspect` encode maintenant chaque segment du chemin (un fichier dont le nom a un caractère spécial se lit).

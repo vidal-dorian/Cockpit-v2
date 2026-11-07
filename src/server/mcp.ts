@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { sha256 } from "./auth.ts";
+import { codeMapArgs, LocatedRefusal, submitCodeMap } from "./code-map.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
@@ -847,6 +848,16 @@ const tools = {
     (call, args) => getAnswer(call.db, call.userId, call.entry, args),
   ),
 
+  submit_code_map: tool(
+    "Submit the map of the code of a project: its modules (sub-projects), and for each its manifest, runtimes and business objects (tables, types, classes) with their fields and the links between them. Use it in /analyser, once you have read the repository at the commit of HEAD (commit_sha, 40 hexadecimal characters, which must be pushed). Every runtime and object cites the lines that prove it ({ path, start_line, end_line }, from 1); Cockpit checks each citation on GitHub at that commit. Per module: path (the folder from the root, '.' for the root), name, kind (web, api, mobile, library, other), manifest (the file path), runtimes (0 to 20: name, version, citation of the manifest line that sets the version), objects (1 to 200: name, kind table, type or class, fields 0 to 100 of { name, type }, citation) and links (0 to 500: from, to, kind contains, references or extends, optional cardinality 1, 0..1 or n). A link joins two objects of the same module, named as in objects. 1 to 10 modules per call, and at most 100 distinct files cited per call: send a large repository in several calls. The modules sent replace the stored map of the same path, all or nothing; the other stored modules stay. Refused with the faulty location (for example modules[1].objects[3].citation): fix it and send again.",
+    codeMapArgs,
+    async (call, args) => {
+      call.entry.args = { projectId: args.project_id };
+      const project = await ownProject(call, args.project_id);
+      return submitCodeMap(call.db, call.readGitHub, call.entry, project, args);
+    },
+  ),
+
   finish_run: tool(
     "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure. Steps still open are closed as failed; a story still in_progress becomes ready again (in_review when a pull request is linked); after a stop request, failed is recorded as stopped. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
     z.object({
@@ -905,6 +916,8 @@ function failure(error: unknown) {
     return `Refused: this story is ${error.status}, not to_rewrite. Only stories the user sent back (status to_rewrite) can be rewritten; check list_tickets_needing_us or get_user_story. Do not retry; tell the user if the story needs changes.`;
   if (error instanceof InvalidArguments)
     return `Refused: invalid arguments (${error.fields}). Fix them and call the tool again.`;
+  if (error instanceof LocatedRefusal)
+    return `Refused: ${error.text}. Fix it and call the tool again.`;
   if (error instanceof Refused) {
     const advice = ADVICE[error.message] ?? error.message;
     return `Refused: ${typeof advice === "function" ? advice(error instanceof WrittenCount ? error.written : 0) : advice}`;

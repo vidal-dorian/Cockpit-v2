@@ -197,6 +197,10 @@ function Shell() {
               element={<ProjectPage tab="tickets" />}
             />
             <Route
+              path="/projets/:id/conception"
+              element={<ProjectPage tab="conception" />}
+            />
+            <Route
               path="/projets/:id/sante"
               element={<ProjectPage tab="sante" />}
             />

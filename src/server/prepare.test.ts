@@ -68,6 +68,9 @@ const CATALOG: Record<string, string> = {
   ".claude/agents/reviewer.md": fromCatalog("agents/reviewer.md"),
   ".claude/skills/dev-us/SKILL.md": fromCatalog("skills/dev-us/SKILL.md"),
   ".claude/skills/write-us/SKILL.md": fromCatalog("skills/write-us/SKILL.md"),
+  // Slice R1 (decision 043 M).
+  ".claude/agents/cartographer.md": fromCatalog("agents/cartographer.md"),
+  ".claude/skills/analyser/SKILL.md": fromCatalog("skills/analyser/SKILL.md"),
 };
 const ALL = Object.keys(CATALOG).sort();
 const WITHOUT_CLAUDE_MD = ALL.filter((p) => p !== "CLAUDE.md");
@@ -156,7 +159,7 @@ const prepareRows = (ctx: Ctx) =>
   >;
 
 describe("decision 027 D: POST /api/projects/:id/prepare", () => {
-  it("given a repo with none of the files, when the plan is read, then 200 { plan } holds the six files of the catalogue, each create with the content of the catalogue, the base is the head of the default branch and the plan is signed", async () => {
+  it("given a repo with none of the files, when the plan is read, then 200 { plan } holds the eight files of the catalogue, each create with the content of the catalogue, the base is the head of the default branch and the plan is signed", async () => {
     const ctx = await ready();
 
     const res = await prepare(ctx);
@@ -185,7 +188,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare", () => {
       { "CLAUDE.md": CATALOG["CLAUDE.md"] as string },
     ],
   ])(
-    "given a repo with %s, when the plan is read, then CLAUDE.md is not in the plan at all (decision 013 C) and the five other files are create",
+    "given a repo with %s, when the plan is read, then CLAUDE.md is not in the plan at all (decision 013 C) and the seven other files are create",
     async (_name, files) => {
       const ctx = await ready({ files: { "README.md": "# app\n", ...files } });
 
@@ -217,6 +220,8 @@ describe("decision 027 D: POST /api/projects/:id/prepare", () => {
       ".claude/agents/reviewer.md": "exists",
       ".claude/skills/dev-us/SKILL.md": "create",
       ".claude/skills/write-us/SKILL.md": "same",
+      ".claude/agents/cartographer.md": "create",
+      ".claude/skills/analyser/SKILL.md": "create",
     });
     const developer = plan.files.find(
       (f) => f.path === ".claude/agents/developer.md",
@@ -316,7 +321,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare", () => {
 });
 
 describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
-  it("given the plan of /prepare applied unchanged, when it is applied, then 200 with the commit and the six paths, one commit with exactly the create files on the default branch, nothing else touched", async () => {
+  it("given the plan of /prepare applied unchanged, when it is applied, then 200 with the commit and the eight paths, one commit with exactly the create files on the default branch, nothing else touched", async () => {
     const ctx = await ready();
     const plan = await planOf(ctx);
     const before = ctx.git.head;
@@ -362,8 +367,10 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { commitSha: string; created: string[] };
     expect([...body.created].sort()).toEqual([
+      ".claude/agents/cartographer.md",
       ".claude/agents/reviewer.md",
       ".claude/agents/test-writer.md",
+      ".claude/skills/analyser/SKILL.md",
       ".claude/skills/dev-us/SKILL.md",
     ]);
     expect(ctx.git.filesAt(body.commitSha)).toEqual({
@@ -376,6 +383,10 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
       ".claude/agents/reviewer.md": CATALOG[".claude/agents/reviewer.md"],
       ".claude/skills/dev-us/SKILL.md":
         CATALOG[".claude/skills/dev-us/SKILL.md"],
+      ".claude/agents/cartographer.md":
+        CATALOG[".claude/agents/cartographer.md"],
+      ".claude/skills/analyser/SKILL.md":
+        CATALOG[".claude/skills/analyser/SKILL.md"],
     });
   });
 
@@ -798,7 +809,7 @@ describe("decision 027 E: the history of preparing a repo", () => {
       actor: "human",
       origin: "ui",
       action: "prepare_repo",
-      args: { created: 6 },
+      args: { created: 8 },
       result: "ok",
       detail: null,
       github_effects: { commitSha, pullRequest: null },
@@ -816,7 +827,7 @@ describe("decision 027 E: the history of preparing a repo", () => {
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({
       result: "ok",
-      args: { created: 6 },
+      args: { created: 8 },
       github_effects: { commitSha, pullRequest: 1 },
     });
   });

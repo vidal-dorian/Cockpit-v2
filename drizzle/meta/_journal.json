@@ -148,6 +148,13 @@
       "when": 1793891232452,
       "tag": "0020_breezy_enchantress",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794077265109,
+      "tag": "0021_keen_firestar",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
+import { codeMapRoutes } from "./code-map.ts";
 import type { Db } from "./db/db.ts";
 import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
@@ -84,6 +85,7 @@ export function createApp(
       .route("/", accountRoutes(db, readInstance))
       .route("/", webhookRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
+      .route("/", codeMapRoutes(db, readGitHub))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))

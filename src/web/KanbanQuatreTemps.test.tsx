@@ -156,7 +156,14 @@ describe("slice 9.3: the header and the tabs of a project", () => {
       within(nav)
         .getAllByRole("link")
         .map((l) => (l.textContent ?? "").split(" ·")[0]?.trim()),
-    ).toEqual(["Kanban", "Tickets", "Santé", "Agents", "Réglages"]);
+    ).toEqual([
+      "Kanban",
+      "Tickets",
+      "Conception",
+      "Santé",
+      "Agents",
+      "Réglages",
+    ]);
   });
 
   it("given a project, when its page loads, then the breadcrumb links to Projets and Ouvrir sur GitHub links to the repo", async () => {
