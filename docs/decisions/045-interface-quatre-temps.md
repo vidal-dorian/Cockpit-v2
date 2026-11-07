@@ -56,7 +56,7 @@ La 9.3 refait ce qui existe, avec les mêmes fonctions qu'avant. Ce dont la tran
 - **Chercher** (`Ctrl K`), la page **Claude** (tous les runs, la file), **Cette nuit** : pas dans la barre latérale.
 - **Les favoris** : la barre latérale liste à leur place les projets qui ne sont pas au repos (ceux de `GET /api/home`).
 - **La page Équipes d'agents** de la barre latérale.
-- **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages.
+- **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages. La tranche R1 a ajouté Conception (entre Tickets et Santé, [043](043-carte-du-code.md)) ; CI / CD et Historique attendent leur tranche.
 - **Les entrées de Réglages Préférences, Membres, Abonnement et Données** : il reste Connecter Claude (avec Jetons MCP), Tâches cloud et Instance (administrateur).
 - **L'écran « Cockpit hors ligne » (S56)** : seule la page « Cette page n'existe pas. » est faite ; la perte du serveur reste l'alerte « Serveur injoignable » avec « Réessayer ».
 - **Les barres d'étapes d'un run** et la carte **« Pourquoi Claude demande »**.

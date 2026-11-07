@@ -52,7 +52,7 @@
 - **Feuille de route** : les phases après le MVP, plus bas, sont ordonnées (décidé le 2026-11-06).
 - **Fait** : tranche 9.1 (ménage de la doc : `decoupage.md`, `architecture.md`, README et décisions relus contre le code).
 - **Fait** : tranche 9.4 (logo « la boucle », [décision 046](decisions/046-logo-la-boucle.md)).
-- **En cours** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
+- **Fait** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
