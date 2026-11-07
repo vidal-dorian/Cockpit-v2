@@ -54,6 +54,9 @@ export function AnalyseWindow({
     }
   });
   const [map, setMap] = useState(true);
+  const [bugs, setBugs] = useState(false);
+  const [security, setSecurity] = useState(false);
+  const [architecture, setArchitecture] = useState(false);
   const [rules, setRules] = useState(initialRules);
   const [features, setFeatures] = useState("");
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
@@ -109,12 +112,18 @@ export function AnalyseWindow({
     .trim()
     .replace(/^"(.*)"$/, "$1")
     .trim();
-  const cases = [map && "carte", rules && "regles"].filter(Boolean);
+  const cases = [
+    map && "carte",
+    bugs && "bugs",
+    security && "securite",
+    architecture && "architecture",
+    rules && "regles",
+  ].filter(Boolean);
   const prompt = `/analyser ${cases.join(" ")}${rules ? ` ${features.trim()}` : ""}`;
   // What is missing from the prompt, said next to the button (decision 045 K).
   const lacking =
     cases.length === 0
-      ? "Coche au moins une analyse : la carte ou les règles."
+      ? "Coche au moins une analyse : la carte, les constats ou les règles."
       : rules && !features.trim()
         ? "Indique les fonctionnalités à reprendre pour lancer Claude."
         : null;
@@ -206,6 +215,30 @@ export function AnalyseWindow({
             onChange={(e) => setRules(e.target.checked)}
           />
           Règles
+        </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={bugs}
+            onChange={(e) => setBugs(e.target.checked)}
+          />
+          Bugs
+        </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={security}
+            onChange={(e) => setSecurity(e.target.checked)}
+          />
+          Sécurité
+        </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={architecture}
+            onChange={(e) => setArchitecture(e.target.checked)}
+          />
+          Architecture et stack
         </label>
       </fieldset>
       {rules && (
