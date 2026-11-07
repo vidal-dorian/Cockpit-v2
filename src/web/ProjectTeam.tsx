@@ -29,9 +29,9 @@ import {
   dangerButton,
   field,
   focusRing,
+  ghostButton,
   listCard,
   primaryButton,
-  sectionLabel,
 } from "./ui.ts";
 
 // React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
@@ -685,9 +685,12 @@ export function ProjectTeam({
   const picker = (
     <>
       <div className="flex flex-wrap items-center gap-1.5">
-        {[null, ...(current === null && name !== null
-          ? [...teams.map((t) => t.name), name]
-          : teams.map((t) => t.name))].map((n) => (
+        {[
+          null,
+          ...(current === null && name !== null
+            ? [...teams.map((t) => t.name), name]
+            : teams.map((t) => t.name)),
+        ].map((n) => (
           <button
             key={n ?? ""}
             type="button"
@@ -818,19 +821,22 @@ export function ProjectTeam({
     </>
   );
   const heading = (
-    <h2 id="team" className={sectionLabel}>
+    <h2 id="team" className="sr-only">
       Équipe
     </h2>
   );
   if (!draft)
     return (
-      <section aria-labelledby="team" hidden={hidden}>
+      <section aria-labelledby="team" hidden={hidden} className="contents">
         {heading}
-        {picker}
-        <p className="mt-3">
-          {name === null ? "Ce team.md contient" : "Cette équipe contient"} des
-          lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub
-        </p>
+        <div className="lg:col-span-2">{picker}</div>
+        <div className="min-w-0">
+          {deleteBlock}
+          <p className="mt-3">
+            {name === null ? "Ce team.md contient" : "Cette équipe contient"}{" "}
+            des lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub
+          </p>
+        </div>
       </section>
     );
 
@@ -850,60 +856,83 @@ export function ProjectTeam({
     steps.every((s) => s.loopTo === null || s.until.trim() !== "");
 
   return (
-    <section aria-labelledby="team" hidden={hidden}>
+    // `contents`: the chips span the page, the editor and the commit row are the left column of the grid of ProjectAgents.
+    <section aria-labelledby="team" hidden={hidden} className="contents">
       {heading}
-      {picker}
-      <StepEditor
-        key={key}
-        steps={steps}
-        onSteps={(next) => setDraft({ steps: next, body })}
-        agents={agents}
-        archived={archived}
-        onEditAgent={onEditAgent}
-      />
-      {problem && !creating && <Problem problem={problem} />}
-      {done && (
-        <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
-          <p>
-            {done.pullRequest
-              ? "La branche par défaut est protégée : une pull request est ouverte"
-              : "C'est fait"}
-          </p>
-          <a href={done.url} className={`underline ${focusRing}`}>
-            {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
-          </a>
+      <div className="lg:col-span-2">{picker}</div>
+      <div className="min-w-0">
+        <StepEditor
+          key={key}
+          steps={steps}
+          onSteps={(next) => setDraft({ steps: next, body })}
+          agents={agents}
+          archived={archived}
+          view={view}
+          onEditAgent={onEditAgent}
+        />
+        {problem && !creating && <Problem problem={problem} />}
+        {done && (
+          <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
+            <p>
+              {done.pullRequest
+                ? "La branche par défaut est protégée : une pull request est ouverte"
+                : "C'est fait"}
+            </p>
+            <a href={done.url} className={`underline ${focusRing}`}>
+              {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
+            </a>
+          </div>
+        )}
+        <div className="mt-3.5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!canCommit}
+            onClick={() => {
+              setProblem(null);
+              setDone(null);
+              commit.mutate({ name, before: current, after });
+            }}
+            className={primaryButton}
+          >
+            Faire le commit
+          </button>
+          <span className="text-[12.5px] text-muted-foreground">
+            Écrit dans{" "}
+            {name === null ? ".claude/team.md" : `.claude/teams/${name}.md`}
+          </span>
+          <button
+            type="button"
+            disabled={unchanged}
+            onClick={() => setShowDiff(true)}
+            className={ghostButton}
+          >
+            Voir les changements
+          </button>
+          {name !== null && current !== null && !deleting && (
+            <button
+              type="button"
+              disabled={archived || commit.isPending}
+              onClick={() => {
+                setSwitchTo(null);
+                setCreating(null);
+                setDeleting(true);
+              }}
+              className={ghostButton}
+            >
+              Supprimer l'équipe
+            </button>
+          )}
         </div>
-      )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={unchanged}
-          onClick={() => setShowDiff(true)}
-          className={button}
-        >
-          Voir les changements
-        </button>
-        <button
-          type="button"
-          disabled={!canCommit}
-          onClick={() => {
-            setProblem(null);
-            setDone(null);
-            commit.mutate({ name, before: current, after });
-          }}
-          className={primaryButton}
-        >
-          Faire le commit
-        </button>
+        {deleteBlock}
+        {showDiff &&
+          (lines ? (
+            <DiffList lines={lines} />
+          ) : (
+            <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
+              {after}
+            </pre>
+          ))}
       </div>
-      {showDiff &&
-        (lines ? (
-          <DiffList lines={lines} />
-        ) : (
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
-            {after}
-          </pre>
-        ))}
     </section>
   );
 }

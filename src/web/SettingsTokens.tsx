@@ -210,17 +210,20 @@ export function Tokens() {
             {tokens.data.map((t) => (
               <li
                 key={t.id}
-                className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-[18px] py-2"
+                className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
               >
-                <span className="font-semibold">{t.name}</span>
-                <span className="font-mono">…{t.lastFour}</span>
-                <span className="text-muted-foreground">
-                  Créé le {day(t.createdAt)}
+                <span aria-hidden="true" className="w-6 text-center text-dim">
+                  ⚿
                 </span>
-                <span className="text-muted-foreground">
-                  {t.lastUsedAt
-                    ? `Utilisé le ${day(t.lastUsedAt)}`
-                    : "Jamais utilisé"}
+                <span className="min-w-0 grow">
+                  <span className="block font-semibold">{t.name}</span>
+                  <span className="block text-[12.5px] text-muted-foreground">
+                    <span className="font-mono">…{t.lastFour}</span> · créé le{" "}
+                    {day(t.createdAt)} ·{" "}
+                    {t.lastUsedAt
+                      ? `dernier usage le ${day(t.lastUsedAt)}`
+                      : "jamais utilisé"}
+                  </span>
                 </span>
                 <span className="flex gap-2 sm:ml-auto">
                   {confirming === t.id ? (

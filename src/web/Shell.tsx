@@ -8,6 +8,9 @@ import { badge, focusRing, kbd } from "./ui.ts";
 
 // The shell of decision 045 F (sidebar, idea bar) and the pieces every page builds on (state sentence, breadcrumb, right panel, dot).
 
+/** « dorian/GestionProjet » shown as « GestionProjet »: the mockups never show the owner. */
+export const repoName = (fullName: string) => fullName.split("/").pop();
+
 export async function fetchHealth() {
   const res = await client.api.health.$get();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -248,7 +251,7 @@ export function Sidebar() {
               className={subItem}
             >
               <Dot tone={p.id === firstProject ? "you" : "none"} />
-              {p.name.split("/").pop()}
+              {repoName(p.name)}
               {count > 0 && <span className={`${badge} ml-auto`}>{count}</span>}
             </NavLink>
           );
@@ -292,14 +295,6 @@ export function Sidebar() {
                 {me.name ?? me.login}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
-              className={`ml-[34px] self-start rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-dim hover:text-foreground disabled:opacity-50 ${focusRing}`}
-            >
-              Se déconnecter
-            </button>
           </>
         )}
         {logout.isError && (
@@ -307,9 +302,19 @@ export function Sidebar() {
             La déconnexion a échoué, réessaie.
           </p>
         )}
-        {health.data && (
-          <p className="mt-2 px-2.5 text-[11.5px] text-dim">{`Cockpit v${health.data.version}`}</p>
-        )}
+        <div className="mt-1 flex items-center justify-between px-2.5 text-[11.5px] text-dim">
+          {me && (
+            <button
+              type="button"
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className={`rounded-md hover:text-foreground disabled:opacity-50 ${focusRing}`}
+            >
+              Se déconnecter
+            </button>
+          )}
+          {health.data && <span>{`Cockpit v${health.data.version}`}</span>}
+        </div>
       </div>
     </aside>
   );
@@ -359,7 +364,7 @@ export function IdeaBar() {
       // Typing went on while it was sending: keep what is in the field now.
       setTitle((current) => (current.trim() === sent.title ? "" : current));
       setDone(
-        `Idée notée dans ${projects.find((p) => String(p.id) === sent.id)?.name}.`,
+        `Idée notée dans ${repoName(projects.find((p) => String(p.id) === sent.id)?.name ?? "")}.`,
       );
       for (const queryKey of [
         ["tickets", sent.id],
@@ -420,7 +425,7 @@ export function IdeaBar() {
         >
           {projects.map((p) => (
             <option key={p.id} value={p.id} className="bg-card">
-              {p.name}
+              {repoName(p.name)}
             </option>
           ))}
         </select>

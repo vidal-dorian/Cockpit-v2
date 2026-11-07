@@ -255,7 +255,7 @@ export function RunPage() {
               }
             />
             <div className="mt-5 grid gap-6 px-[26px]">
-              <div className="grid gap-1 text-[13px] text-muted-foreground">
+              <div className="-mb-3 grid gap-1 text-[12.5px] text-muted-foreground">
                 <p>
                   <span className={badge}>
                     {RUN_STATUSES[found.run.status] ?? found.run.status}

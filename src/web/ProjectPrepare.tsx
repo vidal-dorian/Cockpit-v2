@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
@@ -120,17 +120,28 @@ export function ProjectPrepare({
   fullName,
   archived,
   red,
+  onPlan,
 }: {
   projectId: string;
   fullName: string;
   archived: boolean;
   /** The line claude_md or agents of the health is red. */
   red: boolean;
+  /** Tells the page header how many files the plan on screen adds (null when there is no plan). */
+  onPlan?: (added: number | null) => void;
 }) {
   const queryClient = useQueryClient();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+
+  useEffect(
+    () =>
+      onPlan?.(
+        plan ? plan.files.filter((f) => f.status === "create").length : null,
+      ),
+    [plan, onPlan],
+  );
 
   const read = useMutation({
     mutationFn: () => readPlan(projectId),
@@ -177,7 +188,7 @@ export function ProjectPrepare({
   });
 
   return (
-    <div className="mt-4">
+    <div>
       {red && !done?.pullRequest && !plan && (
         <>
           <h2 className="mb-2 text-[11.5px] font-bold uppercase tracking-[.08em] text-you-text">
@@ -191,7 +202,7 @@ export function ProjectPrepare({
               ✕
             </span>
             <p className="min-w-0 flex-1">
-              <span className="block font-bold">
+              <span className="block text-[15px] font-semibold">
                 Préparer le repo pour Claude
               </span>
               <span className="block text-[12.5px] text-muted-foreground">

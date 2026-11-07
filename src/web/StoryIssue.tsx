@@ -52,12 +52,12 @@ export function StoryIssue({
   });
 
   return (
-    <div className="px-[26px] pt-[22px] text-muted-foreground">
+    <div className="px-[26px] pt-3 text-[12.5px] text-muted-foreground">
       {issue.url && (
         <a
           ref={focusOnLink}
           href={issue.url}
-          className={`font-semibold text-foreground underline ${focusRing}`}
+          className={`underline ${focusRing}`}
         >
           Issue #{issue.number}
         </a>

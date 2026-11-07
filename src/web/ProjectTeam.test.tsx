@@ -420,7 +420,7 @@ describe("decision 031 E: adding a step", () => {
     const calls = stubApi();
     await openTeam();
 
-    click("Ajouter une étape");
+    click("+ Ajouter une étape");
 
     const options = within(control("Agent à ajouter")).getAllByRole("option");
     expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual([
@@ -604,7 +604,7 @@ describe("decision 031 H: the commit", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "Ajouter une étape",
+          name: "+ Ajouter une étape",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
@@ -635,7 +635,7 @@ describe("decision 029 demo: adding doc-writer after developer", () => {
     const calls = stubApi({ team: null });
     await openTeam();
 
-    click("Ajouter une étape");
+    click("+ Ajouter une étape");
     click("Ajouter à l'équipe");
     click("Monter", row("doc-writer"));
     review();

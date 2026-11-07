@@ -311,7 +311,7 @@ export function ProjectAgents({
   const list = agents.data?.data;
   return (
     // Team (graph) on the left, repo agents on the right from `lg` (decision 042 B); the agents take the full width while a form is open and the team steps aside.
-    <div className="mx-[26px] mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+    <div className="mx-[26px] mt-4 grid gap-x-3.5 gap-y-3.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
       {list && (
         <ProjectTeam
           projectId={projectId}
@@ -337,7 +337,7 @@ export function ProjectAgents({
         aria-labelledby="agents"
       >
         <h2 id="agents" className={sectionLabel}>
-          Agents
+          Les agents du repo
         </h2>
         {agents.isPending && (
           <p className="mt-3 text-muted-foreground">Chargement…</p>
@@ -374,44 +374,47 @@ export function ProjectAgents({
         )}
         {list && (
           <>
-            <ul className={`mt-3 ${listCard}`}>
-              {list.agents.map((agent) => (
-                <li
-                  key={agent.name}
-                  className="flex min-h-[50px] items-center gap-x-4 px-4 py-2"
-                >
-                  <span className="font-mono font-semibold">{agent.name}</span>
-                  <span className="text-muted-foreground">
-                    {agent.text === null
-                      ? "Fichier trop gros"
-                      : (parseAgent(agent.text)?.model ??
-                          "En-tête illisible") ||
-                        SESSION_MODEL}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Ouvrir ${agent.name}`}
-                    disabled={agent.text === null}
-                    onClick={() => {
-                      setProblem(null);
-                      setDone(null);
-                      setAdding(false);
-                      setEditing(
-                        agent.text === null
-                          ? null
-                          : {
-                              name: agent.name,
-                              before: agent.text,
-                              base: agent.text,
-                            },
-                      );
-                    }}
-                    className={`sm:ml-auto ${button}`}
-                  >
-                    Ouvrir
-                  </button>
-                </li>
-              ))}
+            <ul className={`mt-2 ${listCard}`}>
+              {list.agents.map((agent) => {
+                const fields =
+                  agent.text === null ? null : parseAgent(agent.text);
+                return (
+                  <li key={agent.name} className="min-h-[50px]">
+                    <button
+                      type="button"
+                      aria-label={`Ouvrir ${agent.name}`}
+                      disabled={agent.text === null}
+                      onClick={() => {
+                        setProblem(null);
+                        setDone(null);
+                        setAdding(false);
+                        setEditing(
+                          agent.text === null
+                            ? null
+                            : {
+                                name: agent.name,
+                                before: agent.text,
+                                base: agent.text,
+                              },
+                        );
+                      }}
+                      className={`flex min-h-[50px] w-full flex-col justify-center px-[18px] py-2 text-left hover:bg-raised disabled:opacity-50 ${focusRing}`}
+                    >
+                      <span className="font-semibold">{agent.name}</span>
+                      <span className="text-[12.5px] text-muted-foreground">
+                        <span className="capitalize">
+                          {agent.text === null
+                            ? "Fichier trop gros"
+                            : (fields?.model ?? "En-tête illisible") ||
+                              SESSION_MODEL}
+                        </span>
+                        {fields &&
+                          ` · ${fields.tools.trim() || "tous les outils"}`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             <button
               type="button"
@@ -420,9 +423,9 @@ export function ProjectAgents({
                 setEditing(null);
                 setAdding(true);
               }}
-              className={`mt-3 ${button}`}
+              className={`mt-2 ${button}`}
             >
-              Ajouter un agent
+              + Nouvel agent
             </button>
             {adding && (
               <AddAgent

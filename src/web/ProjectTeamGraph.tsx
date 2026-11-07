@@ -88,6 +88,7 @@ function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
             sourceHandle: "loop-out",
             targetHandle: "loop-in",
             type: "smoothstep",
+            pathOptions: { offset: 28 },
             markerEnd: arrow,
             label: `retour au ${s.loopTo} : ${s.until}`,
             labelBgStyle: { fill: "var(--color-card)" },
@@ -134,7 +135,7 @@ export default function StepGraph({
           position: { x: i * COLUMN, y: 0 },
           // Known size: React Flow draws the card without waiting for a measure.
           width: CARD,
-          height: 96,
+          height: 115,
           data: {
             step,
             index: i,

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, NavLink, useParams } from "react-router";
 import { client } from "./api.ts";
 import { fetchCodeMap } from "./conception.ts";
@@ -111,6 +112,8 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
     queryFn: () => fetchStories(id),
     enabled: tab === "kanban",
   });
+  // How many files the plan of « Préparer pour Claude » adds, while it is on screen.
+  const [planned, setPlanned] = useState<number | null>(null);
   const notFound = health.data === "not_found";
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
@@ -154,39 +157,44 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const sentence: { title: string; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
-      : tab === "sante" && Array.isArray(health.data)
-        ? red > 0
-          ? {
-              title: `${name} n'est pas encore prêt pour Claude.`,
-              rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
-            }
-          : {
-              title: `${name} est prêt pour Claude.`,
-              rest: "Tout le bilan est au vert.",
-            }
-        : tab === "conception" && codeMap.data && codeMap.data.length > 0
-          ? {
-              title: `Claude a lu ${name} : voici son modèle.`,
-              rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
-                "objet",
-                "objets",
-              )}, chacun avec le code qui le prouve.`,
-            }
-          : tab === "tickets" && tickets.data
+      : tab === "sante" && planned !== null
+        ? {
+            title: `Voici ce que Cockpit va écrire dans ${name}.`,
+            rest: `${plural(planned, "fichier nouveau", "fichiers nouveaux")}, rien n'est écrasé.`,
+          }
+        : tab === "sante" && Array.isArray(health.data)
+          ? red > 0
             ? {
-                title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                rest: TAB_REST[tab],
+                title: `${name} n'est pas encore prêt pour Claude.`,
+                rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
               }
             : {
-                title:
-                  tab === "reglages"
-                    ? `Réglages de ${name}.`
-                    : tab === "agents"
-                      ? `Les agents et les équipes de ${name}.`
-                      : name,
-                rest: TAB_REST[tab],
-              };
+                title: `${name} est prêt pour Claude.`,
+                rest: "Tout le bilan est au vert.",
+              }
+          : tab === "conception" && codeMap.data && codeMap.data.length > 0
+            ? {
+                title: `Claude a lu ${name} : voici son modèle.`,
+                rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                  codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
+                  "objet",
+                  "objets",
+                )}, chacun avec le code qui le prouve.`,
+              }
+            : tab === "tickets" && tickets.data
+              ? {
+                  title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                  rest: TAB_REST[tab],
+                }
+              : {
+                  title:
+                    tab === "reglages"
+                      ? `Réglages de ${name}.`
+                      : tab === "agents"
+                        ? `Les agents et les équipes de ${name}.`
+                        : name,
+                  rest: TAB_REST[tab],
+                };
 
   return (
     <main className="pb-6">
@@ -264,11 +272,11 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
         </nav>
       )}
       {!notFound && tab === "sante" && (
-        <section className="mx-[26px] mt-6" aria-labelledby="bilan">
+        <section className="mx-[26px] mt-5" aria-labelledby="bilan">
           <h2 id="bilan" className="sr-only">
             Bilan de santé
           </h2>
-          <div className="mt-3" aria-live="polite">
+          <div aria-live="polite">
             {health.isPending && (
               <p className="text-muted-foreground">Chargement…</p>
             )}
@@ -305,6 +313,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                     projectId={id}
                     fullName={project.fullName}
                     archived={project.archived}
+                    onPlan={setPlanned}
                     red={health.data.some(
                       (line) =>
                         !line.ok &&
@@ -336,7 +345,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                         {line.ok ? "✓" : "✕"}
                       </span>
                       <p className="min-w-0 flex-1">
-                        <span className="block font-bold">
+                        <span className="block font-semibold">
                           {LABELS[line.key]}
                         </span>
                         {!line.ok && (

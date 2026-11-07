@@ -127,7 +127,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
           <textarea
             value={descriptionMd}
             onChange={(event) => setDescriptionMd(event.target.value)}
-            rows={10}
+            rows={6}
             className={field}
           />
         </label>

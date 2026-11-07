@@ -221,14 +221,15 @@ export function StoryDecisions({
     >
       {mode === null && (
         <>
-          <h2 className="text-xl leading-snug font-semibold">
+          <h2 className="text-lg leading-[1.35] font-semibold">
             {HEADLINES[status]}
           </h2>
           {status === "to_validate" && (
             <>
               <p className={sectionLabel}>Après validation</p>
-              <p className="text-muted-foreground">
-                L'US est publiée sur GitHub, et Claude peut la développer.
+              <p className="text-[13px] leading-normal text-muted-foreground">
+                L'US devient prête, elle est publiée en issue sur GitHub, et
+                Claude peut la développer.
               </p>
             </>
           )}
@@ -249,14 +250,14 @@ export function StoryDecisions({
             );
           }}
         >
-          <h2 className="text-xl leading-snug font-semibold">
+          <h2 className="text-lg leading-[1.35] font-semibold">
             Qu'est-ce que Claude doit changer ?
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Il réécrira l'US avec ton commentaire, puis elle reviendra ici.
           </p>
-          <label className="block font-semibold">
-            Commentaire pour Claude
+          <label className="block">
+            <span className="sr-only">Commentaire pour Claude</span>
             <textarea
               // The Renvoyer button is gone: keep the keyboard focus in the form.
               // biome-ignore lint/a11y/noAutofocus: focus moves with the form the user just asked for
@@ -264,9 +265,12 @@ export function StoryDecisions({
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               rows={6}
-              className={field}
+              className={`${field} mt-0 leading-relaxed`}
             />
           </label>
+          <p className="text-xs text-muted-foreground">
+            Obligatoire · {comment.length} caractère{comment.length > 1 && "s"}
+          </p>
           <div className="mt-auto flex flex-col gap-2">
             <button
               type="submit"
@@ -283,7 +287,7 @@ export function StoryDecisions({
       )}
       {mode === "abandon" && (
         <>
-          <h2 className="text-xl leading-snug font-semibold">
+          <h2 className="text-lg leading-[1.35] font-semibold">
             Abandonner cette user story ?
           </h2>
           <p id="abandon-story-warning">

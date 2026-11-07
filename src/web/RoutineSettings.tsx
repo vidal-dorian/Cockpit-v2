@@ -5,9 +5,9 @@ import {
   alertBox,
   badge,
   button,
-  card,
   field,
   focusRing,
+  listCard,
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
@@ -90,8 +90,8 @@ export function RoutineSettings() {
           </p>
         )}
         {data && (
-          <ol className="grid gap-3">
-            <li className={`${card} px-[18px] py-4`}>
+          <ol className={listCard}>
+            <li className="px-[18px] py-3.5">
               <p className="font-semibold">1. Créer la tâche sur claude.ai</p>
               <p className="mt-1">
                 Choisis le déclencheur « API » seulement (ni planning, ni repo),
@@ -106,7 +106,7 @@ export function RoutineSettings() {
                 Ouvrir les tâches de claude.ai
               </a>
             </li>
-            <li className={`${card} px-[18px] py-4`}>
+            <li className="px-[18px] py-3.5">
               <p className="font-semibold">2. Décocher les connecteurs</p>
               <p className="mt-1">
                 claude.ai coche tous tes connecteurs par défaut : décoche-les
@@ -114,7 +114,7 @@ export function RoutineSettings() {
                 les US, et n'a ainsi accès à rien d'autre.
               </p>
             </li>
-            <li className={`${card} px-[18px] py-4`}>
+            <li className="px-[18px] py-3.5">
               <p className="font-semibold">3. Copier la consigne</p>
               <p className="mt-1">Colle-la comme consigne de la tâche.</p>
               <textarea
@@ -147,7 +147,7 @@ export function RoutineSettings() {
                 </span>
               </div>
             </li>
-            <li className={`${card} px-[18px] py-4`}>
+            <li className="px-[18px] py-3.5">
               <p className="font-semibold">4. Coller l'adresse et le jeton</p>
               {connected ? (
                 <div className="mt-2 flex flex-wrap items-center gap-3">

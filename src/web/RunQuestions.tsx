@@ -81,9 +81,6 @@ export function RunQuestions({
           <h2 className="whitespace-pre-wrap text-xl font-semibold">
             {current.question}
           </h2>
-          {current.suggestedAnswers && (
-            <p className={sectionLabel}>Choisis une réponse</p>
-          )}
           <AnswerForm
             key={current.id}
             id={current.id}

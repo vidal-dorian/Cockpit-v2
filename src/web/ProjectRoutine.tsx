@@ -136,156 +136,162 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
   const lastRun = saved?.lastRun;
 
   return (
-    <section className="mx-[26px] mt-6" aria-labelledby="ecriture-auto">
-      <h2 id="ecriture-auto" className={`mb-2 ${sectionLabel}`}>
-        Écriture automatique des US
-      </h2>
-      <div aria-live="polite">
-        {(schedule.isPending || routine.isPending) && (
-          <p className="text-muted-foreground">Chargement…</p>
-        )}
-        {(schedule.isError || routine.isError) && (
-          <p role="alert" className={alertBox}>
-            Impossible de lire l'écriture automatique. Recharge la page ; si
-            cela continue, réessaie plus tard.
-          </p>
-        )}
-        {saved && form && routine.data && (
-          <div className={`grid gap-4 p-4 ${card}`}>
-            {!canRun && (
-              <p className="text-muted-foreground">
-                {routine.data.needsReconnect
-                  ? "La tâche de claude.ai est à reconnecter : colle un nouveau jeton dans "
-                  : "Aucune tâche n'est connectée : connecte-la dans "}
-                <Link
-                  to="/reglages/ecriture-us"
-                  className={`underline ${focusRing}`}
-                >
-                  Réglages
-                </Link>
-                .
-              </p>
-            )}
-            <form
-              className="flex flex-wrap items-end gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                save.mutate();
-              }}
-            >
-              <label>
-                Fréquence
-                <select
-                  value={form.frequency}
-                  onChange={(e) =>
-                    setDraft({
-                      ...form,
-                      frequency: e.target.value as Frequency,
-                    })
-                  }
-                  className={field}
-                >
-                  {Object.entries(FREQUENCIES).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {form.frequency === "weekly" && (
+    // The mockup puts the writing of the US on the left half; the right half (the night, the clone folder) belongs to other slices.
+    <div className="mx-[26px] mt-5 grid gap-3.5 md:grid-cols-2">
+      <section aria-labelledby="ecriture-auto">
+        <h2 id="ecriture-auto" className={`mb-2 ${sectionLabel}`}>
+          Écriture automatique des US
+        </h2>
+        <div aria-live="polite">
+          {(schedule.isPending || routine.isPending) && (
+            <p className="text-muted-foreground">Chargement…</p>
+          )}
+          {(schedule.isError || routine.isError) && (
+            <p role="alert" className={alertBox}>
+              Impossible de lire l'écriture automatique. Recharge la page ; si
+              cela continue, réessaie plus tard.
+            </p>
+          )}
+          {saved && form && routine.data && (
+            <div className={`grid gap-4 px-[18px] py-4 ${card}`}>
+              {!canRun && (
+                <p className="text-muted-foreground">
+                  {routine.data.needsReconnect
+                    ? "La tâche de claude.ai est à reconnecter : colle un nouveau jeton dans "
+                    : "Aucune tâche n'est connectée : connecte-la dans "}
+                  <Link
+                    to="/reglages/ecriture-us"
+                    className={`underline ${focusRing}`}
+                  >
+                    Réglages
+                  </Link>
+                  .
+                </p>
+              )}
+              <form
+                className="flex flex-wrap items-end gap-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  save.mutate();
+                }}
+              >
                 <label>
-                  Jour
+                  Fréquence
                   <select
-                    value={form.weekday}
+                    value={form.frequency}
                     onChange={(e) =>
-                      setDraft({ ...form, weekday: Number(e.target.value) })
+                      setDraft({
+                        ...form,
+                        frequency: e.target.value as Frequency,
+                      })
                     }
                     className={field}
                   >
-                    {WEEKDAYS.map((label, i) => (
-                      <option key={label} value={i + 1}>
+                    {Object.entries(FREQUENCIES).map(([value, label]) => (
+                      <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
                   </select>
                 </label>
-              )}
-              {(form.frequency === "daily" || form.frequency === "weekly") && (
-                <label>
-                  Heure
-                  <select
-                    value={form.hour}
-                    onChange={(e) =>
-                      setDraft({ ...form, hour: Number(e.target.value) })
-                    }
-                    className={field}
-                  >
-                    {HOURS.map((hour) => (
-                      <option key={hour} value={hour}>
-                        {hour} h
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <button
-                type="submit"
-                disabled={save.isPending}
-                className={primaryButton}
-              >
-                Enregistrer
-              </button>
-            </form>
-            <p className="text-muted-foreground">
-              L'heure est celle du fuseau de ton navigateur. Au planning, rien
-              n'est lancé s'il n'y a aucune US à écrire.
-            </p>
-            {saved.nextRunAt && (
-              <p>
-                <span className="font-semibold">Prochain passage</span> :{" "}
-                {when(saved.nextRunAt)}
-              </p>
-            )}
-            {lastRun && (
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>
-                  <span className="font-semibold">Dernier lancement</span> :{" "}
-                  {when(lastRun.at)}
-                </span>
-                {/* The word comes with the color (decision 003). */}
-                <span className={lastRun.result === "ok" ? badge : urgentBadge}>
-                  {lastRun.result === "ok" ? "Réussi" : "Échec"}
-                </span>
-                {lastRun.sessionUrl && (
-                  <a
-                    href={lastRun.sessionUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={`underline ${focusRing}`}
-                  >
-                    Voir la session
-                  </a>
+                {form.frequency === "weekly" && (
+                  <label>
+                    Jour
+                    <select
+                      value={form.weekday}
+                      onChange={(e) =>
+                        setDraft({ ...form, weekday: Number(e.target.value) })
+                      }
+                      className={field}
+                    >
+                      {WEEKDAYS.map((label, i) => (
+                        <option key={label} value={i + 1}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
+                {(form.frequency === "daily" ||
+                  form.frequency === "weekly") && (
+                  <label>
+                    Heure
+                    <select
+                      value={form.hour}
+                      onChange={(e) =>
+                        setDraft({ ...form, hour: Number(e.target.value) })
+                      }
+                      className={field}
+                    >
+                      {HOURS.map((hour) => (
+                        <option key={hour} value={hour}>
+                          {hour} h
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <button
+                  type="submit"
+                  disabled={save.isPending}
+                  className={primaryButton}
+                >
+                  Enregistrer
+                </button>
+              </form>
+              <p className="text-muted-foreground">
+                L'heure est celle du fuseau de ton navigateur. Au planning, rien
+                n'est lancé s'il n'y a aucune US à écrire.
               </p>
-            )}
-            <div>
-              <button
-                type="button"
-                onClick={() => run.mutate()}
-                disabled={!canRun || run.isPending}
-                className={button}
-              >
-                Écrire les US maintenant
-              </button>
+              {saved.nextRunAt && (
+                <p>
+                  <span className="font-semibold">Prochain passage</span> :{" "}
+                  {when(saved.nextRunAt)}
+                </p>
+              )}
+              {lastRun && (
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>
+                    <span className="font-semibold">Dernier lancement</span> :{" "}
+                    {when(lastRun.at)}
+                  </span>
+                  {/* The word comes with the color (decision 003). */}
+                  <span
+                    className={lastRun.result === "ok" ? badge : urgentBadge}
+                  >
+                    {lastRun.result === "ok" ? "Réussi" : "Échec"}
+                  </span>
+                  {lastRun.sessionUrl && (
+                    <a
+                      href={lastRun.sessionUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className={`underline ${focusRing}`}
+                    >
+                      Voir la session
+                    </a>
+                  )}
+                </p>
+              )}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => run.mutate()}
+                  disabled={!canRun || run.isPending}
+                  className={button}
+                >
+                  Écrire les US maintenant
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        {(save.error ?? run.error) && (
-          <p role="alert" className={`mt-3 ${alertBox}`}>
-            {(save.error ?? run.error)?.message}
-          </p>
-        )}
-      </div>
-    </section>
+          )}
+          {(save.error ?? run.error) && (
+            <p role="alert" className={`mt-3 ${alertBox}`}>
+              {(save.error ?? run.error)?.message}
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }

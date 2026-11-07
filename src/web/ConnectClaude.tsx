@@ -6,14 +6,14 @@ import { day } from "./SettingsTokens.tsx";
 import {
   alertBox,
   button,
-  card,
   cardShape,
   focusRing,
+  listCard,
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
 
-async function fetchConnect() {
+export async function fetchConnect() {
   const res = await client.api.me.connect.$get();
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
@@ -53,8 +53,8 @@ export function ConnectClaude() {
                 projets partout, y compris dans les tâches planifiées.
               </p>
             )}
-            <ol className="grid gap-3">
-              <li className={`${card} px-[18px] py-4`}>
+            <ol className={listCard}>
+              <li className="px-[18px] py-3.5">
                 <p className="font-semibold">1. Copier l'adresse</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <input
@@ -88,7 +88,7 @@ export function ConnectClaude() {
                   </span>
                 </div>
               </li>
-              <li className={`${card} px-[18px] py-4`}>
+              <li className="px-[18px] py-3.5">
                 <p className="font-semibold">2. Ouvrir claude.ai</p>
                 <p className="mt-1">
                   Choisis « Ajouter un connecteur personnalisé », puis colle
@@ -103,7 +103,7 @@ export function ConnectClaude() {
                   Ouvrir claude.ai
                 </a>
               </li>
-              <li className={`${card} px-[18px] py-4`}>
+              <li className="px-[18px] py-3.5">
                 <p className="font-semibold">3. Se connecter</p>
                 <p className="mt-1">
                   claude.ai ouvre Cockpit : connecte-toi avec GitHub si besoin,

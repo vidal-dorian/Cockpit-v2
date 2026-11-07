@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
 import { REASONS } from "./RunVerdict.tsx";
-import { Dot, Panel, StateSentence, useHome } from "./Shell.tsx";
+import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
 import {
   alertBox,
   badge,
@@ -34,6 +34,7 @@ const CI_WORDS = {
 
 const link = `font-semibold underline ${focusRing}`;
 const rowAction = button;
+const rowLink = `font-semibold text-muted-foreground hover:text-foreground ${focusRing}`;
 
 const KINDS = {
   answer: {
@@ -68,18 +69,30 @@ const prUrl = (item: Extract<Item, { kind: "review" }>) =>
 const title = (item: Item) =>
   item.kind === "answer" ? item.question : item.iWant;
 
-/** « À relire · PR #14 · La CI est verte · octocat/hello »: what the item is, then where. */
-function subLine(item: Item) {
+/** « Question de Claude · Run 3 · hello »: what the item is, then where. The row of « 2 · Ensuite » drops the kind, its group says it. */
+function subLine(item: Item, withKind = true) {
+  const project = repoName(item.project.name);
   switch (item.kind) {
     case "answer":
-      return `Question de Claude · Run ${item.runId} · ${item.project.name}`;
+      return `Question de Claude · Run ${item.runId} · ${project}`;
     case "validate":
-      return `À valider · ${item.project.name}`;
-    case "review":
-      return `À relire · PR #${item.prNumber} · ${item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"} · ${item.project.name}`;
+      return withKind ? `À valider · ${project}` : project;
+    case "review": {
+      const ci = item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI";
+      return withKind
+        ? `À relire · PR #${item.prNumber} · ${ci} · ${project}`
+        : `${ci} · ${project}`;
+    }
     case "check":
-      return `À vérifier · Run ${item.runId} · ${item.project.name}`;
+      return `Run ${item.runId} · ${project}`;
   }
+}
+
+/** The title of a row: « US 43 · … » for a story to validate, « PR #44 · … » for a pull request. */
+function rowTitle(item: Item) {
+  if (item.kind === "validate") return `US ${item.storyId} · ${item.iWant}`;
+  if (item.kind === "review") return `PR #${item.prNumber} · ${item.iWant}`;
+  return title(item);
 }
 
 const itemKey = (item: Item) =>
@@ -130,7 +143,7 @@ function RowActions({ item, open }: { item: Item; open: () => void }) {
           <a href={prUrl(item)} className={rowAction}>
             Relire la PR #{item.prNumber}
           </a>
-          <Link to={`/us/${item.storyId}`} className={rowAction}>
+          <Link to={`/us/${item.storyId}`} className={rowLink}>
             Ouvrir
           </Link>
         </>
@@ -175,7 +188,8 @@ function ItemPanel({
   if (item.kind === "answer")
     footer = (
       <p className="text-center text-[13px] text-muted-foreground">
-        Plus tard · Claude reste en pause
+        <span className="font-semibold text-foreground">Plus tard</span> ·
+        Claude reste en pause
       </p>
     );
   else if (item.kind === "validate")
@@ -225,7 +239,7 @@ function ItemPanel({
         {title(item)}
       </h2>
       <p className="text-muted-foreground">
-        {item.project.name}
+        {repoName(item.project.name)}
         {item.kind === "review" &&
           ` · ${item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"}`}
       </p>
@@ -348,7 +362,9 @@ export function HomePage() {
               ✦
             </span>
             <span className="min-w-0">
-              <b className="block text-[15px] font-semibold">{title(first)}</b>
+              <b className="block text-[15px] font-semibold">
+                {rowTitle(first)}
+              </b>
               <span className="text-[12.5px] text-muted-foreground">
                 {subLine(first)}
               </span>
@@ -383,17 +399,19 @@ export function HomePage() {
                       aria-hidden="true"
                       className="text-center text-[13px] font-bold text-dim"
                     >
-                      {KINDS[kind].glyph}
+                      {item.kind === "review" && item.prCiState === "failure"
+                        ? "✕"
+                        : KINDS[kind].glyph}
                     </span>
                     <span className="min-w-0">
                       <b className="block truncate font-semibold">
-                        {title(item)}
+                        {rowTitle(item)}
                       </b>
                       <span className="block text-[12.5px] text-muted-foreground">
-                        {subLine(item)}
+                        {subLine(item, false)}
                       </span>
                     </span>
-                    <span className="flex gap-1.5">
+                    <span className="flex items-center gap-3.5">
                       <RowActions item={item} open={() => open(at, true)} />
                     </span>
                   </div>
@@ -423,7 +441,7 @@ export function HomePage() {
                     className={`flex flex-col gap-1.5 rounded-xl border bg-card px-[13px] py-[11px] ${focusRing} ${waiting ? "border-you-line" : "border-border"}`}
                   >
                     <b className="truncate text-[13px] font-semibold">
-                      Run {work.runId} · {work.project.name}
+                      Run {work.runId} · {repoName(work.project.name)}
                     </b>
                     <small
                       className={`text-xs ${waiting ? "text-you-text" : "text-muted-foreground"}`}

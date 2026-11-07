@@ -4,13 +4,7 @@ import { parseTeam } from "../server/team.ts";
 import { client } from "./api.ts";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
-import {
-  badge,
-  field,
-  ghostButton,
-  kbd,
-  panelPrimaryButton,
-} from "./ui.ts";
+import { badge, field, ghostButton, kbd, panelPrimaryButton } from "./ui.ts";
 
 // Mirror of BRANCH in src/server/mcp.ts (decision 033 B), `..` being refused next to it.
 const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;

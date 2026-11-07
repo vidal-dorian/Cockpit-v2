@@ -233,7 +233,7 @@ describe("Réglages page, the section Jetons MCP", () => {
     expect(fresh.textContent).toContain(
       new Date("2026-10-21T10:00:00.000Z").toLocaleDateString("fr-FR"),
     );
-    expect(within(fresh).getByText("Jamais utilisé")).toBeDefined();
+    expect(fresh.textContent).toContain("jamais utilisé");
 
     const used = rowOf("utilisé-pro");
     expect(used.textContent).toContain("…uuuu");
@@ -243,7 +243,7 @@ describe("Réglages page, the section Jetons MCP", () => {
     expect(used.textContent).toContain(
       new Date("2026-10-23T10:00:00.000Z").toLocaleDateString("fr-FR"),
     );
-    expect(within(used).queryByText("Jamais utilisé")).toBeNull();
+    expect(used.textContent).not.toContain("jamais utilisé");
     expect(
       within(fresh).getByRole("button", { name: "Révoquer" }),
     ).toBeDefined();

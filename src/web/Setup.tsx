@@ -57,7 +57,8 @@ function Frame({
 }
 
 const wizardTitle = "text-[28px] leading-tight font-semibold";
-const wizardRest = "mt-1.5 block text-[22px] leading-snug font-normal text-muted-foreground";
+const wizardRest =
+  "mt-1.5 block text-[22px] leading-snug font-normal text-muted-foreground";
 
 // What the App asks of GitHub and why (decision 012 D); the same list as the manifest of the server.
 const PERMISSIONS = [

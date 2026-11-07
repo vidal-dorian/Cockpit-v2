@@ -20,14 +20,7 @@ import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
-import {
-  Dot,
-  fetchHealth,
-  fetchMe,
-  IdeaBar,
-  Sidebar,
-  StateSentence,
-} from "./Shell.tsx";
+import { Dot, fetchHealth, fetchMe, IdeaBar, Sidebar } from "./Shell.tsx";
 import {
   alertBox,
   button,
@@ -107,7 +100,7 @@ function LoggedOut() {
           <Logo className="size-5" />
           <h1 className="text-lg font-bold">Cockpit</h1>
         </div>
-        <p className="mt-16 text-[40px] leading-[1.15] font-semibold tracking-[-.02em]">
+        <p className="mt-[120px] text-[40px] leading-[1.15] font-semibold tracking-[-.02em]">
           Tes repos, Claude et toi,
           <span className="block font-medium text-muted-foreground">
             au même endroit.
@@ -163,13 +156,14 @@ const loading = (
 
 function NotFound() {
   return (
-    <main>
-      <StateSentence
-        title="Cette page n'existe pas."
-        rest="Elle a peut-être été déplacée."
-      />
-      <div className="px-[26px] pt-6">
-        <Link to="/" className={primaryButton}>
+    <main className="grid min-h-[70vh] place-items-center px-[26px]">
+      <div className="flex max-w-[440px] flex-col items-center gap-3 text-center">
+        <span className="font-mono text-[13px] text-muted-foreground">404</span>
+        <h1 className="text-[26px] font-semibold">Cette page n'existe pas.</h1>
+        <p className="leading-[1.55] text-muted-foreground">
+          Elle a peut-être été déplacée.
+        </p>
+        <Link to="/" className={`mt-1.5 ${primaryButton}`}>
           Retour à l'accueil
         </Link>
       </div>

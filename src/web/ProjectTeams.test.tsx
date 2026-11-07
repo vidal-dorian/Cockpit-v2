@@ -182,12 +182,27 @@ async function openTeam() {
   await waitFor(() =>
     expect(screen.queryByText("Chargement du graphe…")).toBeNull(),
   );
+  // The tests read the steps in the list.
+  fireEvent.click(screen.getByRole("button", { name: "Liste" }));
 }
 
-const picker = () =>
-  screen.getByRole("combobox", { name: "Équipe" }) as HTMLSelectElement;
-const choose = (value: string) =>
-  fireEvent.change(picker(), { target: { value } });
+// The teams are chips (aria-pressed); the default one is « Par défaut », the others are named after the team.
+const chip = (value: string) =>
+  screen.getByRole("button", {
+    name: value || "Par défaut",
+  }) as HTMLButtonElement;
+const choose = (value: string) => fireEvent.click(chip(value));
+const chosen = () => {
+  const pressed = screen
+    .getAllByRole("button", { pressed: true })
+    .filter((b) => !["Graphe", "Liste"].includes(b.textContent ?? ""))[0];
+  return pressed?.textContent === "Par défaut" ? "" : pressed?.textContent;
+};
+const chips = () =>
+  screen
+    .getAllByRole("button", { pressed: false })
+    .concat(screen.getAllByRole("button", { pressed: true }))
+    .map((b) => b.textContent);
 const rowAgents = () =>
   screen
     .getAllByRole("listitem")
@@ -237,7 +252,7 @@ const typeName = (value: string) =>
   fireEvent.change(nameField(), { target: { value } });
 
 describe("decision 032 E: choosing a team", () => {
-  it("given two named teams, when the section opens, then the select « Équipe » lists « Par défaut (team.md) » first, then each named team, and the default team is shown", async () => {
+  it("given two named teams, when the section opens, then the chips of the teams are « Par défaut » then each named team, and the default team is shown", async () => {
     stubApi({
       teams: [
         { name: "leger", text: LEGER },
@@ -247,12 +262,8 @@ describe("decision 032 E: choosing a team", () => {
 
     await openTeam();
 
-    const options = within(picker()).getAllByRole(
-      "option",
-    ) as HTMLOptionElement[];
-    expect(options.map((o) => o.value)).toEqual(["", "leger", "docs"]);
-    expect(options[0]?.textContent).toBe("Par défaut (team.md)");
-    expect(picker().value).toBe("");
+    expect(chips()).toEqual(expect.arrayContaining(["Par défaut", "leger", "docs"]));
+    expect(chosen()).toBe("");
     expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
   });
 
@@ -283,7 +294,7 @@ describe("decision 032 E: choosing a team", () => {
     expect(rowAgents()).toEqual(["developer", "test-writer", "reviewer"]);
     click("Annuler");
     expect(screen.queryByText(LOST)).toBeNull();
-    expect(picker().value).toBe("");
+    expect(chosen()).toBe("");
     expect(rowAgents()).toEqual(["developer", "test-writer", "reviewer"]);
   });
 
@@ -298,7 +309,7 @@ describe("decision 032 E: choosing a team", () => {
     await waitFor(() =>
       expect(rowAgents()).toEqual(["developer", "doc-writer"]),
     );
-    expect(picker().value).toBe("leger");
+    expect(chosen()).toBe("leger");
     expect(screen.queryByText(LOST)).toBeNull();
   });
 
@@ -377,10 +388,10 @@ describe("decision 032 E: a new team, in a dialog", () => {
     expect(within(box).getByLabelText("Nom de l'équipe")).toBeDefined();
     expect(dialogRows()).toEqual(["test-writer", "developer", "reviewer"]);
     expect(
-      within(box).getByRole("button", { name: "Ajouter une étape" }),
+      within(box).getByRole("button", { name: "+ Ajouter une étape" }),
     ).toBeDefined();
     expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
-    expect(picker().value).toBe("");
+    expect(chosen()).toBe("");
   });
 
   it("given the leger team shown, when « Nouvelle équipe » is clicked, then the dialog starts from leger as read from the repo", async () => {
@@ -403,7 +414,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
     click("Nouvelle équipe");
     typeName("docs");
     fireEvent.click(
-      within(dialog()).getByRole("button", { name: "Ajouter une étape" }),
+      within(dialog()).getByRole("button", { name: "+ Ajouter une étape" }),
     );
     fireEvent.click(
       within(dialog()).getByRole("button", { name: "Ajouter à l'équipe" }),
@@ -423,7 +434,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
     expect(String(sent?.after)).toContain("agent: doc-writer");
     await screen.findByText("C'est fait");
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(picker().value).toBe("docs");
+    expect(chosen()).toBe("docs");
     expect(screen.getByRole("link", { name: "Voir le commit" })).toBeDefined();
     expect(calls.applyBodies).toHaveLength(1);
   });
@@ -479,7 +490,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(calls.applyBodies).toEqual([]);
-    expect(picker().value).toBe("");
+    expect(chosen()).toBe("");
     expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
   });
 
@@ -507,7 +518,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(calls.applyBodies).toEqual([]);
-    expect(picker().value).toBe("");
+    expect(chosen()).toBe("");
     expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
   });
 
@@ -568,7 +579,7 @@ describe("decision 032 E: layout of the tab", () => {
     stubApi();
     await openTeam();
 
-    const sections = ["Équipe", "Agents"].map(
+    const sections = ["Équipe", "Les agents du repo"].map(
       (name) =>
         screen
           .getByRole("heading", { level: 2, name })
@@ -661,7 +672,7 @@ describe("decision 032 E: a named team Cockpit cannot rewrite", () => {
     expect(
       screen.queryByRole("button", { name: "Faire le commit" }),
     ).toBeNull();
-    expect(picker()).toBeDefined();
+    expect(chip("")).toBeDefined();
     choose("");
     await waitFor(() =>
       expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]),
@@ -707,7 +718,7 @@ describe("decision 032 E: a save in flight", () => {
 
     click("Confirmer la suppression");
 
-    await waitFor(() => expect(picker().disabled).toBe(true));
+    await waitFor(() => expect(chip("").disabled).toBe(true));
     expect(
       (
         screen.getByRole("button", {
@@ -716,7 +727,7 @@ describe("decision 032 E: a save in flight", () => {
       ).disabled,
     ).toBe(true);
     answer();
-    await waitFor(() => expect(picker().disabled).toBe(false));
-    expect(picker().value).toBe("");
+    await waitFor(() => expect(chip("").disabled).toBe(false));
+    expect(chosen()).toBe("");
   });
 });

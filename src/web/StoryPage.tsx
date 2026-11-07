@@ -33,6 +33,7 @@ async function fetchStory(id: string) {
 }
 
 const label = "font-semibold text-foreground";
+const value = "text-muted-foreground";
 
 /** What the state of a story says, the status word included (the title of the page is the story, this is the rest of the sentence). */
 function stateSentence(status: string, prNumber: number | null) {
@@ -127,7 +128,9 @@ export function StoryPage() {
               trail={[
                 { label: "Projets", to: "/projets" },
                 {
-                  label: found.project.fullName,
+                  label:
+                    found.project.fullName.split("/").pop() ??
+                    found.project.fullName,
                   to: `/projets/${found.project.id}`,
                 },
                 {
@@ -163,15 +166,13 @@ export function StoryPage() {
               />
             )}
             <div className="grid gap-3 px-[26px] pt-[22px]">
-              <p
-                className={`${card} px-[18px] py-4 text-[15px] leading-relaxed`}
-              >
+              <p className={`${card} px-[18px] py-4 text-[15px] leading-[1.6]`}>
                 <span className={label}>En tant que</span>{" "}
-                <span>{found.story.asA}</span>,{" "}
+                <span className={value}>{found.story.asA}</span>,{" "}
                 <span className={label}>je veux</span>{" "}
-                <span>{found.story.iWant}</span>{" "}
+                <span className={value}>{found.story.iWant}</span>{" "}
                 <span className={label}>afin de</span>{" "}
-                <span>{found.story.soThat}</span>
+                <span className={value}>{found.story.soThat}</span>
               </p>
               {found.story.status === "to_rewrite" &&
                 found.story.rewriteComment && (
@@ -189,7 +190,10 @@ export function StoryPage() {
               <h2 className="sr-only">Critères</h2>
               <ol className="grid gap-3">
                 {found.story.criteria.map((criterion, index) => (
-                  <li key={criterion.id} className={`${card} px-4 py-3.5`}>
+                  <li
+                    key={criterion.id}
+                    className={`${card} px-3.5 py-3 text-[13.5px] leading-normal`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <p className={sectionLabel}>Critère {index + 1}</p>
                       {criterion.result && (
@@ -198,15 +202,17 @@ export function StoryPage() {
                         </span>
                       )}
                     </div>
-                    <p className="mt-1.5 leading-relaxed">
+                    <p className="mt-1">
                       <span className={label}>Étant donné</span>{" "}
-                      {criterion.given}
+                      <span className={value}>{criterion.given}</span>
                     </p>
-                    <p className="leading-relaxed">
-                      <span className={label}>Quand</span> {criterion.when}
+                    <p className="mt-1">
+                      <span className={label}>Quand</span>{" "}
+                      <span className={value}>{criterion.when}</span>
                     </p>
-                    <p className="leading-relaxed">
-                      <span className={label}>Alors</span> {criterion.then}
+                    <p className="mt-1">
+                      <span className={label}>Alors</span>{" "}
+                      <span className={value}>{criterion.then}</span>
                     </p>
                     {criterion.result && criterion.evidence && (
                       <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-muted-foreground">
@@ -225,26 +231,23 @@ export function StoryPage() {
               />
             )}
             {found.story.dependsOn.length > 0 && (
-              <Section title="Dépend de">
-                <ul className={listCard}>
+              <section className="px-[26px] pt-3 text-[12.5px] text-muted-foreground">
+                <h2 className="sr-only">Dépend de</h2>
+                <ul className="grid gap-1">
                   {found.story.dependsOn.map((dependency) => (
-                    <li
-                      key={dependency.id}
-                      className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
-                    >
+                    <li key={dependency.id}>
+                      Dépend de{" "}
                       <Link
                         to={`/us/${dependency.id}`}
-                        className={`font-semibold underline ${focusRing}`}
+                        className={`underline ${focusRing}`}
                       >
                         {dependency.iWant}
-                      </Link>
-                      <span className="text-muted-foreground">
-                        {STORY_STATUSES[dependency.status] ?? dependency.status}
-                      </span>
+                      </Link>{" "}
+                      ({STORY_STATUSES[dependency.status] ?? dependency.status})
                     </li>
                   ))}
                 </ul>
-              </Section>
+              </section>
             )}
             {/* In review, the pull request is in the panel; otherwise it follows the story. */}
             {found.story.status !== "in_review" && github && (
