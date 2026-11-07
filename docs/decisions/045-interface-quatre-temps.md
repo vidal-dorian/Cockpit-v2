@@ -11,6 +11,7 @@
   - la [019](019-kanban.md), choix B : le Kanban a six colonnes, la première est « Idées » (les tickets à l'étape `new`, écran S00b) ;
   - la [034](034-developper-avec-claude.md), choix A : « Développer avec Claude » s'ouvre dans le panneau de droite, plus en haut de la page ;
   - la [042](042-nouvelle-equipe-fenetre.md), choix A : « Nouvelle équipe » s'ouvre en plein écran, sur un canevas, plus dans une fenêtre modale.
+- **Modifiée par** : [046](046-logo-la-boucle.md) : le logo, repoussé ici, est tranché
 - **Écrans** : [`docs/ecrans/`](../ecrans/README.md) (63 écrans, PNG et HTML), validés par Dorian le 2026-11-07
 - **Tranche** : 9.3 du [découpage](../decoupage.md) pour la coque commune, puis la tranche de chaque écran
 
@@ -38,7 +39,7 @@ Il a ensuite demandé les quatre couleurs des profils DISC (v8), puis de les rat
 
 ## Ce qui est repoussé
 
-- **Le logo** : les écrans montrent quatre carrés aux couleurs des temps, une proposition. Le composant `Logo` (les deux mains, 028 D) reste jusqu'à ce qu'une décision tranche.
+- **Le logo** : les écrans montrent quatre carrés aux couleurs des temps, une proposition. Le composant `Logo` (les deux mains, 028 D) reste jusqu'à ce qu'une décision tranche. → tranché par la [046](046-logo-la-boucle.md) : la boucle.
 - **Le thème clair** : la 15.3. Les jetons sont nommés pour recevoir un second thème.
 - **Les branches en parallèle dans une équipe** : une décision avant la tranche E6 (G).
 - **Ce que chaque écran marque « à trancher »** dans l'index (prix de l'abonnement, rôles des membres, coût…) : décidé avec sa tranche.
@@ -46,7 +47,7 @@ Il a ensuite demandé les quatre couleurs des profils DISC (v8), puis de les rat
 ## Limites connues
 
 - **Les PNG sont des instantanés** : ils ne se mettent pas à jour tout seuls. Quand un écran change sur le canevas, il faut réexporter son PNG et son HTML dans `docs/ecrans/`.
-- **Le code est en « Quatre temps »** depuis la tranche 9.3 : jetons, polices (Urbanist et JetBrains Mono), coque et écrans qui existaient. `Logo` (les deux mains) y est resté (voir « Ce qui est repoussé »).
+- **Le code est en « Quatre temps »** depuis la tranche 9.3 : jetons, polices (Urbanist et JetBrains Mono), coque et écrans qui existaient. Le logo est la boucle de la [046](046-logo-la-boucle.md).
 
 ## Ce que la tranche 9.3 a laissé de côté
 

@@ -222,7 +222,7 @@ export function Sidebar() {
         to="/"
         className={`mb-3.5 flex items-center gap-2.5 rounded-xl px-2.5 text-base font-bold ${focusRing}`}
       >
-        <Logo className="h-7 w-auto" />
+        <Logo className="size-5" />
         Cockpit
       </Link>
       <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">

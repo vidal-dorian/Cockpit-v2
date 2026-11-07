@@ -52,7 +52,7 @@ export function Autoriser() {
     <main className="grid min-h-screen place-items-center p-4">
       <div className={`w-full max-w-[480px] ${card} p-7`}>
         <div className="flex items-center gap-3 font-bold">
-          <Logo className="h-7 w-auto" />
+          <Logo className="size-5" />
           Cockpit
           {me.data && (
             <span className="ml-auto text-[12.5px] font-normal text-muted-foreground">

@@ -63,167 +63,76 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Colors of the logo (Logo.tsx), from the Quatre temps palette above (decision 045).
+/* Colors of the logo (Logo.tsx): the four beats of the loop (decisions 045 and 046).
    Plain variables, not @theme ones: Tailwind drops theme variables no utility uses. */
 :root {
-  --logo-coral: #ff5d6e;
-  --logo-coral-soft: #ff8c98;
-  --logo-hand: #f2f4f8;
-  --logo-hand-tint: #ffd0d5;
-  --logo-stone-light: #a9b0bf;
-  --logo-stone: #6f7787;
-  --logo-stone-deep: #343b48;
-  --logo-finger: #262b35;
-  --logo-wire: #a9b0bf;
+  --logo-idea: #f5c542;
+  --logo-you: #ff5d6e;
+  --logo-claude: #7c8cff;
+  --logo-done: #34d399;
 }
 
-/* The logo is still at rest and plays once when it is hovered. Every keyframe set
-   starts from the resting pose, so nothing jumps: the arms first open, then slide back
-   in and clasp, the fingers grip, and Claude's circuit fades out and draws itself again. */
+/* The logo is still at rest; on hover the loop spins into a vortex, collapses into
+   its core and blooms back, once. */
 .logo {
   overflow: visible;
 }
+.logo-loop,
+.logo-core {
+  transform-box: view-box;
+  transform-origin: 60px 60px;
+}
+.logo-core {
+  opacity: 0;
+}
 
 @media (prefers-reduced-motion: no-preference) {
-  .logo:hover .logo-human {
-    animation: logo-in-left 1.3s both;
+  .logo:hover .logo-loop {
+    animation: logo-vortex 3.6s cubic-bezier(0.4, 0, 0.2, 1) 1;
   }
-  .logo:hover .logo-claude {
-    animation: logo-in-right 1.3s both;
-  }
-  .logo:hover .logo-hand {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: logo-clasp 1.3s both;
-  }
-  .logo:hover .logo-finger {
-    animation: logo-grip 0.45s ease-out both;
-  }
-  .logo:hover .logo-finger:nth-child(1) {
-    animation-delay: 0.95s;
-  }
-  .logo:hover .logo-finger:nth-child(2) {
-    animation-delay: 1.03s;
-  }
-  .logo:hover .logo-finger:nth-child(3) {
-    animation-delay: 1.11s;
-  }
-  .logo:hover .logo-wire {
-    stroke-dasharray: 1 2;
-    animation: logo-wire 1.9s both;
-  }
-  .logo:hover .logo-dot {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: logo-dot 2.1s both;
-  }
-  .logo:hover .logo-wire:nth-child(2),
-  .logo:hover .logo-dot:nth-child(2) {
-    animation-delay: 0.12s;
-  }
-  .logo:hover .logo-wire:nth-child(3),
-  .logo:hover .logo-dot:nth-child(3) {
-    animation-delay: 0.24s;
+  .logo:hover .logo-core {
+    animation: logo-core 3.6s 1;
   }
 }
 
-@keyframes logo-in-left {
-  0% {
-    transform: none;
-    animation-timing-function: ease-in-out;
+@keyframes logo-vortex {
+  0%,
+  14% {
+    transform: rotate(0deg) scale(1);
   }
-  30% {
-    transform: translateX(-170px);
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  50% {
+    transform: rotate(720deg) scale(1);
+    animation-timing-function: cubic-bezier(0.6, 0, 1, 1);
   }
-  75% {
-    transform: translateX(14px);
-    animation-timing-function: ease-out;
+  68%,
+  76% {
+    transform: rotate(1260deg) scale(0.06);
   }
-  100% {
-    transform: none;
-  }
-}
-@keyframes logo-in-right {
-  0% {
-    transform: none;
-    animation-timing-function: ease-in-out;
-  }
-  30% {
-    transform: translateX(170px);
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
-  }
-  75% {
-    transform: translateX(-14px);
-    animation-timing-function: ease-out;
+  92% {
+    transform: rotate(1440deg) scale(1.1);
   }
   100% {
-    transform: none;
+    transform: rotate(1440deg) scale(1);
   }
 }
-@keyframes logo-clasp {
-  0% {
-    transform: none;
-    animation-timing-function: ease-in-out;
-  }
-  30% {
-    transform: scale(0.88) rotate(-5deg);
-    animation-timing-function: ease-out;
+@keyframes logo-core {
+  0%,
+  64% {
+    opacity: 0;
+    transform: scale(0);
   }
   70% {
-    transform: scale(1.05) rotate(1deg);
-    animation-timing-function: ease-out;
-  }
-  100% {
-    transform: none;
-  }
-}
-@keyframes logo-grip {
-  0%,
-  100% {
-    transform: none;
-  }
-  40% {
-    transform: translateY(-16px);
-  }
-}
-/* Visible, fades out while the arms open, then draws itself once the hands have met. */
-@keyframes logo-wire {
-  0% {
     opacity: 1;
-    stroke-dashoffset: 0;
+    transform: scale(1.5);
   }
-  10% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-  11% {
-    opacity: 0;
-    stroke-dashoffset: 1;
-  }
-  52% {
+  78% {
     opacity: 1;
-    stroke-dashoffset: 1;
-  }
-  80%,
-  100% {
-    opacity: 1;
-    stroke-dashoffset: 0;
-  }
-}
-@keyframes logo-dot {
-  0% {
     transform: scale(1);
-    animation-timing-function: ease-in;
   }
-  10%,
-  58% {
+  86%,
+  100% {
+    opacity: 0;
     transform: scale(0);
-    animation-timing-function: cubic-bezier(0.3, 1.6, 0.5, 1);
-  }
-  75%,
-  100% {
-    transform: scale(1);
   }
 }
 

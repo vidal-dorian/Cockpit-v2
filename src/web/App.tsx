@@ -104,7 +104,7 @@ function LoggedOut() {
     <main className="grid min-h-screen md:grid-cols-2">
       <div className="flex flex-col gap-7 px-8 py-14 md:px-16">
         <div className="flex items-center gap-2.5">
-          <Logo className="h-7 w-auto" />
+          <Logo className="size-5" />
           <h1 className="text-lg font-bold">Cockpit</h1>
         </div>
         <p className="mt-16 text-[40px] leading-[1.15] font-semibold tracking-[-.02em]">

@@ -1,6 +1,6 @@
 # Les écrans de Cockpit
 
-Chaque écran de Cockpit, dans le style **« Quatre temps »** ([décision 045](../decisions/045-interface-quatre-temps.md)). Ils ont été validés par Dorian le 2026-11-07.
+Chaque écran de Cockpit, dans le style **« Quatre temps »** ([décision 045](../decisions/045-interface-quatre-temps.md)). Ils ont été validés par Dorian le 2026-11-07. Leur logo (quatre carrés) est une ébauche : le logo est celui de la [décision 046](../decisions/046-logo-la-boucle.md), la boucle.
 
 Chaque écran existe en deux fichiers :
 - **`.png`** : pour le regarder ;

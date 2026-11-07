@@ -10,7 +10,7 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen md:grid md:grid-cols-[300px_minmax(0,1fr)]">
       <aside className="flex flex-col gap-[18px] border-b border-border bg-card px-8 py-10 md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 text-base font-bold">
-          <Logo className="h-7 w-auto" />
+          <Logo className="size-5" />
           Cockpit
         </div>
         <p className={sectionLabel}>Mise en service</p>
