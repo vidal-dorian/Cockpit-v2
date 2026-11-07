@@ -3,14 +3,7 @@ import { useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
-import {
-  alertBox,
-  button,
-  focusRing,
-  listCard,
-  primaryButton,
-  sectionLabel,
-} from "./ui.ts";
+import { alertBox, button, focusRing, listCard, primaryButton } from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -187,7 +180,7 @@ export function ProjectPrepare({
     <div className="mt-4">
       {red && !done?.pullRequest && !plan && (
         <>
-          <h2 className={`mb-2 text-you-text ${sectionLabel}`}>
+          <h2 className="mb-2 text-[11.5px] font-bold uppercase tracking-[.08em] text-you-text">
             1 · À corriger d'abord
           </h2>
           <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-you-line bg-you-ground px-4 py-3.5">

@@ -376,6 +376,30 @@ describe("slice 9.3 review: the answer panel", () => {
     ).toBe("à moitié tapé");
   });
 
+  it("given a typed answer to the first question, when a question arrives before it without any click, then the typed text and the question stay", async () => {
+    const api = await show({ forYou: [answer] });
+    fireEvent.change(within(panel()).getByLabelText("Ta réponse"), {
+      target: { value: "pas fini" },
+    });
+
+    api.state.home = {
+      ...empty(),
+      forYou: [{ ...answer, questionId: 9, question: "Nouvelle ?" }, answer],
+    };
+    for (const s of FakeEventSource.all) s.emit("change", "story:99");
+
+    await waitFor(() =>
+      expect(within(panel()).getByText("2 sur 2")).toBeDefined(),
+    );
+    expect(
+      within(panel()).getByText("Quel nom pour le bouton ?"),
+    ).toBeDefined();
+    expect(
+      (within(panel()).getByLabelText("Ta réponse") as HTMLTextAreaElement)
+        .value,
+    ).toBe("pas fini");
+  });
+
   it("given the last question, when I answer it, then the focus is on the page title, not on the body", async () => {
     const api = await show({ forYou: [answer] });
 

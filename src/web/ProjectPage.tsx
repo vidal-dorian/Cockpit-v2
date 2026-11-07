@@ -107,13 +107,15 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const kanbanSentence = {
     title: stories.isPending
       ? "Chargement…"
-      : waiting > 0
-        ? waiting === 1
-          ? "1 user story t'attend."
-          : `${waiting} user stories t'attendent.`
-        : working > 0
-          ? `Claude développe ${plural(working, "user story", "user stories")}.`
-          : "Rien ne t'attend sur ce projet.",
+      : stories.isError
+        ? (project?.fullName.split("/").pop() ?? "Projet")
+        : waiting > 0
+          ? waiting === 1
+            ? "1 user story t'attend."
+            : `${waiting} user stories t'attendent.`
+          : working > 0
+            ? `Claude développe ${plural(working, "user story", "user stories")}.`
+            : "Rien ne t'attend sur ce projet.",
     rest: !stories.data
       ? undefined
       : board.length === 0

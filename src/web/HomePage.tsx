@@ -152,6 +152,7 @@ function ItemPanel({
   onMove,
   onSent,
   focusHeading,
+  onFocused,
 }: {
   item: Item;
   index: number;
@@ -159,13 +160,16 @@ function ItemPanel({
   onMove: (index: number) => void;
   onSent: () => void;
   focusHeading: boolean;
+  onFocused: (focusHeading: boolean) => void;
 }) {
   const kind = KINDS[item.kind];
   const heading = useRef<HTMLHeadingElement>(null);
   // « Répondre » of « 2 · Ensuite » opens the item here: the keyboard follows it.
   useEffect(() => {
-    if (focusHeading) heading.current?.focus();
-  }, [focusHeading]);
+    if (!focusHeading) return;
+    heading.current?.focus();
+    onFocused(false); // once: a later panel must not take the focus
+  }, [focusHeading, onFocused]);
   const urgent = index === 0;
   let footer: React.ReactNode;
   if (item.kind === "answer")
@@ -304,6 +308,10 @@ export function HomePage() {
         : { title: "Rien ne t'attend.", rest: claude };
   const found = forYou.findIndex((item) => itemKey(item) === opened.key);
   const shown = found >= 0 ? found : Math.min(opened.at, forYou.length - 1);
+  // Remember what is displayed (also by default, or after a fallback), so the next change of the list finds it again.
+  const shownKey = forYou[shown] && itemKey(forYou[shown]);
+  if (shownKey && (opened.key !== shownKey || opened.at !== shown))
+    setOpened({ key: shownKey, at: shown });
   const open = (at: number, row = false) => {
     const target = forYou[at];
     if (target) setOpened({ key: itemKey(target), at });
@@ -444,6 +452,7 @@ export function HomePage() {
             headingRef.current?.focus();
           }}
           focusHeading={fromRow}
+          onFocused={setFromRow}
         />
       )}
     </>
