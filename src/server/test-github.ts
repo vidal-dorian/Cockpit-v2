@@ -859,7 +859,8 @@ export function stubGitHub(initial: {
           const recursive = url.searchParams.get("recursive") === "1";
           // Only the root (HEAD, not recursive) and a directory pinned to a commit sha (<sha>:<dir>, either way) exist:
           // a recursive read of the whole repo is what the health check must never do, and `HEAD:<dir>` is not pinned.
-          const pinned = /^([0-9a-f]{40}):(.+)$/.exec(treeish);
+          // A bare commit sha is the root of that commit, as `<sha>:` (slice C1: `inspect` starts there).
+          const pinned = /^([0-9a-f]{40})(?::(.*))?$/.exec(treeish);
           const isRoot = treeish === "HEAD";
           if (
             (!isRoot && !pinned) ||
