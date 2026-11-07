@@ -55,6 +55,7 @@
 - **Fait** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
 - **Fait** : tranche R2 (les règles et l'écran de reprise, [décision 047](decisions/047-ecran-de-reprise.md)).
 - **Fait** : tranche R3 (le graphe par fonctionnalité, [décision 048](decisions/048-graphe-par-fonctionnalite.md)).
+- **Fait** : tranche C1 (la mise à jour du catalogue, [décision 049](decisions/049-mise-a-jour-du-catalogue.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
