@@ -124,22 +124,25 @@ export function JournalEntry({
   const at = new Date(entry.at);
   return (
     <li className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-[18px] py-2 [.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card">
-      <span
+      <div
         aria-hidden="true"
         className="text-center text-[13px] font-bold text-dim"
       >
         {entry.result === "ok" ? (GLYPHS[entry.origin] ?? "●") : "✕"}
-      </span>
+      </div>
       <div className="min-w-0">
-        <span className="block truncate font-semibold">
-          <span>{ORIGINS[entry.origin] ?? entry.origin}</span>
-          <span aria-hidden="true"> · </span>
+        <p className="truncate font-semibold">
+          {/* The label stays the first span of the row. */}
+          <b className="font-semibold">
+            {ORIGINS[entry.origin] ?? entry.origin}
+          </b>
+          ·{" "}
           <span>
             {ACTIONS[entry.action] ??
               (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
             {"event" in entry && ` (${entry.event})`}
           </span>
-        </span>
+        </p>
         {entry.project && (
           <span className="block truncate text-[12.5px] font-medium text-muted-foreground">
             {entry.project}
