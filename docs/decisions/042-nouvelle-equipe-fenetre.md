@@ -4,6 +4,7 @@
 - **Date** : 2026-11-06
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [031 — L'équipe en graphe](031-equipe-en-graphe.md), [032 — Plusieurs équipes par projet](032-plusieurs-equipes.md)
+- **Modifiée par** : [045](045-interface-quatre-temps.md) : « Nouvelle équipe » s'ouvre en plein écran sur un canevas (A)
 - **Modifie** : la 032 E (la création en ligne de « Nouvelle équipe »)
 - **Répond à** : « Nouvelle équipe » doit ouvrir une fenêtre où l'on configure la nouvelle équipe, pour que personne ne modifie l'équipe affichée en croyant configurer la nouvelle ; et l'onglet Agents met l'équipe (le graphe) à gauche et la liste des agents du repo à droite.
 

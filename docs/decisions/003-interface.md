@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md)
 - **Modifiée par 028** : le style visuel est celui des maquettes « Crème sombre » ; l'UX et les règles d'ergonomie ne changent pas — voir la [028](028-creme-sombre-onglets-journal.md)
+- **Modifiée par 045** : le style « Quatre temps », la barre latérale rouverte (piste écartée plus bas) et les écrans de référence de `docs/ecrans/` — voir la [045](045-interface-quatre-temps.md)
 - **Maquettes** : canevas « Cockpit — Maquettes », rangée **« Version retenue — UX + UI »** (https://claude.ai/artifact/XAteTYa7tQBcCGq8HpRF7C)
 
 ## Contexte
