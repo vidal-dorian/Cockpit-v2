@@ -3,7 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { JournalEntry } from "./Journal.tsx";
 
-// Slices R1 and R2 (decisions 043 E and 047): the entries of the map and the rules are named in French, never by their code.
+// Slices R1, R2 and C1 (decisions 043 E, 047 and 049): the entries of the map and the rules are named in French, never by their code.
 
 afterEach(cleanup);
 
@@ -26,6 +26,7 @@ describe("decisions 043 E and 047: the Journal names the map and rule entries", 
     ["unkeep_rule", "ui", "Validation de la règle annulée"],
     ["edit_rule", "ui", "Règle corrigée"],
     ["bug_rule", "ui", "Règle notée comme bug"],
+    ["update_catalog", "ui", "Fichiers de Claude mis à jour"],
   ])(
     "given an entry of %s (origin %s), when it is shown, then it reads « %s » and never the code",
     (action, origin, label) => {

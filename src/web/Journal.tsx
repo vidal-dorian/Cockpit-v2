@@ -80,6 +80,7 @@ export const ACTIONS: Record<string, string> = {
   unkeep_rule: "Validation de la règle annulée",
   edit_rule: "Règle corrigée",
   bug_rule: "Règle notée comme bug",
+  update_catalog: "Fichiers de Claude mis à jour",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",
