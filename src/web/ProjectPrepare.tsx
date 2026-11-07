@@ -21,7 +21,7 @@ const UNAVAILABLE =
 const UNAUTHORIZED = "Ta session a expiré : reconnecte-toi, puis recommence.";
 const FAILED = "Ça n'a pas marché, réessaie dans un instant.";
 
-type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
+export type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
 /** What went wrong, for the page: `code` is the server's, never shown; `status` is 0 when no answer came. */
 export type Failure = { code: string; status: number; settingsUrl?: string };
@@ -44,13 +44,13 @@ export async function failure(res: Response): Promise<Failure> {
   };
 }
 
-async function readPlan(id: string) {
+export async function readPlan(id: string) {
   const res = await client.api.projects[":id"].prepare.$post({ param: { id } });
   if (!res.ok) return { failure: await failure(res) };
   return { plan: (await res.json()).plan };
 }
 
-function FileRow({ file }: { file: PlanFile }) {
+export function FileRow({ file }: { file: PlanFile }) {
   const lines = useMemo(
     () =>
       file.status === "exists" && file.current !== undefined

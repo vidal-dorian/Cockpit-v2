@@ -90,8 +90,8 @@ describe("decision 030 A: the tab Agents", () => {
       name: "Sections du projet",
     });
     const links = within(nav).getAllByRole("link");
-    expect(links).toHaveLength(5);
-    const agents = links[3] as HTMLElement;
+    expect(links).toHaveLength(6);
+    const agents = links[4] as HTMLElement;
     expect(agents.textContent?.trim()).toBe("Agents");
     expect(agents.getAttribute("href")).toBe("/projets/5/agents");
     expect(agents.getAttribute("aria-current")).toBe("page");
