@@ -9,6 +9,7 @@ import {
   acceptanceCriteria,
   codeMaps,
   codeSources,
+  findings,
   MODULE_KINDS,
   type projects,
   tickets,
@@ -369,7 +370,24 @@ export function codeMapRoutes(db: Db, readGitHub: ReadGitHub) {
               ),
             )
             .limit(1);
-      if (!inMap && !cited) return c.json({ error: "Not found" }, 404);
+      // Or a line a finding of the project cites at this commit (decision 051 F).
+      const [citedByFinding] =
+        inMap || cited
+          ? []
+          : await db
+              .select({ id: codeSources.id })
+              .from(codeSources)
+              .innerJoin(findings, eq(findings.id, codeSources.findingId))
+              .where(
+                and(
+                  eq(findings.projectId, project.id),
+                  eq(codeSources.commitSha, sha),
+                  eq(codeSources.path, path),
+                ),
+              )
+              .limit(1);
+      if (!inMap && !cited && !citedByFinding)
+        return c.json({ error: "Not found" }, 404);
       try {
         const ready = await readGitHub();
         if (!ready) throw new Error("Cockpit is not configured");

@@ -63,6 +63,11 @@ const CATALOG: Record<string, string> = {
   ".claude/agents/cartographer.md": fromCatalog("agents/cartographer.md"),
   ".claude/skills/analyser/SKILL.md": fromCatalog("skills/analyser/SKILL.md"),
   ".claude/agents/rules-analyst.md": fromCatalog("agents/rules-analyst.md"),
+  ".claude/agents/bug-hunter.md": fromCatalog("agents/bug-hunter.md"),
+  ".claude/agents/security-reviewer.md": fromCatalog(
+    "agents/security-reviewer.md",
+  ),
+  ".claude/agents/architect.md": fromCatalog("agents/architect.md"),
 };
 const PATHS = Object.keys(CATALOG).sort();
 const DEV = ".claude/agents/developer.md";

@@ -657,9 +657,12 @@ describe("GET /api/projects/:id/health", () => {
     ROOT,
     ...CATALOG_READS,
   ].sort();
-  // The four stub agent files of AGENT_FILES only: the catalogue line reads those four, and the other four files are absent.
+  // The four stub agent files of AGENT_FILES only: the catalogue line reads those four, and the other files are absent.
   const CATALOG_READS_OF_FOUR = CATALOG_READS.filter(
-    (call) => !/write-us|analyser|cartographer|rules-analyst/.test(call),
+    (call) =>
+      !/write-us|analyser|cartographer|rules-analyst|bug-hunter|security-reviewer|architect/.test(
+        call,
+      ),
   );
   const CATALOG_OF_FOUR = {
     key: "catalog",

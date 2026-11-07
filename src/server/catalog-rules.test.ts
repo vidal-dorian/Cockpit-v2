@@ -9,7 +9,7 @@ import { withProject } from "./test-mcp.ts";
 // - The agent is `catalog/agents/rules-analyst.md`, going to `.claude/agents/rules-analyst.md`; front matter name, description, tools (which name
 //   mcp__cockpit__create_takeover_stories) and model: opus. Like the cartographer it names nothing of Cockpit's own documents and its prompt is in English.
 // - The skill keeps its path, names `mcp__cockpit__create_takeover_stories`, the agent `rules-analyst` and the limit of 5 rules per user story.
-// - « Préparer pour Claude » writes it with the others: the catalogue is 9 files (it was 8); « Ajouter /analyser au repo » (a plan reduced to the three files
+// - « Préparer pour Claude » writes it with the others: the catalogue is 9 files (it was 8; 12 since the findings, decision 051); « Ajouter /analyser au repo » (a plan reduced to the three files
 //   of /analyser) writes the three and never overwrites a different file.
 
 afterEach(() => {
@@ -98,12 +98,12 @@ describe("decision 047 M: « Préparer pour Claude » writes it", () => {
   const planOf = async (ctx: Awaited<ReturnType<typeof prepared>>) =>
     ((await (await ctx.post("/prepare")).json()) as { plan: Plan }).plan;
 
-  it("given a repo with nothing of the catalogue, when the plan is read, then it has 9 files and the agent is create with the text of the catalogue", async () => {
+  it("given a repo with nothing of the catalogue, when the plan is read, then it has 12 files and the agent is create with the text of the catalogue", async () => {
     const ctx = await prepared({});
 
     const plan = await planOf(ctx);
 
-    expect(plan.files).toHaveLength(9);
+    expect(plan.files).toHaveLength(12);
     expect(plan.files.find((f) => f.path === AGENT)).toEqual({
       path: AGENT,
       status: "create",

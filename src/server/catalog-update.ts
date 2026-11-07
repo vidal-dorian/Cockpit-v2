@@ -21,10 +21,13 @@ export const CATALOG_FILES = [
   "skills/dev-us/SKILL.md",
   "skills/write-us/SKILL.md",
 ].map(catalogFile);
-/** `/analyser` and its agents (decisions 043 M and 047 M): prepared with the rest, but no team agent. */
+/** `/analyser` and its agents (decisions 043 M, 047 M and 051 K): prepared with the rest, but no team agent. */
 export const ANALYSER_FILES = [
   "agents/cartographer.md",
   "agents/rules-analyst.md",
+  "agents/bug-hunter.md",
+  "agents/security-reviewer.md",
+  "agents/architect.md",
   "skills/analyser/SKILL.md",
 ].map(catalogFile);
 
@@ -46,7 +49,31 @@ const sha256 = (text: string) =>
 export type CatalogState = "current" | "old" | "modified" | "absent";
 type Hashes = Record<string, string>;
 
-/** Decision 049 D: the state of one file of the catalogue, from its text in the repo (null when absent). */
+// Decision 051 L: the `model:` line of an agent is the user's choice (the agents tab), so it never makes a copy differ from the catalogue.
+const MODEL = /^model:.*\r?\n/m;
+/** The front matter without its closing fence, and what follows it. */
+const frontMatter = (text: string) => {
+  const found = /^---\r?\n[\s\S]*?\r?\n(?=---\r?\n)/.exec(text);
+  return found && { head: found[0], rest: text.slice(found[0].length) };
+};
+const modelLine = (text: string) =>
+  frontMatter(text)?.head.match(MODEL)?.[0] ?? "";
+/** `text` with the `model:` line `line` (none for "") put last in its front matter. */
+const withModelLine = (text: string, line: string) => {
+  const front = frontMatter(text);
+  return front ? front.head.replace(MODEL, "") + line + front.rest : text;
+};
+
+/** What « Mettre à jour » writes for a file: the catalogue's text with the model line the repo's copy has (or none, when it has a front matter), decision 051 L. */
+export const textToWrite = (path: string, before: string | null) => {
+  const text = CATALOG_TEXTS.get(path) as string;
+  // A copy with no front matter says nothing of a model: the catalogue's is kept.
+  return before !== null && frontMatter(before)
+    ? withModelLine(text, modelLine(before))
+    : text;
+};
+
+/** Decision 049 D: the state of one file of the catalogue, from its text in the repo (null when absent). The model line is not compared (051 L). */
 export function fileState(
   path: string,
   text: string | null,
@@ -54,9 +81,18 @@ export function fileState(
   history: Record<string, string[]>,
 ): CatalogState {
   if (text === null) return "absent";
-  if (text === CATALOG_TEXTS.get(path)) return "current";
-  const hash = sha256(text);
-  return recorded[path] === hash || history[path]?.includes(hash)
+  const catalogue = CATALOG_TEXTS.get(path) as string;
+  if (text === catalogue) return "current";
+  // The copy with the model line of the catalogue: what a version of the catalogue looked like before the user chose a model.
+  const normal = withModelLine(text, modelLine(catalogue));
+  if (
+    normal === catalogue ||
+    withModelLine(text, "") === withModelLine(catalogue, "")
+  )
+    return "current";
+  return [sha256(text), sha256(normal)].some(
+    (hash) => recorded[path] === hash || history[path]?.includes(hash),
+  )
     ? "old"
     : "modified";
 }

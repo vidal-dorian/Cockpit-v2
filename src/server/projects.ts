@@ -20,6 +20,7 @@ import {
   readCatalogFiles,
   recordedHashes,
   recordWrites,
+  textToWrite,
 } from "./catalog-update.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
@@ -701,7 +702,7 @@ export function projectRoutes(
         files.map(({ path, before }) => ({
           path,
           before,
-          after: CATALOG_TEXTS.get(path) as string,
+          after: textToWrite(path, before),
         })),
         UPDATE_MESSAGE,
         {

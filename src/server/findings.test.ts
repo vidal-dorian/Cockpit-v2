@@ -554,6 +554,18 @@ describe("decision 051 B: list_findings", () => {
   });
 });
 
+/** Drizzle wraps the driver error: the "check constraint" text is in the cause (as db.test.ts reads it). */
+const refusedByCheck = async (query: Promise<unknown>) => {
+  const error = await query.then(
+    () => null,
+    (e: unknown) => e,
+  );
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  expect(
+    `${(error as Error | null)?.message ?? ""} ${(cause as Error | undefined)?.message ?? ""}`,
+  ).toMatch(/check constraint/i);
+};
+
 describe("decision 051 C: a code source belongs to a rule or to a finding, exactly one", () => {
   const insert = (
     db: Awaited<ReturnType<typeof ready>>["db"],
@@ -572,12 +584,8 @@ describe("decision 051 C: a code source belongs to a rule or to a finding, exact
     const criterion = (await criterionIds(ctx.db))[0] as number;
 
     await insert(ctx.db, null, id);
-    await expect(insert(ctx.db, criterion, id)).rejects.toThrow(
-      /check constraint/i,
-    );
-    await expect(insert(ctx.db, null, null)).rejects.toThrow(
-      /check constraint/i,
-    );
+    await refusedByCheck(insert(ctx.db, criterion, id));
+    await refusedByCheck(insert(ctx.db, null, null));
     await insert(ctx.db, criterion, null);
   });
 
@@ -596,10 +604,10 @@ describe("decision 051 C: a code source belongs to a rule or to a finding, exact
     const ctx = await ready();
     const { findings } = await submitted(ctx, [finding(1)]);
 
-    await expect(
+    await refusedByCheck(
       ctx.db.execute(
         sql`update findings set status = 'ticketed' where id = ${findings[0]?.id as number}`,
       ),
-    ).rejects.toThrow(/check constraint/i);
+    );
   });
 });

@@ -12,6 +12,9 @@ const FILES = [
   "skills/write-us/SKILL.md",
   "agents/cartographer.md",
   "agents/rules-analyst.md",
+  "agents/bug-hunter.md",
+  "agents/security-reviewer.md",
+  "agents/architect.md",
   "skills/analyser/SKILL.md",
 ];
 const git = (...args) =>
@@ -33,7 +36,14 @@ if (git("rev-parse", "--is-shallow-repository").trim() === "true") {
 
 const history = {};
 for (const file of FILES) {
-  const versions = git("log", "--format=%H", "--", `catalog/${file}`)
+  // Oldest first, the working text last: the last hash of each list is the current version.
+  const versions = git(
+    "log",
+    "--reverse",
+    "--format=%H",
+    "--",
+    `catalog/${file}`,
+  )
     .split("\n")
     .filter(Boolean)
     .map((commit) => {

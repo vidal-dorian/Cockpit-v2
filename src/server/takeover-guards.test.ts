@@ -80,7 +80,10 @@ describe("decision 047: a bug on the last rule", () => {
     expect(bug?.description_md).toMatch(
       /- <https:\/\/github\.com\/.*#L\d+(-L\d+)?>/,
     );
-    expect(await sourceRows(ctx.db)).toEqual([]);
+    // The rule's sources are gone; the copies go to the bug finding (decision 051 H).
+    expect(
+      (await sourceRows(ctx.db)).filter((s) => s.criterion_id !== null),
+    ).toEqual([]);
   });
 });
 
