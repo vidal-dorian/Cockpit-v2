@@ -10,6 +10,7 @@ import { NavLink, useSearchParams } from "react-router";
 import { AnalyseWindow } from "./AnalyseWindow.tsx";
 import { ConceptionObject } from "./ConceptionObject.tsx";
 import { fetchCodeMap, linkLabel } from "./conception.ts";
+import { ProjectFeatures } from "./ProjectFeatures.tsx";
 import { chip } from "./ProjectTeam.tsx";
 import { Reprise } from "./Reprise.tsx";
 import { useRules } from "./rules.ts";
@@ -28,7 +29,7 @@ const ConceptionGraph = lazy(() => import("./ConceptionGraph.tsx"));
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
-/** Decision 043 I, J, K, L: the tab « Conception », one diagram (or list) per module of the map; decision 047 I: with the chip « Règles », the takeover screen. */
+/** Decision 043 I, J, K, L: the tab « Conception », one diagram (or list) per module of the map; decision 047 I: with the chip « Règles », the takeover screen; decision 048 E: with « Fonctionnalités », the graph of the features. */
 export function ProjectConception({
   projectId,
   fullName,
@@ -38,7 +39,7 @@ export function ProjectConception({
   projectId: string;
   fullName: string;
   archived: boolean;
-  screen?: "map" | "rules";
+  screen?: "map" | "rules" | "features";
 }) {
   const map = useQuery({
     queryKey: ["code-map", projectId],
@@ -110,6 +111,12 @@ export function ProjectConception({
       >
         {rules.data ? `Règles · ${rules.data.length}` : "Règles"}
       </NavLink>
+      <NavLink
+        to={`/projets/${projectId}/conception/fonctionnalites`}
+        className={chipLink}
+      >
+        Fonctionnalités
+      </NavLink>
     </nav>
   );
   if (screen === "rules")
@@ -117,6 +124,18 @@ export function ProjectConception({
       <section className="mx-[26px] mt-6" aria-label="Conception">
         {chips}
         <Reprise
+          projectId={projectId}
+          fullName={fullName}
+          archived={archived}
+        />
+      </section>
+    );
+
+  if (screen === "features")
+    return (
+      <section className="mx-[26px] mt-6" aria-label="Conception">
+        {chips}
+        <ProjectFeatures
           projectId={projectId}
           fullName={fullName}
           archived={archived}

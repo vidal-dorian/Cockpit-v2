@@ -34,11 +34,14 @@ export function AnalyseWindow({
   projectId,
   fullName,
   archived,
+  initialRules = false,
   onClose,
 }: {
   projectId: string;
   fullName: string;
   archived: boolean;
+  /** « Règles » checked when the window opens (decision 048 J). */
+  initialRules?: boolean;
   onClose: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -51,7 +54,7 @@ export function AnalyseWindow({
     }
   });
   const [map, setMap] = useState(true);
-  const [rules, setRules] = useState(false);
+  const [rules, setRules] = useState(initialRules);
   const [features, setFeatures] = useState("");
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
