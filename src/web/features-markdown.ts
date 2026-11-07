@@ -35,7 +35,7 @@ export function featuresMarkdown(
     .map((feature) =>
       [
         `# ${heading(feature.title)}`,
-        `Acteurs : ${feature.actors.join(", ")}`,
+        `Acteurs : ${heading(feature.actors.join(", "))}`,
         ...feature.rules.map((r) =>
           [
             `## ${heading(r.summary)}`,
@@ -54,7 +54,7 @@ export function featuresMarkdown(
         "## Objets touchés",
         ...objectsOf(feature).map(({ name }) => {
           const object = mapped.get(name);
-          return `### ${name}\n\n${
+          return `### ${heading(name)}\n\n${
             object
               ? object.fields
                   .map((f) => `- ${code(f.name)} ${code(f.type)}`)

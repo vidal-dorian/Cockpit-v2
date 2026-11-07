@@ -51,4 +51,25 @@ describe("featuresMarkdown: text that looks like Markdown", () => {
 
     expect(text).toContain("- **Alors** premier\n  \n  second");
   });
+
+  it("given an actor and an object name with a newline and a # line, then neither starts a heading", () => {
+    const text = featuresMarkdown(
+      [
+        {
+          ...FACTURER,
+          actors: ["Client\n# acteur injecté"],
+          rules: [
+            featureRule(1, {
+              objects: [{ name: "Order\n# objet injecté", inMap: false }],
+            }),
+          ],
+        },
+      ],
+      [],
+      "octocat/hello",
+    );
+
+    expect(text).not.toMatch(/^# acteur injecté/m);
+    expect(text).not.toMatch(/^# objet injecté/m);
+  });
 });

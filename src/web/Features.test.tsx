@@ -25,7 +25,7 @@ import { renderAt } from "./test-tickets.tsx";
 // - The nav « Vues de la conception » has three links in this order: « Modèle », « Règles · N » (« Règles » while unknown), « Fonctionnalités »; on the map, the takeover screen
 //   and this screen alike; the one of the open screen has aria-current="page".
 // - The h1 is « « Facturer » : 2 acteurs, 3 règles, 2 objets. » (singular at 1: « 1 acteur », « 1 règle », « 1 objet »; the objects are counted by distinct name, mapped or not); the sentence
-//   « Un clic sur une règle ouvre l'écran de reprise. » follows in <main>.
+//   « Un clic sur une règle ouvre l'écran de reprise. » is its muted second line, inside the h1.
 // - The switch is two buttons « Graphe » and « Liste » with aria-pressed, « Graphe » pressed at first. jsdom cannot lay out React Flow: the graph is NOT tested beyond being the default
 //   (and the footnote under it); the list is.
 // - The list is four sections (role region, aria-label) « Acteurs », « Fonctionnalités », « Règles » and « Objets ». Features: one button per feature, named by its title.
