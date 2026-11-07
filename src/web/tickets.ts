@@ -64,6 +64,12 @@ export async function decisionError(res: Response) {
     return new Error(
       "Le statut de cette user story a changé entre-temps : la page montre son statut actuel.",
     );
+  if (error === "takeover_story")
+    return new Error(
+      "Une US de reprise ne se réécrit pas : corrige ses règles dans l'écran de reprise.",
+    );
+  if (error === "rules_pending")
+    return new Error("Des règles sont encore à trancher.");
   if (error === "no_divergence")
     return new Error("L'issue n'attend plus de choix : la page est à jour.");
   if (error === "not_template")

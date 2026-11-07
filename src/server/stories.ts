@@ -490,12 +490,14 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       ),
     )
     .post("/api/stories/:id/send-back", body(sendBackBody), (c) =>
-      decide(c, "send_back_story", ["to_validate"], (tx, story) =>
-        updateStory(tx, story.id, {
+      decide(c, "send_back_story", ["to_validate"], async (tx, story) => {
+        // Claude cannot rewrite a takeover story (rewriteStory refuses it): sent back, it would be stuck.
+        if (story.kind === "takeover") throw new Refused("takeover_story");
+        return updateStory(tx, story.id, {
           status: "to_rewrite",
           rewriteComment: c.req.valid("json").comment,
-        }),
-      ),
+        });
+      }),
     )
     .patch("/api/stories/:id", body(editBody), (c) =>
       decide(

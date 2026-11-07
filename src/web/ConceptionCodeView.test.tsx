@@ -4,7 +4,6 @@ import {
   fireEvent,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { API_MODULE, stubConception } from "./test-conception.tsx";
@@ -37,8 +36,7 @@ describe("decision 047 F: the object panel uses CodeView", () => {
         .filter((r) => r.hasAttribute("data-cited"))
         .map((r) => r.dataset.line),
     ).toEqual(Array.from({ length: 7 }, (_, i) => String(18 + i)));
-    expect(
-      within(rows[3] as HTMLElement).getByText(/CODE-LINE-18/),
-    ).toBeDefined();
+    // textContent, not getByText: once Shiki has coloured the line, its text is split across token spans.
+    expect(rows[3]?.textContent).toContain("CODE-LINE-18");
   });
 });

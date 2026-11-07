@@ -47,7 +47,7 @@ export function CodeView({
             data-cited={cited ? "" : undefined}
             className={`w-max min-w-full px-3.5 whitespace-pre ${cited ? "bg-raised shadow-[inset_2px_0_0_var(--color-foreground)]" : ""}`}
           >
-            <span className="inline-block w-7 text-past select-none">{n}</span>
+            <span className="inline-block w-7 text-dim select-none">{n}</span>
             {html?.[i] === undefined ? (
               line
             ) : (

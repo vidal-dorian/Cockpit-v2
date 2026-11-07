@@ -266,7 +266,14 @@ function RulePanel({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey || event.metaKey || event.altKey || editing) return;
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        editing
+      )
+        return;
       const target = event.target as HTMLElement;
       if (target.isContentEditable || target.closest("input, textarea, select"))
         return;
@@ -472,6 +479,14 @@ export function Reprise({
   const [notice, setNotice] = useState<{ text: string; undo?: number } | null>(
     null,
   );
+  // The rule the URL asked for when the screen loaded: said once if it is no longer to decide.
+  const asked = useRef(params.get("regle"));
+  useEffect(() => {
+    if (!query.data || asked.current === null) return;
+    if (!query.data.some((r) => String(r.id) === asked.current))
+      setNotice({ text: "Cette règle n'est plus à trancher." });
+    asked.current = null;
+  }, [query.data]);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const open = (id: number | undefined) => {
@@ -522,6 +537,10 @@ export function Reprise({
       );
       setNotice({ text: "Bug noté dans un nouveau ticket." });
       open((rules[index + 1] ?? rules[index - 1])?.id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tickets", projectId] }),
+        queryClient.invalidateQueries({ queryKey: ["home"] }),
+      ]);
     });
 
   const undo = (id: number) =>

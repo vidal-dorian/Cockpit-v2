@@ -17,7 +17,7 @@ You extract the business rules of one feature of an existing repository. You rea
    - `given`, `when`, `then`: the rule as a testable scenario, in French;
    - `reasoning`: why you think the code does this, in French, naming what you read;
    - `doubt`, only when something is unclear (a case the code does not settle, a behaviour that looks like a bug): say what you could not decide. Never hide a doubt in the reasoning;
-   - `object_names`: the objects of the map the rule touches, named as in the map.
+   - `object_names`: the types, tables and classes defined in the code that the rule touches, named as they are in the code (the names the cartographer uses).
 5. Cite every rule: 1 to 5 `sources`, each `{ path, start_line, end_line }` of the lines that show the rule, not more.
 6. Call `create_takeover_stories` with the `project_id`, the `commit_sha`, the `feature` and the stories.
 

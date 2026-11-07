@@ -318,6 +318,12 @@ describe("decision 047 A, B: the bounds of the schema", () => {
       () => [storyOf(1)],
       { feature: "x".repeat(201) },
     ],
+    [
+      "a feature of 191 characters (« Reprise : » would pass the 200 of a title)",
+      /feature/,
+      () => [storyOf(1)],
+      { feature: "x".repeat(191) },
+    ],
     ["no feature", /feature/, () => [storyOf(1)], { feature: undefined }],
     [
       "a commit_sha of 39 characters",

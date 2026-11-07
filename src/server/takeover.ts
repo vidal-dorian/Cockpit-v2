@@ -23,6 +23,7 @@ import {
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
+import { WrongStatus } from "./stories.ts";
 import {
   assertActive,
   body,
@@ -32,7 +33,6 @@ import {
   narrative,
   noNul,
   refusal,
-  title,
 } from "./tickets.ts";
 
 // Decision 047 A: the same bounds on what Claude sends and on what the human corrects.
@@ -66,7 +66,8 @@ const takeoverStory = z.object({
 export const takeoverArgs = z.object({
   project_id: z.number().int().min(1).max(2_147_483_647),
   commit_sha: z.string().regex(/^[0-9a-f]{40}$/),
-  feature: title,
+  // 190 + « Reprise : » stays within the 200 characters of a ticket title (decision 014).
+  feature: z.string().trim().min(1).max(190).refine(noNul),
   stories: z
     .array(takeoverStory)
     .min(1)
@@ -355,6 +356,19 @@ export function takeoverRoutes(db: Db) {
           .for("update");
         if (!rule) throw new Refused("not_found");
         if (rule.takeoverState === null) throw new Refused("not_takeover");
+        // Read, not locked: same order as `changeStory` (a story, then never a ticket).
+        const [parent] = await tx
+          .select({ abandonedAt: tickets.abandonedAt })
+          .from(tickets)
+          .where(eq(tickets.id, found.ticket.id));
+        if (parent?.abandonedAt) throw new Refused("ticket_abandoned");
+        // Read under the lock: only a story to validate has rules to decide.
+        const [locked] = await tx
+          .select({ status: userStories.status })
+          .from(userStories)
+          .where(eq(userStories.id, found.story.id));
+        if (locked && locked.status !== "to_validate")
+          throw new WrongStatus(locked.status);
         return change(tx, rule, {
           projectId: project.id,
           fullName: project.fullName,
@@ -428,14 +442,14 @@ export function takeoverRoutes(db: Db) {
           const description = [
             `**Règle** : ${rule.summary}`,
             `**Raisonnement de Claude** : ${rule.reasoning}`,
-            `**Sources**\n${sources.map((s) => `- ${permalink(fullName, s)}`).join("\n")}`,
+            `**Sources**\n${sources.map((s) => `- <${permalink(fullName, s)}>`).join("\n")}`,
           ].join("\n\n");
           const [bug] = await tx
             .insert(tickets)
             .values({
               projectId,
-              // The title of a ticket stops at 200 characters (decision 014).
-              title: `Bug : ${rule.summary}`.slice(0, 200),
+              // The title of a ticket stops at 200 characters (decision 014), cut on whole characters.
+              title: Array.from(`Bug : ${rule.summary}`).slice(0, 200).join(""),
               descriptionMd: description,
             })
             .returning({ id: tickets.id, title: tickets.title });
@@ -448,6 +462,7 @@ export function takeoverRoutes(db: Db) {
             .from(acceptanceCriteria)
             .where(eq(acceptanceCriteria.storyId, storyId))
             .limit(1);
+          // A story to validate has no issue yet, so no syncIssue after abandoning it.
           if (!left)
             await tx
               .update(userStories)

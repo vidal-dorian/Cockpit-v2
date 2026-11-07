@@ -44,4 +44,5 @@ La 007 laissait trois points ouverts pour R2. Dorian les a tranchés le 2026-11-
 
 - **La coloration ajoute une dépendance lourde** : Shiki et ses grammaires pèsent plusieurs centaines de kilo-octets. Le chargement à la demande les garde hors du premier affichage, mais la première règle ouverte attend son chargement.
 - **Une règle juste peut citer le mauvais code** : Cockpit prouve que les lignes existent, pas qu'elles disent la règle. C'est à l'écran de le montrer, et à l'humain d'en juger (007).
+- **Le récit d'une US de reprise ne se modifie pas** : le récit d'une US de reprise (en tant que, je veux, afin de, notes) ne se modifie pas, ni par l'interface ni par Claude : seules ses règles se corrigent, dans l'écran de reprise. Une US de reprise ne se renvoie pas à Claude.
 - **Un repo qui a ajouté `/analyser` en R1 garde l'ancien skill** : un fichier présent et différent n'est jamais écrasé (043 M). Il faut le retirer du repo puis l'ajouter de nouveau, jusqu'à la mise à jour du catalogue (C1).

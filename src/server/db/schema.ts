@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -428,6 +429,9 @@ export const codeSources = pgTable(
   },
   (t) => [
     check("code_sources_lines_check", sql`${t.startLine} <= ${t.endLine}`),
+    check("code_sources_start_check", sql`${t.startLine} >= 1`),
+    index("code_sources_criterion_idx").on(t.criterionId),
+    index("code_sources_commit_path_idx").on(t.commitSha, t.path),
   ],
 );
 

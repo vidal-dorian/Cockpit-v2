@@ -1,6 +1,7 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the Then field of a Given/When/Then criterion (decision 017)
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
@@ -30,6 +31,7 @@ type DecidedStory = {
   soThat: string;
   notesMd: string;
   status: string;
+  kind?: string;
   criteria: Criterion[];
   branch: string | null;
   dependsOn: { id: number; iWant: string; status: string }[];
@@ -131,6 +133,8 @@ export function StoryDecisions({
   };
   const { status } = story;
   const blank = comment.trim() === "";
+  // Claude cannot rewrite a takeover story and its narrative is not edited: only its rules are corrected, on the takeover screen.
+  const takeover = story.kind === "takeover";
   const canDevelop = ["ready", "in_review"].includes(status) && !archived;
   const prLink =
     status === "in_review" && story.prNumber != null
@@ -187,18 +191,19 @@ export function StoryDecisions({
               </button>
             )}
             <div className="grid grid-flow-col auto-cols-fr gap-2.5">
-              {["to_validate", "to_rewrite", "ready"].includes(status) && (
-                <button
-                  ref={opener("edit")}
-                  type="button"
-                  disabled={archived}
-                  onClick={() => open("edit")}
-                  className={panelButton}
-                >
-                  Modifier
-                </button>
-              )}
-              {status === "to_validate" && (
+              {["to_validate", "to_rewrite", "ready"].includes(status) &&
+                !takeover && (
+                  <button
+                    ref={opener("edit")}
+                    type="button"
+                    disabled={archived}
+                    onClick={() => open("edit")}
+                    className={panelButton}
+                  >
+                    Modifier
+                  </button>
+                )}
+              {status === "to_validate" && !takeover && (
                 <button
                   ref={opener("sendBack")}
                   type="button"
@@ -245,6 +250,19 @@ export function StoryDecisions({
               </p>
             </>
           )}
+          {takeover &&
+            ["to_validate", "to_rewrite", "ready"].includes(status) && (
+              <p className="text-muted-foreground">
+                Les règles se corrigent dans l'
+                <Link
+                  to={`/projets/${project.id}/conception/regles`}
+                  className={`underline ${focusRing}`}
+                >
+                  écran de reprise
+                </Link>
+                .
+              </p>
+            )}
           {children}
         </>
       )}
