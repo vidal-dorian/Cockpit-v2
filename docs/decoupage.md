@@ -50,6 +50,7 @@
 - **Fait** : tranche 9.2 (changelog complet : la prochaine release liste chaque tranche une fois, et chaque PR y ajoute une ligne, son titre).
 - **Feuille de route** : les phases après le MVP, plus bas, sont ordonnées (décidé le 2026-11-06).
 - **Fait** : tranche 9.1 (ménage de la doc : `decoupage.md`, `architecture.md`, README et décisions relus contre le code).
+- **Fait** : tranche 9.4 (logo « la boucle », [décision 046](decisions/046-logo-la-boucle.md)).
 - **En cours** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
@@ -193,6 +194,7 @@ L'ordre des phases 11 à 14 peut changer : rien ne dépend d'elles, la seule dé
 | 9.1 | **Ménage de la doc** : `decoupage.md` et `architecture.md` disent la vérité, la décision en double devient la [042](decisions/042-nouvelle-equipe-fenetre.md), les statuts des décisions sont justes | Les docs décrivent le code d'aujourd'hui, et chaque décision implémentée est « validée » (007 et 041 restent à valider) |
 | 9.2 | **Changelog complet** : les tranches 1.5 à 4.8, commitées avant la règle `feat:`, apparaissent dans la prochaine release | La PR de release liste toutes les tranches |
 | 9.3 | **L'interface « Quatre temps »** ([045](decisions/045-interface-quatre-temps.md)) : jetons et polices, la coque (barre latérale, panneau de droite, barre d'idée), et les écrans qui existent déjà refaits comme dans [`docs/ecrans/`](ecrans/README.md) | L'accueil, un projet, une US et un run ressemblent à leurs écrans (S00a, S00b, S22, S29), avec les mêmes fonctions qu'avant |
+| 9.4 | **Le logo « la boucle »** ([046](decisions/046-logo-la-boucle.md)) : quatre arcs aux couleurs des quatre temps, vortex au survol, favicon | Le logo de la barre du haut et l'onglet du navigateur montrent la boucle, qui tourne au survol |
 
 ## Phase 10 — Reprendre une app existante (la fonctionnalité phare)
 

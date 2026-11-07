@@ -209,9 +209,9 @@ function TopBar() {
       <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-7">
         <Link
           to="/"
-          className={`inline-flex items-center gap-2 rounded-xl font-heading text-lg font-extrabold ${focusRing}`}
+          className={`inline-flex items-center gap-1.5 rounded-xl font-heading text-lg font-extrabold ${focusRing}`}
         >
-          <Logo className="h-8 w-auto" />
+          <Logo className="size-5" />
           Cockpit
         </Link>
         <nav aria-label="Navigation principale" className="flex gap-1">
