@@ -68,7 +68,7 @@ export function StateSentence({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-[26px] pt-[26px]">
+    <div className="flex items-start justify-between gap-4 px-[26px] pt-[26px] [nav+&]:pt-1.5 [nav+*>&]:pt-1.5">
       <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
         {title}
         {rest && (
@@ -93,7 +93,7 @@ export function Breadcrumb({
   return (
     <nav
       aria-label="Fil d'Ariane"
-      className="flex flex-wrap items-baseline gap-1.5 px-[26px] pt-[18px] text-[13px] text-muted-foreground"
+      className="flex flex-wrap items-baseline gap-1.5 px-[26px] pt-[22px] text-[13px] text-muted-foreground"
     >
       {trail.map((step, i) => (
         <span key={step.label} className="contents">

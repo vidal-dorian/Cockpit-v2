@@ -56,7 +56,10 @@ function ErrorAlert({ error }: { error: Error }) {
 function ProjectList() {
   const queryClient = useQueryClient();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
-  const states = new Map(useHome().data?.projects.map((p) => [p.id, p.state]));
+  const home = useHome().data;
+  const states = new Map(home?.projects.map((p) => [p.id, p.state]));
+  // Red only for the project of the first thing to do (decision 045 C).
+  const first = home?.forYou[0]?.project.id;
   // The project waiting for its confirmation; there is no unarchive yet, so we ask on the spot (decision 003, rule 4).
   const [confirming, setConfirming] = useState<number | null>(null);
   const archive = useMutation({
@@ -106,7 +109,7 @@ function ProjectList() {
           >
             <Dot
               tone={
-                states.get(project.id) === "for_you"
+                project.id === first
                   ? "you"
                   : states.get(project.id) === "claude"
                     ? "claude"

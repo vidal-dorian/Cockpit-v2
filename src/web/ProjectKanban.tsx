@@ -113,7 +113,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                 const count = name === "Idées" ? ideas.length : cards.length;
                 const faded = name === "Terminées";
                 return (
-                  <section key={name} className="sm:min-w-48 sm:flex-1">
+                  <section key={name} className="sm:min-w-36 sm:flex-1">
                     <h3
                       aria-label={`${name} (${count})`}
                       className="flex items-center gap-2 text-sm font-bold"
@@ -125,7 +125,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                     {count === 0 ? (
                       <p className="text-muted-foreground">Aucune</p>
                     ) : (
-                      <ul className="grid gap-2">
+                      <ul className="grid grid-cols-1 gap-2">
                         {name === "Idées" &&
                           ideas.map((t) => (
                             <li key={t.id}>
@@ -157,7 +157,9 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 {story.ticketTitle}
                               </span>{" "}
                               {story.issueDiverged && (
-                                <span className={`mt-1 mr-2 ${urgentBadge}`}>
+                                <span
+                                  className={`mt-1 mr-2 max-w-full whitespace-normal! ${urgentBadge}`}
+                                >
                                   Issue modifiée sur GitHub
                                 </span>
                               )}
