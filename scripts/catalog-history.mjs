@@ -15,7 +15,11 @@ const FILES = [
   "skills/analyser/SKILL.md",
 ];
 const git = (...args) =>
-  execFileSync("git", args, { encoding: "utf8", maxBuffer: 1 << 26 });
+  execFileSync("git", args, {
+    encoding: "utf8",
+    maxBuffer: 1 << 26,
+    stdio: ["ignore", "pipe", "ignore"], // a commit that deleted the file makes `git show` fail: no `fatal:` on screen
+  });
 const sha256 = (text) =>
   createHash("sha256").update(text, "utf8").digest("hex");
 

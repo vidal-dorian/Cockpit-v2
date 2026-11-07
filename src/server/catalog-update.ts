@@ -33,7 +33,7 @@ export const CATALOG_TEXTS = new Map(
   [...CATALOG_FILES, ...ANALYSER_FILES].map((f) => [f.path, f.content]),
 );
 const PATHS = [...CATALOG_TEXTS.keys()];
-const DEV_US = ".claude/skills/dev-us/SKILL.md";
+export const DEV_US = ".claude/skills/dev-us/SKILL.md";
 /** The SHA-256 of the past versions of each file, by repo path (decision 049 B, `npm run catalog:history`). */
 export const HISTORY: Record<string, string[]> = JSON.parse(
   fromCatalog("history.json"),

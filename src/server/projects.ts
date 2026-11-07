@@ -12,6 +12,7 @@ import {
   CATALOG_TEXTS,
   type CatalogState,
   catalogStates,
+  DEV_US,
   fileState,
   HISTORY,
   isCatalogPath,
@@ -235,6 +236,11 @@ export function projectRoutes(
     hooks: {
       /** Whether the request is valid for this project, asked once it is known to be the member's and not archived: no, and it is a 400. */
       valid?: (projectId: number) => Promise<boolean>;
+      /** A refusal code to answer 409 and record, asked after `valid` with the member's project; it reads GitHub, so a failure is a 502. */
+      refuse?: (project: {
+        installationId: number;
+        fullName: string;
+      }) => Promise<string | null>;
       /** Run in the transaction of the `ok` entry. */
       onWritten?: (tx: Tx, projectId: number) => Promise<void>;
     } = {},
@@ -263,6 +269,11 @@ export function projectRoutes(
       return c.json({ error: "Bad request" }, 400);
     let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
     try {
+      const code = await hooks.refuse?.(project);
+      if (code) {
+        await record(new Refused(code));
+        return c.json({ error: code }, 409);
+      }
       result = await c
         .get("github")
         .applyRepoChanges(
@@ -702,6 +713,15 @@ export function projectRoutes(
                 fileState(f.path, f.before, recorded, HISTORY),
               ),
             );
+          },
+          // Decision 049 D: a repo with no dev-us skill at the head is not prepared, as the plan says.
+          refuse: async ({ installationId, fullName }) => {
+            const { inspect, head } = await c
+              .get("github")
+              .fileReader(installationId, fullName);
+            const at = await head();
+            if ("refused" in at) return at.refused;
+            return (await inspect(DEV_US, at.sha)) ? null : "not_prepared";
           },
           onWritten: (tx, projectId) =>
             recordWrites(

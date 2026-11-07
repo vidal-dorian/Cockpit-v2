@@ -12,6 +12,8 @@ const REFUSALS: Record<string, string> = {
   repo_unreachable:
     "L'App Cockpit ne voit plus ce repo : vérifie sur GitHub qu'elle y a encore accès.",
   project_archived: "Ce projet est archivé : plus rien ne s'y écrit.",
+  not_prepared:
+    "Ce repo n'est pas encore préparé pour Claude : commence par « Préparer pour Claude ».",
   repo_changed: "Le repo a changé entre-temps : regarde de nouveau",
   pull_request_forbidden:
     "La branche par défaut est protégée et l'App n'a pas le droit d'ouvrir une pull request : donne-lui « Pull requests » en écriture dans ses réglages, puis recommence.",

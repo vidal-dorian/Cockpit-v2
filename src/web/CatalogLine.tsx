@@ -115,13 +115,17 @@ export function CatalogLine({
         {toUpdate > 0 && (
           <>
             {archived && (
-              <span className="text-[12.5px] text-muted-foreground">
+              <span
+                id="catalog-archived"
+                className="text-[12.5px] text-muted-foreground"
+              >
                 {message({ code: "project_archived", status: 409 })}
               </span>
             )}
             <button
               type="button"
               disabled={archived || read.isPending || commit.isPending}
+              aria-describedby={archived ? "catalog-archived" : undefined}
               onClick={() => {
                 setProblem(null);
                 setDone(null);

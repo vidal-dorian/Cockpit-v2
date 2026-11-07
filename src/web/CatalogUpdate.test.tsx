@@ -299,6 +299,18 @@ describe("decision 049 E: the line « Fichiers de Claude à jour »", () => {
     fireEvent.click(button);
     expect(calls.plan).toBe(0);
   });
+
+  it("given an archived project, when the page loads, then the archived hint describes the disabled « Mettre à jour »", async () => {
+    stubApi({ archived: true });
+
+    renderAt("/projets/5/sante");
+
+    const button = await updateButton();
+    const hint = document.getElementById(
+      button.getAttribute("aria-describedby") ?? "none",
+    );
+    expect(hint?.textContent).toContain("archivé");
+  });
 });
 
 describe("decision 049 F: the diff and the commit", () => {
