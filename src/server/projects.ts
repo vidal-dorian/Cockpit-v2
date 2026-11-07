@@ -82,7 +82,7 @@ const CATALOG_AGENTS = CATALOG_FILES.filter((f) =>
   .sort((a, b) => a.name.localeCompare(b.name));
 
 // The longest name for which `.claude/agents/<name>.md` fits the 255 characters of decision 026 D.
-export const MAX_AGENT_NAME = 255 - ".claude/agents/".length - ".md".length;
+const MAX_AGENT_NAME = 255 - ".claude/agents/".length - ".md".length;
 
 // Decision 030 E: `name` has the format of decision 029 B; `after` is at most 1 MiB, `before` is only compared.
 const agentBody = z

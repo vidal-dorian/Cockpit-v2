@@ -47,7 +47,7 @@ export const pass = (db: TestDb) =>
 
 let counter = 0;
 
-export type SeedDelivery = {
+type SeedDelivery = {
   id?: string;
   event?: string;
   action?: string | null;
@@ -82,7 +82,7 @@ export async function seedDelivery(db: TestDb, d: SeedDelivery = {}) {
   return id;
 }
 
-export type DeliveryRow = {
+type DeliveryRow = {
   id: string;
   processed_at: Date | null;
   claimed_at: Date | null;
@@ -172,7 +172,7 @@ export async function diverge(
 export const setStatus = (db: TestDb, id: number, status: StoryStatus) =>
   db.execute(sql`update user_stories set status = ${status} where id = ${id}`);
 
-export type Divergence = {
+type Divergence = {
   issue_github_title: string | null;
   issue_github_body: string | null;
   issue_diverged_at: Date | null;

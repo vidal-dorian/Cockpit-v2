@@ -128,7 +128,7 @@ function UserList() {
   );
 }
 
-export type SettingsTab = "claude" | "jetons" | "utilisateurs" | "ecriture-us";
+type SettingsTab = "claude" | "jetons" | "utilisateurs" | "ecriture-us";
 
 /** Réglages in four tabs (decision 028 H); Utilisateurs is the administrator's. */
 export function Settings({ tab }: { tab: SettingsTab }) {

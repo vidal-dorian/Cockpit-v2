@@ -251,7 +251,7 @@ export const RUN_STATUSES = [
   "stopped",
   "closed_manually",
 ] as const;
-export const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
+const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
 
 /** A run of Claude on a story (decisions 002 and 033 A); one running run per story at most. `stopRequestedAt` is filled from slice 7.5. */
 export const runs = pgTable(
@@ -470,4 +470,4 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
 });
 
 /** Ids, closed values and numbers only: never free text or personal data (decision 010 D). */
-export type HistoryArgs = Record<string, string | number | boolean | null>;
+type HistoryArgs = Record<string, string | number | boolean | null>;

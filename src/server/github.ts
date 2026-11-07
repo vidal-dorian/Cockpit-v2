@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { ReadInstance } from "./instance.ts";
 import { AGENT_NAME, MAX_TEAM_NAME } from "./team.ts";
 
-export type GitHubAppConfig = {
+type GitHubAppConfig = {
   githubAppId: string;
   githubAppSlug: string;
   /** The PEM text, already decoded from the base64 of the environment (decision 011 H). */
@@ -93,7 +93,7 @@ const hookConfigSchema = z.object({
 const hookDeliveriesSchema = z.array(z.object({ status_code: z.number() }));
 
 /** What the cache (decision 013) remembers of a repo: the commit (the `sha` GitHub returns for `HEAD`) it was computed from. */
-export type KnownRoot = { etag: string; commitSha: string };
+type KnownRoot = { etag: string; commitSha: string };
 
 /** What the health check (decision 013) reads of a repo's default branch. */
 export type RepoFiles = {
@@ -123,7 +123,7 @@ const MAX_PATH_LENGTH = 255;
 /** A file to add to a repo (decision 026). */
 export type WriteFile = { path: string; content: string };
 /** What `planRepoWrite` says of one file (a file given with `unlessExists`, a list of paths, is left out when any of them is there, decision 027 B): `exists` is never written, `current` is then the text in the repo. */
-export type RepoWritePlan = {
+type RepoWritePlan = {
   baseSha: string;
   /** Proves the plan comes from `planRepoWrite` of this client and was not touched (decision 026 H). */
   signature?: string;
@@ -133,7 +133,7 @@ export type RepoWritePlan = {
   })[];
 };
 /** Why a write is refused (decision 026 C, E and G); refusals are returned, not thrown. */
-export type RepoWriteRefusal = {
+type RepoWriteRefusal = {
   refused:
     | "empty_repo"
     | "repo_unreachable"

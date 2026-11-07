@@ -36,7 +36,7 @@ import {
 // - GET /api/stories/:id/history -> { entries: [{ at, action, result, actor }] }, newest first.
 
 export type Criterion = { given: string; when: string; then: string };
-export type EditBody = {
+type EditBody = {
   asA: string;
   iWant: string;
   soThat: string;

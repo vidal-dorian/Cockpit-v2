@@ -14,7 +14,7 @@ import {
 } from "./ui.ts";
 
 type Criterion = { given: string; when: string; then: string };
-export type DecidedStory = {
+type DecidedStory = {
   id: number;
   ticketId: number;
   asA: string;
