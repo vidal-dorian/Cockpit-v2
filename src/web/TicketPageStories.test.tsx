@@ -79,7 +79,7 @@ describe("criterion 14: Ticket page with stories", () => {
 
     renderAt("/tickets/7");
 
-    await screen.findByRole("heading", { level: 1, name: "Idée brute" });
+    await screen.findByRole("heading", { level: 1, name: /^Idée brute/ });
     expect(screen.getByRole("button", { name: "Supprimer" })).toBeDefined();
     expect(main().querySelector('a[href^="/us/"]')).toBeNull();
   });
@@ -113,7 +113,7 @@ describe("criterion 14: Ticket page with stories", () => {
 
     renderAt("/tickets/7");
 
-    await screen.findByRole("heading", { level: 1, name: "Idée brute" });
+    await screen.findByRole("heading", { level: 1, name: /^Idée brute/ });
     expect(main().textContent).not.toMatch(unfinished);
   });
 });

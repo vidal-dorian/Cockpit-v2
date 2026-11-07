@@ -201,6 +201,6 @@ describe("Project page, the tickets", () => {
     fireEvent.click(await screen.findByRole("link", { name: "Ouvre-moi" }));
 
     await waitFor(() => expect(window.location.pathname).toBe("/tickets/7"));
-    await screen.findByRole("heading", { level: 1, name: "Ouvre-moi" });
+    await screen.findByRole("heading", { level: 1, name: /^Ouvre-moi/ });
   });
 });

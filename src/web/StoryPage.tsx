@@ -4,7 +4,7 @@ import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
-import { DevelopWindow } from "./DevelopWindow.tsx";
+import { Breadcrumb, StateSentence } from "./Shell.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
@@ -12,11 +12,14 @@ import { StoryIssue } from "./StoryIssue.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
+  badge,
   button,
   card,
   focusRing,
+  listCard,
   markdownStyle,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
 
@@ -29,9 +32,41 @@ async function fetchStory(id: string) {
   return res.json();
 }
 
-const label = "font-semibold";
+const label = "font-semibold text-foreground";
 
-/** The story, and the decisions of the user on it (decision 018). */
+/** What the state of a story says, the status word included (the title of the page is the story, this is the rest of the sentence). */
+function stateSentence(status: string, prNumber: number | null) {
+  const word = STORY_STATUSES[status] ?? status;
+  switch (status) {
+    case "to_validate":
+      return `Écrite par Claude, ${word} : attend ta validation.`;
+    case "to_rewrite":
+      return `Renvoyée à Claude, ${word} : il la réécrit avec ton commentaire.`;
+    case "ready":
+      return `Elle est ${word}, personne n'y travaille encore.`;
+    case "in_progress":
+      return `Elle est ${word}, Claude la développe.`;
+    case "in_review":
+      return `Elle est ${word}${prNumber != null ? `, Claude a ouvert la PR #${prNumber}` : ""} : à toi de relire.`;
+    default:
+      return `Elle est ${word}.`;
+  }
+}
+
+const Section = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <section className="px-[26px] pt-[22px]">
+    <h2 className={`mb-2 ${sectionLabel}`}>{title}</h2>
+    {children}
+  </section>
+);
+
+/** The story, and the decisions of the user on it (decision 018), in the right panel (decision 045). */
 export function StoryPage() {
   const { id = "" } = useParams();
   const result = useQuery({
@@ -41,15 +76,25 @@ export function StoryPage() {
   useChanges(`story:${id}`);
   const statusRef = useRef<HTMLSpanElement>(null);
   const found = result.data && result.data !== "not_found" && result.data;
+  const diverged = found ? found.story.issue?.diverged : null;
+  const pr =
+    found && found.story.prNumber != null
+      ? { ...found.story, prNumber: found.story.prNumber }
+      : null;
+  const github = pr && found && (
+    <StoryGitHub story={pr} fullName={found.project.fullName} />
+  );
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
+    <main className="pb-6">
       <div aria-live="polite">
         {result.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="px-[26px] pt-[26px] text-muted-foreground">
+            Chargement…
+          </p>
         )}
         {result.isError && (
-          <div role="alert" className={alertBox}>
+          <div role="alert" className={`mx-[26px] mt-[26px] ${alertBox}`}>
             <p>Impossible de lire la user story.</p>
             <button
               type="button"
@@ -61,43 +106,117 @@ export function StoryPage() {
           </div>
         )}
         {result.data === null && (
-          <a href="/api/auth/login" className={primaryButton}>
-            Se connecter avec GitHub
-          </a>
+          <div className="px-[26px] pt-[26px]">
+            <a href="/api/auth/login" className={primaryButton}>
+              Se connecter avec GitHub
+            </a>
+          </div>
         )}
         {result.data === "not_found" && (
           <>
-            <Link to="/projets" className={`underline ${focusRing}`}>
-              ← Projets
-            </Link>
-            <h1 className="mt-4 font-heading text-3xl font-extrabold">
-              User story introuvable
-            </h1>
+            <Breadcrumb trail={[{ label: "Projets", to: "/projets" }]} />
+            <StateSentence
+              title="User story introuvable."
+              rest="Elle n'existe pas ou tu n'y as pas accès."
+            />
           </>
         )}
         {found && (
           <>
-            <Link
-              to={`/tickets/${found.ticket.id}`}
-              className={`underline ${focusRing}`}
-            >
-              ← {found.ticket.title}
-            </Link>
-            <h1 className="mt-4 font-heading text-3xl font-extrabold">
-              User story {found.story.position}
-            </h1>
-            <p className="mt-2">
-              <span
-                ref={statusRef}
-                tabIndex={-1}
-                className={`rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text ${focusRing}`}
+            <Breadcrumb
+              trail={[
+                { label: "Projets", to: "/projets" },
+                {
+                  label: found.project.fullName,
+                  to: `/projets/${found.project.id}`,
+                },
+                {
+                  label: found.ticket.title,
+                  to: `/tickets/${found.ticket.id}`,
+                },
+              ]}
+            />
+            <StateSentence
+              title={
+                diverged
+                  ? `L'issue #${found.story.issue?.number} a été modifiée sur GitHub.`
+                  : `US ${found.story.id} · ${found.story.iWant}`
+              }
+              rest={
+                <span
+                  ref={statusRef}
+                  tabIndex={-1}
+                  className={`rounded-md ${focusRing}`}
+                >
+                  {diverged
+                    ? "Laquelle des deux versions garder ?"
+                    : stateSentence(found.story.status, found.story.prNumber)}
+                </span>
+              }
+            />
+            {diverged && (
+              <StoryDiverged
+                id={found.story.id}
+                diverged={diverged}
+                archived={found.project.archived}
+                statusRef={statusRef}
+              />
+            )}
+            <div className="grid gap-3 px-[26px] pt-[22px]">
+              <p
+                className={`${card} px-[18px] py-4 text-[15px] leading-relaxed`}
               >
-                {STORY_STATUSES[found.story.status] ?? found.story.status}
-              </span>
-              <span className="ml-3 text-muted-foreground">
-                {found.project.fullName}
-              </span>
-            </p>
+                <span className={label}>En tant que</span>{" "}
+                <span>{found.story.asA}</span>,{" "}
+                <span className={label}>je veux</span>{" "}
+                <span>{found.story.iWant}</span>{" "}
+                <span className={label}>afin de</span>{" "}
+                <span>{found.story.soThat}</span>
+              </p>
+              {found.story.status === "to_rewrite" &&
+                found.story.rewriteComment && (
+                  <section className={`${card} p-4`}>
+                    <h2 className={sectionLabel}>
+                      Ton commentaire pour Claude
+                    </h2>
+                    <p className="mt-1 whitespace-pre-wrap">
+                      {found.story.rewriteComment}
+                    </p>
+                  </section>
+                )}
+            </div>
+            <section className="px-[26px] pt-3">
+              <h2 className="sr-only">Critères</h2>
+              <ol className="grid gap-3">
+                {found.story.criteria.map((criterion, index) => (
+                  <li key={criterion.id} className={`${card} px-4 py-3.5`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={sectionLabel}>Critère {index + 1}</p>
+                      {criterion.result && (
+                        <span className={badge}>
+                          {CRITERION_RESULTS[criterion.result]}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 leading-relaxed">
+                      <span className={label}>Étant donné</span>{" "}
+                      {criterion.given}
+                    </p>
+                    <p className="leading-relaxed">
+                      <span className={label}>Quand</span> {criterion.when}
+                    </p>
+                    <p className="leading-relaxed">
+                      <span className={label}>Alors</span> {criterion.then}
+                    </p>
+                    {criterion.result && criterion.evidence && (
+                      <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-muted-foreground">
+                        {criterion.evidence}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
             {found.story.issue && (
               <StoryIssue
                 id={found.story.id}
@@ -105,103 +224,17 @@ export function StoryPage() {
                 archived={found.project.archived}
               />
             )}
-            {found.story.issue?.diverged && (
-              <StoryDiverged
-                id={found.story.id}
-                diverged={found.story.issue.diverged}
-                archived={found.project.archived}
-                statusRef={statusRef}
-              />
-            )}
-            {found.story.status === "to_rewrite" &&
-              found.story.rewriteComment && (
-                <section className="mt-4 rounded-xl bg-you-soft p-4 text-you-text">
-                  <h2 className="font-semibold">Ton commentaire pour Claude</h2>
-                  <p className="mt-1 whitespace-pre-wrap">
-                    {found.story.rewriteComment}
-                  </p>
-                </section>
-              )}
-            <StoryDecisions
-              key={found.story.id}
-              story={found.story}
-              projectId={found.project.id}
-              archived={found.project.archived}
-              statusRef={statusRef}
-            />
-            {["ready", "in_review"].includes(found.story.status) &&
-              !found.project.archived && (
-                <DevelopWindow story={found.story} project={found.project} />
-              )}
-            <div className="mt-4 grid gap-1">
-              <p>
-                <span className={label}>En tant que</span> {found.story.asA}
-              </p>
-              <p>
-                <span className={label}>Je veux</span> {found.story.iWant}
-              </p>
-              <p>
-                <span className={label}>Afin de</span> {found.story.soThat}
-              </p>
-            </div>
-            {found.story.prNumber != null && (
-              <StoryGitHub
-                story={{ ...found.story, prNumber: found.story.prNumber }}
-                fullName={found.project.fullName}
-              />
-            )}
-            {found.story.notesMd && (
-              <section className="mt-6">
-                <h2 className="font-heading text-xl font-bold">Notes</h2>
-                {/* Same rules as a ticket description: no raw HTML, no remote image (decisions 014 H and 017 L). */}
-                <div className={markdownStyle}>
-                  <Markdown disallowedElements={["img"]}>
-                    {found.story.notesMd}
-                  </Markdown>
-                </div>
-              </section>
-            )}
-            <section className="mt-6">
-              <h2 className="font-heading text-xl font-bold">Critères</h2>
-              <ol className="mt-2 grid gap-2">
-                {found.story.criteria.map((criterion) => (
-                  <li key={criterion.id} className={`${card} p-3`}>
-                    <p>
-                      <span className={label}>Étant donné</span>{" "}
-                      {criterion.given}
-                    </p>
-                    <p>
-                      <span className={label}>Quand</span> {criterion.when}
-                    </p>
-                    <p>
-                      <span className={label}>Alors</span> {criterion.then}
-                    </p>
-                    {criterion.result && (
-                      <p className="mt-1">
-                        <span className={label}>
-                          {CRITERION_RESULTS[criterion.result]}
-                        </span>{" "}
-                        <span className="whitespace-pre-wrap text-muted-foreground">
-                          {criterion.evidence}
-                        </span>
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </section>
             {found.story.dependsOn.length > 0 && (
-              <section className="mt-6">
-                <h2 className="font-heading text-xl font-bold">Dépend de</h2>
-                <ul className="mt-2 grid gap-2">
+              <Section title="Dépend de">
+                <ul className={listCard}>
                   {found.story.dependsOn.map((dependency) => (
                     <li
                       key={dependency.id}
-                      className={`flex flex-wrap items-baseline gap-x-3 ${card} p-3`}
+                      className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
                     >
                       <Link
                         to={`/us/${dependency.id}`}
-                        className={`underline ${focusRing}`}
+                        className={`font-semibold underline ${focusRing}`}
                       >
                         {dependency.iWant}
                       </Link>
@@ -211,30 +244,55 @@ export function StoryPage() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Section>
+            )}
+            {/* In review, the pull request is in the panel; otherwise it follows the story. */}
+            {found.story.status !== "in_review" && github && (
+              <div className="px-[26px] pt-[22px]">{github}</div>
+            )}
+            {found.story.notesMd && (
+              <Section title="Notes">
+                {/* Same rules as a ticket description: no raw HTML, no remote image (decisions 014 H and 017 L). */}
+                <div className={markdownStyle}>
+                  <Markdown disallowedElements={["img"]}>
+                    {found.story.notesMd}
+                  </Markdown>
+                </div>
+              </Section>
             )}
             {(found.story.runs ?? []).length > 0 && (
-              <section className="mt-6">
-                <h2 className="font-heading text-xl font-bold">Runs</h2>
-                <ul className="mt-2 grid gap-2">
+              <Section title="Runs">
+                <ul className={listCard}>
                   {found.story.runs.map((run) => (
-                    <li key={run.id} className={`${card} p-3`}>
+                    <li
+                      key={run.id}
+                      className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
+                    >
                       <Link
                         to={`/runs/${run.id}`}
-                        className={`underline ${focusRing}`}
+                        className={`font-semibold underline ${focusRing}`}
                       >
                         Run n° {run.id} ·{" "}
                         {RUN_STATUSES[run.status] ?? run.status}
-                      </Link>{" "}
-                      <span className="text-muted-foreground">
+                      </Link>
+                      <span className="text-[12.5px] text-muted-foreground">
                         {new Date(run.startedAt).toLocaleString("fr-FR")}
                       </span>
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Section>
             )}
             <StoryHistory id={found.story.id} />
+            <StoryDecisions
+              key={found.story.id}
+              story={found.story}
+              project={found.project}
+              archived={found.project.archived}
+              statusRef={statusRef}
+            >
+              {found.story.status === "in_review" && github}
+            </StoryDecisions>
           </>
         )}
       </div>

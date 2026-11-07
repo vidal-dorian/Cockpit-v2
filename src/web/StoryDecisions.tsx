@@ -2,15 +2,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { client } from "./api.ts";
+import { DevelopWindow } from "./DevelopWindow.tsx";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
-import { decisionError } from "./tickets.ts";
+import { Panel } from "./Shell.tsx";
+import { decisionError, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
+  badge,
   button,
   card,
+  dangerButton,
   field,
   focusRing,
-  primaryButton,
+  ghostButton,
+  listCard,
+  panelButton,
+  panelPrimaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 type Criterion = { given: string; when: string; then: string };
@@ -23,32 +31,46 @@ type DecidedStory = {
   notesMd: string;
   status: string;
   criteria: Criterion[];
+  branch: string | null;
+  dependsOn: { id: number; iWant: string; status: string }[];
+  prNumber?: number | null;
 };
-
-const danger = `min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`;
 
 // Keys of the criteria of the form: a removed row must not hand its fields to the next one.
 let nextKey = 0;
 const withKey = (c: Criterion) => ({ ...c, key: nextKey++ });
 
-/** The decisions of the user on a story (decision 018 J): which buttons depend on the status, one form or confirmation at a time. */
+const GLYPHS: Record<string, string> = { to_validate: "✓", in_review: "⇄" };
+const HEADLINES: Record<string, string> = {
+  to_validate: "Cette US est-elle bonne pour que Claude la développe ?",
+  to_rewrite: "Claude réécrit cette US avec ton commentaire.",
+  ready: "Claude peut la développer.",
+  in_progress: "Claude la développe.",
+  in_review: "Claude a ouvert une pull request.",
+  done: "Cette US est terminée.",
+};
+
+/** The decisions of the user on a story (decision 018 J), in the right panel: which buttons depend on the status, one form or confirmation at a time. */
 export function StoryDecisions({
   story,
-  projectId,
+  project,
   archived,
   statusRef,
+  children,
 }: {
   story: DecidedStory;
-  projectId: number;
+  project: { id: number; fullName: string; defaultBranch?: string };
   archived: boolean;
   /** The status of the story on the page (tabIndex -1): where the focus goes when the button that was used is gone. */
   statusRef: RefObject<HTMLElement | null>;
+  /** What the panel shows under its headline (the pull request of a story in review). */
+  children?: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
   const id = String(story.id);
-  const [mode, setMode] = useState<"edit" | "sendBack" | "abandon" | null>(
-    null,
-  );
+  const [mode, setMode] = useState<
+    "edit" | "sendBack" | "abandon" | "develop" | null
+  >(null);
   const [comment, setComment] = useState("");
   const [form, setForm] = useState(() => draftOf(story));
   // The form, the confirmation or the button used is gone: the focus goes back to a button that exists, or to the status, not to <body>.
@@ -76,10 +98,10 @@ export function StoryDecisions({
           queryKey: ["ticket", String(story.ticketId)],
         }),
         queryClient.invalidateQueries({
-          queryKey: ["tickets", String(projectId)],
+          queryKey: ["tickets", String(project.id)],
         }),
         queryClient.invalidateQueries({
-          queryKey: ["stories", String(projectId)],
+          queryKey: ["stories", String(project.id)],
         }),
         queryClient.invalidateQueries({ queryKey: ["story-history", id] }),
       ]);
@@ -95,7 +117,7 @@ export function StoryDecisions({
     setMode(null);
     run.reset();
   };
-  const open = (next: "edit" | "sendBack" | "abandon") => {
+  const open = (next: "edit" | "sendBack" | "abandon" | "develop") => {
     run.reset();
     setComment("");
     setForm(draftOf(story));
@@ -106,63 +128,116 @@ export function StoryDecisions({
   };
   const { status } = story;
   const blank = comment.trim() === "";
+  const canDevelop = ["ready", "in_review"].includes(status) && !archived;
+  const prLink =
+    status === "in_review" && story.prNumber != null
+      ? `https://github.com/${project.fullName}/pull/${story.prNumber}`
+      : null;
+
+  if (mode === "develop")
+    return <DevelopWindow story={story} project={project} onClose={close} />;
+  if (status === "abandoned") return null;
 
   return (
-    <div className="mt-4">
-      {mode === null && (
-        <div className="flex flex-wrap gap-2">
-          {(status === "to_validate" || status === "to_rewrite") && (
-            <button
-              type="button"
-              disabled={archived || run.isPending}
-              onClick={() => {
-                run.reset();
-                run.mutate(() =>
-                  client.api.stories[":id"].validate.$post({ param: { id } }),
-                );
-              }}
-              className={primaryButton}
-            >
-              Valider
-            </button>
-          )}
-          {["to_validate", "to_rewrite", "ready"].includes(status) && (
-            <button
-              ref={opener("edit")}
-              type="button"
-              disabled={archived}
-              onClick={() => open("edit")}
-              className={button}
-            >
-              Modifier
-            </button>
-          )}
-          {status === "to_validate" && (
-            <button
-              ref={opener("sendBack")}
-              type="button"
-              disabled={archived}
-              onClick={() => open("sendBack")}
-              className={button}
-            >
-              Renvoyer
-            </button>
-          )}
-          {status !== "abandoned" && (
+    <Panel
+      label="Décision sur la user story"
+      badge={
+        <span className={badge}>
+          {GLYPHS[status]}{" "}
+          <span className="inline-block first-letter:uppercase">
+            {STORY_STATUSES[status] ?? status}
+          </span>
+        </span>
+      }
+      footer={
+        mode === null && (
+          <>
+            {(status === "to_validate" || status === "to_rewrite") && (
+              <button
+                type="button"
+                disabled={archived || run.isPending}
+                onClick={() => {
+                  run.reset();
+                  run.mutate(() =>
+                    client.api.stories[":id"].validate.$post({ param: { id } }),
+                  );
+                }}
+                className={panelPrimaryButton}
+              >
+                Valider
+              </button>
+            )}
+            {prLink && (
+              <a href={prLink} className={panelPrimaryButton}>
+                Relire sur GitHub ↗
+              </a>
+            )}
+            {canDevelop && (
+              <button
+                ref={opener("develop")}
+                type="button"
+                onClick={() => open("develop")}
+                className={prLink ? panelButton : panelPrimaryButton}
+              >
+                Développer avec Claude
+              </button>
+            )}
+            <div className="grid grid-flow-col auto-cols-fr gap-2.5">
+              {["to_validate", "to_rewrite", "ready"].includes(status) && (
+                <button
+                  ref={opener("edit")}
+                  type="button"
+                  disabled={archived}
+                  onClick={() => open("edit")}
+                  className={panelButton}
+                >
+                  Modifier
+                </button>
+              )}
+              {status === "to_validate" && (
+                <button
+                  ref={opener("sendBack")}
+                  type="button"
+                  disabled={archived}
+                  onClick={() => open("sendBack")}
+                  className={panelButton}
+                >
+                  Renvoyer
+                </button>
+              )}
+            </div>
             <button
               ref={opener("abandon")}
               type="button"
               disabled={archived}
               onClick={() => open("abandon")}
-              className={button}
+              className={ghostButton}
             >
               Abandonner
             </button>
+          </>
+        )
+      }
+    >
+      {mode === null && (
+        <>
+          <h2 className="text-xl leading-snug font-semibold">
+            {HEADLINES[status]}
+          </h2>
+          {status === "to_validate" && (
+            <>
+              <p className={sectionLabel}>Après validation</p>
+              <p className="text-muted-foreground">
+                L'US est publiée sur GitHub, et Claude peut la développer.
+              </p>
+            </>
           )}
-        </div>
+          {children}
+        </>
       )}
       {mode === "sendBack" && (
         <form
+          className="flex flex-1 flex-col gap-3.5"
           onSubmit={(event) => {
             event.preventDefault();
             if (blank) return;
@@ -174,6 +249,12 @@ export function StoryDecisions({
             );
           }}
         >
+          <h2 className="text-xl leading-snug font-semibold">
+            Qu'est-ce que Claude doit changer ?
+          </h2>
+          <p className="text-muted-foreground">
+            Il réécrira l'US avec ton commentaire, puis elle reviendra ici.
+          </p>
           <label className="block font-semibold">
             Commentaire pour Claude
             <textarea
@@ -182,19 +263,19 @@ export function StoryDecisions({
               autoFocus
               value={comment}
               onChange={(event) => setComment(event.target.value)}
-              rows={4}
+              rows={6}
               className={field}
             />
           </label>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-auto flex flex-col gap-2">
             <button
               type="submit"
               disabled={blank || run.isPending}
-              className={primaryButton}
+              className={panelPrimaryButton}
             >
               Confirmer le renvoi
             </button>
-            <button type="button" onClick={close} className={button}>
+            <button type="button" onClick={close} className={ghostButton}>
               Annuler
             </button>
           </div>
@@ -202,11 +283,14 @@ export function StoryDecisions({
       )}
       {mode === "abandon" && (
         <>
+          <h2 className="text-xl leading-snug font-semibold">
+            Abandonner cette user story ?
+          </h2>
           <p id="abandon-story-warning">
             Abandonner cette user story ? C'est définitif : elle ne se rouvre
             pas.
           </p>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-auto flex flex-col gap-2">
             <button
               type="button"
               disabled={run.isPending}
@@ -215,7 +299,7 @@ export function StoryDecisions({
                   client.api.stories[":id"].abandon.$post({ param: { id } }),
                 )
               }
-              className={danger}
+              className={dangerButton}
             >
               Confirmer l'abandon
             </button>
@@ -237,6 +321,7 @@ export function StoryDecisions({
       )}
       {mode === "edit" && (
         <form
+          className="flex flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
             run.mutate(() =>
@@ -289,7 +374,7 @@ export function StoryDecisions({
               className={field}
             />
           </label>
-          <h3 className="mt-4 font-heading font-bold">Critères</h3>
+          <h3 className={`mt-4 ${sectionLabel}`}>Critères</h3>
           <ol className="mt-2 grid gap-2">
             {form.criteria.map((criterion, index) => (
               <li key={criterion.key} className={`${card} p-3`}>
@@ -351,26 +436,26 @@ export function StoryDecisions({
           >
             Ajouter un critère
           </button>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-auto flex flex-col gap-2 pt-4">
             <button
               type="submit"
               disabled={run.isPending}
-              className={primaryButton}
+              className={panelPrimaryButton}
             >
               Enregistrer
             </button>
-            <button type="button" onClick={close} className={button}>
+            <button type="button" onClick={close} className={ghostButton}>
               Annuler
             </button>
           </div>
         </form>
       )}
       {run.error && (
-        <p role="alert" className={`mt-3 ${alertBox}`}>
+        <p role="alert" className={alertBox}>
           {run.error.message}
         </p>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -399,12 +484,10 @@ export function StoryHistory({ id }: { id: number }) {
 
   return (
     <details
-      className="mt-6"
+      className="px-[26px] pt-[22px]"
       onToggle={(event) => setOpened(event.currentTarget.open)}
     >
-      <summary className={`font-heading text-xl font-bold ${focusRing}`}>
-        Historique
-      </summary>
+      <summary className={`${sectionLabel} ${focusRing}`}>Historique</summary>
       {entries.isPending && opened && (
         <p className="mt-2 text-muted-foreground">Chargement…</p>
       )}
@@ -417,11 +500,11 @@ export function StoryHistory({ id }: { id: number }) {
         <p className="mt-2 text-muted-foreground">Rien pour l'instant.</p>
       )}
       {entries.data && entries.data.length > 0 && (
-        <ul className="mt-2 grid gap-2">
+        <ul className={`mt-2 ${listCard}`}>
           {entries.data.map((entry) => (
             <li
               key={entry.id}
-              className={`flex flex-wrap items-baseline gap-x-3 ${card} p-3`}
+              className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
             >
               <span className="font-semibold">
                 {entry.actor === "claude"
@@ -438,7 +521,7 @@ export function StoryHistory({ id }: { id: number }) {
               </span>
               <time
                 dateTime={entry.at}
-                className="text-muted-foreground sm:ml-auto"
+                className="text-[12.5px] text-muted-foreground sm:ml-auto"
               >
                 {new Date(entry.at).toLocaleString("fr-FR")}
               </time>

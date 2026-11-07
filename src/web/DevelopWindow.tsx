@@ -1,8 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { client } from "./api.ts";
+import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
-import { button, card, field, primaryButton } from "./ui.ts";
+import {
+  badge,
+  field,
+  ghostButton,
+  panelButton,
+  panelPrimaryButton,
+} from "./ui.ts";
 
 // Mirror of BRANCH in src/server/mcp.ts (decision 033 B), `..` being refused next to it.
 const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
@@ -45,7 +52,8 @@ async function fetchTeams(id: string) {
   return (await res.json()).teams.map((team) => team.name);
 }
 
-function Panel({
+/** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
+export function DevelopWindow({
   story,
   project,
   onClose,
@@ -103,15 +111,69 @@ function Panel({
   const label = "block font-semibold";
 
   return (
-    <section
-      aria-labelledby="develop-title"
-      className={`mt-4 grid gap-4 p-4 ${card}`}
+    <Panel
+      label="Développer avec Claude"
+      badge={
+        <span className={badge}>
+          <span className="inline-block first-letter:uppercase">
+            {STORY_STATUSES.ready}
+          </span>
+        </span>
+      }
+      footer={
+        <>
+          <a
+            className={`${panelPrimaryButton} aria-disabled:opacity-50`}
+            {...(valid
+              ? {
+                  href,
+                  onClick: () => {
+                    try {
+                      window.localStorage.setItem(
+                        storageKey(project.id),
+                        cleanFolder,
+                      );
+                    } catch {}
+                  },
+                }
+              : { "aria-disabled": true, role: "link" })}
+          >
+            <span>Lancer Claude</span>
+          </a>
+          <button
+            type="button"
+            className={panelButton}
+            disabled={!branchValid || !promptValid}
+            onClick={() =>
+              navigator.clipboard
+                .writeText(message)
+                .then(() => setCopied(message))
+                .catch(() => setCopyFailed(message))
+            }
+          >
+            Copier le prompt
+          </button>
+          {copied === message && (
+            <span role="status" className="text-center text-muted-foreground">
+              Copié
+            </span>
+          )}
+          {copyFailed === message && (
+            <span role="status" className="text-center text-destructive">
+              Copie impossible
+            </span>
+          )}
+          <button type="button" className={ghostButton} onClick={onClose}>
+            Annuler
+          </button>
+        </>
+      }
     >
       <h2
         id="develop-title"
         ref={headingRef}
         tabIndex={-1}
-        className="font-heading text-xl font-bold"
+        className="text-xl leading-snug font-semibold"
       >
         Développer avec Claude
       </h2>
@@ -256,86 +318,6 @@ function Panel({
       {!story.branch && mode === "existing" && existing === "" && (
         <p>Choisis une branche existante.</p>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <a
-          className={`${primaryButton} aria-disabled:opacity-50`}
-          {...(valid
-            ? {
-                href,
-                onClick: () => {
-                  try {
-                    window.localStorage.setItem(
-                      storageKey(project.id),
-                      cleanFolder,
-                    );
-                  } catch {}
-                },
-              }
-            : { "aria-disabled": true, role: "link" })}
-        >
-          <span>Lancer Claude</span>
-        </a>
-        <button
-          type="button"
-          className={button}
-          disabled={!branchValid || !promptValid}
-          onClick={() =>
-            navigator.clipboard
-              .writeText(message)
-              .then(() => setCopied(message))
-              .catch(() => setCopyFailed(message))
-          }
-        >
-          Copier le prompt
-        </button>
-        {copied === message && <span role="status">Copié</span>}
-        {copyFailed === message && (
-          <span role="status" className="text-destructive">
-            Copie impossible
-          </span>
-        )}
-        <button type="button" className={button} onClick={onClose}>
-          Annuler
-        </button>
-      </div>
-    </section>
-  );
-}
-
-/** Decision 034: the button of a ready or in_review story and the panel that opens the link of decision 005. */
-export function DevelopWindow({
-  story,
-  project,
-}: {
-  story: Story;
-  project: { id: number; fullName: string; defaultBranch?: string };
-}) {
-  const [open, setOpen] = useState(false);
-  const openRef = useRef<HTMLButtonElement>(null);
-  const closed = useRef(false);
-  // Back to the button when the panel is cancelled, for keyboard users.
-  useEffect(() => {
-    if (!open && closed.current) openRef.current?.focus();
-  }, [open]);
-  if (open)
-    return (
-      <Panel
-        story={story}
-        project={project}
-        onClose={() => {
-          closed.current = true;
-          setOpen(false);
-        }}
-      />
-    );
-  return (
-    <button
-      ref={openRef}
-      type="button"
-      className={`mt-4 ${primaryButton}`}
-      onClick={() => setOpen(true)}
-    >
-      Développer avec Claude
-    </button>
+    </Panel>
   );
 }

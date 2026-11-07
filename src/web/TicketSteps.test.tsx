@@ -51,7 +51,7 @@ describe("criterion 16: the step labels", () => {
 
       renderAt("/tickets/7");
 
-      await screen.findByRole("heading", { level: 1, name: "Un ticket" });
+      await screen.findByRole("heading", { level: 1, name: /^Un ticket/ });
       expect(within(screen.getByRole("main")).getByText(label)).toBeDefined();
       expect(screen.queryByText(code)).toBeNull();
     },

@@ -287,7 +287,7 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     fireEvent.click(
       await within(tickets).findByRole("link", { name: "Idée A" }),
     );
-    await screen.findByRole("heading", { level: 1, name: "Idée A" });
+    await screen.findByRole("heading", { level: 1, name: /^Idée A/ });
   };
 
   it("given a ticket with a story, when the ticket is abandoned from its page and the user goes back to the project, then its cards are gone from the board", async () => {
@@ -318,7 +318,7 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
       target: { value: "Idée renommée" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
-    await screen.findByRole("heading", { level: 1, name: "Idée renommée" });
+    await screen.findByRole("heading", { level: 1, name: /^Idée renommée/ });
     await goBackToProject();
 
     await screen.findByRole("link", { name: /vouloir-alpha/ });

@@ -4,7 +4,7 @@ import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { decisionError } from "./tickets.ts";
-import { alertBox, button, card } from "./ui.ts";
+import { alertBox, button, card, primaryButton, sectionLabel } from "./ui.ts";
 
 /** An issue edited on GitHub (decision 025 E to G): the date, the title if it changed, the line by line diff of the bodies, and the choice of the user. */
 export function StoryDiverged({
@@ -52,11 +52,11 @@ export function StoryDiverged({
   );
 
   return (
-    <section className={`mt-4 ${card} p-4`} aria-labelledby="issue-diverged">
-      <h2 id="issue-diverged" className="font-semibold">
+    <section className="px-[26px] pt-[22px]" aria-labelledby="issue-diverged">
+      <h2 id="issue-diverged" className={sectionLabel}>
         Issue modifiée sur GitHub
       </h2>
-      <p className="mt-1">
+      <p className="mt-1 text-muted-foreground">
         Modifiée le {new Date(diverged.at).toLocaleString("fr-FR")}. Cockpit
         n'écrit plus sur cette issue tant que tu n'as pas choisi.
       </p>
@@ -65,21 +65,31 @@ export function StoryDiverged({
           <span className="font-semibold">Titre</span> {diverged.githubTitle}
         </p>
       )}
-      {lines ? (
-        <DiffList lines={lines} />
-      ) : (
-        <>
-          <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
-          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
-            {diverged.cockpitBody}
-          </pre>
-          <h3 className="mt-3 font-semibold">Version de GitHub</h3>
-          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
-            {diverged.githubBody}
-          </pre>
-        </>
-      )}
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className={`mt-3 overflow-x-auto p-3 ${card}`}>
+        {lines ? (
+          <DiffList lines={lines} />
+        ) : (
+          <>
+            <h3 className={sectionLabel}>Version de Cockpit</h3>
+            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-sm">
+              {diverged.cockpitBody}
+            </pre>
+            <h3 className={`mt-3 ${sectionLabel}`}>Version de GitHub</h3>
+            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-sm">
+              {diverged.githubBody}
+            </pre>
+          </>
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={archived || resolve.isPending}
+          onClick={() => resolve.mutate("take-github")}
+          className={primaryButton}
+        >
+          Reprendre la version de GitHub
+        </button>
         <button
           type="button"
           disabled={archived || resolve.isPending}
@@ -87,14 +97,6 @@ export function StoryDiverged({
           className={button}
         >
           Garder la version de Cockpit
-        </button>
-        <button
-          type="button"
-          disabled={archived || resolve.isPending}
-          onClick={() => resolve.mutate("take-github")}
-          className={button}
-        >
-          Reprendre la version de GitHub
         </button>
       </div>
       {resolve.error && (

@@ -57,7 +57,11 @@ describe("criterion 15: Story page", () => {
     renderAt("/us/21");
 
     await loaded();
-    const text = main().textContent ?? "";
+    // The title of the page (« US 21 · relire les exports ») repeats the « je veux » text: the story card is what is compared.
+    const text = (main().textContent ?? "").replace(
+      screen.getByRole("heading", { level: 1 }).textContent ?? "",
+      "",
+    );
     const at = [
       text.search(/En tant que/i),
       text.indexOf("lectrice attentive"),

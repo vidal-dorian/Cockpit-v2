@@ -4,13 +4,13 @@ import type { DiffLine } from "./diff.ts";
 const MARKS = {
   same: { word: "", style: "" },
   removed: { word: "Retirée", style: "bg-destructive-soft text-destructive" },
-  added: { word: "Ajoutée", style: "bg-done-soft text-done-text" },
+  added: { word: "Ajoutée", style: "bg-raised text-foreground" },
 };
 
 /** The lines of a diff (decision 025 E), one list item each. */
 export function DiffList({ lines }: { lines: DiffLine[] }) {
   return (
-    <ul className="mt-3 grid font-mono text-sm">
+    <ul className="grid font-mono text-sm">
       {lines.map(({ type, text }, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: the lines are never reordered, and two can be equal
         <li key={index} className={`flex gap-3 px-2 ${MARKS[type].style}`}>

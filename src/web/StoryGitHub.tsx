@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "./api.ts";
-import { alertBox, button, focusRing } from "./ui.ts";
+import { alertBox, button, card, focusRing, sectionLabel } from "./ui.ts";
 
 const CI = {
   pending: "En cours",
@@ -41,9 +41,9 @@ export function StoryGitHub({
   });
 
   return (
-    <section className="mt-4">
-      <h2 className="font-heading text-xl font-bold">GitHub</h2>
-      <p className="mt-2">
+    <section className={`${card} p-4`}>
+      <h2 className={sectionLabel}>GitHub</h2>
+      <p className="mt-2 font-semibold">
         <a
           href={`https://github.com/${fullName}/pull/${story.prNumber}`}
           className={`underline ${focusRing}`}
@@ -66,7 +66,7 @@ export function StoryGitHub({
         type="button"
         disabled={refresh.isPending}
         onClick={() => refresh.mutate()}
-        className={`mt-2 ${button}`}
+        className={`mt-3 ${button}`}
       >
         Actualiser
       </button>

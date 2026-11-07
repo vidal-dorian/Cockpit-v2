@@ -19,7 +19,7 @@ const button = (name: string) =>
 const maybeButton = (name: string) => screen.queryByRole("button", { name });
 const click = (name: string) => fireEvent.click(button(name));
 const loaded = () =>
-  screen.findByRole("heading", { level: 1, name: "Idée découpée" });
+  screen.findByRole("heading", { level: 1, name: /^Idée découpée/ });
 
 function seed(step = "in_progress", abandonedAt: string | null = null) {
   return stubDecisionApi({
