@@ -119,19 +119,17 @@ describe("decision 048 E: the chosen feature and the state sentence", () => {
   it("given two features and no ?f, when the screen opens, then the first one is chosen and the h1 says « « Facturer » : 2 acteurs, 3 règles, 2 objets. »", async () => {
     await open();
 
+    // The state sentence is the h1: the title, then « Un clic… » as its muted second line (048 E, 045 D).
     expect(h1().textContent).toBe(
-      "« Facturer » : 2 acteurs, 3 règles, 2 objets.",
-    );
-    expect(main().textContent).toContain(
-      "Un clic sur une règle ouvre l'écran de reprise.",
+      "« Facturer » : 2 acteurs, 3 règles, 2 objets.Un clic sur une règle ouvre l'écran de reprise.",
     );
   });
 
   it("given ?f=12, when the screen opens, then the second feature is chosen, with singular words", async () => {
     await open(undefined, `${PATH}?f=12`);
 
-    expect(h1().textContent).toBe(
-      "« Relancer les impayés » : 1 acteur, 1 règle, 1 objet.",
+    expect(h1().textContent).toMatch(
+      /^« Relancer les impayés » : 1 acteur, 1 règle, 1 objet\./,
     );
   });
 
