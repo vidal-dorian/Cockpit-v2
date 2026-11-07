@@ -10,7 +10,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 ## Comment s'en servir pour développer
 
-- **Un écran se développe avec sa tranche** : la colonne « Tranche » renvoie à [`decoupage.md`](../decoupage.md). La tranche 9.3 pose d'abord la coque commune : jetons, polices, barre latérale, panneau de droite et barre d'idée.
+- **Un écran se développe avec sa tranche** : la colonne « Tranche » renvoie à [`decoupage.md`](../decoupage.md). La tranche 9.3 a posé la coque commune (jetons, polices, barre latérale, panneau de droite et barre d'idée) et refait dans ce style les écrans qui existaient ; les autres écrans suivent avec leur tranche.
 - **L'écran montre le but, la décision dit les règles.** Quand les deux se contredisent, la décision l'emporte, et on le signale. Les données des écrans sont des exemples : les projets, les noms et les montants n'existent pas.
 - **« À trancher »** veut dire que l'écran montre une proposition, pas une décision. Il faut une décision avant de développer cette partie.
 - Les règles visuelles (une seule chose en rouge, un seul bouton blanc par zone, la phrase d'état en haut) sont dans la décision 045.
@@ -121,6 +121,6 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 | 036 | |
 | [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 | 018 | |
 | [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 | 014 | dicter, photo |
-| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 | | |
+| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : seule l'alerte « Serveur injoignable » existe |
 
 Sur le téléphone, la barre du bas (Accueil, Idée, Nuit, Projets) est la même sur chaque écran.

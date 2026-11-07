@@ -81,7 +81,7 @@ it("given a finished run, when the page loads, then the verdict comes before Cri
   renderAt("/runs/12");
 
   const verdict = await screen.findByRole("heading", { name: "Acceptable" });
-  const criteria = screen.getByRole("heading", { name: "Critères" });
+  const criteria = screen.getByRole("heading", { name: /^Les critères/ });
   const link = screen.getByRole("link", {
     name: "Relire et merger sur GitHub",
   });

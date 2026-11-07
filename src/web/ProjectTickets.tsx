@@ -6,14 +6,15 @@ import { STEPS, ticketError } from "./tickets.ts";
 import {
   alertBox,
   button,
-  card,
   field,
   focusRing,
+  listCard,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 /** The tickets of a project, newest first, or null when the server answers 401. */
-async function fetchTickets(id: string) {
+export async function fetchTickets(id: string) {
   const res = await client.api.projects[":id"].tickets.$get({ param: { id } });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -47,8 +48,8 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
   });
 
   return (
-    <section className="mt-10" aria-labelledby="tickets">
-      <h2 id="tickets" className="font-heading text-xl font-bold">
+    <section className="mx-[26px] mt-6" aria-labelledby="tickets">
+      <h2 id="tickets" className={sectionLabel}>
         Tickets
       </h2>
       <div className="mt-3" aria-live="polite">
@@ -76,34 +77,39 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
           <p className="text-muted-foreground">Aucun ticket pour l'instant.</p>
         )}
         {tickets.data && tickets.data.length > 0 && (
-          <ul className="grid gap-2">
+          <ul className={listCard}>
             {tickets.data.map((ticket) => (
               <li
                 key={ticket.id}
-                className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${card} p-4`}
+                className="flex min-h-[50px] items-center gap-3.5 px-4 py-2 hover:bg-raised"
               >
-                <Link
-                  to={`/tickets/${ticket.id}`}
-                  className={`font-semibold underline ${focusRing}`}
-                >
-                  {ticket.title}
-                </Link>
-                <span className="rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text sm:ml-auto">
-                  {STEPS[ticket.step] ?? ticket.step}
+                <span aria-hidden="true" className="w-4 text-dim">
+                  ✎
                 </span>
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/tickets/${ticket.id}`}
+                    className={`block font-bold hover:underline ${focusRing}`}
+                  >
+                    {ticket.title}
+                  </Link>
+                  <span className="block text-[12.5px] text-muted-foreground">
+                    {STEPS[ticket.step] ?? ticket.step}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </div>
       <form
-        className="mt-4"
+        className="mt-6"
         onSubmit={(event) => {
           event.preventDefault();
           create.mutate();
         }}
       >
-        <h3 className="font-heading text-lg font-bold">Nouveau ticket</h3>
+        <h3 className={sectionLabel}>Nouveau ticket</h3>
         <label className="mt-2 block font-semibold">
           Titre
           <input

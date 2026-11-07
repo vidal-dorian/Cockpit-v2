@@ -2,7 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
+import { Dot, StateSentence, useHome } from "./Shell.tsx";
+import {
+  alertBox,
+  badge,
+  button,
+  dangerButton,
+  focusRing,
+  listCard,
+  primaryButton,
+  sectionLabel,
+} from "./ui.ts";
 
 /** The message the server put in an error answer, or the status when there is none. */
 async function failure(res: Response) {
@@ -29,7 +39,11 @@ async function fetchRepositories() {
   return res.json();
 }
 
-const badge = "rounded-full px-3 py-1 font-semibold";
+const STATE_TEXT = {
+  for_you: "Claude t'attend",
+  claude: "Claude travaille",
+  idle: "rien en cours",
+} as Record<string, string>;
 
 function ErrorAlert({ error }: { error: Error }) {
   return (
@@ -42,6 +56,10 @@ function ErrorAlert({ error }: { error: Error }) {
 function ProjectList() {
   const queryClient = useQueryClient();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const home = useHome().data;
+  const states = new Map(home?.projects.map((p) => [p.id, p.state]));
+  // Red only for the project of the first thing to do (decision 045 C).
+  const first = home?.forYou[0]?.project.id;
   // The project waiting for its confirmation; there is no unarchive yet, so we ask on the spot (decision 003, rule 4).
   const [confirming, setConfirming] = useState<number | null>(null);
   const archive = useMutation({
@@ -83,28 +101,37 @@ function ProjectList() {
     );
   return (
     <>
-      <ul className="grid gap-2">
+      <ul className={listCard}>
         {projects.data.map((project) => (
           <li
             key={project.id}
-            className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
+            className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2"
           >
+            <Dot
+              tone={
+                project.id === first
+                  ? "you"
+                  : states.get(project.id) === "claude"
+                    ? "claude"
+                    : "none"
+              }
+              live={project.id !== first && states.get(project.id) === "claude"}
+            />
             <Link
               to={`/projets/${project.id}`}
-              className={`font-semibold underline ${focusRing}`}
+              className={`font-semibold hover:underline ${focusRing}`}
             >
-              {project.fullName}
+              {project.fullName.split("/").pop()}
             </Link>
-            <span className="text-muted-foreground">
-              {project.defaultBranch}
+            <span className="font-mono text-[11.5px] text-dim">
+              {project.fullName}
+            </span>
+            <span className="text-[13px] text-muted-foreground">
+              {STATE_TEXT[states.get(project.id) ?? "idle"]}
             </span>
             <span className="flex gap-2 sm:ml-auto">
               {project.archived ? (
-                <span
-                  className={`${badge} border border-border bg-background text-muted-foreground`}
-                >
-                  Archivé
-                </span>
+                <span className={badge}>Archivé</span>
               ) : confirming === project.id ? (
                 <>
                   <span className="basis-full">
@@ -115,7 +142,7 @@ function ProjectList() {
                     type="button"
                     onClick={() => archive.mutate(project.id)}
                     disabled={archive.isPending}
-                    className={`min-h-10 rounded-xl bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                    className={dangerButton}
                   >
                     Confirmer l'archivage
                   </button>
@@ -217,22 +244,18 @@ function Importable() {
         </p>
       )}
       {repos.length > 0 && (
-        <ul className="grid gap-2">
+        <ul className={listCard}>
           {repos.map((repo) => (
             <li
               key={repo.githubRepoId}
-              className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
+              className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
             >
               <span className="font-semibold">{repo.fullName}</span>
-              <span className="text-muted-foreground">
+              <span className="text-[13px] text-muted-foreground">
                 {repo.defaultBranch}
               </span>
               {repo.imported ? (
-                <span
-                  className={`${badge} bg-done-soft text-done-text sm:ml-auto`}
-                >
-                  Déjà importé
-                </span>
+                <span className={`${badge} sm:ml-auto`}>Déjà importé</span>
               ) : (
                 <button
                   type="button"
@@ -253,22 +276,36 @@ function Importable() {
 }
 
 export function Projects() {
+  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const home = useHome().data;
+  // The sidebar counts the same projects: the archived ones are out.
+  const total = projects.data?.filter((p) => !p.archived).length ?? 0;
+  const waiting = (home?.projects ?? []).filter(
+    (p) => p.state === "for_you",
+  ).length;
   return (
-    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
-      <h1 className="font-heading text-3xl font-extrabold">Projets</h1>
-      <section className="mt-6" aria-labelledby="mes-projets">
-        <h2 id="mes-projets" className="font-heading text-xl font-bold">
+    <main className="pb-6">
+      <StateSentence
+        title={
+          projects.data
+            ? `${total} ${total === 1 ? "projet" : "projets"}. ${waiting === 0 ? "Aucun n'a" : waiting === 1 ? "1 a" : `${waiting} ont`} besoin de toi.`
+            : "Projets"
+        }
+        rest="Les autres avancent seuls ou dorment."
+      />
+      <section className="mx-[26px] mt-6" aria-labelledby="mes-projets">
+        <h2 id="mes-projets" className={`mb-2 ${sectionLabel}`}>
           Mes projets
         </h2>
-        <div className="mt-3" aria-live="polite">
+        <div aria-live="polite">
           <ProjectList />
         </div>
       </section>
-      <section className="mt-10" aria-labelledby="importer">
-        <h2 id="importer" className="font-heading text-xl font-bold">
+      <section className="mx-[26px] mt-8" aria-labelledby="importer">
+        <h2 id="importer" className={`mb-2 ${sectionLabel}`}>
           Importer depuis GitHub
         </h2>
-        <div className="mt-3" aria-live="polite">
+        <div aria-live="polite">
           <Importable />
         </div>
       </section>

@@ -98,7 +98,7 @@ function stubApi(
 
 const main = () => screen.getByRole("main");
 const loaded = () =>
-  waitFor(() => expect(main().textContent).toContain("Run n° 12"));
+  waitFor(() => expect(main().textContent).toContain("Run 12"));
 const button = (name: string) => within(main()).queryByRole("button", { name });
 
 describe("criterion 7: the controls of a running run", () => {

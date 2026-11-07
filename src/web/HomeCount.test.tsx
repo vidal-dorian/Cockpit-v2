@@ -47,14 +47,16 @@ describe("criterion 7: the counter of the Accueil link", () => {
     expect(accueil().textContent?.trim()).toBe("Accueil");
   });
 
-  it("given a logged-out visitor, when a page is shown, then /api/home is not read and the link reads « Accueil »", async () => {
+  it("given a logged-out visitor, when a page is shown, then /api/home is not read and there is no navigation (the login screen has no shell)", async () => {
     const api = stubHome(empty(), false);
     renderAt("/journal");
-    await screen.findByRole("navigation", { name: "Navigation principale" });
+    await screen.findByRole("link", { name: "Se connecter avec GitHub" });
     await new Promise((r) => setTimeout(r, 50));
 
     expect(api.homeReads()).toBe(0);
-    expect(accueil().textContent?.trim()).toBe("Accueil");
+    expect(
+      screen.queryByRole("navigation", { name: "Navigation principale" }),
+    ).toBeNull();
   });
 
   it("given the counter shows 1, when a change event arrives and the item is gone, then the counter disappears", async () => {

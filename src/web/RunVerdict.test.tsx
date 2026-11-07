@@ -98,7 +98,7 @@ function stubApi({
 
 const main = () => screen.getByRole("main");
 const loaded = () =>
-  waitFor(() => expect(main().textContent).toContain("Run n° 12"));
+  waitFor(() => expect(main().textContent).toContain("Run 12"));
 const precedes = (a: Node, b: Node) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
@@ -110,7 +110,7 @@ describe("criterion 3: the verdict at the top of a finished run", () => {
 
     const verdict = await screen.findByText("Acceptable");
     await loaded();
-    const criteria = screen.getByRole("heading", { name: "Critères" });
+    const criteria = screen.getByRole("heading", { name: /^Les critères/ });
     expect(precedes(verdict, criteria)).toBe(true);
     expect(main().textContent).not.toContain("À vérifier");
   });
@@ -124,7 +124,7 @@ describe("criterion 3: the verdict at the top of a finished run", () => {
     renderAt("/runs/12");
 
     const verdict = await screen.findByText("À vérifier");
-    const criteria = screen.getByRole("heading", { name: "Critères" });
+    const criteria = screen.getByRole("heading", { name: /^Les critères/ });
     expect(precedes(verdict, criteria)).toBe(true);
     expect(main().textContent).not.toContain("Acceptable");
   });
@@ -148,7 +148,10 @@ describe("criterion 3: the verdict at the top of a finished run", () => {
 
       const reason = await screen.findByText(text);
       expect(
-        precedes(reason, screen.getByRole("heading", { name: "Critères" })),
+        precedes(
+          reason,
+          screen.getByRole("heading", { name: /^Les critères/ }),
+        ),
       ).toBe(true);
     },
   );

@@ -1,6 +1,15 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { client } from "./api.ts";
-import { alertBox, button, card, primaryButton } from "./ui.ts";
+import { StateSentence } from "./Shell.tsx";
+import {
+  alertBox,
+  badge,
+  button,
+  listCard,
+  primaryButton,
+  sectionLabel,
+  urgentBadge,
+} from "./ui.ts";
 
 /** A page of the caller's entries (25), the one after the entry `before`; null when the server answers 401. */
 export async function fetchHistory(before: number | undefined) {
@@ -72,38 +81,48 @@ const ORIGINS: Record<string, string> = {
   webhook: "GitHub",
   system: "Cockpit",
 };
-// The word always comes with the color, so the result never relies on color alone (decision 003).
+// The word always comes with the style, so the result never relies on color alone (decision 003); only an error is red (045 C).
 export const RESULTS: Record<string, { label: string; style: string }> = {
-  ok: { label: "Réussie", style: "bg-done-soft text-done-text" },
-  refused: { label: "Refusée", style: "bg-destructive-soft text-destructive" },
-  error: { label: "Erreur", style: "bg-destructive-soft text-destructive" },
+  ok: { label: "Réussie", style: badge },
+  refused: { label: "Refusée", style: badge },
+  error: {
+    label: "Erreur",
+    style: urgentBadge,
+  },
 };
 
 type Entry = NonNullable<
   Awaited<ReturnType<typeof fetchHistory>>
 >["entries"][number];
 
+/** A row of the journal: in a `listCard` on the journal page, laid down as its own card in a `grid` list (the home). */
 export function JournalEntry({ entry }: { entry: Entry }) {
   const result = RESULTS[entry.result];
   return (
-    <li className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-4 ${card}`}>
-      <span className="font-semibold">
-        {ACTIONS[entry.action] ??
-          (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
-        {"event" in entry && ` (${entry.event})`}
-      </span>
-      <span
-        className={`rounded-full px-3 py-1 font-semibold ${result?.style ?? ""}`}
-      >
+    <li className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 [.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card">
+      <div className="min-w-0 flex-1">
+        <span className="block font-semibold">
+          {ACTIONS[entry.action] ??
+            (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
+          {"event" in entry && ` (${entry.event})`}
+        </span>
+        <p className="text-[13px] text-muted-foreground">
+          <span>{ORIGINS[entry.origin] ?? entry.origin}</span>
+          {entry.project && (
+            <>
+              <span aria-hidden="true"> · </span>
+              <span>{entry.project}</span>
+            </>
+          )}
+        </p>
+      </div>
+      <span className={result?.style ?? badge}>
         {result?.label ?? entry.result}
       </span>
-      <span className="text-muted-foreground">
-        {ORIGINS[entry.origin] ?? entry.origin}
-      </span>
-      {entry.project && (
-        <span className="text-muted-foreground">{entry.project}</span>
-      )}
-      <time dateTime={entry.at} className="text-muted-foreground sm:ml-auto">
+      <time
+        dateTime={entry.at}
+        className="text-[13px] text-muted-foreground tabular-nums"
+      >
         {new Date(entry.at).toLocaleString("fr-FR")}
       </time>
     </li>
@@ -123,9 +142,12 @@ export function Journal() {
   const signedOut = pages.data?.pages[0] === null;
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 py-8 sm:px-7">
-      <h1 className="font-heading text-3xl font-extrabold">Journal</h1>
-      <div className="mt-6" aria-live="polite">
+    <main>
+      <StateSentence
+        title="Tout ce qui s'est passé, par qui."
+        rest="Rien ne s'efface ; chaque appel de Claude y est."
+      />
+      <div className="mt-6 px-[26px] pb-8" aria-live="polite">
         {pages.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
         )}
@@ -151,7 +173,13 @@ export function Journal() {
         )}
         {entries && entries.length > 0 && (
           <>
-            <ul className="grid gap-2">
+            <div className="mb-2 flex items-baseline gap-2 text-[13px] text-muted-foreground">
+              <h2 className={sectionLabel}>Journal</h2>
+              <span>
+                · {entries.length} {entries.length === 1 ? "entrée" : "entrées"}
+              </span>
+            </div>
+            <ul className={listCard}>
               {entries.map((entry) => (
                 <JournalEntry key={entry.id} entry={entry} />
               ))}

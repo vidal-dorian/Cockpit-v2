@@ -80,9 +80,10 @@ function stubApi(questions: object[], status = "running") {
   return { posts, reads: () => runReads };
 }
 
+// The pending question is in the right panel (S29), the others in a Questions list: both are inside the page's main.
 const section = async () => {
-  const heading = await screen.findByRole("heading", { name: "Questions" });
-  return (heading.closest("section") ?? heading.parentElement) as HTMLElement;
+  await screen.findAllByText(/Question [12] \?/);
+  return screen.getByRole("main");
 };
 
 describe("criterion 7: the Questions section of the run page", () => {
@@ -139,18 +140,42 @@ describe("criterion 7: the Questions section of the run page", () => {
 
     const box = await section();
 
-    const text = box.textContent ?? "";
-    expect(text.indexOf("Question 2 ?")).toBeGreaterThan(-1);
-    expect(text.indexOf("Question 2 ?")).toBeLessThan(
-      text.indexOf("Question 1 ?"),
+    // the pending one is the panel's question, the answered one is in the list with its answer
+    const panel = within(
+      screen.getByRole("complementary", { name: "Question de Claude" }),
     );
-    expect(text).toContain("Valider");
+    expect(panel.getByText("Question 2 ?")).toBeTruthy();
+    expect(panel.queryByText("Question 1 ?")).toBeNull();
+    const list = within(
+      screen
+        .getByRole("heading", { name: "Questions" })
+        .closest("section") as HTMLElement,
+    );
+    expect(list.getByText("Question 1 ?")).toBeTruthy();
+    expect(list.getByText("Valider")).toBeTruthy();
     expect(within(box).getAllByLabelText("Ta réponse")).toHaveLength(1);
     expect(
       within(box).getAllByRole("button", { name: "Répondre" }),
     ).toHaveLength(1);
     // the suggested answers of an answered question are no longer buttons
     expect(within(box).queryByRole("button", { name: "Envoyer" })).toBeNull();
+  });
+
+  it("given the last pending question, when I answer it, then the focus is on the page title, not on the body", async () => {
+    stubApi([question(1)]);
+    renderAt("/runs/12");
+    const box = within(await section());
+
+    fireEvent.change(box.getByLabelText("Ta réponse"), {
+      target: { value: "Oui" },
+    });
+    fireEvent.click(box.getByRole("button", { name: "Répondre" }));
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("heading", { level: 1 }),
+      ),
+    );
   });
 
   it("given a finished run with a pending question, when the page loads, then it shows Sans réponse and no field", async () => {

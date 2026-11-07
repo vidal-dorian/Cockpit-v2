@@ -31,6 +31,8 @@ type State = {
   installed: boolean;
   repositories: Repo[];
   unauthorized?: boolean;
+  // The state of each project, as /api/home gives it (the other tests leave the home unanswered).
+  homeProjects?: { id: number; name: string; state: string }[];
   importAnswer?: Response;
 };
 
@@ -101,6 +103,12 @@ function stubApi(state: State) {
         return Response.json({ status: "ok", version: "0.1.0" });
       if (path === "/api/me")
         return Response.json({ login: "octocat", name: null, avatarUrl: null });
+      if (path === "/api/home" && state.homeProjects)
+        return Response.json({
+          forYou: [],
+          claudeWorks: [],
+          projects: state.homeProjects,
+        });
       if (path === "/api/projects" && method === "GET")
         return state.unauthorized
           ? unauthorized()
@@ -160,12 +168,14 @@ afterEach(() => {
 });
 
 describe("navigation", () => {
-  it("given the home page, when it loads, then the header links to /projets", async () => {
+  it("given the home page, when it loads, then the sidebar links to /projets", async () => {
     stubApi({ projects: [], installed: false, repositories: [] });
 
     renderAt("/");
 
-    const link = await screen.findByRole("link", { name: "Projets" });
+    const link = await screen.findByRole("link", {
+      name: /^Tous les projets/,
+    });
     expect(link.getAttribute("href")).toBe("/projets");
   });
 });
@@ -194,6 +204,59 @@ describe("Projets page, the list", () => {
     ).toBeNull();
   });
 
+  it.each([
+    ["for_you", "Claude t'attend"],
+    ["claude", "Claude travaille"],
+    ["idle", "rien en cours"],
+  ])(
+    "given a project in state %s, when /projets loads, then its row says %s",
+    async (state, words) => {
+      stubApi({
+        projects: [project(1, "octocat/hello")],
+        installed: true,
+        repositories: [],
+        homeProjects: [{ id: 1, name: "octocat/hello", state }],
+      });
+
+      renderAt("/projets");
+
+      // The sidebar names the project too: look in the page only.
+      expect(
+        await within(await screen.findByRole("main")).findByText(words),
+      ).toBeDefined();
+    },
+  );
+
+  it.each([
+    [[], "Aucun n'a besoin de toi."],
+    [["for_you"], "1 a besoin de toi."],
+    [["for_you", "for_you"], "2 ont besoin de toi."],
+  ])(
+    "given %j projects waiting, when /projets loads, then the title says %s and the archived projects are not counted",
+    async (states, words) => {
+      stubApi({
+        projects: [
+          project(1, "octocat/a"),
+          project(2, "octocat/b"),
+          project(3, "octocat/old", true),
+        ],
+        installed: true,
+        repositories: [],
+        homeProjects: states.map((state, i) => ({
+          id: i + 1,
+          name: `octocat/${i}`,
+          state,
+        })),
+      });
+
+      renderAt("/projets");
+
+      const title = await screen.findByRole("heading", { level: 1 });
+      await waitFor(() => expect(title.textContent).toContain(words));
+      expect(title.textContent).toContain("2 projets.");
+    },
+  );
+
   it("given an active and an archived project, when /projets loads, then each full name is a link to /projets/:id", async () => {
     stubApi({
       projects: [project(5, "octocat/hello"), project(6, "octocat/old", true)],
@@ -203,9 +266,9 @@ describe("Projets page, the list", () => {
 
     renderAt("/projets");
 
-    const active = await screen.findByRole("link", { name: "octocat/hello" });
+    const active = await screen.findByRole("link", { name: "hello" });
     expect(active.getAttribute("href")).toBe("/projets/5");
-    const archived = await screen.findByRole("link", { name: "octocat/old" });
+    const archived = await screen.findByRole("link", { name: "old" });
     expect(archived.getAttribute("href")).toBe("/projets/6");
   });
 

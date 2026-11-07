@@ -1,19 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, NavLink, useParams } from "react-router";
+import { NavLink, useParams } from "react-router";
 import { client } from "./api.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
-import { ProjectKanban } from "./ProjectKanban.tsx";
+import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
-import { ProjectTickets } from "./ProjectTickets.tsx";
+import { fetchTickets, ProjectTickets } from "./ProjectTickets.tsx";
+import { Breadcrumb, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
+  badge,
   button,
-  card,
   focusRing,
+  listCard,
   primaryButton,
+  sectionLabel,
   tabLink,
+  urgentBadge,
 } from "./ui.ts";
 
 /** The lines of the health check, or why there are none (decision 013); null when the server answers 401. */
@@ -55,15 +59,27 @@ const EXPLANATIONS: Record<string, string> = {
     "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
 };
 
-type ProjectTab = "kanban" | "tickets" | "sante" | "ecriture-us" | "agents";
+type ProjectTab = "kanban" | "tickets" | "sante" | "agents" | "reglages";
 
 const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "kanban", to: "", label: "Kanban" },
   { tab: "tickets", to: "/tickets", label: "Tickets" },
   { tab: "sante", to: "/sante", label: "Santé" },
-  { tab: "ecriture-us", to: "/ecriture-us", label: "Écriture des US" },
   { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
+
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
+// The muted second half of the sentence of the tabs other than the Kanban.
+const TAB_REST: Record<ProjectTab, string> = {
+  kanban: "",
+  tickets: "Claude écrit les user stories de chaque ticket.",
+  sante: "Ce que Claude trouve dans le repo avant de travailler.",
+  agents: "Les agents et les équipes qui développent les user stories.",
+  reglages: "L'écriture automatique des US de ce projet.",
+};
 
 /** The page of a project in five tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({ tab }: { tab: ProjectTab }) {
@@ -77,55 +93,129 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
     refetchOnWindowFocus: false,
   });
   const project = projects.data?.find((p) => String(p.id) === id);
+  const stories = useQuery({
+    queryKey: ["stories", id],
+    queryFn: () => fetchStories(id),
+    enabled: tab === "kanban",
+  });
   const notFound = health.data === "not_found";
+  const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
+  const count = (...statuses: string[]) =>
+    board.filter((s) => statuses.includes(s.status)).length;
+  const waiting = count("to_validate", "to_rewrite", "in_review");
+  const working = count("in_progress");
+  const kanbanSentence = {
+    title: stories.isPending
+      ? "Chargement…"
+      : stories.isError
+        ? (project?.fullName.split("/").pop() ?? "Projet")
+        : waiting > 0
+          ? waiting === 1
+            ? "1 user story t'attend."
+            : `${waiting} user stories t'attendent.`
+          : working > 0
+            ? `Claude développe ${plural(working, "user story", "user stories")}.`
+            : "Rien ne t'attend sur ce projet.",
+    rest: !stories.data
+      ? undefined
+      : board.length === 0
+        ? "Aucune user story pour l'instant."
+        : `${plural(board.length, "user story", "user stories")} au Kanban.`,
+  };
   const red = Array.isArray(health.data)
     ? health.data.filter((line) => !line.ok).length
     : 0;
+  const tickets = useQuery({
+    queryKey: ["tickets", id],
+    queryFn: () => fetchTickets(id),
+    enabled: tab === "tickets",
+  });
+  const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
+  const name = project?.fullName.split("/").pop() ?? "Projet";
+  const sentence =
+    tab === "kanban"
+      ? kanbanSentence
+      : tab === "sante" && Array.isArray(health.data)
+        ? red > 0
+          ? {
+              title: `${name} n'est pas encore prêt pour Claude.`,
+              rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
+            }
+          : {
+              title: `${name} est prêt pour Claude.`,
+              rest: "Tout le bilan est au vert.",
+            }
+        : tab === "tickets" && tickets.data
+          ? {
+              title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+              rest: TAB_REST[tab],
+            }
+          : {
+              title: tab === "reglages" ? `Réglages de ${name}.` : name,
+              rest: TAB_REST[tab],
+            };
 
   return (
-    <main className="mx-auto max-w-[1240px] px-4 py-8 sm:px-7">
+    <main className="pb-6">
       {notFound ? (
         <>
-          <Link to="/projets" className={`underline ${focusRing}`}>
-            ← Projets
-          </Link>
-          <h1 className="mt-4 font-heading text-3xl font-extrabold">
-            Projet introuvable
-          </h1>
+          <Breadcrumb trail={[{ label: "Projets", to: "/projets" }]} />
+          <StateSentence
+            title="Projet introuvable"
+            rest="Il a peut-être été archivé ou retiré de l'App."
+          />
         </>
       ) : (
-        <>
-          <p className="text-muted-foreground">
-            <Link to="/projets" className={`underline ${focusRing}`}>
-              Projets
-            </Link>{" "}
-            / {project?.fullName ?? "Projet"}
-          </p>
-          <h1 className="mt-2 font-heading text-3xl font-extrabold">
-            {project?.fullName ?? "Projet"}
-          </h1>
-          <nav
-            aria-label="Sections du projet"
-            className="mt-4 flex flex-wrap gap-x-2 border-b border-border"
-          >
-            {TABS.map((t) => (
-              <NavLink
-                key={t.tab}
-                to={`/projets/${id}${t.to}`}
-                end
-                className={tabLink}
-              >
-                {t.tab === "sante" && red > 0
-                  ? `Santé · ${red} à corriger`
-                  : t.label}
-              </NavLink>
-            ))}
-          </nav>
-        </>
+        !projects.isPending && (
+          <>
+            <Breadcrumb
+              trail={[
+                { label: "Projets", to: "/projets" },
+                { label: project?.fullName.split("/").pop() ?? "Projet" },
+              ]}
+              repo={project?.fullName}
+            />
+            <StateSentence
+              title={sentence.title}
+              rest={sentence.rest}
+              actions={
+                project && (
+                  <a
+                    href={`https://github.com/${project.fullName}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={`mt-1 ${button}`}
+                  >
+                    Ouvrir sur GitHub ↗
+                  </a>
+                )
+              }
+            />
+          </>
+        )
+      )}
+      {!notFound && (
+        <nav
+          aria-label="Sections du projet"
+          className="mx-[26px] mt-4 flex flex-wrap gap-x-2 border-b border-border"
+        >
+          {TABS.map((t) => (
+            <NavLink
+              key={t.tab}
+              to={`/projets/${id}${t.to}`}
+              end
+              className={tabLink}
+            >
+              {t.tab === "sante" && red > 0
+                ? `Santé · ${red} à corriger`
+                : t.label}
+            </NavLink>
+          ))}
+        </nav>
       )}
       {!notFound && tab === "sante" && (
-        <section className="mt-6" aria-labelledby="bilan">
-          <h2 id="bilan" className="font-heading text-xl font-bold">
+        <section className="mx-[26px] mt-6" aria-labelledby="bilan">
+          <h2 id="bilan" className="sr-only">
             Bilan de santé
           </h2>
           <div className="mt-3" aria-live="polite">
@@ -160,35 +250,6 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
             )}
             {Array.isArray(health.data) && (
               <>
-                <ul className="grid gap-2">
-                  {health.data.map((line) => (
-                    <li key={line.key} className={`${card} p-4`}>
-                      <div className="flex items-center gap-x-4">
-                        <span className="font-semibold">
-                          {LABELS[line.key]}
-                        </span>
-                        <span
-                          className={`rounded-full px-3 py-1 font-semibold sm:ml-auto ${line.ok ? "bg-done-soft text-done-text" : "bg-destructive-soft text-destructive"}`}
-                        >
-                          {line.ok ? "OK" : "À corriger"}
-                        </span>
-                      </div>
-                      {!line.ok && (
-                        <p className="mt-2 text-muted-foreground">
-                          {EXPLANATIONS[`${line.key}.${line.detail}`]}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => health.refetch()}
-                  disabled={health.isFetching}
-                  className={`mt-3 ${button}`}
-                >
-                  {health.isFetching ? "Vérification…" : "Revérifier"}
-                </button>
                 {project && (
                   <ProjectPrepare
                     projectId={id}
@@ -201,6 +262,45 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                     )}
                   />
                 )}
+                <div className="mt-6 mb-2 flex items-baseline justify-between gap-3">
+                  <p className="text-[12.5px] text-muted-foreground">
+                    <span className={sectionLabel}>Le bilan</span> · relu à
+                    chaque push
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => health.refetch()}
+                    disabled={health.isFetching}
+                    className={`rounded-md text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50 ${focusRing}`}
+                  >
+                    {health.isFetching ? "Vérification…" : "Relancer le bilan"}
+                  </button>
+                </div>
+                <ul className={listCard}>
+                  {health.data.map((line) => (
+                    <li
+                      key={line.key}
+                      className="flex min-h-[50px] items-center gap-3.5 px-4 py-2"
+                    >
+                      <span aria-hidden="true" className="w-4 text-dim">
+                        {line.ok ? "✓" : "✕"}
+                      </span>
+                      <p className="min-w-0 flex-1">
+                        <span className="block font-bold">
+                          {LABELS[line.key]}
+                        </span>
+                        {!line.ok && (
+                          <span className="block text-[12.5px] text-muted-foreground">
+                            {EXPLANATIONS[`${line.key}.${line.detail}`]}
+                          </span>
+                        )}
+                      </p>
+                      <span className={line.ok ? badge : urgentBadge}>
+                        {line.ok ? "OK" : "À corriger"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </>
             )}
           </div>
@@ -215,7 +315,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
           archived={project.archived}
         />
       )}
-      {!notFound && tab === "ecriture-us" && <ProjectRoutine projectId={id} />}
+      {!notFound && tab === "reglages" && <ProjectRoutine projectId={id} />}
     </main>
   );
 }

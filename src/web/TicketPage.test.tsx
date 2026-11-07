@@ -29,7 +29,7 @@ describe("Ticket page, reading", () => {
 
     await screen.findByRole("heading", {
       level: 1,
-      name: "Ajouter la recherche",
+      name: /^Ajouter la recherche/,
     });
     expect(within(main()).getByText("Nouveau")).toBeDefined();
     // Decision 028 G: the "←" link leads to the Tickets tab of the project.
@@ -48,7 +48,7 @@ describe("Ticket page, reading", () => {
 
     renderAt("/tickets/7");
 
-    await screen.findByRole("heading", { level: 1, name: "Markdown" });
+    await screen.findByRole("heading", { level: 1, name: /^Markdown/ });
     const strong = within(main()).getByText("gras");
     expect(strong.tagName).toBe("STRONG");
     const link = within(main()).getByRole("link", { name: "un lien" });
@@ -72,7 +72,7 @@ describe("Ticket page, reading", () => {
 
     renderAt("/tickets/7");
 
-    await screen.findByRole("heading", { level: 1, name: "Piégé" });
+    await screen.findByRole("heading", { level: 1, name: /^Piégé/ });
     expect(main().querySelector("img")).toBeNull();
     expect(main().querySelector("script")).toBeNull();
     expect(main().querySelector("b")).toBeNull();
@@ -94,7 +94,7 @@ describe("Ticket page, reading", () => {
 
     renderAt("/tickets/7");
 
-    await screen.findByRole("heading", { level: 1, name: "Image" });
+    await screen.findByRole("heading", { level: 1, name: /^Image/ });
     expect(within(main()).getByText(/Avant/)).toBeDefined();
     expect(within(main()).getByText(/Après/)).toBeDefined();
     expect(main().querySelector("img")).toBeNull();
@@ -118,7 +118,7 @@ describe("Ticket page, editing", () => {
   it("given a ticket, when Modifier is clicked, then a form offers Titre and Description (markdown) filled with the current values, with Enregistrer and Annuler", async () => {
     stubTicketApi([ticket(7, "Titre actuel", "texte **actuel**")]);
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Titre actuel" });
+    await screen.findByRole("heading", { level: 1, name: /^Titre actuel/ });
 
     click("Modifier");
 
@@ -138,14 +138,14 @@ describe("Ticket page, editing", () => {
   it("given the form, when both fields change and Enregistrer is clicked, then the changes are sent, the form closes and the page shows the new title and description", async () => {
     const api = stubTicketApi([ticket(7, "Avant", "ancien")]);
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Avant" });
+    await screen.findByRole("heading", { level: 1, name: /^Avant/ });
     click("Modifier");
 
     type("Titre", "Après");
     type("Description (markdown)", "un **nouveau** texte");
     click("Enregistrer");
 
-    await screen.findByRole("heading", { level: 1, name: "Après" });
+    await screen.findByRole("heading", { level: 1, name: /^Après/ });
     expect(api.writes()).toHaveLength(1);
     expect(api.writes()[0]).toMatchObject({
       method: "PATCH",
@@ -165,7 +165,7 @@ describe("Ticket page, editing", () => {
   it("given the form with changes, when Annuler is clicked, then nothing is sent and the old title stays", async () => {
     const api = stubTicketApi([ticket(7, "Intact", "intact")]);
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Intact" });
+    await screen.findByRole("heading", { level: 1, name: /^Intact/ });
     click("Modifier");
     type("Titre", "Abandonné");
 
@@ -173,7 +173,7 @@ describe("Ticket page, editing", () => {
 
     expect(screen.queryByLabelText("Titre")).toBeNull();
     expect(
-      screen.getByRole("heading", { level: 1, name: "Intact" }),
+      screen.getByRole("heading", { level: 1, name: /^Intact/ }),
     ).toBeDefined();
     expect(api.writes()).toEqual([]);
     // The form is gone: the keyboard focus goes back to the button that opened it.
@@ -186,7 +186,7 @@ describe("Ticket page, editing", () => {
     const api = stubTicketApi([ticket(7, "Avant")]);
     api.failNext.patch = fail(400, "Bad request");
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Avant" });
+    await screen.findByRole("heading", { level: 1, name: /^Avant/ });
     click("Modifier");
     type("Titre", "  ");
 
@@ -204,7 +204,7 @@ describe("Ticket page, editing", () => {
     const api = stubTicketApi([ticket(7, "Avant")]);
     api.failNext.patch = fail(409, "project_archived");
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Avant" });
+    await screen.findByRole("heading", { level: 1, name: /^Avant/ });
     click("Modifier");
     type("Titre", "Après");
 
@@ -220,7 +220,7 @@ describe("Ticket page, deleting", () => {
   it("given a ticket, when Supprimer is clicked, then Confirmer la suppression and Annuler appear on the spot and nothing is sent until the confirmation", async () => {
     const api = stubTicketApi([ticket(7, "À jeter")]);
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "À jeter" });
+    await screen.findByRole("heading", { level: 1, name: /^À jeter/ });
 
     click("Supprimer");
 
@@ -239,7 +239,7 @@ describe("Ticket page, deleting", () => {
   it("given the confirmation is shown, when Annuler is clicked, then it goes away, nothing is sent and the ticket stays", async () => {
     const api = stubTicketApi([ticket(7, "Reste")]);
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Reste" });
+    await screen.findByRole("heading", { level: 1, name: /^Reste/ });
     click("Supprimer");
 
     click("Annuler");
@@ -254,20 +254,20 @@ describe("Ticket page, deleting", () => {
     );
     expect(api.writes()).toEqual([]);
     expect(
-      screen.getByRole("heading", { level: 1, name: "Reste" }),
+      screen.getByRole("heading", { level: 1, name: /^Reste/ }),
     ).toBeDefined();
   });
 
   it("given the confirmation is shown, when Confirmer la suppression is clicked, then the ticket is deleted and the project page shows the list without it", async () => {
     const api = stubTicketApi([ticket(7, "Disparaît"), ticket(6, "Survit")]);
     renderAt("/tickets/7");
-    await screen.findByRole("heading", { level: 1, name: "Disparaît" });
+    await screen.findByRole("heading", { level: 1, name: /^Disparaît/ });
     click("Supprimer");
 
     click("Confirmer la suppression");
 
     await waitFor(() => expect(window.location.pathname).toBe("/projets/5"));
-    await screen.findByRole("heading", { level: 1, name: "octocat/hello" });
+    // The project page opens on its Kanban, whose heading is a sentence (045 D): its Tickets tab says it has loaded.
     // Decision 028 G: the tickets are listed in the Tickets tab, not on the Kanban tab the project opens on.
     fireEvent.click(await screen.findByRole("link", { name: "Tickets" }));
     await screen.findByRole("link", { name: "Survit" });

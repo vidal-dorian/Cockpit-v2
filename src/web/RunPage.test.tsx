@@ -100,7 +100,7 @@ function stubApi(initial: { run: object; steps: object[] }) {
 
 const main = () => screen.getByRole("main");
 const loaded = () =>
-  waitFor(() => expect(main().textContent).toContain("Run n° 12"));
+  waitFor(() => expect(main().textContent).toContain("Run 12"));
 
 describe("criterion 8: the run page", () => {
   it("given a running run with a step, when /runs/12 loads, then it shows the title, the story link, the French status, branch, model, comment and the step", async () => {

@@ -61,7 +61,7 @@ async function open(
   fireEvent.click(
     await screen.findByRole("button", { name: "Développer avec Claude" }),
   );
-  const panel = await screen.findByRole("region", {
+  const panel = await screen.findByRole("complementary", {
     name: "Développer avec Claude",
   });
   return within(panel);

@@ -10,9 +10,12 @@ import {
   alertBox,
   button,
   card,
+  dangerButton,
   field,
   focusRing,
+  listCard,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 const SESSION_MODEL = "Celui de la session";
@@ -145,7 +148,7 @@ function AgentForm({
                 aria-describedby="delete-agent-warning"
                 disabled={archived || pending}
                 onClick={() => onCommit(null)}
-                className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
+                className={`mt-2 ${dangerButton}`}
               >
                 Confirmer la suppression
               </button>
@@ -308,7 +311,7 @@ export function ProjectAgents({
   const list = agents.data?.data;
   return (
     // Team (graph) on the left, repo agents on the right from `lg` (decision 042 B); the agents take the full width while a form is open and the team steps aside.
-    <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+    <div className="mx-[26px] mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
       {list && (
         <ProjectTeam
           projectId={projectId}
@@ -333,7 +336,7 @@ export function ProjectAgents({
         className={list && !editing ? undefined : "lg:col-span-2"}
         aria-labelledby="agents"
       >
-        <h2 id="agents" className="font-heading text-xl font-bold">
+        <h2 id="agents" className={sectionLabel}>
           Agents
         </h2>
         {agents.isPending && (
@@ -358,7 +361,7 @@ export function ProjectAgents({
           </div>
         )}
         {done && (
-          <div className="mt-3 rounded-xl bg-done-soft p-4 text-done-text">
+          <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
             <p>
               {done.pullRequest
                 ? "La branche par défaut est protégée : une pull request est ouverte"
@@ -371,11 +374,11 @@ export function ProjectAgents({
         )}
         {list && (
           <>
-            <ul className="mt-3 grid gap-2">
+            <ul className={`mt-3 ${listCard}`}>
               {list.agents.map((agent) => (
                 <li
                   key={agent.name}
-                  className={`${card} flex items-center gap-x-4 p-4`}
+                  className="flex min-h-[50px] items-center gap-x-4 px-4 py-2"
                 >
                   <span className="font-mono font-semibold">{agent.name}</span>
                   <span className="text-muted-foreground">

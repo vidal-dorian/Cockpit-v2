@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { alertBox, button, focusRing } from "./ui.ts";
+import { alertBox, button, dangerButton } from "./ui.ts";
 
-/** Ask Claude to stop, close a silent run, or relaunch a finished one (decision 037 F). */
+/** Ask Claude to stop, close a silent run, or relaunch a finished one (decision 037 F); sits at the top right of the run page. */
 export function RunControls({
   runId,
   running,
@@ -36,16 +36,13 @@ export function RunControls({
   });
   if (!running)
     return relaunchStoryId === null || archived ? null : (
-      <Link
-        to={`/us/${relaunchStoryId}`}
-        className={`mt-4 inline-block underline ${focusRing}`}
-      >
+      <Link to={`/us/${relaunchStoryId}`} className={button}>
         Relancer
       </Link>
     );
   return (
-    <div className="mt-4 grid gap-2">
-      <div className="flex flex-wrap gap-2">
+    <div className="flex max-w-[320px] shrink-0 flex-col items-end gap-2 text-right text-[13px]">
+      <div className="flex flex-wrap justify-end gap-2">
         {!stopRequested && (
           <button
             type="button"
@@ -68,38 +65,42 @@ export function RunControls({
         )}
       </div>
       {stopRequested && (
-        <p>Arrêt demandé : Claude s'arrêtera à la prochaine étape.</p>
+        <p className="text-muted-foreground">
+          Arrêt demandé : Claude s'arrêtera à la prochaine étape.
+        </p>
       )}
       {confirming && (
-        <div>
-          <p id="close-run-warning">
+        <div className="flex flex-col items-end gap-2">
+          <p id="close-run-warning" className="text-muted-foreground">
             Claude ne pourra plus rien signaler sur ce run : l'US sera
             relançable.
           </p>
-          <button
-            type="button"
-            aria-describedby="close-run-warning"
-            disabled={archived || send.isPending}
-            onClick={() => send.mutate("close")}
-            className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
-          >
-            Confirmer la fermeture
-          </button>
-          <button
-            type="button"
-            aria-describedby="close-run-warning"
-            // The button that asked is gone: keep the keyboard focus on the safe choice.
-            // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-            autoFocus
-            onClick={() => setConfirming(false)}
-            className={`mt-2 ml-2 ${button}`}
-          >
-            Annuler
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              aria-describedby="close-run-warning"
+              // The button that asked is gone: keep the keyboard focus on the safe choice.
+              // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+              autoFocus
+              onClick={() => setConfirming(false)}
+              className={button}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              aria-describedby="close-run-warning"
+              disabled={archived || send.isPending}
+              onClick={() => send.mutate("close")}
+              className={dangerButton}
+            >
+              Confirmer la fermeture
+            </button>
+          </div>
         </div>
       )}
       {send.isError && (
-        <p role="alert" className={alertBox}>
+        <p role="alert" className={`px-3 py-2 ${alertBox}`}>
           L'action n'a pas pu être faite : le run a peut-être changé
           entre-temps.
         </p>

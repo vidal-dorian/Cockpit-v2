@@ -168,6 +168,29 @@ describe("Journal page", () => {
     },
   );
 
+  it("given an entry whose result is error, when /journal loads, then its badge is red and carries no class of the gray badge to fight with", async () => {
+    stubApi(() =>
+      Response.json({
+        entries: [
+          {
+            id: 1,
+            at: "2026-10-22T12:00:00.000Z",
+            actor: "human",
+            origin: "ui",
+            action: "login",
+            result: "error",
+          },
+        ],
+      }),
+    );
+
+    renderAt("/journal");
+
+    const classes = (await screen.findByText("Erreur")).classList;
+    expect(classes.contains("bg-you-soft")).toBe(true);
+    expect(classes.contains("bg-raised")).toBe(false);
+  });
+
   it("given an entry with a project, when /journal loads, then the row shows the project name", async () => {
     stubApi(() =>
       Response.json({

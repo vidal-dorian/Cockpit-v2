@@ -3,11 +3,13 @@ import { useRef, useState } from "react";
 import { client } from "./api.ts";
 import {
   alertBox,
+  badge,
   button,
   card,
   field,
   focusRing,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 /** The routine of the user (decision 022 C), read by Réglages and by the project page. */
@@ -68,11 +70,11 @@ export function RoutineSettings() {
         id="ecrire-us"
         ref={heading}
         tabIndex={-1}
-        className={`font-heading text-xl font-bold ${focusRing}`}
+        className={`${sectionLabel} ${focusRing}`}
       >
         Écrire les US automatiquement
       </h2>
-      <p className="mt-1 text-muted-foreground">
+      <p className="mt-1 text-[12.5px] text-muted-foreground">
         Cockpit lance lui-même l'écriture des user stories, à la fréquence que
         tu choisis pour chaque projet. Il faut pour cela créer une fois une
         tâche planifiée sur claude.ai.
@@ -89,7 +91,7 @@ export function RoutineSettings() {
         )}
         {data && (
           <ol className="grid gap-3">
-            <li className={`${card} p-4`}>
+            <li className={`${card} px-[18px] py-4`}>
               <p className="font-semibold">1. Créer la tâche sur claude.ai</p>
               <p className="mt-1">
                 Choisis le déclencheur « API » seulement (ni planning, ni repo),
@@ -104,7 +106,7 @@ export function RoutineSettings() {
                 Ouvrir les tâches de claude.ai
               </a>
             </li>
-            <li className={`${card} p-4`}>
+            <li className={`${card} px-[18px] py-4`}>
               <p className="font-semibold">2. Décocher les connecteurs</p>
               <p className="mt-1">
                 claude.ai coche tous tes connecteurs par défaut : décoche-les
@@ -112,7 +114,7 @@ export function RoutineSettings() {
                 les US, et n'a ainsi accès à rien d'autre.
               </p>
             </li>
-            <li className={`${card} p-4`}>
+            <li className={`${card} px-[18px] py-4`}>
               <p className="font-semibold">3. Copier la consigne</p>
               <p className="mt-1">Colle-la comme consigne de la tâche.</p>
               <textarea
@@ -145,13 +147,11 @@ export function RoutineSettings() {
                 </span>
               </div>
             </li>
-            <li className={`${card} p-4`}>
+            <li className={`${card} px-[18px] py-4`}>
               <p className="font-semibold">4. Coller l'adresse et le jeton</p>
               {connected ? (
                 <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <span className="rounded-full bg-done-soft px-3 py-1 font-semibold text-done-text">
-                    Connectée
-                  </span>
+                  <span className={badge}>Connectée</span>
                   <button
                     type="button"
                     onClick={() => remove.mutate()}

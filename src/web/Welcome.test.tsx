@@ -100,7 +100,7 @@ describe("page /bienvenue", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Bienvenue dans Cockpit",
+        name: /^Bienvenue dans Cockpit/,
       }),
     ).toBeDefined();
     const page = screen.getByRole("main").textContent ?? "";
@@ -147,7 +147,7 @@ describe("page /bienvenue", () => {
 
     renderAt("/bienvenue");
 
-    await screen.findByRole("heading", { name: "Bienvenue dans Cockpit" });
+    await screen.findByRole("heading", { name: /^Bienvenue dans Cockpit/ });
     await waitFor(() => expect(calls).toContain("GET /api/installation"));
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("link", { name: "Installer" })).toBeNull();
@@ -156,7 +156,7 @@ describe("page /bienvenue", () => {
 
 describe("banner: the App is not installed", () => {
   it.each([
-    ["/", "Serveur OK · v0.1.0"],
+    ["/", "Cockpit v0.1.0"],
     ["/projets", "Mes projets"],
     ["/journal", "Journal"],
   ])(
@@ -179,7 +179,7 @@ describe("banner: the App is not installed", () => {
 
     renderAt("/");
 
-    await screen.findByText("Serveur OK · v0.1.0");
+    await screen.findByText("Cockpit v0.1.0");
     await waitFor(() => expect(calls).toContain("GET /api/installation"));
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("link", { name: "Installer" })).toBeNull();
@@ -198,7 +198,7 @@ describe("banner: the App is not installed", () => {
 
       renderAt("/");
 
-      await screen.findByText("Serveur OK · v0.1.0");
+      await screen.findByText("Cockpit v0.1.0");
       await waitFor(() => expect(calls).toContain("GET /api/installation"));
       expect(screen.queryByRole("status")).toBeNull();
       expect(screen.queryByRole("link", { name: "Installer" })).toBeNull();

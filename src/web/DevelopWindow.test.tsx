@@ -14,7 +14,7 @@ import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 //
 // Pinned where the decision leaves it open (the developer follows these):
 // - GET /api/stories/:id gives story.branch (string | null); the project of the answer has `archived`. Story 42 of project 5 (octocat/hello).
-// - The button is a role button named « Développer avec Claude ». The panel is a <section> labelled by its heading: role region, name « Développer avec Claude », and the heading (role heading, same name) gets the focus when it opens.
+// - The button is a role button named « Développer avec Claude ». The panel is the right panel of the page (045: an <aside data-panel>): role complementary, name « Développer avec Claude », and the heading (role heading, same name) gets the focus when it opens.
 // - Within the panel: radios « Nouvelle branche » and « Branche existante » (role radio; absent when the story has a branch, which is then shown as text);
 //   the text field « Nom de la branche »; the select « Branche existante » (role combobox, one option per branch, an empty placeholder option allowed);
 //   the select « Équipe » (options « Par défaut » with value "" then one per team name); the text field « Dossier du clone »; the text field « Prompt complémentaire »;
@@ -104,7 +104,7 @@ async function open(options: Options = {}) {
   fireEvent.click(
     await screen.findByRole("button", { name: "Développer avec Claude" }),
   );
-  const panel = await screen.findByRole("region", {
+  const panel = await screen.findByRole("complementary", {
     name: "Développer avec Claude",
   });
   return { panel, paths, ui: within(panel) };
@@ -168,17 +168,15 @@ describe("criterion 2: the panel", () => {
 
     expect(panel.isConnected).toBe(false);
     expect(
-      screen.queryByRole("region", { name: "Développer avec Claude" }),
+      screen.queryByRole("complementary", { name: "Développer avec Claude" }),
     ).toBeNull();
   });
 
-  it("given the panel, when it opens, then it comes before the story text in the page", async () => {
+  it("given the panel, when it opens, then it is the right panel of the page (decision 034 A modified by 045) and replaces the decisions", async () => {
     const { panel } = await open();
 
-    const text = screen.getByText(/Afin de/);
-    expect(
-      panel.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(panel.hasAttribute("data-panel")).toBe(true);
+    expect(document.querySelectorAll("aside[data-panel]").length).toBe(1);
   });
 });
 
@@ -354,7 +352,7 @@ describe("criterion 7: the clone folder", () => {
     fireEvent.click(launch(panel).el);
 
     expect(
-      screen.getByRole("region", { name: "Développer avec Claude" }),
+      screen.getByRole("complementary", { name: "Développer avec Claude" }),
     ).toBeDefined();
   });
 

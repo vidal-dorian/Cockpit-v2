@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link, useNavigate, useParams } from "react-router";
 import { client } from "./api.ts";
+import { Breadcrumb, StateSentence, useHome } from "./Shell.tsx";
 import {
   decisionError,
   STEPS,
@@ -11,12 +12,17 @@ import {
 } from "./tickets.ts";
 import {
   alertBox,
+  badge,
   button,
   card,
+  dangerButton,
   field,
   focusRing,
+  ghostButton,
+  listCard,
   markdownStyle,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 /** The ticket with its stories, "not_found" when the user cannot reach it, or null when the server answers 401. */
@@ -33,7 +39,18 @@ type Loaded = Exclude<
   null | "not_found"
 >;
 
+/** The rest of the state sentence: what Claude wrote, and what waits for the user. */
+function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
+  if (ticket.abandonedAt) return "Ce ticket est abandonné.";
+  if (stories.length === 0) return "Claude n'a pas encore écrit de user story.";
+  const waiting = stories.filter((s) => s.status === "to_validate").length;
+  return `${stories.length} user ${stories.length === 1 ? "story écrite" : "stories écrites"} par Claude${waiting > 0 ? ` · ${waiting} ${waiting === 1 ? "attend" : "attendent"} ta validation` : ""}.`;
+}
+
 function TicketView({ ticket, stories }: Loaded) {
+  const projectName = useHome().data?.projects.find(
+    (p) => p.id === ticket.projectId,
+  )?.name;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
@@ -150,15 +167,19 @@ function TicketView({ ticket, stories }: Loaded) {
 
   return (
     <>
-      <Link
-        to={`/projets/${ticket.projectId}/tickets`}
-        className={`underline ${focusRing}`}
-      >
-        ← Projet
-      </Link>
+      <Breadcrumb
+        trail={[
+          { label: "Projets", to: "/projets" },
+          {
+            label: projectName ?? "Projet",
+            to: `/projets/${ticket.projectId}`,
+          },
+          { label: "Tickets", to: `/projets/${ticket.projectId}/tickets` },
+        ]}
+      />
       {mode === "edit" ? (
         <form
-          className="mt-4"
+          className="px-[26px] pt-[26px]"
           onSubmit={(event) => {
             event.preventDefault();
             save.mutate();
@@ -209,66 +230,19 @@ function TicketView({ ticket, stories }: Loaded) {
         </form>
       ) : (
         <>
-          <h1
+          {/* The title stands in for the focus when every button is gone, after the abandon. */}
+          <div
             ref={heading}
             tabIndex={-1}
-            className={`mt-4 font-heading text-3xl font-extrabold ${focusRing}`}
+            className={`rounded-md ${focusRing}`}
           >
-            {ticket.title}
-          </h1>
-          <p className="mt-2">
-            <span className="rounded-full bg-claude-soft px-3 py-1 font-semibold text-claude-text">
-              {STEPS[ticket.step] ?? ticket.step}
-            </span>
-          </p>
-          {/* No raw HTML, no remote image (it would be a tracking pixel): react-markdown ignores the HTML and drops unsafe link addresses (decision 014). */}
-          <div className={`mt-4 ${markdownStyle}`}>
-            <Markdown disallowedElements={["img"]}>
-              {ticket.descriptionMd}
-            </Markdown>
-          </div>
-          {stories.length > 0 && (
-            <section className="mt-6">
-              <h2 className="font-heading text-xl font-bold">User stories</h2>
-              {!ticket.storiesWrittenAt && (
-                <p className="mt-2 text-muted-foreground">
-                  Claude n'a pas fini d'écrire les user stories de ce ticket.
-                </p>
-              )}
-              <ol className="mt-2 grid gap-2">
-                {stories.map((story) => (
-                  <li
-                    key={story.id}
-                    className={`flex flex-wrap items-baseline gap-x-3 ${card} p-3`}
-                  >
-                    <span className="font-semibold">{story.position}.</span>
-                    <Link
-                      to={`/us/${story.id}`}
-                      className={`underline ${focusRing}`}
-                    >
-                      {story.iWant}
-                    </Link>
-                    <span className="text-muted-foreground sm:ml-auto">
-                      {STORY_STATUSES[story.status] ?? story.status}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-          {mode === "abandon" && (
-            <p id="abandon-ticket-warning" className="mt-6">
-              Abandonner ce ticket ?{" "}
-              {unfinished > 0 &&
-                `${unfinished} user ${unfinished === 1 ? "story non terminée sera abandonnée" : "stories non terminées seront abandonnées"} avec lui. `}
-              Un ticket abandonné ne se rouvre pas.
-            </p>
-          )}
-          <div className="mt-6 flex gap-2">
-            {mode === "view" && (
-              <>
-                {/* An abandoned ticket is not modified any more (decision 018 D). */}
-                {!ticket.abandonedAt && (
+            <StateSentence
+              title={ticket.title}
+              rest={storiesSentence(ticket, stories)}
+              actions={
+                // An abandoned ticket is not modified any more (decision 018 D).
+                mode === "view" &&
+                !ticket.abandonedAt && (
                   <button
                     ref={modifier}
                     type="button"
@@ -281,7 +255,69 @@ function TicketView({ ticket, stories }: Loaded) {
                   >
                     Modifier
                   </button>
-                )}
+                )
+              }
+            />
+          </div>
+          <div className="grid gap-3.5 px-[26px] pt-[22px] lg:grid-cols-[minmax(0,1fr)_280px]">
+            <section className={`${card} p-5`}>
+              <h2 className={sectionLabel}>Description</h2>
+              {/* No raw HTML, no remote image (it would be a tracking pixel): react-markdown ignores the HTML and drops unsafe link addresses (decision 014). */}
+              <div className={`mt-2 ${markdownStyle}`}>
+                <Markdown disallowedElements={["img"]}>
+                  {ticket.descriptionMd}
+                </Markdown>
+              </div>
+            </section>
+            <dl
+              className={`${card} grid h-fit grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 p-5 text-[13.5px]`}
+            >
+              <dt className="text-muted-foreground">Étape</dt>
+              <dd>{STEPS[ticket.step] ?? ticket.step}</dd>
+              <dt className="text-muted-foreground">Créé</dt>
+              <dd>{new Date(ticket.createdAt).toLocaleDateString("fr-FR")}</dd>
+            </dl>
+          </div>
+          {stories.length > 0 && (
+            <section className="px-[26px] pt-[22px]">
+              <h2 className={`mb-2 ${sectionLabel}`}>User stories</h2>
+              {!ticket.storiesWrittenAt && (
+                <p className="mb-2 text-muted-foreground">
+                  Claude n'a pas fini d'écrire les user stories de ce ticket.
+                </p>
+              )}
+              <ol className={listCard}>
+                {stories.map((story) => (
+                  <li
+                    key={story.id}
+                    className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
+                  >
+                    <span className="w-5 text-dim">{story.position}.</span>
+                    <Link
+                      to={`/us/${story.id}`}
+                      className={`font-semibold ${focusRing}`}
+                    >
+                      US {story.id} · {story.iWant}
+                    </Link>
+                    <span className={`${badge} sm:ml-auto`}>
+                      {STORY_STATUSES[story.status] ?? story.status}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          {mode === "abandon" && (
+            <p id="abandon-ticket-warning" className="px-[26px] pt-6">
+              Abandonner ce ticket ?{" "}
+              {unfinished > 0 &&
+                `${unfinished} user ${unfinished === 1 ? "story non terminée sera abandonnée" : "stories non terminées seront abandonnées"} avec lui. `}
+              Un ticket abandonné ne se rouvre pas.
+            </p>
+          )}
+          <div className="flex gap-2 px-[26px] pt-6">
+            {mode === "view" && (
+              <>
                 {/* A ticket with stories is never deleted (decision 017 J). */}
                 {stories.length === 0 && (
                   <button
@@ -298,7 +334,7 @@ function TicketView({ ticket, stories }: Loaded) {
                     ref={abandonner}
                     type="button"
                     onClick={() => open("abandon")}
-                    className={button}
+                    className={ghostButton}
                   >
                     Abandonner le ticket
                   </button>
@@ -313,7 +349,7 @@ function TicketView({ ticket, stories }: Loaded) {
                     mode === "delete" ? remove.mutate() : abandon.mutate()
                   }
                   disabled={remove.isPending || abandon.isPending}
-                  className={`min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card ${focusRing}`}
+                  className={dangerButton}
                 >
                   {mode === "delete"
                     ? "Confirmer la suppression"
@@ -339,12 +375,12 @@ function TicketView({ ticket, stories }: Loaded) {
             )}
           </div>
           {abandon.error && (
-            <p role="alert" className={`mt-3 ${alertBox}`}>
+            <p role="alert" className={`mx-[26px] mt-3 ${alertBox}`}>
               {abandon.error.message}
             </p>
           )}
           {remove.error && (
-            <p role="alert" className={`mt-3 ${alertBox}`}>
+            <p role="alert" className={`mx-[26px] mt-3 ${alertBox}`}>
               {remove.error.message}
             </p>
           )}
@@ -362,13 +398,15 @@ export function TicketPage() {
   });
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
+    <main className="pb-6">
       <div aria-live="polite">
         {ticket.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="px-[26px] pt-[26px] text-muted-foreground">
+            Chargement…
+          </p>
         )}
         {ticket.isError && (
-          <div role="alert" className={alertBox}>
+          <div role="alert" className={`mx-[26px] mt-[26px] ${alertBox}`}>
             <p>Impossible de lire le ticket.</p>
             <button
               type="button"
@@ -380,18 +418,19 @@ export function TicketPage() {
           </div>
         )}
         {ticket.data === null && (
-          <a href="/api/auth/login" className={primaryButton}>
-            Se connecter avec GitHub
-          </a>
+          <div className="px-[26px] pt-[26px]">
+            <a href="/api/auth/login" className={primaryButton}>
+              Se connecter avec GitHub
+            </a>
+          </div>
         )}
         {ticket.data === "not_found" && (
           <>
-            <Link to="/projets" className={`underline ${focusRing}`}>
-              ← Projets
-            </Link>
-            <h1 className="mt-4 font-heading text-3xl font-extrabold">
-              Ticket introuvable
-            </h1>
+            <Breadcrumb trail={[{ label: "Projets", to: "/projets" }]} />
+            <StateSentence
+              title="Ticket introuvable."
+              rest="Il n'existe pas ou tu n'y as pas accès."
+            />
           </>
         )}
         {/* Keyed by id: another ticket starts from a clean state, a save keeps the node (and the focus). */}

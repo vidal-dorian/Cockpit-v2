@@ -13,6 +13,7 @@ import { App } from "./App.tsx";
 // Decision 028 H, I: Réglages in four tabs, and no more « Adresse publique ».
 //
 // Pinned choices (the decision leaves them open):
+// - 045 I: the tabs are a left menu; « Utilisateurs » is labelled « Instance » and « Écriture automatique des US » « Tâches cloud » (same routes).
 // - The tabs are links inside a <nav aria-label="Réglages">: « Connecter Claude » (/reglages), « Jetons MCP »
 //   (/reglages/jetons), « Utilisateurs » (/reglages/utilisateurs, administrator only) and
 //   « Écriture automatique des US » (/reglages/ecriture-us). The open one has aria-current="page", the others have none.
@@ -113,8 +114,8 @@ const heading = (name: string) =>
 const TABS = {
   claude: "Connecter Claude",
   tokens: "Jetons MCP",
-  users: "Utilisateurs",
-  routine: "Écriture automatique des US",
+  users: "Instance",
+  routine: "Tâches cloud",
 };
 const HREFS: Record<string, string> = {
   [TABS.claude]: "/reglages",

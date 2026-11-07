@@ -55,7 +55,7 @@ function stubRun(status: string) {
 
 const main = () => screen.getByRole("main");
 const loaded = () =>
-  waitFor(() => expect(main().textContent).toContain("Run n° 12"));
+  waitFor(() => expect(main().textContent).toContain("Run 12"));
 
 describe("run controls of an archived project", () => {
   it("given a running run of an archived project, when it loads, then both buttons are disabled", async () => {

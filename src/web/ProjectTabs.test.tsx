@@ -15,7 +15,7 @@ import { App } from "./App.tsx";
 //
 // Pinned choices (the decision leaves them open):
 // - The tabs are links inside <nav aria-label="Sections du projet">: « Kanban » (/projets/:id), « Tickets » (/projets/:id/tickets),
-//   « Santé » (/projets/:id/sante) and « Écriture des US » (/projets/:id/ecriture-us); the open one has aria-current="page", the others none.
+//   « Santé » (/projets/:id/sante) « Réglages » (/projets/:id/reglages, slice 9.3: the old « Écriture des US », whose address redirects) and « Agents » before it; the open one has aria-current="page", the others none.
 //   The Santé link reads « Santé · N à corriger » when the health has N red lines, « Santé » when all are green (or not read yet).
 // - A section is told by its h2: « Kanban », « Tickets », « Bilan de santé », « Écriture automatique des US ».
 // - The health is requested whatever the tab, once.
@@ -134,18 +134,18 @@ afterEach(() => {
   window.history.replaceState({}, "", "/");
 });
 
-const NAMES = ["Kanban", "Tickets", "Santé", "Écriture des US"] as const;
+const NAMES = ["Kanban", "Tickets", "Santé", "Réglages"] as const;
 const SECTIONS = {
   Kanban: "Kanban",
   Tickets: "Tickets",
   Santé: "Bilan de santé",
-  "Écriture des US": "Écriture automatique des US",
+  Réglages: "Écriture automatique des US",
 } as const;
 const ROUTES: [(typeof NAMES)[number], string][] = [
   ["Kanban", "/projets/5"],
   ["Tickets", "/projets/5/tickets"],
   ["Santé", "/projets/5/sante"],
-  ["Écriture des US", "/projets/5/ecriture-us"],
+  ["Réglages", "/projets/5/reglages"],
 ];
 const HREF: Record<string, string> = Object.fromEntries(ROUTES);
 
@@ -176,7 +176,7 @@ describe("Project page, the tabs (decision 028 G)", () => {
 
     const { links, find } = await tabs();
     expect(links).toHaveLength(5);
-    expect(links[4]?.textContent?.trim()).toBe("Agents");
+    expect(links[3]?.textContent?.trim()).toBe("Agents");
     for (const name of NAMES) {
       const link = find(name);
       expect(link, `the tab ${name}`).toBeDefined();
@@ -236,7 +236,7 @@ describe("Project page, the tabs (decision 028 G)", () => {
     renderAt("/projets/5/sante");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "octocat/hello" }),
+      await screen.findByRole("heading", { level: 1, name: /^hello/ }),
     ).toBeDefined();
     const link = within(screen.getByRole("main")).getByRole("link", {
       name: /projets/i,
@@ -285,6 +285,7 @@ describe("Project page, an unknown project (decision 028 G)", () => {
     "/projets/999",
     "/projets/999/tickets",
     "/projets/999/sante",
+    "/projets/999/reglages",
     "/projets/999/ecriture-us",
   ])(
     "given a project that does not exist, when %s opens, then the page says Projet introuvable and has no tabs",
@@ -306,7 +307,7 @@ describe("Project page, an unknown project (decision 028 G)", () => {
 });
 
 describe("Project page, switching tabs (decision 028 G)", () => {
-  it("given the tabs clicked one after the other, when the user goes Tickets, Santé, Écriture des US, Kanban, Santé, then the health is read exactly once", async () => {
+  it("given the tabs clicked one after the other, when the user goes Tickets, Santé, Réglages, Kanban, Santé, then the health is read exactly once", async () => {
     const calls = stubApi();
     renderAt("/projets/5");
     const { find } = await tabs();
@@ -315,7 +316,7 @@ describe("Project page, switching tabs (decision 028 G)", () => {
     for (const name of [
       "Tickets",
       "Santé",
-      "Écriture des US",
+      "Réglages",
       "Kanban",
       "Santé",
     ] as const) {
