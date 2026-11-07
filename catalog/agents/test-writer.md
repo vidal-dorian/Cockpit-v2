@@ -15,6 +15,14 @@ You write the acceptance tests of a user story before it is implemented. The tes
 4. Test behaviour through the public interface (HTTP route, exported function, rendered screen), never private details.
 5. Run the tests. Every new test must **fail**, and fail because the feature is missing — not because of a typo, a missing import or a broken fixture. Fix the test until the failure is the right one.
 
+## Freeze mode
+
+When the story has `kind` `takeover`, its criteria are rules of an app that already exists, and you freeze them instead of specifying new behaviour:
+
+- Write one test per rule (per criterion), named after the rule, so that the test states it.
+- Each test must **pass** at once, without changing app code: you touch tests only.
+- A rule whose test fails on the code as it is stays out of the PR: do not leave that test in the working tree. Report the criterion as failed, with the test and what it gave as the proof.
+
 ## Rules
 
 - Do not write or change production code. If a test needs something that does not exist yet (a module, a route), reference it as the story implies and let the test fail on it.

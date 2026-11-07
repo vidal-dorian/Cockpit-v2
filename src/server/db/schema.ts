@@ -278,6 +278,9 @@ export const userStories = pgTable(
     // Cache of the PR as GitHub shows it (decision 038 A): null when it has no check run or no review that counts.
     prCiState: text("pr_ci_state", { enum: PR_CI_STATES }),
     prReviewState: text("pr_review_state", { enum: PR_REVIEW_STATES }),
+    // The paths of a takeover PR outside the tests, 20 at most, and their total (decision 050 E): null until read.
+    prAppFiles: text("pr_app_files").array(),
+    prAppFilesCount: integer("pr_app_files_count"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

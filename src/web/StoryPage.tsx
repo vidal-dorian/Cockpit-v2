@@ -33,7 +33,11 @@ function StoryVerdict({ runId }: { runId: number }) {
   });
   const data = typeof run.data === "object" ? run.data : null;
   return data?.verdict ? (
-    <RunVerdict verdict={data.verdict} criteria={data.criteria} />
+    <RunVerdict
+      verdict={data.verdict}
+      criteria={data.criteria}
+      story={data.story}
+    />
   ) : null;
 }
 
@@ -264,7 +268,11 @@ export function StoryPage() {
                       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2">
                         <span className={badge}>
                           {criterion.takeoverState === "kept"
-                            ? "validée"
+                            ? found.story.kind === "takeover" &&
+                              found.story.status === "done" &&
+                              criterion.result === "passed"
+                              ? "figée"
+                              : "validée"
                             : "à relire"}
                         </span>
                         <Link

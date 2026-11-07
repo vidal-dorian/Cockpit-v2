@@ -494,6 +494,9 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
           prNumber: found.story.prNumber,
           prCiState: found.story.prCiState,
           prReviewState: found.story.prReviewState,
+          kind: found.story.kind,
+          prAppFiles: found.story.prAppFiles,
+          prAppFilesCount: found.story.prAppFilesCount,
         },
         project: {
           id: found.project.id,

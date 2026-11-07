@@ -5,6 +5,7 @@ import { history, userStories } from "./db/schema.ts";
 import { publish } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
+import { APP_FILES_KEPT, isTestPath } from "./pr-files.ts";
 import type { memberStory } from "./stories.ts";
 
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
@@ -64,6 +65,17 @@ export async function followPullRequest(
   );
   const ci = ciState(pull.checkRuns);
   const review = reviewState(pull.reviews);
+  // Read before the transaction so a failed read writes nothing (decision 050 C, E).
+  const appPaths =
+    story.kind === "takeover"
+      ? (
+          await ready.github.readPullFiles(
+            project.installationId,
+            project.fullName,
+            prNumber,
+          )
+        ).filter((path) => !isTestPath(path))
+      : null;
 
   const outcome = await db.transaction(async (tx) => {
     const [locked] = await tx
@@ -89,10 +101,17 @@ export async function followPullRequest(
         set.prNumber = null;
         set.prCiState = null;
         set.prReviewState = null;
+        set.prAppFiles = null;
+        set.prAppFilesCount = null;
       }
     } else {
       set.prCiState = ci;
       set.prReviewState = review;
+    }
+    // A merge keeps the list it reads here; a close without merge has just emptied it.
+    if (appPaths && (pull.open || pull.merged)) {
+      set.prAppFiles = appPaths.slice(0, APP_FILES_KEPT);
+      set.prAppFilesCount = appPaths.length;
     }
     await tx
       .update(userStories)

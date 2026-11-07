@@ -79,6 +79,7 @@ const reviewsSchema = z.array(
     state: z.string(),
   }),
 );
+const pullFilesSchema = z.array(z.object({ filename: z.string() }));
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -706,6 +707,29 @@ export function githubClient(config: GitHubAppConfig) {
           r.user ? [{ login: r.user.login, state: r.state }] : [],
         ),
       };
+    },
+
+    /** The paths a PR changes, in GitHub's order, all pages of 100 (decision 050 C). Throws on any GitHub error. */
+    async readPullFiles(
+      installationId: number,
+      fullName: string,
+      number: number,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const paths: string[] = [];
+      for (let page = 1; ; page++) {
+        const files = pullFilesSchema.parse(
+          (
+            await octokit.request(
+              "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+              { owner, repo, pull_number: number, per_page: 100, page },
+            )
+          ).data,
+        );
+        paths.push(...files.map((f) => f.filename));
+        if (files.length < 100) return paths;
+      }
     },
 
     /** The App's webhook as GitHub holds it, read as the App (decision 024 F): its config and the status code of its last delivery, null when it has none. Errors are left to the caller. */

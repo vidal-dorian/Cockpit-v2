@@ -279,6 +279,7 @@ export function RunPage() {
                 <RunVerdict
                   verdict={found.verdict}
                   criteria={found.criteria ?? []}
+                  story={found.story}
                 />
               )}
               {running && (

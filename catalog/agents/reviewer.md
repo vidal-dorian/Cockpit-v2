@@ -14,6 +14,8 @@ You review the work done on one user story. You did not write this code: read it
 3. Run the tests, the linter and the type check.
 4. For each criterion, find the test that proves it and check that the test really exercises the behaviour.
 
+For a story of `kind` `takeover` (freeze mode), also check that each test states its rule, and that the PR only touches tests: any other file, configuration of the tests included, is a blocking finding.
+
 ## What you look for, in this order
 
 1. **Correctness**: a criterion not met, a wrong result, an unhandled error or edge case, a race, data that can be lost.

@@ -50,6 +50,15 @@ A step with `loop_to` and `until` sends you back to that step until the conditio
 2. **developer** implements until those tests pass, without touching them.
 3. **reviewer** reviews the diff with a fresh context. Blocking findings go back to the developer, then to a new review, until the verdict is **ready**.
 
+### Freeze mode
+
+When `get_user_story` gives `kind` `takeover`, the story is an existing app being frozen, not a feature to build: its criteria are the rules of the app as it is. Whatever the team, change the steps this way:
+
+- **test-writer** writes one test per rule (per criterion). Each test must pass at once, without changing app code: no file of the app is modified.
+- Skip the **developer** step: there is nothing to implement.
+- A rule whose test fails on the code as it is stays out of the PR: do not commit that test, so the CI does not stay red for nothing. Keep its name and what it gives, and report the criterion as `failed` in the Finish step. The tests that pass go into the PR all the same.
+- **reviewer** checks that each test states its rule and that the PR only touches tests.
+
 Before each step call `mcp__cockpit__report_step` with the `run_id`, the `agent` and the event `started`; after it, with the event `finished`, its `status` (`succeeded` or `failed`) and a short `summary`. A step you redo (the review loop) is reported `started` again.
 
 When `report_step` or `get_answer` answers `stop_requested: true`, the user asked to stop: call `mcp__cockpit__finish_run` with `outcome` `failed` and the `summary` « Arrêt demandé par l'utilisateur » (the user reads it in Cockpit), then stop, pushing nothing more.
@@ -61,7 +70,7 @@ Give each agent the story, its criteria and the notes. Commit as you go, in smal
 ## Finish
 
 1. Run **all the tests**, the lint and the type check of the repository (the commands are in `CLAUDE.md`). Everything must pass: fix, never skip or disable.
-2. Call `mcp__cockpit__report_criterion` once per criterion of the story, with `result` `passed` or `failed` and as `evidence` the test that proves it (file and test name) or what fails.
+2. Call `mcp__cockpit__report_criterion` once per criterion of the story, with `result` `passed` or `failed` and as `evidence` the test that proves it (file and test name) or what fails (for a rule of a `takeover` story whose test failed: the test and what it gave).
 3. Push the branch.
 4. If the story already had a `pr_number` when you read it before starting, do not open a new pull request: the push of step 3 updates the one of the story, so go to step 5 with the `pr_number` of the story. Otherwise open the pull request against the default branch (`gh pr create`), in the language of the repository's conventions: a title that says what the story does, a body that lists each criterion with the test that proves it, anything left undone, and the line `Closes #<issue>`, where `<issue>` is the GitHub issue of the story (find it with `gh issue list --search "<i_want>"`; if you cannot tell which one it is, ask the user).
 5. Call `mcp__cockpit__link_pull_request` with the `run_id` and the number of the pull request you just opened (or the story's `pr_number`).

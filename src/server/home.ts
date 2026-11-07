@@ -70,6 +70,8 @@ export function homeRoutes(db: Db) {
           prNumber: userStories.prNumber,
           prCiState: userStories.prCiState,
           prReviewState: userStories.prReviewState,
+          kind: userStories.kind,
+          prAppFiles: userStories.prAppFiles,
           updatedAt: userStories.updatedAt,
         })
         .from(userStories)

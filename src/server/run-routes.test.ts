@@ -96,6 +96,9 @@ describe("criterion 6: GET /api/runs/:id", () => {
       prNumber: null,
       prCiState: null,
       prReviewState: null,
+      kind: "feature",
+      prAppFiles: null,
+      prAppFilesCount: null,
     });
     expect(body.project).toEqual({
       id: s.projectId,
