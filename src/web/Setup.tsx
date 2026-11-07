@@ -1,7 +1,33 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
-import { alertBox, card, field, primaryButton } from "./ui.ts";
+import { Logo } from "./Logo.tsx";
+import { alertBox, card, field, primaryButton, sectionLabel } from "./ui.ts";
+
+/** The wizard's frame (S02, S03): the rail of the instance on the left, the page on the right. */
+function Frame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen md:grid md:grid-cols-[300px_minmax(0,1fr)]">
+      <aside className="flex flex-col gap-[18px] border-b border-border bg-card px-8 py-10 md:border-r md:border-b-0">
+        <div className="flex items-center gap-2.5 text-base font-bold">
+          <Logo className="h-7 w-auto" />
+          Cockpit
+        </div>
+        <p className={sectionLabel}>Mise en service</p>
+        <p className="mt-auto text-[12.5px] leading-normal text-muted-foreground">
+          Cette page ne s'affiche qu'une fois, à la première mise en route de
+          ton instance.
+        </p>
+      </aside>
+      <main className="flex max-w-[720px] flex-col gap-[22px] px-6 py-14 md:px-[72px]">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+const wizardTitle = "text-[28px] leading-tight font-semibold";
+const wizardRest = "mt-1.5 block text-base font-medium text-muted-foreground";
 
 // What the App asks of GitHub and why (decision 012 D); the same list as the manifest of the server.
 const PERMISSIONS = [
@@ -78,33 +104,36 @@ export function Setup() {
       : null;
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
-      <h1 className="font-heading text-4xl font-extrabold">
-        Installer Cockpit
-      </h1>
-      <p className="mt-2 text-muted-foreground">
-        Cockpit va créer sa propre App GitHub, avec ton accord. Il n'y a rien à
-        copier à la main.
-      </p>
+    <Frame>
+      <div>
+        <h1 className={wizardTitle}>Installer Cockpit</h1>
+        <p className={wizardRest}>
+          Cockpit va créer sa propre App GitHub, avec ton accord. Il n'y a rien
+          à copier à la main.
+        </p>
+      </div>
 
       {message && (
-        <p role="alert" className={`mt-8 ${alertBox}`}>
+        <p role="alert" className={alertBox}>
           {message}
         </p>
       )}
 
       <form
-        className="mt-8 space-y-4"
+        className="space-y-[22px]"
         onSubmit={(event) => {
           event.preventDefault();
           start.mutate();
         }}
       >
         <div>
-          <label htmlFor="setup-code" className="font-semibold">
+          <label htmlFor="setup-code" className="text-[13px] font-semibold">
             Code de démarrage
           </label>
-          <p id="setup-code-help" className="text-muted-foreground">
+          <p
+            id="setup-code-help"
+            className="text-[12.5px] text-muted-foreground"
+          >
             Affiché dans les logs du serveur au premier lancement.
           </p>
           <input
@@ -116,22 +145,22 @@ export function Setup() {
             autoCapitalize="characters"
             spellCheck={false}
             required
-            className={field}
+            className={`${field} font-mono`}
           />
         </div>
 
         <section aria-labelledby="setup-permissions">
-          <h2 id="setup-permissions" className="font-heading text-xl font-bold">
+          <h2 id="setup-permissions" className={sectionLabel}>
             Ce que l'App demandera
           </h2>
-          <ul className={`mt-2 space-y-2 ${card} p-4`}>
+          <ul className={`mt-2 space-y-2 ${card} px-[18px] py-4`}>
             {PERMISSIONS.map(([name, access, why]) => (
               <li key={name}>
                 <strong>{name}</strong> ({access}) : {why}
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-muted-foreground">
+          <p className="mt-3 text-[12.5px] leading-normal text-muted-foreground">
             GitHub t'affichera ces droits sur sa page d'enregistrement. Clique
             sur « Create GitHub App » pour accepter : Cockpit récupère alors
             l'App et te connecte. Sans cet accord, Cockpit ne fonctionne pour
@@ -147,7 +176,7 @@ export function Setup() {
           Créer l'App GitHub
         </button>
       </form>
-    </main>
+    </Frame>
   );
 }
 
@@ -166,29 +195,29 @@ export function ClaimAdmin() {
   });
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-16">
-      <h1 className="font-heading text-4xl font-extrabold">
-        Récupérer l'administration
-      </h1>
-      <p className="mt-2 text-muted-foreground">
-        L'App GitHub existe, mais personne n'est encore administrateur. Entre le
-        code de démarrage affiché dans les logs du serveur, puis connecte-toi
-        avec GitHub : tu deviendras administrateur.
-      </p>
+    <Frame>
+      <div>
+        <h1 className={wizardTitle}>Récupérer l'administration</h1>
+        <p className={wizardRest}>
+          L'App GitHub existe, mais personne n'est encore administrateur. Entre
+          le code de démarrage affiché dans les logs du serveur, puis
+          connecte-toi avec GitHub : tu deviendras administrateur.
+        </p>
+      </div>
       {claim.isError && (
-        <p role="alert" className={`mt-8 ${alertBox}`}>
+        <p role="alert" className={alertBox}>
           {claim.error.message}
         </p>
       )}
       <form
-        className="mt-8 space-y-4"
+        className="space-y-[22px]"
         onSubmit={(event) => {
           event.preventDefault();
           claim.mutate();
         }}
       >
         <div>
-          <label htmlFor="claim-code" className="font-semibold">
+          <label htmlFor="claim-code" className="text-[13px] font-semibold">
             Code de démarrage
           </label>
           <input
@@ -199,7 +228,7 @@ export function ClaimAdmin() {
             autoCapitalize="characters"
             spellCheck={false}
             required
-            className={field}
+            className={`${field} font-mono`}
           />
         </div>
         <button
@@ -210,6 +239,6 @@ export function ClaimAdmin() {
           Devenir administrateur
         </button>
       </form>
-    </main>
+    </Frame>
   );
 }

@@ -24,7 +24,7 @@ export function InstallBanner() {
   return (
     <div
       role="status"
-      className={`mx-4 mt-4 flex flex-wrap items-center gap-3 ${card} p-4`}
+      className={`mx-[26px] mt-4 flex flex-wrap items-center gap-3 ${card} bg-raised px-3.5 py-2.5`}
     >
       <p>
         Cockpit n'est pas installé sur ton compte GitHub : sans lui, tu ne peux

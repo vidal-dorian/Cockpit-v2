@@ -15,7 +15,7 @@ export class LoadErrorBoundary extends Component<
   render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <div role="alert" className={`m-4 ${alertBox}`}>
+      <div role="alert" className={`mx-[26px] mt-4 ${alertBox}`}>
         <p>Impossible de charger la page.</p>
         <button
           type="button"

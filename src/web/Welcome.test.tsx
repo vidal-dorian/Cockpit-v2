@@ -100,7 +100,7 @@ describe("page /bienvenue", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Bienvenue dans Cockpit",
+        name: /^Bienvenue dans Cockpit/,
       }),
     ).toBeDefined();
     const page = screen.getByRole("main").textContent ?? "";
@@ -147,7 +147,7 @@ describe("page /bienvenue", () => {
 
     renderAt("/bienvenue");
 
-    await screen.findByRole("heading", { name: "Bienvenue dans Cockpit" });
+    await screen.findByRole("heading", { name: /^Bienvenue dans Cockpit/ });
     await waitFor(() => expect(calls).toContain("GET /api/installation"));
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("link", { name: "Installer" })).toBeNull();

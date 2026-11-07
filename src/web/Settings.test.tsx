@@ -186,7 +186,10 @@ describe("Réglages page, for a user who is not an administrator", () => {
     renderAt("/reglages/jetons");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Réglages" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /^Connecte|^Les jetons|^Voici ceux/,
+      }),
     ).toBeDefined();
     expect(
       await screen.findByRole("heading", { name: "Jetons MCP" }),
@@ -238,7 +241,10 @@ describe("Réglages page, the users", () => {
     renderAt("/reglages/utilisateurs");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Réglages" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: /^Connecte|^Les jetons|^Voici ceux/,
+      }),
     ).toBeDefined();
     expect(screen.getByRole("heading", { name: "Utilisateurs" })).toBeDefined();
     expect(await screen.findByText("alice-dev")).toBeDefined();

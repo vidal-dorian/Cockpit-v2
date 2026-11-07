@@ -1,7 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router";
 import { client } from "./api.ts";
-import { alertBox, button, primaryButton } from "./ui.ts";
+import { Logo } from "./Logo.tsx";
+import {
+  alertBox,
+  card,
+  panelButton,
+  panelPrimaryButton,
+  primaryButton,
+} from "./ui.ts";
 
 async function fetchMe() {
   const res = await client.api.me.$get();
@@ -42,75 +49,86 @@ export function Autoriser() {
   });
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 sm:px-7 py-8">
-      <h1 className="font-heading text-3xl font-extrabold">
-        Autoriser un connecteur
-      </h1>
-      <div className="mt-6" aria-live="polite">
-        {me.isPending && <p className="text-muted-foreground">Chargement…</p>}
-        {me.isError && (
-          <p role="alert" className={alertBox}>
-            Impossible de lire ton compte. Recharge la page ; si cela continue,
-            réessaie plus tard.
-          </p>
-        )}
-        {me.isSuccess && !me.data && (
-          <>
-            <p>Connecte-toi à Cockpit pour continuer.</p>
-            <a
-              href={`/api/auth/login?next=${encodeURIComponent(`/autoriser${search}`)}`}
-              className={`mt-3 ${primaryButton}`}
-            >
-              Se connecter avec GitHub
-            </a>
-          </>
-        )}
-        {request.isPending && me.data && (
-          <p className="text-muted-foreground">Chargement…</p>
-        )}
-        {request.isError && (
-          <p role="alert" className={alertBox}>
-            Cette demande de connexion est invalide. Retourne dans Claude et
-            recommence l'ajout du connecteur.
-          </p>
-        )}
-        {request.isSuccess && (
-          <>
-            <p className="text-xl font-semibold">
-              {request.data.clientName} veut accéder à tes projets Cockpit
+    <main className="grid min-h-screen place-items-center p-4">
+      <div className={`w-full max-w-[480px] ${card} p-7`}>
+        <div className="flex items-center gap-3 font-bold">
+          <Logo className="h-7 w-auto" />
+          Cockpit
+          {me.data && (
+            <span className="ml-auto text-[12.5px] font-normal text-muted-foreground">
+              connecté : {me.data.name ?? me.data.login}
+            </span>
+          )}
+        </div>
+        <h1 className="mt-[18px] text-[22px] leading-[1.3] font-semibold">
+          Autoriser un connecteur
+        </h1>
+        <div className="mt-[18px]" aria-live="polite">
+          {me.isPending && <p className="text-muted-foreground">Chargement…</p>}
+          {me.isError && (
+            <p role="alert" className={alertBox}>
+              Impossible de lire ton compte. Recharge la page ; si cela
+              continue, réessaie plus tard.
             </p>
-            <p className="mt-2 text-muted-foreground">
-              Après ton choix, ton navigateur retourne vers{" "}
-              <strong>{request.data.returnHost}</strong>.
-            </p>
-            <p className="mt-2 font-semibold">
-              N'autorise que si tu viens de lancer la connexion toi-même.
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => decide.mutate("approve")}
-                disabled={decide.isPending || decide.isSuccess}
-                className={primaryButton}
+          )}
+          {me.isSuccess && !me.data && (
+            <>
+              <p>Connecte-toi à Cockpit pour continuer.</p>
+              <a
+                href={`/api/auth/login?next=${encodeURIComponent(`/autoriser${search}`)}`}
+                className={`mt-3 ${primaryButton}`}
               >
-                Autoriser
-              </button>
-              <button
-                type="button"
-                onClick={() => decide.mutate("deny")}
-                disabled={decide.isPending || decide.isSuccess}
-                className={button}
-              >
-                Refuser
-              </button>
-            </div>
-          </>
-        )}
-        {decide.isError && (
-          <p role="alert" className={`mt-3 ${alertBox}`}>
-            {decide.error.message}
-          </p>
-        )}
+                Se connecter avec GitHub
+              </a>
+            </>
+          )}
+          {request.isPending && me.data && (
+            <p className="text-muted-foreground">Chargement…</p>
+          )}
+          {request.isError && (
+            <p role="alert" className={alertBox}>
+              Cette demande de connexion est invalide. Retourne dans Claude et
+              recommence l'ajout du connecteur.
+            </p>
+          )}
+          {request.isSuccess && (
+            <>
+              <p className="text-[15px] font-semibold">
+                {request.data.clientName} veut accéder à tes projets Cockpit
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                Après ton choix, ton navigateur retourne vers{" "}
+                <strong>{request.data.returnHost}</strong>.
+              </p>
+              <p className="mt-2 font-semibold">
+                N'autorise que si tu viens de lancer la connexion toi-même.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => decide.mutate("approve")}
+                  disabled={decide.isPending || decide.isSuccess}
+                  className={`${panelPrimaryButton} flex-1`}
+                >
+                  Autoriser
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decide.mutate("deny")}
+                  disabled={decide.isPending || decide.isSuccess}
+                  className={`${panelButton} flex-1`}
+                >
+                  Refuser
+                </button>
+              </div>
+            </>
+          )}
+          {decide.isError && (
+            <p role="alert" className={`mt-3 ${alertBox}`}>
+              {decide.error.message}
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );

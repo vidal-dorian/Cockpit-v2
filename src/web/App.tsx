@@ -14,19 +14,28 @@ import { HomePage } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { Journal } from "./Journal.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
+import { Logo } from "./Logo.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
 import {
+  Dot,
   fetchHealth,
   fetchMe,
   IdeaBar,
   Sidebar,
   StateSentence,
 } from "./Shell.tsx";
-import { alertBox, button, primaryButton } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  card,
+  panelPrimaryButton,
+  primaryButton,
+  sectionLabel,
+} from "./ui.ts";
 import { useAnyChange } from "./useChanges.ts";
 import { Welcome } from "./Welcome.tsx";
 
@@ -44,19 +53,16 @@ function LoginError() {
   const erreur = params.get("erreur");
   if (erreur === "compte-bloque") {
     return (
-      <div role="alert" className={`mt-8 ${alertBox}`}>
+      <div role="alert" className={`max-w-[440px] ${alertBox}`}>
         <p>Ton compte a été bloqué par l'administrateur de ce Cockpit.</p>
       </div>
     );
   }
   if (erreur === "connexion-echouee") {
     return (
-      <div role="alert" className={`mt-8 ${alertBox}`}>
+      <div role="alert" className={`max-w-[440px] ${alertBox}`}>
         <p>La connexion avec GitHub a échoué.</p>
-        <a
-          href="/api/auth/login"
-          className={`mt-3 inline-flex items-center ${button}`}
-        >
+        <a href="/api/auth/login" className={`mt-3 ${button}`}>
           Réessayer
         </a>
       </div>
@@ -92,24 +98,62 @@ function Home() {
   );
 }
 
-/** The login screen: no shell around it. */
+/** The login screen (S01): no shell around it. */
 function LoggedOut() {
   return (
-    <main className="mx-auto max-w-[880px] px-4 py-16 sm:px-7">
-      <h1 className="font-heading text-4xl font-extrabold">Cockpit</h1>
-      <p className="mt-2 text-muted-foreground">
-        Le centre de contrôle de tes repos GitHub avec Claude Code.
-      </p>
-      <LoginError />
-      <div className="mt-8">
-        <a href="/api/auth/login" className={primaryButton}>
-          Se connecter avec GitHub
-        </a>
+    <main className="grid min-h-screen md:grid-cols-2">
+      <div className="flex flex-col gap-7 px-8 py-14 md:px-16">
+        <div className="flex items-center gap-2.5">
+          <Logo className="h-7 w-auto" />
+          <h1 className="text-lg font-bold">Cockpit</h1>
+        </div>
+        <p className="mt-16 text-[40px] leading-[1.15] font-semibold tracking-[-.02em]">
+          Tes repos, Claude et toi,
+          <span className="block font-medium text-muted-foreground">
+            au même endroit.
+          </span>
+        </p>
+        <p className="max-w-[440px] text-[15px] leading-relaxed text-muted-foreground">
+          Cockpit te dit en une seconde ce qui t'attend et ce que fait Claude,
+          sur tous tes projets GitHub.
+        </p>
+        <LoginError />
+        <div className="flex max-w-[360px] flex-col gap-2.5">
+          <a href="/api/auth/login" className={panelPrimaryButton}>
+            Se connecter avec GitHub
+          </a>
+          <p className="text-[12.5px] text-muted-foreground">
+            Cockpit ne voit que les repos que tu lui ouvres. Tu peux tout
+            retirer depuis GitHub.
+          </p>
+        </div>
+        <ServerAlert />
       </div>
-      <ServerAlert />
+      <div className="hidden place-items-center border-l border-border bg-card md:grid">
+        <div className={`w-[420px] ${card} bg-sunken px-[30px] py-7`}>
+          <p className={sectionLabel}>La boucle de Cockpit</p>
+          <ul className="mt-4 flex flex-col gap-3">
+            {LOOP.map(([tone, title, rest]) => (
+              <li key={title} className="flex items-center gap-3">
+                <Dot tone={tone} />
+                <b>{title}</b>
+                <span className="text-muted-foreground">{rest}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </main>
   );
 }
+
+/** The four « temps » of the loop, as the login screen tells them. */
+const LOOP = [
+  ["idea", "Une idée naît", "tu la notes en une ligne"],
+  ["you", "Tu décides", "tu valides ce que Claude a écrit"],
+  ["claude", "Claude développe", "avec ses tests, jusqu'à la PR"],
+  ["done", "C'est terminé", "tu relis, tu merges"],
+] as const;
 
 const loading = (
   <p role="status" className="p-4 text-muted-foreground">

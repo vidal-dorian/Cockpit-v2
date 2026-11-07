@@ -3,7 +3,14 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { day } from "./SettingsTokens.tsx";
-import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  card,
+  focusRing,
+  primaryButton,
+  sectionLabel,
+} from "./ui.ts";
 
 async function fetchConnect() {
   const res = await client.api.me.connect.$get();
@@ -22,10 +29,10 @@ export function ConnectClaude() {
 
   return (
     <section aria-labelledby="connecter">
-      <h2 id="connecter" className="font-heading text-xl font-bold">
+      <h2 id="connecter" className={sectionLabel}>
         Connecter Claude
       </h2>
-      <p className="mt-1 text-muted-foreground">
+      <p className="mt-1 text-[12.5px] text-muted-foreground">
         Ajoute Cockpit une seule fois comme connecteur de claude.ai : il marche
         ensuite dans Claude Code, sur le web et sur le téléphone.
       </p>
@@ -39,14 +46,14 @@ export function ConnectClaude() {
         {connect.isSuccess && (
           <>
             {connect.data.connected && connect.data.connectedAt && (
-              <p className="mb-4 rounded-xl bg-done-soft p-4 font-semibold text-done-text">
+              <p className={`mb-4 ${card} bg-raised p-4 font-semibold`}>
                 Connecté depuis {connect.data.client}, le{" "}
                 {day(connect.data.connectedAt)}. C'est fait : Claude voit tes
                 projets partout, y compris dans les tâches planifiées.
               </p>
             )}
             <ol className="grid gap-3">
-              <li className={`${card} p-4`}>
+              <li className={`${card} px-[18px] py-4`}>
                 <p className="font-semibold">1. Copier l'adresse</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <input
@@ -54,7 +61,7 @@ export function ConnectClaude() {
                     aria-label="Adresse du connecteur"
                     value={connect.data.mcpUrl}
                     onFocus={(e) => e.currentTarget.select()}
-                    className={`min-w-0 grow rounded-xl border border-border bg-background px-3 py-2 font-mono ${focusRing}`}
+                    className={`min-h-[34px] min-w-0 grow rounded-[10px] border border-border-strong bg-sunken px-3 py-1.5 font-mono text-[13px] ${focusRing}`}
                   />
                   <button
                     type="button"
@@ -80,7 +87,7 @@ export function ConnectClaude() {
                   </span>
                 </div>
               </li>
-              <li className={`${card} p-4`}>
+              <li className={`${card} px-[18px] py-4`}>
                 <p className="font-semibold">2. Ouvrir claude.ai</p>
                 <p className="mt-1">
                   Choisis « Ajouter un connecteur personnalisé », puis colle
@@ -95,7 +102,7 @@ export function ConnectClaude() {
                   Ouvrir claude.ai
                 </a>
               </li>
-              <li className={`${card} p-4`}>
+              <li className={`${card} px-[18px] py-4`}>
                 <p className="font-semibold">3. Se connecter</p>
                 <p className="mt-1">
                   claude.ai ouvre Cockpit : connecte-toi avec GitHub si besoin,
@@ -111,7 +118,7 @@ export function ConnectClaude() {
                 Dans un terminal, Claude Code fait la même connexion au premier
                 usage :
               </p>
-              <pre className="mt-2 overflow-x-auto rounded-xl bg-card p-3">
+              <pre className="mt-2 overflow-x-auto rounded-[14px] border border-border bg-sunken p-3">
                 <code>{`claude mcp add --transport http cockpit ${connect.data.mcpUrl}`}</code>
               </pre>
               <p className="mt-2 text-muted-foreground">

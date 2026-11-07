@@ -5,9 +5,12 @@ import {
   alertBox,
   button,
   card,
+  dangerButton,
   field,
   focusRing,
+  listCard,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
@@ -137,17 +140,17 @@ export function Tokens() {
         id="jetons"
         ref={heading}
         tabIndex={-1}
-        className={`font-heading text-xl font-bold ${focusRing}`}
+        className={`${sectionLabel} ${focusRing}`}
       >
         Jetons MCP
       </h2>
-      <p className="mt-1 text-muted-foreground">
+      <p className="mt-1 text-[12.5px] text-muted-foreground">
         Un jeton lie Claude Code à ton compte Cockpit. Place-le dans la variable
         d'environnement <code>COCKPIT_MCP_TOKEN</code> : il n'est affiché qu'une
         fois et Cockpit n'en garde que l'empreinte.
       </p>
 
-      <h3 className="mt-6 font-heading text-lg font-bold">Nouveau jeton</h3>
+      <h3 className={`mt-6 ${sectionLabel}`}>Nouveau jeton</h3>
       {secret ? (
         <NewSecret
           secret={secret}
@@ -203,11 +206,11 @@ export function Tokens() {
           <p className="text-muted-foreground">Aucun jeton actif.</p>
         )}
         {tokens.isSuccess && tokens.data.length > 0 && (
-          <ul className="grid gap-2">
+          <ul className={listCard}>
             {tokens.data.map((t) => (
               <li
                 key={t.id}
-                className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${card} p-4`}
+                className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-[18px] py-2"
               >
                 <span className="font-semibold">{t.name}</span>
                 <span className="font-mono">…{t.lastFour}</span>
@@ -226,7 +229,7 @@ export function Tokens() {
                         type="button"
                         onClick={() => revoke.mutate(t.id)}
                         disabled={revoke.isPending}
-                        className={`min-h-10 rounded-xl bg-destructive-soft px-4 font-semibold text-destructive ${focusRing}`}
+                        className={dangerButton}
                       >
                         Confirmer la révocation
                       </button>
