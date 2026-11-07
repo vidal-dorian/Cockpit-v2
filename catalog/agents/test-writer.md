@@ -21,7 +21,7 @@ When the story has `kind` `takeover`, its criteria are rules of an app that alre
 
 - Write one test per rule (per criterion), named after the rule, so that the test states it.
 - Each test must **pass** at once, without changing app code: you touch tests only.
-- A rule whose test fails on the code as it is stays out of the PR: do not leave that test in the working tree. Report the criterion as failed, with the test and what it gave as the proof.
+- A rule whose test fails on the code as it is stays out of the PR: do not leave that test in the working tree. Do not call `report_criterion` yourself: give the caller the criterion as failed, with the test and what it gave as the proof, and the skill reports it in its finish step. When every rule fails, nothing is left to commit: say so, so that no PR is opened.
 
 ## Rules
 

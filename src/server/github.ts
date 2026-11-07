@@ -15,6 +15,7 @@ type GitHubAppConfig = {
 const PAGE_SIZE = 100;
 // shortcut: 1000 repos at most, a user with more only sees the first ones; raise it if it ever matters.
 const MAX_PAGES = 10;
+const PULL_FILES_MAX_PAGES = 30;
 // Shorter than Cloudflare's ~100 s limit, so a slow GitHub ends on our 502, not a 524 (as in auth.ts).
 const GITHUB_TIMEOUT_MS = 10_000;
 
@@ -79,7 +80,9 @@ const reviewsSchema = z.array(
     state: z.string(),
   }),
 );
-const pullFilesSchema = z.array(z.object({ filename: z.string() }));
+const pullFilesSchema = z.array(
+  z.object({ filename: z.string(), previous_filename: z.string().optional() }),
+);
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -718,18 +721,27 @@ export function githubClient(config: GitHubAppConfig) {
       const [owner, repo] = fullName.split("/") as [string, string];
       const octokit = await app.getInstallationOctokit(installationId);
       const paths: string[] = [];
-      for (let page = 1; ; page++) {
+      // shortcut: GitHub serves 3000 files per PR at most, past that the count undercounts; nothing to upgrade to.
+      for (let page = 1; page <= PULL_FILES_MAX_PAGES; page++) {
         const files = pullFilesSchema.parse(
           (
             await octokit.request(
               "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
-              { owner, repo, pull_number: number, per_page: 100, page },
+              { owner, repo, pull_number: number, per_page: PAGE_SIZE, page },
             )
           ).data,
         );
-        paths.push(...files.map((f) => f.filename));
-        if (files.length < 100) return paths;
+        // A renamed file counts both paths (decision 050 D).
+        paths.push(
+          ...files.flatMap((f) =>
+            f.previous_filename
+              ? [f.filename, f.previous_filename]
+              : [f.filename],
+          ),
+        );
+        if (files.length < PAGE_SIZE) break;
       }
+      return paths;
     },
 
     /** The App's webhook as GitHub holds it, read as the App (decision 024 F): its config and the status code of its last delivery, null when it has none. Errors are left to the caller. */

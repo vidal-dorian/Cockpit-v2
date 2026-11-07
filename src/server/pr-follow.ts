@@ -67,7 +67,7 @@ export async function followPullRequest(
   const review = reviewState(pull.reviews);
   // Read before the transaction so a failed read writes nothing (decision 050 C, E).
   const appPaths =
-    story.kind === "takeover"
+    story.kind === "takeover" && (pull.open || pull.merged)
       ? (
           await ready.github.readPullFiles(
             project.installationId,

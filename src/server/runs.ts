@@ -251,6 +251,13 @@ export async function linkPullRequest(
       .set({
         prNumber: args.pr_number,
         status: "in_review",
+        // Another PR: what was read of the previous one is stale.
+        ...(story.prNumber !== args.pr_number && {
+          prCiState: null,
+          prReviewState: null,
+          prAppFiles: null,
+          prAppFilesCount: null,
+        }),
         updatedAt: sql`now()`,
       })
       .where(

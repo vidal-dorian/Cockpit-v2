@@ -54,10 +54,10 @@ A step with `loop_to` and `until` sends you back to that step until the conditio
 
 When `get_user_story` gives `kind` `takeover`, the story is an existing app being frozen, not a feature to build: its criteria are the rules of the app as it is. Whatever the team, change the steps this way:
 
+- Run only two steps, in this order: the **test-writer**, then the **reviewer**. Skip the **developer** and every other step of the team (a `doc-writer` too): there is nothing to implement or document.
 - **test-writer** writes one test per rule (per criterion). Each test must pass at once, without changing app code: no file of the app is modified.
-- Skip the **developer** step: there is nothing to implement.
-- A rule whose test fails on the code as it is stays out of the PR: do not commit that test, so the CI does not stay red for nothing. Keep its name and what it gives, and report the criterion as `failed` in the Finish step. The tests that pass go into the PR all the same.
-- **reviewer** checks that each test states its rule and that the PR only touches tests.
+- A rule whose test fails on the code as it is stays out of the PR: do not commit that test, so the CI does not stay red for nothing. The test-writer gives you its name and what it gives instead of calling `report_criterion`: you report the criterion as `failed` in the Finish step. The tests that pass go into the PR all the same. When every rule fails there is nothing to commit: open no PR, report every criterion `failed`, and finish the run `failed` with that reason.
+- **reviewer** checks that each test states its rule and that the PR does not change the app code. Its blocking findings go back to the **test-writer**, never to a developer, until the verdict is **ready**. A change to the configuration of the tests or to a manifest is not blocking: it names it in its summary, for the human.
 
 Before each step call `mcp__cockpit__report_step` with the `run_id`, the `agent` and the event `started`; after it, with the event `finished`, its `status` (`succeeded` or `failed`) and a short `summary`. A step you redo (the review loop) is reported `started` again.
 

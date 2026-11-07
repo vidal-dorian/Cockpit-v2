@@ -76,6 +76,11 @@ export type FakeCheckRun = {
   conclusion: string | null;
 };
 /** A review of a PR, oldest first in the list given to `setReviews` (slice 7.6, decision 038 F). */
+/** A file of a PR: its path, or the new and old paths of a renamed file. */
+export type FakePullFile =
+  | string
+  | { filename: string; previous_filename: string };
+
 export type FakeReview = {
   login: string;
   state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED";
@@ -464,7 +469,7 @@ export function stubGitHub(initial: {
   const checkRuns = new Map<string, FakeCheckRun[]>();
   const reviews = new Map<string, FakeReview[]>();
   // Slice R4 (decision 050 C): the file paths of a PR (`owner/repo#number`), served by pages of 100 (`per_page`, `page`).
-  const pullFiles = new Map<string, string[]>();
+  const pullFiles = new Map<string, FakePullFile[]>();
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -1067,7 +1072,11 @@ export function stubGitHub(initial: {
         return Response.json(
           (pullFiles.get(key) ?? [])
             .slice((page - 1) * size, page * size)
-            .map((filename) => ({ filename, status: "modified" })),
+            .map((f) =>
+              typeof f === "string"
+                ? { filename: f, status: "modified" }
+                : { ...f, status: "renamed" },
+            ),
         );
       }
       const issueRoute =
@@ -1253,8 +1262,8 @@ export function stubGitHub(initial: {
     setReviews(fullName: string, number: number, list: FakeReview[]) {
       reviews.set(`${fullName}#${number}`, list);
     },
-    /** Slice R4: the paths `GET /repos/{o}/{r}/pulls/{n}/files` answers for a PR seeded by `addPull`, 100 per page. */
-    setPullFiles(fullName: string, number: number, paths: string[]) {
+    /** Slice R4: the paths (or `{ filename, previous_filename }` for a renamed file) `GET /repos/{o}/{r}/pulls/{n}/files` answers for a PR seeded by `addPull`, 100 per page. */
+    setPullFiles(fullName: string, number: number, paths: FakePullFile[]) {
       pullFiles.set(`${fullName}#${number}`, paths);
     },
     /** The live Git state of a repo named in `gitRepos` (decision 026), see the stub's comment. */

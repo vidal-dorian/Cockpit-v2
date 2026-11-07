@@ -61,7 +61,11 @@ export function RunVerdict({
                     {appFiles.map((path) => (
                       <li key={path}>{path}</li>
                     ))}
-                    {more > 0 && <li>+ {more} autres</li>}
+                    {more > 0 && (
+                      <li>
+                        + {more} {more === 1 ? "autre" : "autres"}
+                      </li>
+                    )}
                   </ul>
                 )}
               </li>
