@@ -131,12 +131,14 @@ const arrowButton = `${squareButton} size-[30px]`;
 /**
  * The right panel (380 px, fixed on lg+; `<main>` makes room for it, below lg it follows the content).
  * `label` names it, `badge` is the pill on the left of the header, `counter` adds « i sur n » with Précédent and Suivant (`index` starts at 0),
+ * `meta` is a muted label on the right of the header (S24: « Développer avec Claude »),
  * `footer` is pinned at the bottom (the white button of the panel: `panelPrimaryButton`).
  */
 export function Panel({
   label,
   badge: badgeNode,
   counter,
+  meta,
   children,
   footer,
 }: {
@@ -148,6 +150,7 @@ export function Panel({
     onPrevious: () => void;
     onNext: () => void;
   };
+  meta?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -159,6 +162,9 @@ export function Panel({
     >
       <div className="flex items-center justify-between gap-2">
         <div>{badgeNode}</div>
+        {meta && (
+          <span className="text-[13px] text-muted-foreground">{meta}</span>
+        )}
         {counter && (
           <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
             <span>

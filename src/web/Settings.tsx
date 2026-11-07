@@ -283,20 +283,18 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           )}
           {tab === "utilisateurs" &&
             (me.data?.isAdmin ? (
-              <>
-                <section aria-labelledby="utilisateurs">
-                  <h2 id="utilisateurs" className={sectionLabel}>
-                    Utilisateurs
-                  </h2>
-                  <p className="mt-1 text-[12.5px] text-muted-foreground">
-                    Toute personne avec un compte GitHub peut se connecter à
-                    Cockpit. Un compte bloqué ne peut plus se connecter.
-                  </p>
-                  <div className="mt-3" aria-live="polite">
-                    <UserList />
-                  </div>
-                </section>
-              </>
+              <section aria-labelledby="utilisateurs">
+                <h2 id="utilisateurs" className={sectionLabel}>
+                  Utilisateurs
+                </h2>
+                <p className="mt-1 text-[12.5px] text-muted-foreground">
+                  Toute personne avec un compte GitHub peut se connecter à
+                  Cockpit. Un compte bloqué ne peut plus se connecter.
+                </p>
+                <div className="mt-3" aria-live="polite">
+                  <UserList />
+                </div>
+              </section>
             ) : (
               <p>Cette page est réservée à l'administrateur.</p>
             ))}

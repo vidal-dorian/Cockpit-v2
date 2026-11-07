@@ -470,16 +470,22 @@ const draftOf = (story: DecidedStory) => ({
   criteria: story.criteria.map(withKey),
 });
 
+export async function fetchStoryHistory(id: number) {
+  const res = await client.api.stories[":id"].history.$get({
+    param: { id: String(id) },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).entries;
+}
+
 /** The entries of the user about this story, read when the section is opened (decision 018 I). */
 export function StoryHistory({ id }: { id: number }) {
   const [opened, setOpened] = useState(false);
   const entries = useQuery({
     queryKey: ["story-history", String(id)],
     enabled: opened,
-    queryFn: async () => {
-      const res = await client.api.stories[":id"].history.$get({
-        param: { id: String(id) },
-      });
+    queryFn: () => fetchStoryHistory(id),
+  });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return (await res.json()).entries;
     },

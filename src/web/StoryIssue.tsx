@@ -1,7 +1,10 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { fetchMe } from "./Shell.tsx";
+import { fetchStoryHistory } from "./StoryDecisions.tsx";
 import { decisionError } from "./tickets.ts";
+import { ago } from "./when.ts";
 import { alertBox, button, focusRing } from "./ui.ts";
 
 /** The GitHub issue of a story (decision 020 J): its link, and « Republier » when GitHub is behind the story. */
@@ -27,6 +30,15 @@ export function StoryIssue({
     element.focus();
     setFocusLink(false);
   };
+  // Who validated the story and when: its latest validation in the history (the issue is published at that moment).
+  const validation = useQuery({
+    queryKey: ["story-history", String(id), "validation"],
+    queryFn: async () =>
+      (await fetchStoryHistory(id)).find(
+        (e) => e.action === "validate_story" && e.result === "ok",
+      ) ?? null,
+  });
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const publish = useMutation({
     mutationFn: async () => {
       const res = await client.api.stories[":id"].publish.$post({
@@ -59,8 +71,15 @@ export function StoryIssue({
           href={issue.url}
           className={`underline ${focusRing}`}
         >
-          Issue #{issue.number}
+          Issue GitHub #{issue.number}
         </a>
+      )}
+      {issue.url && validation.data && (
+        <>
+          {" "}
+          · validée par {me.data?.name ?? me.data?.login ?? "toi"}{" "}
+          {ago(validation.data.at)}
+        </>
       )}
       {/* Always rendered: a live region is only announced when its content changes. */}
       <div role="status">

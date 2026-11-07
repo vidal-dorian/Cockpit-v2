@@ -66,19 +66,19 @@ export function ConceptionObject({
           </li>
         ))}
       </ul>
-      <p>
-        Défini dans <code>{path}</code>, {lines}
-      </p>
+      <p className={sectionLabel}>Le code</p>
       {code.data && (
-        <pre className="overflow-x-auto rounded-[10px] bg-card p-3 font-mono text-[12.5px]">
+        <pre className="overflow-x-auto rounded-xl border border-border bg-sunken py-2.5 font-mono text-xs leading-[1.65]">
           {code.data.lines.map((text, i) => {
             const n = code.data.firstLine + i;
             return (
               <div
                 key={n}
-                className={
-                  n >= start && n <= end ? "bg-raised" : "text-muted-foreground"
-                }
+                className={`px-3.5 ${
+                  n >= start && n <= end
+                    ? "bg-raised shadow-[inset_2px_0_0_var(--color-foreground)]"
+                    : "text-muted-foreground"
+                }`}
               >
                 <span className="mr-3 inline-block w-8 text-right text-dim">
                   {n}
@@ -94,6 +94,9 @@ export function ConceptionObject({
           Le code n'a pas pu être lu : ouvre-le sur GitHub.
         </p>
       )}
+      <p className="text-[12.5px] text-muted-foreground">
+        Défini dans <code>{path}</code>, {lines}
+      </p>
       <a
         href={`https://github.com/${fullName}/blob/${module.commitSha}/${path.split("/").map(encodeURIComponent).join("/")}#${anchor}`}
         target="_blank"
