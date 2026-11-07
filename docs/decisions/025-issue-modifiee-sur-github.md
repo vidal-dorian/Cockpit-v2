@@ -4,6 +4,7 @@
 - **Date** : 2026-10-30
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [020 — Issues GitHub](020-issues-github.md), [024 — Webhooks](024-webhooks.md), [018 — Décisions humaines](018-decisions-humaines.md), [010 — Historique](010-historique.md), [008 — Service en ligne](008-service-en-ligne.md)
+- **Modifiée par** : [045](045-interface-quatre-temps.md) : les boutons s'appellent « Garder la version Cockpit » et « Garder la version GitHub » (F, G)
 - **Tranche** : 5.2 du [découpage](../decoupage.md)
 
 ## Contexte
