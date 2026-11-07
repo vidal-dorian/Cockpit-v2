@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchTickets } from "./ProjectTickets.tsx";
 import { Dot } from "./Shell.tsx";
-import { STORY_STATUSES } from "./tickets.ts";
+import { plural, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
   badge,
@@ -150,35 +150,66 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                               </Link>
                             </li>
                           ))}
-                        {cards.map((story) => (
-                          <li key={story.id}>
-                            <Link
-                              to={`/us/${story.id}`}
-                              className={`${cardStyle} ${focusRing} ${faded ? "opacity-60" : ""}`}
-                            >
-                              {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
-                              <span className="block text-[13.5px] leading-snug font-semibold">
-                                {story.iWant}
-                              </span>{" "}
-                              <span className="block text-xs text-muted-foreground">
-                                <span className="sr-only">Ticket : </span>
-                                {story.ticketTitle}
-                              </span>{" "}
-                              {story.issueDiverged && (
-                                <span
-                                  className={`max-w-full whitespace-normal! ${urgentBadge}`}
-                                >
-                                  Issue modifiée sur GitHub
-                                </span>
-                              )}
-                              {story.status === "to_rewrite" && (
-                                <span className={badge}>
-                                  {STORY_STATUSES.to_rewrite}
-                                </span>
-                              )}
-                            </Link>
-                          </li>
-                        ))}
+                        {cards.map((story) => {
+                          const detail = [
+                            story.status === "to_validate" ||
+                            story.status === "ready"
+                              ? plural(
+                                  story.criteriaCount,
+                                  "critère",
+                                  "critères",
+                                )
+                              : null,
+                            story.prNumber ? `PR #${story.prNumber}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ");
+                          return (
+                            <li key={story.id}>
+                              <Link
+                                to={`/us/${story.id}`}
+                                className={`${cardStyle} ${story.questionPending ? "border-you-line!" : ""} ${focusRing} ${faded ? "opacity-60" : ""}`}
+                              >
+                                {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
+                                <span className="block text-[13.5px] leading-snug font-semibold">
+                                  US {story.id} · {story.iWant}
+                                </span>{" "}
+                                <span className="block text-xs text-muted-foreground">
+                                  <span className="sr-only">Ticket : </span>
+                                  {story.ticketTitle}
+                                </span>{" "}
+                                {detail && (
+                                  <span className="block text-xs text-muted-foreground">
+                                    {detail}
+                                  </span>
+                                )}{" "}
+                                {story.issueDiverged && (
+                                  <span
+                                    className={`max-w-full whitespace-normal! ${urgentBadge}`}
+                                  >
+                                    Issue modifiée sur GitHub
+                                  </span>
+                                )}
+                                {story.questionPending ? (
+                                  <span className={urgentBadge}>
+                                    ✦ Question pour toi
+                                  </span>
+                                ) : story.prCiState === "failure" &&
+                                  story.status === "in_review" ? (
+                                  <span className={badge}>✕ CI en échec</span>
+                                ) : (
+                                  story.status !== "in_progress" && (
+                                    <span
+                                      className={`${badge} first-letter:uppercase`}
+                                    >
+                                      {STORY_STATUSES[story.status]}
+                                    </span>
+                                  )
+                                )}
+                              </Link>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </section>

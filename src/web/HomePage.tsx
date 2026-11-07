@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
+import { client } from "./api.ts";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
 import { REASONS } from "./RunVerdict.tsx";
 import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
@@ -74,9 +75,11 @@ function subLine(item: Item, withKind = true) {
   const project = repoName(item.project.name);
   switch (item.kind) {
     case "answer":
-      return `Question de Claude · Run ${item.runId} · ${project}`;
+      return `Question de Claude · Run ${item.runId} · ${project}${item.askedAt ? ` · il attend depuis ${age(item.askedAt)}` : ""}`;
     case "validate":
-      return withKind ? `À valider · ${project}` : project;
+      return withKind
+        ? `À valider · ${project}`
+        : `${item.criteriaCount} ${plural(item.criteriaCount, "critère", "critères")} · ${project}`;
     case "review": {
       const ci = item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI";
       return withKind
@@ -123,7 +126,17 @@ function Section({
 }
 
 /** The actions of a row of « 2 · Ensuite »: the links of the item, or the panel for a question. */
-function RowActions({ item, open }: { item: Item; open: () => void }) {
+function RowActions({
+  item,
+  open,
+  validate,
+  validating,
+}: {
+  item: Item;
+  open: () => void;
+  validate: () => void;
+  validating: boolean;
+}) {
   switch (item.kind) {
     case "answer":
       return (
@@ -133,9 +146,19 @@ function RowActions({ item, open }: { item: Item; open: () => void }) {
       );
     case "validate":
       return (
-        <Link to={`/us/${item.storyId}`} className={rowAction}>
-          Ouvrir
-        </Link>
+        <>
+          <button
+            type="button"
+            onClick={validate}
+            disabled={validating}
+            className={rowAction}
+          >
+            Valider
+          </button>
+          <Link to={`/us/${item.storyId}`} className={rowLink}>
+            Ouvrir
+          </Link>
+        </>
       );
     case "review":
       return (
@@ -267,12 +290,85 @@ function ItemPanel({
           <AnswerForm
             id={item.questionId}
             suggestedAnswers={item.suggestedAnswers}
+            label="Répondre et passer au suivant"
             queryKey={["home"]}
             onSent={onSent}
           />
         </>
       )}
     </Panel>
+  );
+}
+
+/** « 4 min », « 1 h », « 2 j »: how long ago, as the mockup writes it. */
+function age(since: string) {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(since)) / 60000),
+  );
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} h`;
+  return `${Math.floor(minutes / 1440)} j`;
+}
+
+/** A row of « 2 · Ensuite »; « Valider » of a story to validate acts in place (POST /api/stories/:id/validate), a refusal shows next to the row. */
+function Row({ item, open }: { item: Item; open: () => void }) {
+  const queryClient = useQueryClient();
+  const validate = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await client.api.stories[":id"].validate.$post({
+        param: { id: String(id) },
+      });
+      if (!res.ok)
+        throw new Error(
+          res.status === 409
+            ? "Le statut de cette user story a changé entre-temps."
+            : "La validation a échoué, réessaie.",
+        );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
+  });
+  const since =
+    item.kind === "answer"
+      ? item.askedAt
+      : "updatedAt" in item
+        ? item.updatedAt
+        : undefined;
+  return (
+    <div className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 px-[18px]">
+      <span
+        aria-hidden="true"
+        className="text-center text-[13px] font-bold text-dim"
+      >
+        {item.kind === "review" && item.prCiState === "failure"
+          ? "✕"
+          : KINDS[item.kind].glyph}
+      </span>
+      <span className="min-w-0">
+        <b className="block truncate font-semibold">{rowTitle(item)}</b>
+        <span className="block text-[12.5px] text-muted-foreground">
+          {subLine(item, false)}
+        </span>
+        {validate.isError && (
+          <span role="alert" className="block text-[12.5px] text-destructive">
+            {validate.error.message}
+          </span>
+        )}
+      </span>
+      <span className="flex items-center gap-3.5">
+        <RowActions
+          item={item}
+          open={open}
+          validate={() =>
+            item.kind === "validate" && validate.mutate(item.storyId)
+          }
+          validating={validate.isPending}
+        />
+      </span>
+      <span className="min-w-10 text-right text-[12.5px] text-muted-foreground">
+        {since && age(since)}
+      </span>
+    </div>
   );
 }
 
@@ -391,30 +487,11 @@ export function HomePage() {
                   )}
                 </p>
                 {rows.map(({ item, at }) => (
-                  <div
+                  <Row
                     key={itemKey(item)}
-                    className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px]"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="text-center text-[13px] font-bold text-dim"
-                    >
-                      {item.kind === "review" && item.prCiState === "failure"
-                        ? "✕"
-                        : KINDS[kind].glyph}
-                    </span>
-                    <span className="min-w-0">
-                      <b className="block truncate font-semibold">
-                        {rowTitle(item)}
-                      </b>
-                      <span className="block text-[12.5px] text-muted-foreground">
-                        {subLine(item, false)}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-3.5">
-                      <RowActions item={item} open={() => open(at, true)} />
-                    </span>
-                  </div>
+                    item={item}
+                    open={() => open(at, true)}
+                  />
                 ))}
               </div>
             ))}

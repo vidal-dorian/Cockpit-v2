@@ -37,7 +37,8 @@ import {
 // React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
 const StepGraph = lazy(() => import("./ProjectTeamGraph.tsx"));
 
-const chip = (on: boolean) =>
+/** A pill of a row of choices (« Par défaut », « Graphe », a module): the chosen one is outlined. */
+export const chip = (on: boolean) =>
   `inline-flex h-7 items-center whitespace-nowrap rounded-full border px-2.5 text-[12.5px] font-semibold disabled:opacity-50 ${focusRing} ${on ? "border-foreground bg-raised text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`;
 
 const TDD_AGENTS = ["test-writer", "reviewer"];

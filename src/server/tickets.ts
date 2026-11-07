@@ -6,7 +6,14 @@ import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { projects, tickets, userStories } from "./db/schema.ts";
+import {
+  acceptanceCriteria,
+  projects,
+  questions,
+  runs,
+  tickets,
+  userStories,
+} from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncTicketIssues } from "./issues.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
@@ -179,6 +186,11 @@ export function ticketRoutes(
           iWant: userStories.iWant,
           status: userStories.status,
           issueDiverged: sql<boolean>`${userStories.issueDivergedAt} is not null`,
+          prNumber: userStories.prNumber,
+          prCiState: userStories.prCiState,
+          criteriaCount: sql<number>`(select count(*)::int from ${acceptanceCriteria} where ${acceptanceCriteria.storyId} = ${userStories.id})`,
+          // A running run of the story waits for an answer (decision 036).
+          questionPending: sql<boolean>`exists (select 1 from ${questions} inner join ${runs} on ${runs.id} = ${questions.runId} where ${runs.storyId} = ${userStories.id} and ${runs.status} = 'running' and ${questions.answer} is null)`,
         })
         .from(userStories)
         .innerJoin(tickets, eq(tickets.id, userStories.ticketId))

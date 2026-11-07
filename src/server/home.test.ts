@@ -209,6 +209,34 @@ describe("criterion 2: forYou, in the order of the verbs", () => {
     );
   });
 
+  it("given items of each kind, when I read it, then they carry their criteria count and the time they have waited since", async () => {
+    const ctx = await withProject();
+    const validateId = await story(ctx, "to_validate", "à-valider");
+    await story(ctx, "in_review", "à-relire", { pr: 7 });
+    const answerRun = await run(
+      ctx,
+      await story(ctx, "in_progress", "à-répondre"),
+      "running",
+    );
+    await ask(ctx, answerRun, "Quel nom ?", null);
+    const [count] = await rowsOf<{ n: number }>(
+      ctx.db,
+      sql`select count(*)::int as n from acceptance_criteria where story_id = ${validateId}`,
+    );
+
+    const { forYou } = await readHome(ctx);
+
+    const [answer, validate, review] = forYou as unknown as {
+      askedAt?: string;
+      updatedAt?: string;
+      criteriaCount?: number;
+    }[];
+    expect(Number.isNaN(Date.parse(answer?.askedAt ?? ""))).toBe(false);
+    expect(validate?.criteriaCount).toBe((count as { n: number }).n);
+    expect(Number.isNaN(Date.parse(validate?.updatedAt ?? ""))).toBe(false);
+    expect(Number.isNaN(Date.parse(review?.updatedAt ?? ""))).toBe(false);
+  });
+
   it("given a question without suggested answers, when I read it, then suggestedAnswers is null", async () => {
     const ctx = await withProject();
     const r = await run(ctx, await story(ctx, "in_progress", "x"), "running");

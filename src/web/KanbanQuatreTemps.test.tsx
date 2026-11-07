@@ -46,6 +46,31 @@ const board = [
   story(26, 9, "vouloir-foxtrot", { status: "done", position: 6 }),
 ];
 
+describe("the cards of the Kanban", () => {
+  it("given a story with a PR whose CI fails and one with a pending question, when the Kanban loads, then the cards say US n, the criteria count, the PR and the CI failure or « Question pour toi »", async () => {
+    const extra = { prNumber: 44, prCiState: "failure" };
+    stubProjectShell({}, tickets, [
+      story(21, 9, "vouloir-alpha", { status: "to_validate" }),
+      story(25, 9, "vouloir-echo", { status: "in_review", ...extra }),
+      story(24, 9, "vouloir-delta", {
+        status: "in_progress",
+        questionPending: true,
+      }),
+    ]);
+    renderAt("/projets/5");
+
+    const alpha = await screen.findByRole("link", { name: /vouloir-alpha/ });
+    expect(alpha.textContent).toContain("US 21 · vouloir-alpha");
+    expect(alpha.textContent).toContain("1 critère");
+    const echo = screen.getByRole("link", { name: /vouloir-echo/ });
+    expect(echo.textContent).toContain("PR #44");
+    expect(echo.textContent).toContain("✕ CI en échec");
+    expect(
+      screen.getByRole("link", { name: /vouloir-delta/ }).textContent,
+    ).toContain("✦ Question pour toi");
+  });
+});
+
 describe("slice 9.3: the six columns of the Kanban", () => {
   it("given a project, when /projets/5 loads, then the columns are Idées, À valider, Prêtes, En cours, En revue, Terminées in that order with their counts and sub-lines", async () => {
     stubProjectShell({}, tickets, board);

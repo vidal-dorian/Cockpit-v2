@@ -9,7 +9,6 @@ import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
   button,
-  card,
   dangerButton,
   focusRing,
   listCard,
@@ -38,27 +37,6 @@ async function fetchUsers() {
   const res = await client.api.settings.users.$get();
   if (!res.ok) throw await failure(res);
   return (await res.json()).users;
-}
-
-/** The address of the instance, read-only: it is the one claude.ai and GitHub know (decision 028 J). */
-function Address() {
-  const connect = useQuery({ queryKey: ["connect"], queryFn: fetchConnect });
-  if (!connect.data) return null;
-  return (
-    <dl
-      className={`mb-6 grid grid-cols-[150px_minmax(0,1fr)] gap-x-3.5 gap-y-2 ${card} px-[18px] py-4 text-[13px]`}
-    >
-      <dt className="text-muted-foreground">Adresse publique</dt>
-      <dd className="font-mono font-medium break-all">
-        {new URL(connect.data.mcpUrl).origin}
-      </dd>
-      <dt className="text-muted-foreground">Connecteur Claude</dt>
-      <dd className="font-mono font-medium break-all">{connect.data.mcpUrl}</dd>
-      <p className="col-span-2 text-[12.5px] text-muted-foreground">
-        Détectée à l'installation ; elle ne se change pas ici.
-      </p>
-    </dl>
-  );
 }
 
 function UserList() {
@@ -306,7 +284,6 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           {tab === "utilisateurs" &&
             (me.data?.isAdmin ? (
               <>
-                <Address />
                 <section aria-labelledby="utilisateurs">
                   <h2 id="utilisateurs" className={sectionLabel}>
                     Utilisateurs

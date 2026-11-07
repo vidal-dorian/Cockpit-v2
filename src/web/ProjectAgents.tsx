@@ -368,7 +368,7 @@ export function ProjectAgents({
         className={list && !editing ? undefined : "lg:col-span-2"}
         aria-labelledby="agents"
       >
-        <h2 id="agents" className={sectionLabel}>
+        <h2 id="agents" className={editing ? "sr-only" : sectionLabel}>
           Les agents du repo
         </h2>
         {agents.isPending && (

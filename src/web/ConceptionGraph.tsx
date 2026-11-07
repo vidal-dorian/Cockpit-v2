@@ -1,6 +1,5 @@
 import dagre from "@dagrejs/dagre";
 import {
-  Background,
   type Edge,
   Handle,
   type Node,
@@ -16,21 +15,26 @@ import {
   type CodeObject,
   linkLabel,
 } from "./conception.ts";
-import { card, focusRing } from "./ui.ts";
+import { focusRing } from "./ui.ts";
 
 const WIDTH = 200;
 const HEADER = 48;
 const ROW = 16;
 const FOOTER = 20;
 
-type CardNode = Node<{ object: CodeObject; onOpen: () => void }, "card">;
+type CardNode = Node<
+  { object: CodeObject; selected: boolean; onOpen: () => void },
+  "card"
+>;
 
 const heightOf = (object: CodeObject) =>
   HEADER +
   Math.min(object.fields.length, CARD_FIELDS) * ROW +
   (object.fields.length > CARD_FIELDS ? FOOTER : 0);
 
-function ObjectCard({ data: { object, onOpen } }: NodeProps<CardNode>) {
+function ObjectCard({
+  data: { object, selected, onOpen },
+}: NodeProps<CardNode>) {
   const more = object.fields.length - CARD_FIELDS;
   return (
     <>
@@ -40,9 +44,10 @@ function ObjectCard({ data: { object, onOpen } }: NodeProps<CardNode>) {
         type="button"
         data-object={object.name}
         onClick={onOpen}
-        className={`${card} block w-[200px] p-3 text-left hover:border-border-strong hover:bg-raised ${focusRing}`}
+        aria-current={selected || undefined}
+        className={`block w-[200px] rounded-xl border px-3 py-2.5 text-left ${selected ? "border-foreground bg-raised" : "border-border-strong bg-card hover:bg-raised"} ${focusRing}`}
       >
-        <span className="block font-bold">{object.name}</span>
+        <span className="block text-[13px] font-semibold">{object.name}</span>
         <span className="block text-xs text-dim">{object.kind}</span>
         {object.fields.slice(0, CARD_FIELDS).map((f, i) => (
           <span
@@ -66,9 +71,11 @@ const nodeTypes = { card: ObjectCard };
 /** Decision 043 I: one card per object, the links named, placed by dagre from left to right. */
 export default function ConceptionGraph({
   module,
+  selected,
   onOpen,
 }: {
   module: CodeModule;
+  selected?: string;
   onOpen: (name: string) => void;
 }) {
   const { nodes, edges } = useMemo(() => {
@@ -91,7 +98,11 @@ export default function ConceptionGraph({
           position: { x: x - WIDTH / 2, y: y - height / 2 },
           width: WIDTH,
           height,
-          data: { object, onOpen: () => onOpen(object.name) },
+          data: {
+            object,
+            selected: object.name === selected,
+            onOpen: () => onOpen(object.name),
+          },
         };
       }),
       edges: links.map(
@@ -103,9 +114,9 @@ export default function ConceptionGraph({
         }),
       ),
     };
-  }, [module, onOpen]);
+  }, [module, selected, onOpen]);
   return (
-    <div className="h-[420px]">
+    <div className="h-full">
       <ReactFlow
         id={`conception-${module.path}`}
         nodes={nodes}
@@ -114,10 +125,16 @@ export default function ConceptionGraph({
         nodesConnectable={false}
         nodesDraggable={false}
         nodesFocusable={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+        panOnDrag={false}
+        preventScrolling={false}
+        style={{ background: "transparent" }}
+        proOptions={{ hideAttribution: true }}
         fitView
-      >
-        <Background />
-      </ReactFlow>
+        fitViewOptions={{ padding: 0.15 }}
+      />
     </div>
   );
 }

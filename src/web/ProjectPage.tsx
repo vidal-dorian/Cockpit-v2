@@ -7,7 +7,7 @@ import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
-import { ProjectRoutine } from "./ProjectRoutine.tsx";
+import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { fetchTickets, ProjectTickets } from "./ProjectTickets.tsx";
 import { Breadcrumb, StateSentence } from "./Shell.tsx";
@@ -95,6 +95,18 @@ const TAB_REST: Record<ProjectTab, string> = {
   reglages: "",
 };
 
+// The second line of the Tickets tab, from the schedule of the automatic writing (decision 022 D).
+function writingSentence(
+  schedule: { frequency: string; hour: number | null } | undefined,
+) {
+  const hour = schedule?.hour ?? 7;
+  if (schedule?.frequency === "daily")
+    return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
+  if (schedule?.frequency === "weekly")
+    return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
+  return TAB_REST.tickets;
+}
+
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const { id = "" } = useParams();
@@ -152,6 +164,11 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
     queryFn: () => fetchCodeMap(id),
     enabled: tab === "conception",
   });
+  const schedule = useQuery({
+    queryKey: ["routine-schedule", id],
+    queryFn: () => fetchSchedule(id),
+    enabled: tab === "tickets",
+  });
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
   const sentence: { title: string; rest?: string; inline?: boolean } =
@@ -184,7 +201,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
             : tab === "tickets" && tickets.data
               ? {
                   title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                  rest: TAB_REST[tab],
+                  rest: writingSentence(schedule.data),
                 }
               : {
                   title:

@@ -92,7 +92,9 @@ describe("criterion 5: the items of forYou", () => {
     expect(p.getByRole("button", { name: "Valider" })).toBeDefined();
     expect(p.getByRole("button", { name: "Envoyer" })).toBeDefined();
     expect(p.getByLabelText("Ta réponse")).toBeDefined();
-    expect(p.getByRole("button", { name: "Répondre" })).toBeDefined();
+    expect(
+      p.getByRole("button", { name: "Répondre et passer au suivant" }),
+    ).toBeDefined();
   });
 
   it("given a question, when I click a suggested answer, then it is POSTed to /api/questions/7/answer and the home is read again", async () => {
@@ -119,7 +121,11 @@ describe("criterion 5: the items of forYou", () => {
     fireEvent.change(within(panel()).getByLabelText("Ta réponse"), {
       target: { value: "Plutôt Publier" },
     });
-    fireEvent.click(within(panel()).getByRole("button", { name: "Répondre" }));
+    fireEvent.click(
+      within(panel()).getByRole("button", {
+        name: "Répondre et passer au suivant",
+      }),
+    );
 
     await waitFor(() =>
       expect(api.calls).toContainEqual({
@@ -137,6 +143,30 @@ describe("criterion 5: the items of forYou", () => {
     expect(s.textContent).toContain("trier les exports");
     expect(s.textContent).toContain("hello");
     expect(hrefs(panel())).toContain("/us/22");
+  });
+
+  it("given a story to validate in « 2 · Ensuite », when Valider is clicked, then it posts the validation and reads the home again", async () => {
+    const api = await show({ forYou: [answer, validate] });
+    const base = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      (input: string | URL | Request, init?: RequestInit) =>
+        String(input instanceof Request ? input.url : input).endsWith(
+          "/api/stories/22/validate",
+        )
+          ? Promise.resolve(Response.json({ id: 22 }))
+          : base(input, init),
+    );
+
+    fireEvent.click(
+      within(section("2 · Ensuite")).getByRole("button", { name: "Valider" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        api.calls.filter((c) => c.path === "/api/home").length,
+      ).toBeGreaterThan(1),
+    );
   });
 
   it.each([

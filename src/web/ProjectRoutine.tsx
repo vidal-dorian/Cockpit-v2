@@ -50,7 +50,7 @@ async function failure(res: Response, refusals: Record<string, string>) {
   );
 }
 
-async function fetchSchedule(id: string) {
+export async function fetchSchedule(id: string) {
   const res = await client.api.projects[":id"].routine.$get({ param: { id } });
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();

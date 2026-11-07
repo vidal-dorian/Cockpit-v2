@@ -72,3 +72,7 @@ export async function decisionError(res: Response) {
     );
   return new Error("L'opération a échoué, réessaie.");
 }
+
+/** « 1 critère », « 2 critères ». */
+export const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
