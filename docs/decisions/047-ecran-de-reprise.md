@@ -1,6 +1,6 @@
 # 047 — Les règles et l'écran de reprise
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R2)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (les règles, `create_takeover_stories`, `code_sources`, l'écran de reprise), [043 — La carte du code](043-carte-du-code.md) (`verifyCitations`, la route du code, la fenêtre d'analyse), [018 — Décisions humaines](018-decisions-humaines.md) (la validation d'une US), [045 — L'interface « Quatre temps »](045-interface-quatre-temps.md) (S42)
@@ -46,3 +46,18 @@ La 007 laissait trois points ouverts pour R2. Dorian les a tranchés le 2026-11-
 - **Une règle juste peut citer le mauvais code** : Cockpit prouve que les lignes existent, pas qu'elles disent la règle. C'est à l'écran de le montrer, et à l'humain d'en juger (007).
 - **Le récit d'une US de reprise ne se modifie pas** : le récit d'une US de reprise (en tant que, je veux, afin de, notes) ne se modifie pas, ni par l'interface ni par Claude : seules ses règles se corrigent, dans l'écran de reprise. Une US de reprise ne se renvoie pas à Claude.
 - **Un repo qui a ajouté `/analyser` en R1 garde l'ancien skill** : un fichier présent et différent n'est jamais écrasé (043 M). Il faut le retirer du repo puis l'ajouter de nouveau, jusqu'à la mise à jour du catalogue (C1).
+
+## Ce que le code a précisé (tranche R2)
+
+Là où la décision laissait le choix, le code a retenu :
+
+- **Les routes** (E, H, I) : `GET /api/projects/:id/rules` (les règles du projet avec leurs sources), `POST /api/criteria/:id/keep`, `/unkeep` (retour à `pending`, c'est l'« Annuler ») et `/bug`, et `PATCH /api/criteria/:id` (corriger le texte). Toutes réservées aux membres. Entrées de l'historique : `keep_rule`, `unkeep_rule`, `edit_rule`, `bug_rule`.
+- **Les refus** (E, K) : `not_takeover` (le critère n'est pas une règle de reprise), `wrong_status` (l'US n'est pas `to_validate`), `ticket_abandoned`, `project_archived`. Une US de reprise ne se renvoie pas à Claude, son récit ne se modifie pas et `update_user_story` ne la touche pas, et « Prendre la version GitHub » (la route `take-github`) est refusée aussi : `takeover_story`. La validation d'une US dont une règle est `pending` répond 409 `rules_pending` avec la liste des règles (`id`, `summary`) ; l'historique ne garde que le code.
+- **Le ticket de bug** (E) : son titre est « Bug : <phrase> », coupé à 200 caractères sur des caractères entiers (un emoji n'est jamais coupé en deux) ; la description cite chaque source par un lien GitHub au commit de la source, écrit entre chevrons (`<https://…>`), la forme que CommonMark transforme en lien. « C'est un bug » est **immédiat** : pas de confirmation, pas d'« Annuler » (E).
+- **`create_takeover_stories`** (A, C) répond comme `create_user_stories`, et le ticket « Reprise : <feature> » est créé avec `storiesWrittenAt` déjà posé : il n'attend plus d'US et ne revient pas dans `list_tickets_needing_us`. Les sources d'une règle sont vérifiées par `citationRefusal` de `code-map.ts`, la fonction commune avec `submit_code_map`.
+- **La lecture** (N) : `get_user_story` et `GET /api/stories/:id` rendent `kind` et, pour chaque critère, `summary`, `reasoning`, `doubt`, `takeover_state` et les sources.
+- **La base** (C, D) : migration `0022` (table `code_sources`, colonnes de `acceptance_criteria` et `user_stories.kind`, `CHECK` sur `takeover_state` et sur `kind`) et `0023` (index sur `criterion_id` et sur `(commit_sha, path)`, `CHECK start_line >= 1`).
+- **La route du code** (H) : elle accepte aussi un fichier et un commit cités par une source de règle du projet (jointure sur `code_sources`).
+- **La coloration** (F) : Shiki cœur, avec le moteur JavaScript (pas de WebAssembly) et le thème `css-variables` ; un chunk par langage, chargé à la demande (`src/web/highlight.ts`, le langage vient de `code-language.ts`). La palette est celle des `--shiki-token-*` de `styles.css` : mot-clé lilas, chaîne bleu ardoise, le reste en teintes de l'encre, chacune à 5,1:1 au moins de contraste sur `sunken`. Un extrait PHP reçoit un `<?php` virtuel (la grammaire démarre en HTML) quand il n'ouvre aucune balise.
+- **Les liens** (I, J) : `/projets/:id/conception?objet=<nom>` ouvre le panneau de cet objet de la carte. `?regle=<id>` pour une règle qui n'est plus dans la liste (retirée, ou US validée) ouvre la première règle à trancher et dit une fois « Cette règle n'est plus à trancher. ».
+- **Les raccourcis** (E) : aucun raccourci ne répond avec Maj enfoncé (ni avec Ctrl, Alt ou Cmd), ni pendant une saisie.
