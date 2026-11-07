@@ -1,6 +1,6 @@
 # 048 — Le graphe par fonctionnalité
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R3)
 - **Date** : 2026-11-07
 - **Décidé par** : Claude, pour Dorian (« lance la prochaine étape s'il ne manque aucune information ») ; à valider à la relecture
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (l'écran « Conception », la vue « Par fonctionnalité », l'export Markdown), [043 — La carte du code](043-carte-du-code.md), [047 — Les règles et l'écran de reprise](047-ecran-de-reprise.md)
@@ -37,3 +37,16 @@ La 007 ne laisse aucun point ouvert pour R3. Cette décision fixe seulement ce q
 
 - **Un acteur dépend des mots de Claude** : « Client » et « Le client » font deux acteurs. La consigne du `rules-analyst` (047 M) demande des « en tant que » courts et stables, sans le garantir.
 - **Un gros projet donne un graphe dense** : toutes les fonctionnalités sont dessinées (F). Le gris garde la fonctionnalité choisie lisible ; la liste reste le recours.
+
+## Ce que le code a précisé (tranche R3)
+
+Là où la décision laissait le choix, le code a retenu :
+
+- **La route** (C) : `GET /api/projects/:id/features` répond `{ features: [{ id, title, actors, rules: [{ id, storyId, storyStatus, summary, state, given, when, then, sources, objects }] }], links }`. La carte est lue une fois par requête.
+- **Les liens** (B) : tous ceux de la carte, `extends` compris, entre deux objets cités par les règles ; sans doublon, et un lien d'un objet vers lui-même est écarté.
+- **Les acteurs** (A) : un acteur garde la première graphie rencontrée.
+- **Les routes de la 047** : `GET /api/projects/:id/rules` et les réponses sur les critères rendent aussi `storyStatus`, `asA` et `ticketTitle`.
+- **L'export Markdown** (I) : le texte venu de Claude est neutralisé. Les noms de champs et les types sont en code, avec une clôture plus longue que toute suite d'apostrophes inversées du texte ; les titres tiennent sur une ligne (espaces réduits) et un `#` final est échappé ; les lignes de suite d'un élément de liste sont indentées.
+- **Les boutons** (E, I) : « Exporter en Markdown » et « Tout le projet » sont dans l'en-tête du projet, à côté de « Ouvrir sur GitHub ↗ ».
+- **Sans fonctionnalité** (J) : le bouton ouvre la fenêtre d'analyse avec la case « Règles » déjà cochée.
+- **Les liens entre objets** (F) : ils sortent à droite de la colonne Objets.
