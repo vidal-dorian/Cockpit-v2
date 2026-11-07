@@ -36,7 +36,7 @@ const COLUMNS = [
 ] as const;
 
 const cardStyle =
-  "block rounded-xl border border-border bg-card px-[13px] py-[11px] hover:border-border-strong hover:bg-raised";
+  "flex flex-col items-start gap-2 rounded-[14px] border border-border bg-card p-3 hover:border-border-strong hover:bg-raised";
 
 // The column of each status; `satisfies` makes tsc fail when a story status has no column (abandoned has none).
 const COLUMN_OF = {
@@ -116,12 +116,14 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                   <section key={name} className="sm:min-w-36 sm:flex-1">
                     <h3
                       aria-label={`${name} (${count})`}
-                      className="flex items-center gap-2 text-sm font-bold"
+                      className="flex items-center gap-2 px-0.5 text-[13px] font-semibold"
                     >
                       <Dot tone={dot} />
                       {name} <span className={badge}>{count}</span>
                     </h3>
-                    <p className="mt-0.5 mb-2 text-[12.5px] text-dim">{sub}</p>
+                    <p className="mt-0.5 mb-2.5 px-0.5 text-xs text-muted-foreground">
+                      {sub}
+                    </p>
                     {name === "Idées" && tickets.isPending ? (
                       <p className="text-muted-foreground">Chargement…</p>
                     ) : name === "Idées" && tickets.isError ? (
@@ -139,7 +141,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 to={`/tickets/${t.id}`}
                                 className={`${cardStyle} ${focusRing}`}
                               >
-                                <span className="block text-[13px] font-bold">
+                                <span className="block text-[13.5px] leading-snug font-semibold">
                                   {t.title}
                                 </span>{" "}
                                 <span className="block text-xs text-muted-foreground">
@@ -155,7 +157,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                               className={`${cardStyle} ${focusRing} ${faded ? "opacity-60" : ""}`}
                             >
                               {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
-                              <span className="block text-[13px] font-bold">
+                              <span className="block text-[13.5px] leading-snug font-semibold">
                                 {story.iWant}
                               </span>{" "}
                               <span className="block text-xs text-muted-foreground">
@@ -164,13 +166,13 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                               </span>{" "}
                               {story.issueDiverged && (
                                 <span
-                                  className={`mt-1 mr-2 max-w-full whitespace-normal! ${urgentBadge}`}
+                                  className={`max-w-full whitespace-normal! ${urgentBadge}`}
                                 >
                                   Issue modifiée sur GitHub
                                 </span>
                               )}
                               {story.status === "to_rewrite" && (
-                                <span className={`mt-1 ${badge}`}>
+                                <span className={badge}>
                                   {STORY_STATUSES.to_rewrite}
                                 </span>
                               )}

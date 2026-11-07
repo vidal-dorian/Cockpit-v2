@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { NavLink, useParams } from "react-router";
+import { Link, NavLink, useParams } from "react-router";
 import { client } from "./api.ts";
 import { fetchCodeMap } from "./conception.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
@@ -18,7 +18,6 @@ import {
   listCard,
   primaryButton,
   sectionLabel,
-  tabLink,
   urgentBadge,
 } from "./ui.ts";
 
@@ -78,6 +77,10 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
 
+// The tabs of the mockups sit 22px apart with their underline touching the border: tabLink's padding does not fit.
+const projectTab = ({ isActive }: { isActive: boolean }) =>
+  `inline-flex items-center border-b-2 pb-2.5 text-sm font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
+
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
@@ -87,8 +90,8 @@ const TAB_REST: Record<ProjectTab, string> = {
   tickets: "Claude écrit les user stories de chaque ticket.",
   conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
-  agents: "Les agents et les équipes qui développent les user stories.",
-  reglages: "L'écriture automatique des US de ce projet.",
+  agents: "Chacun lit le repo, puis passe la main au suivant.",
+  reglages: "",
 };
 
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
@@ -115,6 +118,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const waiting = count("to_validate", "to_rewrite", "in_review");
   const working = count("in_progress");
   const kanbanSentence = {
+    inline: true,
     title: stories.isPending
       ? "Chargement…"
       : stories.isError
@@ -147,7 +151,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
   });
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
-  const sentence =
+  const sentence: { title: string; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
       : tab === "sante" && Array.isArray(health.data)
@@ -175,7 +179,12 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                 rest: TAB_REST[tab],
               }
             : {
-                title: tab === "reglages" ? `Réglages de ${name}.` : name,
+                title:
+                  tab === "reglages"
+                    ? `Réglages de ${name}.`
+                    : tab === "agents"
+                      ? `Les agents et les équipes de ${name}.`
+                      : name,
                 rest: TAB_REST[tab],
               };
 
@@ -191,44 +200,61 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
         </>
       ) : (
         !projects.isPending && (
-          <>
-            <Breadcrumb
-              trail={[
-                { label: "Projets", to: "/projets" },
-                { label: project?.fullName.split("/").pop() ?? "Projet" },
-              ]}
-              repo={project?.fullName}
-            />
-            <StateSentence
-              title={sentence.title}
-              rest={sentence.rest}
-              actions={
-                project && (
-                  <a
-                    href={`https://github.com/${project.fullName}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={`mt-1 ${button}`}
+          <div className="flex items-start gap-3 px-[26px] pt-6">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <nav
+                aria-label="Fil d'Ariane"
+                className="flex flex-wrap items-baseline gap-1.5 text-[12.5px] text-muted-foreground"
+              >
+                <Link
+                  to="/projets"
+                  className={`rounded-md hover:text-foreground ${focusRing}`}
+                >
+                  Projets
+                </Link>
+                <span aria-hidden="true">›</span>
+                <span>{name}</span>
+                {project && (
+                  <span className="font-mono text-[11.5px]">
+                    {project.fullName}
+                  </span>
+                )}
+              </nav>
+              <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
+                {sentence.title}
+                {sentence.rest && (
+                  <span
+                    className={`font-medium text-muted-foreground ${sentence.inline ? "ml-2" : "block"}`}
                   >
-                    Ouvrir sur GitHub ↗
-                  </a>
-                )
-              }
-            />
-          </>
+                    {sentence.rest}
+                  </span>
+                )}
+              </h1>
+            </div>
+            {project && (
+              <a
+                href={`https://github.com/${project.fullName}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={`ml-auto ${button}`}
+              >
+                Ouvrir sur GitHub ↗
+              </a>
+            )}
+          </div>
         )
       )}
       {!notFound && (
         <nav
           aria-label="Sections du projet"
-          className="mx-[26px] mt-4 flex flex-wrap gap-x-2 border-b border-border"
+          className="mt-4 flex flex-wrap gap-x-[22px] border-b border-border px-[26px]"
         >
           {TABS.map((t) => (
             <NavLink
               key={t.tab}
               to={`/projets/${id}${t.to}`}
               end
-              className={tabLink}
+              className={projectTab}
             >
               {t.tab === "sante" && red > 0
                 ? `Santé · ${red} à corriger`

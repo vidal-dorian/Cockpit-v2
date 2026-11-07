@@ -2,19 +2,49 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { Logo } from "./Logo.tsx";
-import { alertBox, card, field, primaryButton, sectionLabel } from "./ui.ts";
+import {
+  alertBox,
+  field,
+  listCard,
+  primaryButton,
+  sectionLabel,
+} from "./ui.ts";
 
-/** The wizard's frame (S02, S03): the rail of the instance on the left, the page on the right. */
-function Frame({ children }: { children: React.ReactNode }) {
+const STEPS = ["Code de démarrage", "GitHub App", "Premier compte"] as const;
+
+/** The wizard's frame (S02, S03): the rail of the instance with its three steps on the left, the page on the right. */
+function Frame({
+  children,
+  step,
+}: {
+  children: React.ReactNode;
+  step: number;
+}) {
   return (
     <div className="min-h-screen md:grid md:grid-cols-[300px_minmax(0,1fr)]">
-      <aside className="flex flex-col gap-[18px] border-b border-border bg-card px-8 py-10 md:border-r md:border-b-0">
-        <div className="flex items-center gap-2.5 text-base font-bold">
+      <aside className="flex flex-col gap-0.5 border-b border-border bg-card px-3 py-4 md:border-r md:border-b-0">
+        <div className="flex items-center gap-2.5 px-2.5 pb-4 text-base font-bold">
           <Logo className="size-5" />
           Cockpit
         </div>
-        <p className={sectionLabel}>Mise en service</p>
-        <p className="mt-auto text-[12.5px] leading-normal text-muted-foreground">
+        <p className={`${sectionLabel} px-2.5 pb-2`}>Mise en service</p>
+        <ol className="flex flex-col gap-0.5">
+          {STEPS.map((name, i) => (
+            <li
+              key={name}
+              aria-current={i + 1 === step ? "step" : undefined}
+              className={`flex h-9 items-center gap-2.5 rounded-[9px] px-2.5 text-sm font-semibold ${i + 1 === step ? "bg-raised text-foreground" : "text-muted-foreground"}`}
+            >
+              <span
+                className={`grid size-5 place-items-center rounded-md text-xs font-bold ${i + 1 === step ? "bg-primary text-primary-foreground" : ""}`}
+              >
+                {i + 1}
+              </span>
+              {name}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-auto px-2.5 text-[12.5px] leading-normal text-muted-foreground">
           Cette page ne s'affiche qu'une fois, à la première mise en route de
           ton instance.
         </p>
@@ -27,7 +57,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 }
 
 const wizardTitle = "text-[28px] leading-tight font-semibold";
-const wizardRest = "mt-1.5 block text-base font-medium text-muted-foreground";
+const wizardRest = "mt-1.5 block text-[22px] leading-snug font-normal text-muted-foreground";
 
 // What the App asks of GitHub and why (decision 012 D); the same list as the manifest of the server.
 const PERMISSIONS = [
@@ -104,7 +134,7 @@ export function Setup() {
       : null;
 
   return (
-    <Frame>
+    <Frame step={1}>
       <div>
         <h1 className={wizardTitle}>Installer Cockpit</h1>
         <p className={wizardRest}>
@@ -153,10 +183,21 @@ export function Setup() {
           <h2 id="setup-permissions" className={sectionLabel}>
             Ce que l'App demandera
           </h2>
-          <ul className={`mt-2 space-y-2 ${card} px-[18px] py-4`}>
+          <ul className={`mt-2 ${listCard}`}>
             {PERMISSIONS.map(([name, access, why]) => (
-              <li key={name}>
-                <strong>{name}</strong> ({access}) : {why}
+              <li
+                key={name}
+                className="flex min-h-[50px] items-center gap-3 px-[18px] py-2"
+              >
+                <span className="min-w-0 grow">
+                  <b className="block font-semibold">{name}</b>
+                  <span className="block text-[12.5px] text-muted-foreground">
+                    {why}
+                  </span>
+                </span>
+                <span className="rounded-[5px] bg-raised px-2 py-1 text-xs font-semibold whitespace-nowrap text-muted-foreground">
+                  {access}
+                </span>
               </li>
             ))}
           </ul>
@@ -195,7 +236,7 @@ export function ClaimAdmin() {
   });
 
   return (
-    <Frame>
+    <Frame step={3}>
       <div>
         <h1 className={wizardTitle}>Récupérer l'administration</h1>
         <p className={wizardRest}>

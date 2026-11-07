@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { alertBox, button, dangerButton } from "./ui.ts";
+import { alertBox, button, primaryButton } from "./ui.ts";
 
 /** Ask Claude to stop, close a silent run, or relaunch a finished one (decision 037 F); sits at the top right of the run page. */
 export function RunControls({
@@ -70,32 +70,41 @@ export function RunControls({
         </p>
       )}
       {confirming && (
-        <div className="flex flex-col items-end gap-2">
-          <p id="close-run-warning" className="text-muted-foreground">
-            Claude ne pourra plus rien signaler sur ce run : l'US sera
-            relançable.
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              aria-describedby="close-run-warning"
-              // The button that asked is gone: keep the keyboard focus on the safe choice.
-              // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-              autoFocus
-              onClick={() => setConfirming(false)}
-              className={button}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              aria-describedby="close-run-warning"
-              disabled={archived || send.isPending}
-              onClick={() => send.mutate("close")}
-              className={dangerButton}
-            >
-              Confirmer la fermeture
-            </button>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4">
+          <div
+            role="dialog"
+            aria-labelledby="close-run-title"
+            className="flex w-full max-w-[460px] flex-col gap-3 rounded-[14px] border border-border-strong bg-card p-[22px] text-left"
+          >
+            <h2 id="close-run-title" className="text-lg font-semibold">
+              Fermer le run ?
+            </h2>
+            <p id="close-run-warning" className="text-muted-foreground">
+              Claude ne pourra plus rien signaler sur ce run : l'US sera
+              relançable.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                aria-describedby="close-run-warning"
+                // The button that asked is gone: keep the keyboard focus on the safe choice.
+                // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                autoFocus
+                onClick={() => setConfirming(false)}
+                className={button}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                aria-describedby="close-run-warning"
+                disabled={archived || send.isPending}
+                onClick={() => send.mutate("close")}
+                className={primaryButton}
+              >
+                Confirmer la fermeture
+              </button>
+            </div>
           </div>
         </div>
       )}

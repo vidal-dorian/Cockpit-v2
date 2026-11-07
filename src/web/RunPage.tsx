@@ -215,7 +215,8 @@ export function RunPage() {
               trail={[
                 { label: "Projets", to: "/projets" },
                 {
-                  label: found.project.name,
+                  label:
+                    found.project.name.split("/").pop() ?? found.project.name,
                   to: `/projets/${found.project.id}`,
                 },
                 { label: `US ${found.story.id}`, to: `/us/${found.story.id}` },
@@ -264,7 +265,7 @@ export function RunPage() {
                     {found.run.branch}
                   </span>{" "}
                   · modèle {found.run.model}
-                  {found.project.name && ` · ${found.project.name}`}
+                  {` · ${found.project.name.split("/").pop()}`}
                 </p>
                 {found.run.comment && (
                   <p>

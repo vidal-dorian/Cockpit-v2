@@ -37,6 +37,9 @@ import {
 // React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
 const StepGraph = lazy(() => import("./ProjectTeamGraph.tsx"));
 
+const chip = (on: boolean) =>
+  `inline-flex h-7 items-center whitespace-nowrap rounded-full border px-2.5 text-[12.5px] font-semibold disabled:opacity-50 ${focusRing} ${on ? "border-foreground bg-raised text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`;
+
 const TDD_AGENTS = ["test-writer", "reviewer"];
 // A team name is an agent name that fits `.claude/teams/<name>.md` in 255 characters (decision 032 A).
 const TEAM_NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -153,12 +156,15 @@ function StepEditor({
   onSteps,
   agents,
   archived,
+  view,
   onEditAgent,
 }: {
   steps: TeamStep[];
   onSteps: (next: TeamStep[]) => void;
   agents: Agent[];
   archived: boolean;
+  /** The dialog shows both: it has no switch. */
+  view: "graph" | "list" | "both";
   /** Absent in the dialog: the agent form would open behind it. */
   onEditAgent?: (name: string) => void;
 }) {
@@ -210,25 +216,53 @@ function StepEditor({
     setOpen(agent);
   };
 
+  const addButton = (
+    <button
+      type="button"
+      disabled={archived}
+      onClick={() => {
+        setOpen(null);
+        setAdding(true);
+      }}
+      className={
+        view === "graph"
+          ? `absolute bottom-4 left-4 h-[30px] ${button}`
+          : `mt-3 ${button}`
+      }
+    >
+      + Ajouter une étape
+    </button>
+  );
+
   return (
     <>
-      <Suspense
-        fallback={
-          <p role="status" className="hidden text-muted-foreground sm:block">
-            Chargement du graphe…
-          </p>
-        }
-      >
-        <StepGraph
-          id={uid}
-          steps={steps}
-          agents={agents}
-          selectedLoop={loopShown}
-          onOpen={select}
-          onLink={link}
-          onSelectLoop={setSelectedLoop}
-        />
-      </Suspense>
+      {view !== "list" && (
+        <div
+          className={`${card} relative h-16 sm:h-80 ${view === "both" ? "mt-3" : ""}`}
+        >
+          <Suspense
+            fallback={
+              <p
+                role="status"
+                className="hidden text-muted-foreground sm:block"
+              >
+                Chargement du graphe…
+              </p>
+            }
+          >
+            <StepGraph
+              id={uid}
+              steps={steps}
+              agents={agents}
+              selectedLoop={loopShown}
+              onOpen={select}
+              onLink={link}
+              onSelectLoop={setSelectedLoop}
+            />
+          </Suspense>
+          {view === "graph" && addButton}
+        </div>
+      )}
       {loopShown !== null && (
         <button
           type="button"
@@ -278,56 +312,58 @@ function StepEditor({
           </button>
         </div>
       )}
-      <ul className={`mt-3 ${listCard}`}>
-        {steps.map((s, i) => (
-          <li
-            key={s.agent}
-            className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
-          >
-            <span className="font-semibold">{i + 1}</span>{" "}
-            <span className="font-mono font-semibold">{s.agent}</span>{" "}
-            <span>{s.does}</span>
-            {s.loopTo !== null && (
-              <span className="text-muted-foreground">
-                Boucle vers {s.loopTo} : {s.until}
+      {view !== "graph" && (
+        <ul className={`mt-3 ${listCard}`}>
+          {steps.map((s, i) => (
+            <li
+              key={s.agent}
+              className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
+            >
+              <span className="font-semibold">{i + 1}</span>{" "}
+              <span className="font-mono font-semibold">{s.agent}</span>{" "}
+              <span>{s.does}</span>
+              {s.loopTo !== null && (
+                <span className="text-muted-foreground">
+                  Boucle vers {s.loopTo} : {s.until}
+                </span>
+              )}
+              <span className="flex gap-2 sm:ml-auto">
+                <button
+                  type="button"
+                  id={`${uid}-move-up-${s.agent}`}
+                  disabled={i === 0}
+                  onClick={() => {
+                    setSteps(moveStep(steps, s.agent, "up"));
+                    setMoved({ agent: s.agent, dir: "up" });
+                  }}
+                  className={button}
+                >
+                  Monter
+                </button>
+                <button
+                  type="button"
+                  id={`${uid}-move-down-${s.agent}`}
+                  disabled={i === steps.length - 1}
+                  onClick={() => {
+                    setSteps(moveStep(steps, s.agent, "down"));
+                    setMoved({ agent: s.agent, dir: "down" });
+                  }}
+                  className={button}
+                >
+                  Descendre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => select(s.agent)}
+                  className={button}
+                >
+                  Modifier
+                </button>
               </span>
-            )}
-            <span className="flex gap-2 sm:ml-auto">
-              <button
-                type="button"
-                id={`${uid}-move-up-${s.agent}`}
-                disabled={i === 0}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "up"));
-                  setMoved({ agent: s.agent, dir: "up" });
-                }}
-                className={button}
-              >
-                Monter
-              </button>
-              <button
-                type="button"
-                id={`${uid}-move-down-${s.agent}`}
-                disabled={i === steps.length - 1}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "down"));
-                  setMoved({ agent: s.agent, dir: "down" });
-                }}
-                className={button}
-              >
-                Descendre
-              </button>
-              <button
-                type="button"
-                onClick={() => select(s.agent)}
-                className={button}
-              >
-                Modifier
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
       <p role="status" className="mt-3 empty:hidden">
         {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
       </p>
@@ -363,17 +399,7 @@ function StepEditor({
           onEditAgent={onEditAgent && (() => onEditAgent(openStep.agent))}
         />
       )}
-      <button
-        type="button"
-        disabled={archived}
-        onClick={() => {
-          setOpen(null);
-          setAdding(true);
-        }}
-        className={`mt-3 ${button}`}
-      >
-        Ajouter une étape
-      </button>
+      {view !== "graph" && addButton}
       {adding && (
         <div className={`${card} mt-3 p-4`}>
           <label htmlFor={`${uid}-step-add`} className="block">
@@ -496,6 +522,7 @@ function NewTeamDialog({
           onSteps={(next) => setDraft({ ...draft, steps: next })}
           agents={agents}
           archived={archived}
+          view="both"
         />
       )}
       {problem && <Problem problem={problem} />}
@@ -568,6 +595,7 @@ export function ProjectTeam({
   const [creating, setCreating] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [view, setView] = useState<"graph" | "list">("graph");
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   // Another team or a new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
@@ -639,36 +667,61 @@ export function ProjectTeam({
     setProblem(null);
     setDone(null);
   };
+  const viewSwitch = (
+    <span className="ml-auto flex gap-1.5">
+      {(["graph", "list"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={view === v}
+          onClick={() => setView(v)}
+          className={chip(view === v)}
+        >
+          {v === "graph" ? "Graphe" : "Liste"}
+        </button>
+      ))}
+    </span>
+  );
   const picker = (
     <>
-      <label htmlFor="team-pick" className="mt-3 block">
-        Équipe
-      </label>
-      <select
-        id="team-pick"
-        className={field}
-        value={name ?? ""}
-        // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
-        disabled={commit.isPending}
-        onChange={(e) => {
-          const next = e.target.value || null;
-          if (!dirty) return goTo(next);
-          setCreating(null);
-          setDeleting(false);
-          setSwitchTo(next ?? "");
-        }}
-      >
-        <option value="">Par défaut (team.md)</option>
-        {/* A new team is not in the repo yet. */}
-        {(current === null && name !== null
+      <div className="flex flex-wrap items-center gap-1.5">
+        {[null, ...(current === null && name !== null
           ? [...teams.map((t) => t.name), name]
-          : teams.map((t) => t.name)
-        ).map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
+          : teams.map((t) => t.name))].map((n) => (
+          <button
+            key={n ?? ""}
+            type="button"
+            aria-pressed={name === n}
+            // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
+            disabled={commit.isPending}
+            onClick={() => {
+              if (n === name) return;
+              if (!dirty) return goTo(n);
+              setCreating(null);
+              setDeleting(false);
+              setSwitchTo(n ?? "");
+            }}
+            className={chip(name === n)}
+          >
+            {n ?? "Par défaut"}
+          </button>
         ))}
-      </select>
+        <button
+          type="button"
+          disabled={archived || commit.isPending}
+          onClick={() => {
+            setSwitchTo(null);
+            setDeleting(false);
+            setProblem(null);
+            setDone(null);
+            setCreating(initial ?? { steps: DEFAULT_STEPS, body: "" });
+          }}
+          className={`${chip(false)} border-transparent`}
+        >
+          Nouvelle équipe
+        </button>
+        {viewSwitch}
+      </div>
       {switchTo !== null && (
         <div className="mt-3">
           <p id="switch-team-warning">
@@ -704,36 +757,6 @@ export function ProjectTeam({
           </code>
         </p>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={archived || commit.isPending}
-          onClick={() => {
-            setSwitchTo(null);
-            setDeleting(false);
-            setProblem(null);
-            setDone(null);
-            setCreating(initial ?? { steps: DEFAULT_STEPS, body: "" });
-          }}
-          className={button}
-        >
-          Nouvelle équipe
-        </button>
-        {name !== null && current !== null && !deleting && (
-          <button
-            type="button"
-            disabled={archived || commit.isPending}
-            onClick={() => {
-              setSwitchTo(null);
-              setCreating(null);
-              setDeleting(true);
-            }}
-            className={button}
-          >
-            Supprimer l'équipe
-          </button>
-        )}
-      </div>
       {creating && (
         <NewTeamDialog
           start={creating}
@@ -756,6 +779,10 @@ export function ProjectTeam({
           }}
         />
       )}
+    </>
+  );
+  const deleteBlock = (
+    <>
       {deleting && (
         <div className="mt-3">
           <p id="delete-team-warning">

@@ -6,6 +6,7 @@ import { STEPS, ticketError } from "./tickets.ts";
 import {
   alertBox,
   button,
+  card,
   field,
   focusRing,
   listCard,
@@ -48,11 +49,11 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
   });
 
   return (
-    <section className="mx-[26px] mt-6" aria-labelledby="tickets">
-      <h2 id="tickets" className={sectionLabel}>
+    <section className="mx-[26px] mt-4" aria-labelledby="tickets">
+      <h2 id="tickets" className="sr-only">
         Tickets
       </h2>
-      <div className="mt-3" aria-live="polite">
+      <div aria-live="polite">
         {tickets.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
         )}
@@ -83,13 +84,16 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
                 key={ticket.id}
                 className="flex min-h-[50px] items-center gap-3.5 px-4 py-2 hover:bg-raised"
               >
-                <span aria-hidden="true" className="w-4 text-dim">
+                <span
+                  aria-hidden="true"
+                  className="w-6 text-center text-[13px] font-bold text-dim"
+                >
                   ✎
                 </span>
                 <div className="min-w-0 flex-1">
                   <Link
                     to={`/tickets/${ticket.id}`}
-                    className={`block font-bold hover:underline ${focusRing}`}
+                    className={`block font-semibold hover:underline ${focusRing}`}
                   >
                     {ticket.title}
                   </Link>
@@ -103,7 +107,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
         )}
       </div>
       <form
-        className="mt-6"
+        className={`mt-6 max-w-2xl px-[18px] py-4 ${card}`}
         onSubmit={(event) => {
           event.preventDefault();
           create.mutate();
