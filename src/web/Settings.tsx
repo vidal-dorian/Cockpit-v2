@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { NavLink } from "react-router";
 import { client } from "./api.ts";
-import { ConnectClaude } from "./ConnectClaude.tsx";
-import { RoutineSettings } from "./RoutineSettings.tsx";
-import { Tokens } from "./SettingsTokens.tsx";
+import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
+import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
+import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -73,13 +73,27 @@ function UserList() {
         {users.data.map((user) => (
           <li
             key={user.id}
-            className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-[18px] py-2"
+            className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
           >
-            <span className="font-semibold">{user.login}</span>
-            {user.isAdmin && (
-              <span className="text-muted-foreground">Administrateur</span>
-            )}
-            {user.blockedAt && <span className="text-destructive">Bloqué</span>}
+            <span aria-hidden="true" className="w-6 text-center text-dim">
+              ●
+            </span>
+            <span className="min-w-0 grow">
+              <span className="block font-semibold">{user.login}</span>
+              <span className="block text-[12.5px] text-muted-foreground">
+                {user.isAdmin ? (
+                  <span>Administrateur</span>
+                ) : (
+                  `inscrit le ${day(user.createdAt)}`
+                )}
+                {user.blockedAt && (
+                  <>
+                    {" · "}
+                    <span className="text-destructive">Bloqué</span>
+                  </>
+                )}
+              </span>
+            </span>
             <span className="flex gap-2 sm:ml-auto">
               {user.isAdmin ? null : user.blockedAt ? (
                 <button
@@ -136,17 +150,13 @@ function UserList() {
   );
 }
 
-type SettingsTab = "claude" | "jetons" | "utilisateurs" | "ecriture-us";
+type SettingsTab = "claude" | "utilisateurs" | "ecriture-us";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
 const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
   claude: {
     title: "Connecte Claude à Cockpit.",
     rest: "Une seule fois, sur claude.ai ; ça marche ensuite partout.",
-  },
-  jetons: {
-    title: "Les jetons MCP lient un client à ton compte.",
-    rest: "Pour un client sans connexion OAuth.",
   },
   "ecriture-us": {
     title: "Une tâche de Claude écrit tes US.",
@@ -158,16 +168,57 @@ const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
   },
 };
 
+/** The state sentence of the entry: told from the data when the page has it, the static one while it loads. */
+function useSentence(tab: SettingsTab, isAdmin: boolean) {
+  const on = (t: SettingsTab) => tab === t;
+  const connect = useQuery({
+    queryKey: ["connect"],
+    queryFn: fetchConnect,
+    enabled: on("claude"),
+  });
+  const routine = useQuery({
+    queryKey: ["routine"],
+    queryFn: fetchRoutine,
+    enabled: on("ecriture-us"),
+  });
+  const users = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+    enabled: on("utilisateurs") && isAdmin,
+  });
+  if (tab === "utilisateurs" && !isAdmin)
+    return { title: "L'instance est gérée par son administrateur." };
+  if (tab === "claude" && connect.data?.connected && connect.data.connectedAt)
+    return {
+      title: "Claude est connecté à Cockpit.",
+      rest: `Depuis ${connect.data.client}, le ${day(connect.data.connectedAt)}.`,
+    };
+  if (tab === "ecriture-us" && routine.data?.connected)
+    return routine.data.needsReconnect
+      ? {
+          title: "La tâche de Claude est à reconnecter.",
+          rest: "claude.ai a refusé son jeton.",
+        }
+      : {
+          title: "La tâche de Claude est reliée.",
+          rest: "Elle écrit tes US, lancée par Cockpit.",
+        };
+  if (tab === "utilisateurs" && users.data)
+    return {
+      title: SENTENCES.utilisateurs.title,
+      rest: `${users.data.length} compte${users.data.length > 1 ? "s" : ""} · inscription ouverte à tout compte GitHub.`,
+    };
+  return SENTENCES[tab];
+}
+
 // The left menu of 045 I: only the entries whose slice is built.
 const menuItem = ({ isActive }: { isActive: boolean }) =>
   `flex h-8 items-center rounded-[9px] px-2.5 text-sm font-semibold ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
-const subMenuItem = ({ isActive }: { isActive: boolean }) =>
-  `${menuItem({ isActive })} pl-[22px] text-[13.5px] font-medium`;
-
 /** Réglages: a menu on the left, one entry per page (decisions 028 H and 045 I); Instance is the administrator's. */
 export function Settings({ tab }: { tab: SettingsTab }) {
   // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  const sentence = useSentence(tab, me.data?.isAdmin === true);
   if (me.isPending)
     return <p className="p-4 text-muted-foreground">Chargement…</p>;
   if (me.isError)
@@ -186,18 +237,11 @@ export function Settings({ tab }: { tab: SettingsTab }) {
   return (
     <main>
       <Breadcrumb trail={[{ label: "Réglages" }]} />
-      <StateSentence
-        {...(tab === "utilisateurs" && !me.data?.isAdmin
-          ? { title: "L'instance est gérée par son administrateur." }
-          : SENTENCES[tab])}
-      />
+      <StateSentence {...sentence} />
       <div className="grid gap-[22px] px-[26px] pt-5 pb-6 md:grid-cols-[180px_minmax(0,1fr)]">
         <nav aria-label="Réglages" className="flex flex-col gap-0.5">
           <NavLink to="/reglages" end className={menuItem}>
             Connecter Claude
-          </NavLink>
-          <NavLink to="/reglages/jetons" className={subMenuItem}>
-            Jetons MCP
           </NavLink>
           <NavLink to="/reglages/ecriture-us" className={menuItem}>
             Tâches cloud
@@ -209,11 +253,13 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           )}
         </nav>
         <div className="min-w-0">
-          {tab === "claude" && <ConnectClaude />}
-          {tab === "jetons" && (
-            <section aria-labelledby="jetons">
-              <Tokens />
-            </section>
+          {tab === "claude" && (
+            <div className="grid gap-[22px]">
+              <ConnectClaude />
+              <section aria-labelledby="jetons">
+                <Tokens />
+              </section>
+            </div>
           )}
           {tab === "utilisateurs" &&
             (me.data?.isAdmin ? (

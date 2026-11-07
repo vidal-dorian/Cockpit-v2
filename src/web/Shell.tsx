@@ -8,6 +8,10 @@ import { badge, focusRing, kbd } from "./ui.ts";
 
 // The shell of decision 045 F (sidebar, idea bar) and the pieces every page builds on (state sentence, breadcrumb, right panel, dot).
 
+/** « dorian/GestionProjet » shown as « GestionProjet »: the mockups never show the owner. */
+export const repoName = (fullName: string) =>
+  fullName.split("/").pop() ?? fullName;
+
 export async function fetchHealth() {
   const res = await client.api.health.$get();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -128,14 +132,17 @@ const arrowButton = `${squareButton} size-[30px]`;
 /**
  * The right panel (380 px, fixed on lg+; `<main>` makes room for it, below lg it follows the content).
  * `label` names it, `badge` is the pill on the left of the header, `counter` adds « i sur n » with Précédent and Suivant (`index` starts at 0, `words` says them otherwise),
+ * `meta` is a muted label on the right of the header (S24: « Développer avec Claude »),
  * `footer` is pinned at the bottom (the white button of the panel: `panelPrimaryButton`).
  */
 export function Panel({
   label,
   badge: badgeNode,
   counter,
+  meta,
   children,
   footer,
+  onKeyDown,
 }: {
   label: string;
   badge?: React.ReactNode;
@@ -147,17 +154,24 @@ export function Panel({
     /** The words of a counter that is not « i sur n » with Précédent and Suivant: the text before the arrows and the names of the two arrows (« à relire », « Précédente », « Suivante »). */
     words?: { count: string; previous: string; next: string };
   };
+  meta?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Keys pressed inside the panel (a shortcut that must not fire from the rest of the page). */
+  onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
 }) {
   return (
     <aside
       data-panel
+      onKeyDown={onKeyDown}
       aria-label={label}
       className="flex flex-col gap-3.5 border-t border-border bg-sunken p-[22px] lg:fixed lg:inset-y-0 lg:right-0 lg:z-10 lg:w-[380px] lg:overflow-y-auto lg:border-t-0 lg:border-l"
     >
       <div className="flex items-center justify-between gap-2">
         <div>{badgeNode}</div>
+        {meta && (
+          <span className="text-[13px] text-muted-foreground">{meta}</span>
+        )}
         {counter && (
           <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
             <span>
@@ -251,7 +265,7 @@ export function Sidebar() {
               className={subItem}
             >
               <Dot tone={p.id === firstProject ? "you" : "none"} />
-              {p.name.split("/").pop()}
+              {repoName(p.name)}
               {count > 0 && <span className={`${badge} ml-auto`}>{count}</span>}
             </NavLink>
           );
@@ -275,44 +289,40 @@ export function Sidebar() {
           Réglages
         </NavLink>
         {me && (
-          <>
-            <div className="flex items-center gap-2.5 px-2.5 py-1">
-              {me.avatarUrl ? (
-                <img
-                  src={me.avatarUrl}
-                  alt=""
-                  className="size-6 rounded-full"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
-                >
-                  {(me.name ?? me.login).charAt(0)}
-                </span>
-              )}
-              <span className="min-w-0 flex-1 truncate font-semibold">
-                {me.name ?? me.login}
+          <div className="flex items-center gap-2.5 px-2.5 py-1">
+            {me.avatarUrl ? (
+              <img src={me.avatarUrl} alt="" className="size-6 rounded-full" />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
+              >
+                {(me.name ?? me.login).charAt(0)}
               </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
-              className={`ml-[34px] self-start rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-dim hover:text-foreground disabled:opacity-50 ${focusRing}`}
-            >
-              Se déconnecter
-            </button>
-          </>
+            )}
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              {me.name ?? me.login}
+            </span>
+          </div>
         )}
         {logout.isError && (
           <p role="alert" className="px-2.5 text-destructive">
             La déconnexion a échoué, réessaie.
           </p>
         )}
-        {health.data && (
-          <p className="mt-2 px-2.5 text-[11.5px] text-dim">{`Cockpit v${health.data.version}`}</p>
-        )}
+        <div className="mt-1 flex items-center justify-between px-2.5 text-[11.5px] text-dim">
+          {me && (
+            <button
+              type="button"
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className={`rounded-md hover:text-foreground disabled:opacity-50 ${focusRing}`}
+            >
+              Se déconnecter
+            </button>
+          )}
+          {health.data && <span>{`Cockpit v${health.data.version}`}</span>}
+        </div>
       </div>
     </aside>
   );
@@ -362,7 +372,7 @@ export function IdeaBar() {
       // Typing went on while it was sending: keep what is in the field now.
       setTitle((current) => (current.trim() === sent.title ? "" : current));
       setDone(
-        `Idée notée dans ${projects.find((p) => String(p.id) === sent.id)?.name}.`,
+        `Idée notée dans ${repoName(projects.find((p) => String(p.id) === sent.id)?.name ?? "")}.`,
       );
       for (const queryKey of [
         ["tickets", sent.id],
@@ -423,7 +433,7 @@ export function IdeaBar() {
         >
           {projects.map((p) => (
             <option key={p.id} value={p.id} className="bg-card">
-              {p.name}
+              {repoName(p.name)}
             </option>
           ))}
         </select>

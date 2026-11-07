@@ -1,15 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { parseTeam } from "../server/team.ts";
 import { client } from "./api.ts";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
-import {
-  badge,
-  field,
-  ghostButton,
-  panelButton,
-  panelPrimaryButton,
-} from "./ui.ts";
+import { badge, field, ghostButton, kbd, panelPrimaryButton } from "./ui.ts";
 
 // Mirror of BRANCH in src/server/mcp.ts (decision 033 B), `..` being refused next to it.
 const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
@@ -49,7 +44,11 @@ async function fetchBranches(id: string) {
 async function fetchTeams(id: string) {
   const res = await client.api.projects[":id"].agents.$get({ param: { id } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).teams.map((team) => team.name);
+  const body = await res.json();
+  return {
+    names: body.teams.map((team) => team.name),
+    steps: body.team ? parseTeam(body.team) : null,
+  };
 }
 
 /** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
@@ -108,11 +107,17 @@ export function DevelopWindow({
     (b) => b !== project.defaultBranch && validBranch(b),
   );
   const pending = story.dependsOn.filter((d) => d.status !== "done");
-  const label = "block font-semibold";
-
+  const label = "block text-[13px] font-semibold";
+  const hint = "text-[12.5px] text-muted-foreground";
+  const launchRef = useRef<HTMLAnchorElement>(null);
   return (
     <Panel
       label="Développer avec Claude"
+      // Ctrl+Enter launches from the panel, as decision 003 (7) lists and the button shows.
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid)
+          launchRef.current?.click();
+      }}
       badge={
         <span className={badge}>
           <span className="inline-block first-letter:uppercase">
@@ -120,9 +125,20 @@ export function DevelopWindow({
           </span>
         </span>
       }
+      meta={
+        <h2
+          id="develop-title"
+          ref={headingRef}
+          tabIndex={-1}
+          className="focus:outline-none"
+        >
+          Développer avec Claude
+        </h2>
+      }
       footer={
         <>
           <a
+            ref={launchRef}
             className={`${panelPrimaryButton} aria-disabled:opacity-50`}
             {...(valid
               ? {
@@ -139,10 +155,16 @@ export function DevelopWindow({
               : { "aria-disabled": true, role: "link" })}
           >
             <span>Lancer Claude</span>
+            <span
+              aria-hidden="true"
+              className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+            >
+              Ctrl Entrée
+            </span>
           </a>
           <button
             type="button"
-            className={panelButton}
+            className={ghostButton}
             disabled={!branchValid || !promptValid}
             onClick={() =>
               navigator.clipboard
@@ -169,51 +191,35 @@ export function DevelopWindow({
         </>
       }
     >
-      <h2
-        id="develop-title"
-        ref={headingRef}
-        tabIndex={-1}
-        className="text-xl leading-snug font-semibold"
-      >
-        Développer avec Claude
-      </h2>
+      <p className="text-lg font-semibold">Où Claude doit-il travailler ?</p>
+      {/* The only place that exists (decision 045, slices 14.1 and 14.6 add the others). */}
+      <div className="flex items-start gap-2.5 rounded-xl border border-foreground bg-raised px-3 py-2.5">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 size-3.5 flex-none rounded-full border-4 border-foreground"
+        />
+        <span>
+          <b className="block text-[13.5px] font-semibold">
+            Sur ce PC, avec Claude Desktop
+          </b>
+          <span className={hint}>Tu suis Claude en direct dans ton clone.</span>
+        </span>
+      </div>
       {story.branch ? (
-        <p>
-          <span className="font-semibold">Branche</span> {story.branch}
-        </p>
+        <div className="grid gap-1.5">
+          <b className={label}>Branche</b>
+          <span className={`${field} mt-0 font-mono text-[12.5px]`}>
+            {story.branch}
+          </span>
+        </div>
       ) : (
-        <fieldset className="grid gap-2">
-          <legend className="font-semibold">Branche</legend>
-          <label>
-            <input
-              type="radio"
-              name="branch-mode"
-              checked={mode === "new"}
-              onChange={() => setMode("new")}
-            />{" "}
-            Nouvelle branche
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="branch-mode"
-              checked={mode === "existing"}
-              disabled={!branches.data}
-              onChange={() => setMode("existing")}
-            />{" "}
-            Branche existante
-          </label>
-          {branches.isError && (
-            <p className="text-muted-foreground">
-              Impossible de lire les branches du dépôt : seule une nouvelle
-              branche est possible.
-            </p>
-          )}
+        <fieldset className="grid gap-1.5">
+          <legend className={`${label} mb-1.5`}>Branche</legend>
           {mode === "new" ? (
-            <label className={label}>
-              Nom de la branche
+            <>
               <input
-                className={field}
+                aria-label="Nom de la branche"
+                className={`${field} mt-0 font-mono text-[12.5px]`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -222,9 +228,12 @@ export function DevelopWindow({
                   Nom de branche invalide
                 </span>
               )}
-            </label>
+              <small className={hint}>
+                Créée par Claude depuis {project.defaultBranch ?? "main"}.
+              </small>
+            </>
           ) : (
-            <label className={label}>
+            <label className="sr-only">
               Branche existante
               <select
                 className={field}
@@ -240,14 +249,41 @@ export function DevelopWindow({
               </select>
             </label>
           )}
+          <div className={`mt-1 flex gap-4 ${hint}`}>
+            <label>
+              <input
+                type="radio"
+                name="branch-mode"
+                checked={mode === "new"}
+                onChange={() => setMode("new")}
+              />{" "}
+              Nouvelle branche
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="branch-mode"
+                checked={mode === "existing"}
+                disabled={!branches.data}
+                onChange={() => setMode("existing")}
+              />{" "}
+              Branche existante
+            </label>
+          </div>
+          {branches.isError && (
+            <p className={hint}>
+              Impossible de lire les branches du dépôt : seule une nouvelle
+              branche est possible.
+            </p>
+          )}
         </fieldset>
       )}
       {teams.isError && (
-        <p className="text-muted-foreground">
+        <p className={hint}>
           Impossible de lire les équipes : l'équipe par défaut sera utilisée.
         </p>
       )}
-      {teams.data && teams.data.length > 0 && (
+      {teams.data && teams.data.names.length > 0 ? (
         <label className={label}>
           Équipe
           <select
@@ -256,13 +292,22 @@ export function DevelopWindow({
             onChange={(e) => setTeam(e.target.value)}
           >
             <option value="">Par défaut</option>
-            {teams.data.map((t) => (
+            {teams.data.names.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
           </select>
         </label>
+      ) : (
+        teams.data?.steps && (
+          <div className="grid gap-1.5">
+            <b className={label}>Équipe</b>
+            <span className={`${field} mt-0`}>
+              Par défaut · {teams.data.steps.join(" → ")}
+            </span>
+          </div>
+        )
       )}
       <div>
         <label className={label}>
@@ -275,16 +320,18 @@ export function DevelopWindow({
             onChange={(e) => setFolder(e.target.value)}
           />
         </label>
-        <details className="mt-2">
+        <details className={`mt-2 ${hint}`}>
           <summary>Pas encore cloné ?</summary>
           <code>git clone https://github.com/{project.fullName}.git</code>
         </details>
       </div>
       <label className={label}>
-        Prompt complémentaire
+        Consigne en plus{" "}
+        <span className="font-medium text-muted-foreground">· facultatif</span>
         <textarea
+          aria-label="Prompt complémentaire"
           className={field}
-          rows={4}
+          rows={3}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
@@ -294,29 +341,24 @@ export function DevelopWindow({
           </span>
         )}
       </label>
-      {pending.length > 0 && (
-        <div>
-          <p className="font-semibold">Dépendances pas encore terminées</p>
-          <ul>
-            {pending.map((d) => (
-              <li key={d.id}>
-                {d.iWant} ({STORY_STATUSES[d.status] ?? d.status})
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p>
+      {pending.map((d) => (
+        <p key={d.id} className={hint}>
+          ⚠ Dépend de l'US {d.id} ({d.iWant}),{" "}
+          {STORY_STATUSES[d.status] ?? d.status}. Claude peut commencer quand
+          même.
+        </p>
+      ))}
+      <p className={hint}>
         Mode conseillé dans Claude Desktop : « Accepter les modifications ».
       </p>
-      <p>
+      <p className={hint}>
         Claude Desktop va s'ouvrir. Confirme le dossier, puis appuie sur Entrée.
       </p>
       {!valid && cleanFolder === "" && (
-        <p>Indique le dossier du clone pour lancer Claude.</p>
+        <p className={hint}>Indique le dossier du clone pour lancer Claude.</p>
       )}
       {!story.branch && mode === "existing" && existing === "" && (
-        <p>Choisis une branche existante.</p>
+        <p className={hint}>Choisis une branche existante.</p>
       )}
     </Panel>
   );

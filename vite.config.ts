@@ -8,7 +8,10 @@ export default defineConfig({
   build: { outDir: "../../dist/web", emptyOutDir: true },
   // In development, Vite serves the page and forwards API calls to the Node server.
   // The Host header stays the page's (localhost:5173): the setup wizard detects its address from it (decision 028 J).
+  // A regex, not the prefix "/api": the prefix also caught the page's own module /api.ts (blank page).
   server: {
-    proxy: { "/api": { target: "http://localhost:3000", changeOrigin: false } },
+    proxy: {
+      "^/api/": { target: "http://localhost:3000", changeOrigin: false },
+    },
   },
 });

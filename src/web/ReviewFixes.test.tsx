@@ -36,7 +36,7 @@ describe("review of slice 9.3: the idea bar", () => {
   it("given a project chosen on a project page, when I go to the page of another project, then the bar follows that page", async () => {
     stubShell({ projects });
     renderAt("/projets/5");
-    await screen.findByRole("option", { name: "octocat/world" });
+    await screen.findByRole("option", { name: "world" });
     fireEvent.change(await select(), { target: { value: "8" } });
 
     fireEvent.click(await screen.findByRole("link", { name: "octocat/third" }));
@@ -60,7 +60,7 @@ describe("review of slice 9.3: the idea bar", () => {
       }),
     );
     renderAt("/");
-    await screen.findByRole("option", { name: "octocat/world" });
+    await screen.findByRole("option", { name: "world" });
     fireEvent.change(await field(), { target: { value: "première" } });
 
     fireEvent.click(await send());

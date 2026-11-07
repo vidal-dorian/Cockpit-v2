@@ -43,12 +43,16 @@ describe("criterion 9: the runs on the story page", () => {
     );
     const links = within(main())
       .getAllByRole("link")
-      .filter((a) => /^\/runs\//.test(a.getAttribute("href") ?? ""));
+      .filter(
+        (a) =>
+          /^\/runs\//.test(a.getAttribute("href") ?? "") &&
+          !/Voir le run/.test(a.textContent ?? ""),
+      );
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
       "/runs/31",
       "/runs/30",
     ]);
-    expect(links[0]?.textContent).toContain("En cours");
-    expect(links[1]?.textContent).toContain("Échoué");
+    expect(links[0]?.textContent).toContain("en cours");
+    expect(links[1]?.textContent).toContain("échoué");
   });
 });

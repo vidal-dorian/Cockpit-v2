@@ -102,7 +102,10 @@ describe("Journal page", () => {
     expect(login).not.toBe(logout);
     expect(within(login as HTMLElement).getByText("Réussie")).toBeDefined();
     expect(within(logout as HTMLElement).getByText("Réussie")).toBeDefined();
-    expect(login?.textContent).toMatch(/2026/);
+    // The date is the heading of the day group, the row shows the time.
+    expect(login?.closest("section")?.getAttribute("aria-label")).toMatch(
+      /2026/,
+    );
   });
 
   it("given entries for a token creation and a revocation, when /journal loads, then the rows read Jeton créé and Jeton révoqué", async () => {

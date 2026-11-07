@@ -3,12 +3,10 @@ import { client } from "./api.ts";
 import { StateSentence } from "./Shell.tsx";
 import {
   alertBox,
-  badge,
   button,
   listCard,
   primaryButton,
   sectionLabel,
-  urgentBadge,
 } from "./ui.ts";
 
 /** A page of the caller's entries (25), the one after the entry `before`; null when the server answers 401. */
@@ -88,13 +86,15 @@ const ORIGINS: Record<string, string> = {
   webhook: "GitHub",
   system: "Cockpit",
 };
+const tagShape = "rounded-[5px] px-2 py-1 text-xs font-semibold";
+const tag = `${tagShape} bg-raised text-muted-foreground`;
 // The word always comes with the style, so the result never relies on color alone (decision 003); only an error is red (045 C).
 export const RESULTS: Record<string, { label: string; style: string }> = {
-  ok: { label: "Réussie", style: badge },
-  refused: { label: "Refusée", style: badge },
+  ok: { label: "Réussie", style: tag },
+  refused: { label: "Refusée", style: tag },
   error: {
     label: "Erreur",
-    style: urgentBadge,
+    style: `${tagShape} bg-you-soft text-you-text`,
   },
 };
 
@@ -102,35 +102,73 @@ type Entry = NonNullable<
   Awaited<ReturnType<typeof fetchHistory>>
 >["entries"][number];
 
-/** A row of the journal: in a `listCard` on the journal page, laid down as its own card in a `grid` list (the home). */
-export function JournalEntry({ entry }: { entry: Entry }) {
+// The glyph of the row: what failed, else who acted.
+const GLYPHS: Record<string, string> = {
+  mcp: "✦",
+  ui: "●",
+  webhook: "⇄",
+  system: "⟳",
+};
+
+const dayLabel = (at: string) => {
+  const day = (d: Date) => d.toLocaleDateString("fr-FR");
+  const date = new Date(at);
+  const now = new Date();
+  if (day(date) === day(now)) return "Aujourd'hui";
+  if (day(date) === day(new Date(now.getTime() - 86_400_000))) return "Hier";
+  return day(date);
+};
+
+/** A row of the journal: in a `listCard` on the journal page, laid down as its own card in a `grid` list (the home). The page shows the time only: its day group has the date. */
+export function JournalEntry({
+  entry,
+  timeOnly = false,
+}: {
+  entry: Entry;
+  timeOnly?: boolean;
+}) {
   const result = RESULTS[entry.result];
+  const at = new Date(entry.at);
   return (
-    <li className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 [.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card">
-      <div className="min-w-0 flex-1">
-        <span className="block font-semibold">
-          {ACTIONS[entry.action] ??
-            (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
-          {"event" in entry && ` (${entry.event})`}
-        </span>
-        <p className="text-[13px] text-muted-foreground">
-          <span>{ORIGINS[entry.origin] ?? entry.origin}</span>
-          {entry.project && (
-            <>
-              <span aria-hidden="true"> · </span>
-              <span>{entry.project}</span>
-            </>
-          )}
-        </p>
+    <li className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-[18px] py-2 [.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card">
+      <div
+        aria-hidden="true"
+        className="text-center text-[13px] font-bold text-dim"
+      >
+        {entry.result === "ok" ? (GLYPHS[entry.origin] ?? "●") : "✕"}
       </div>
-      <span className={result?.style ?? badge}>
+      <div className="min-w-0">
+        <p className="truncate font-semibold">
+          {/* The label stays the first span of the row. */}
+          <b className="font-semibold">
+            {ORIGINS[entry.origin] ?? entry.origin}
+          </b>
+          ·{" "}
+          <span>
+            {ACTIONS[entry.action] ??
+              (entry.origin === "mcp" ? "Outil inconnu" : entry.action)}
+            {"event" in entry && ` (${entry.event})`}
+          </span>
+        </p>
+        {entry.project && (
+          <span className="block truncate text-[12.5px] font-medium text-muted-foreground">
+            {entry.project}
+          </span>
+        )}
+      </div>
+      <span className={result?.style ?? tag}>
         {result?.label ?? entry.result}
       </span>
       <time
         dateTime={entry.at}
-        className="text-[13px] text-muted-foreground tabular-nums"
+        className="min-w-[50px] text-right text-[12.5px] text-muted-foreground tabular-nums"
       >
-        {new Date(entry.at).toLocaleString("fr-FR")}
+        {timeOnly
+          ? at.toLocaleTimeString("fr-FR", {
+              hour: "numeric",
+              minute: "2-digit",
+            })
+          : at.toLocaleString("fr-FR")}
       </time>
     </li>
   );
@@ -146,6 +184,15 @@ export function Journal() {
       last?.hasMore ? last.entries.at(-1)?.id : undefined,
   });
   const entries = pages.data?.pages.flatMap((page) => page?.entries ?? []);
+  // Grouped by day from the dates already read, in the order of the journal.
+  const grouped = new Map<string, NonNullable<typeof entries>>();
+  for (const entry of entries ?? []) {
+    const day = dayLabel(entry.at);
+    const rows = grouped.get(day) ?? [];
+    rows.push(entry);
+    grouped.set(day, rows);
+  }
+  const days = [...grouped.entries()];
   const signedOut = pages.data?.pages[0] === null;
 
   return (
@@ -154,7 +201,7 @@ export function Journal() {
         title="Tout ce qui s'est passé, par qui."
         rest="Rien ne s'efface ; chaque appel de Claude y est."
       />
-      <div className="mt-6 px-[26px] pb-8" aria-live="polite">
+      <div className="mt-5 px-[26px] pb-8" aria-live="polite">
         {pages.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
         )}
@@ -180,17 +227,22 @@ export function Journal() {
         )}
         {entries && entries.length > 0 && (
           <>
-            <div className="mb-2 flex items-baseline gap-2 text-[13px] text-muted-foreground">
-              <h2 className={sectionLabel}>Journal</h2>
-              <span>
-                · {entries.length} {entries.length === 1 ? "entrée" : "entrées"}
-              </span>
-            </div>
-            <ul className={listCard}>
-              {entries.map((entry) => (
-                <JournalEntry key={entry.id} entry={entry} />
-              ))}
-            </ul>
+            <h2 className="sr-only">Journal</h2>
+            {days.map(([day, rows]) => (
+              <section key={day} className="mb-5" aria-label={day}>
+                <div className="mb-2 flex items-center gap-2">
+                  <h3 className={sectionLabel}>{day}</h3>
+                  <span className="text-[12.5px] text-muted-foreground">
+                    · {rows.length} {rows.length === 1 ? "entrée" : "entrées"}
+                  </span>
+                </div>
+                <ul className={listCard}>
+                  {rows.map((entry) => (
+                    <JournalEntry key={entry.id} entry={entry} timeOnly />
+                  ))}
+                </ul>
+              </section>
+            ))}
             {pages.isFetchNextPageError && (
               <div role="alert" className={`mt-3 ${alertBox}`}>
                 <p>Impossible de lire la suite du journal.</p>

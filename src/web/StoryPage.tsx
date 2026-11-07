@@ -4,12 +4,14 @@ import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
-import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { fetchRun } from "./RunPage.tsx";
+import { RunVerdict } from "./RunVerdict.tsx";
+import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
-import { CRITERION_RESULTS, RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
+import { RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
   badge,
@@ -23,6 +25,18 @@ import {
 } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
 
+/** The verdict of the latest run of a story in review (decision 039 E), the same as on the page of the run. */
+function StoryVerdict({ runId }: { runId: number }) {
+  const run = useQuery({
+    queryKey: ["run", String(runId)],
+    queryFn: () => fetchRun(String(runId)),
+  });
+  const data = typeof run.data === "object" ? run.data : null;
+  return data?.verdict ? (
+    <RunVerdict verdict={data.verdict} criteria={data.criteria} />
+  ) : null;
+}
+
 /** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
 async function fetchStory(id: string) {
   const res = await client.api.stories[":id"].$get({ param: { id } });
@@ -33,13 +47,14 @@ async function fetchStory(id: string) {
 }
 
 const label = "font-semibold text-foreground";
+const value = "text-muted-foreground";
 
 /** What the state of a story says, the status word included (the title of the page is the story, this is the rest of the sentence). */
 function stateSentence(status: string, prNumber: number | null) {
   const word = STORY_STATUSES[status] ?? status;
   switch (status) {
     case "to_validate":
-      return `Écrite par Claude, ${word} : attend ta validation.`;
+      return "Écrite par Claude · attend ta validation.";
     case "to_rewrite":
       return `Renvoyée à Claude, ${word} : il la réécrit avec ton commentaire.`;
     case "ready":
@@ -52,6 +67,16 @@ function stateSentence(status: string, prNumber: number | null) {
       return `Elle est ${word}.`;
   }
 }
+
+const hour = (iso: string) =>
+  new Date(iso).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+/** « 7 nov., 09:30 → 10:30 »: when a run started and ended. */
+const runSpan = (run: { startedAt: string; finishedAt: string | null }) =>
+  `${new Date(run.startedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}, ${hour(run.startedAt)}${run.finishedAt ? ` → ${hour(run.finishedAt)}` : ""}`;
 
 const Section = ({
   title,
@@ -81,6 +106,12 @@ export function StoryPage() {
     found && found.story.prNumber != null
       ? { ...found.story, prNumber: found.story.prNumber }
       : null;
+  const latestRun = found
+    ? found.story.runs?.reduce<{ id: number } | undefined>(
+        (best, run) => (!best || run.id > best.id ? run : best),
+        undefined,
+      )
+    : undefined;
   const github = pr && found && (
     <StoryGitHub story={pr} fullName={found.project.fullName} />
   );
@@ -127,7 +158,7 @@ export function StoryPage() {
               trail={[
                 { label: "Projets", to: "/projets" },
                 {
-                  label: found.project.fullName,
+                  label: repoName(found.project.fullName),
                   to: `/projets/${found.project.id}`,
                 },
                 {
@@ -163,15 +194,13 @@ export function StoryPage() {
               />
             )}
             <div className="grid gap-3 px-[26px] pt-[22px]">
-              <p
-                className={`${card} px-[18px] py-4 text-[15px] leading-relaxed`}
-              >
+              <p className={`${card} px-[18px] py-4 text-[15px] leading-[1.6]`}>
                 <span className={label}>En tant que</span>{" "}
-                <span>{found.story.asA}</span>,{" "}
+                <span className={value}>{found.story.asA}</span>,{" "}
                 <span className={label}>je veux</span>{" "}
-                <span>{found.story.iWant}</span>{" "}
+                <span className={value}>{found.story.iWant}</span>{" "}
                 <span className={label}>afin de</span>{" "}
-                <span>{found.story.soThat}</span>
+                <span className={value}>{found.story.soThat}</span>
               </p>
               {found.story.status === "to_rewrite" &&
                 found.story.rewriteComment && (
@@ -186,15 +215,31 @@ export function StoryPage() {
                 )}
             </div>
             <section className="px-[26px] pt-3">
-              <h2 className="sr-only">Critères</h2>
+              <h2
+                className={`mb-2 flex items-baseline gap-2 ${found.story.criteria.some((k) => k.result) ? "" : "sr-only"}`}
+              >
+                <span className={sectionLabel}>Les critères</span>
+                {found.story.criteria.some((k) => k.result) && (
+                  <span className="text-[12.5px] text-muted-foreground">
+                    · résultat de Claude, avec la preuve
+                  </span>
+                )}
+              </h2>
               <ol className="grid gap-3">
                 {found.story.criteria.map((criterion, index) => (
-                  <li key={criterion.id} className={`${card} px-4 py-3.5`}>
+                  <li
+                    key={criterion.id}
+                    className={`${card} px-3.5 py-3 text-[13.5px] leading-normal`}
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <p className={sectionLabel}>Critère {index + 1}</p>
                       {criterion.result && (
-                        <span className={badge}>
-                          {CRITERION_RESULTS[criterion.result]}
+                        <span className="ml-auto max-w-[70%] truncate rounded-[5px] bg-raised px-2 py-1 text-xs font-semibold text-muted-foreground">
+                          {criterion.result === "passed"
+                            ? "✓ passe"
+                            : "✕ échoue"}
+                          {criterion.evidence &&
+                            ` · ${criterion.evidence.split("\n")[0]}`}
                         </span>
                       )}
                     </div>
@@ -205,13 +250,15 @@ export function StoryPage() {
                     )}
                     <p className="mt-1.5 leading-relaxed">
                       <span className={label}>Étant donné</span>{" "}
-                      {criterion.given}
+                      <span className={value}>{criterion.given}</span>
                     </p>
-                    <p className="leading-relaxed">
-                      <span className={label}>Quand</span> {criterion.when}
+                    <p className="mt-1">
+                      <span className={label}>Quand</span>{" "}
+                      <span className={value}>{criterion.when}</span>
                     </p>
-                    <p className="leading-relaxed">
-                      <span className={label}>Alors</span> {criterion.then}
+                    <p className="mt-1">
+                      <span className={label}>Alors</span>{" "}
+                      <span className={value}>{criterion.then}</span>
                     </p>
                     {criterion.takeoverState && (
                       <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2">
@@ -245,26 +292,23 @@ export function StoryPage() {
               />
             )}
             {found.story.dependsOn.length > 0 && (
-              <Section title="Dépend de">
-                <ul className={listCard}>
+              <section className="px-[26px] pt-3 text-[12.5px] text-muted-foreground">
+                <h2 className="sr-only">Dépend de</h2>
+                <ul className="grid gap-1">
                   {found.story.dependsOn.map((dependency) => (
-                    <li
-                      key={dependency.id}
-                      className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
-                    >
+                    <li key={dependency.id}>
+                      Dépend de{" "}
                       <Link
                         to={`/us/${dependency.id}`}
-                        className={`font-semibold underline ${focusRing}`}
+                        className={`underline ${focusRing}`}
                       >
                         {dependency.iWant}
-                      </Link>
-                      <span className="text-muted-foreground">
-                        {STORY_STATUSES[dependency.status] ?? dependency.status}
-                      </span>
+                      </Link>{" "}
+                      ({STORY_STATUSES[dependency.status] ?? dependency.status})
                     </li>
                   ))}
                 </ul>
-              </Section>
+              </section>
             )}
             {/* In review, the pull request is in the panel; otherwise it follows the story. */}
             {found.story.status !== "in_review" && github && (
@@ -281,27 +325,36 @@ export function StoryPage() {
               </Section>
             )}
             {(found.story.runs ?? []).length > 0 && (
-              <Section title="Runs">
+              <section className="px-[26px] pt-[22px]">
+                <div className="mb-2 flex items-baseline justify-between">
+                  <h2 className={sectionLabel}>Les runs</h2>
+                  <Link
+                    to={`/runs/${latestRun?.id}`}
+                    className={`text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
+                  >
+                    Voir le run ›
+                  </Link>
+                </div>
                 <ul className={listCard}>
                   {found.story.runs.map((run) => (
                     <li
                       key={run.id}
-                      className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
+                      className="flex min-h-[50px] flex-col justify-center px-4 py-2"
                     >
                       <Link
                         to={`/runs/${run.id}`}
-                        className={`font-semibold underline ${focusRing}`}
+                        className={`font-semibold ${focusRing}`}
                       >
-                        Run n° {run.id} ·{" "}
-                        {RUN_STATUSES[run.status] ?? run.status}
+                        Run {run.id} ·{" "}
+                        {(RUN_STATUSES[run.status] ?? run.status).toLowerCase()}
                       </Link>
                       <span className="text-[12.5px] text-muted-foreground">
-                        {new Date(run.startedAt).toLocaleString("fr-FR")}
+                        {runSpan(run)}
                       </span>
                     </li>
                   ))}
                 </ul>
-              </Section>
+              </section>
             )}
             <StoryHistory id={found.story.id} />
             <StoryDecisions
@@ -314,7 +367,12 @@ export function StoryPage() {
                 c.takeoverState === "pending" ? [c.summary ?? ""] : [],
               )}
             >
-              {found.story.status === "in_review" && github}
+              {found.story.status === "in_review" && (
+                <>
+                  {github}
+                  {latestRun && <StoryVerdict runId={latestRun.id} />}
+                </>
+              )}
             </StoryDecisions>
           </>
         )}

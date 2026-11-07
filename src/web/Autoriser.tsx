@@ -8,7 +8,16 @@ import {
   panelButton,
   panelPrimaryButton,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
+
+const CAN = [
+  "lire tes projets, tickets et user stories",
+  "noter des tickets dans tes projets",
+  "écrire et réécrire des user stories, qui t'attendront « à valider »",
+  "suivre ses runs et te poser des questions",
+  "envoyer la carte du code d'un projet",
+];
 
 async function fetchMe() {
   const res = await client.api.me.$get();
@@ -61,7 +70,9 @@ export function Autoriser() {
           )}
         </div>
         <h1 className="mt-[18px] text-[22px] leading-[1.3] font-semibold">
-          Autoriser un connecteur
+          {request.isSuccess
+            ? `${request.data.clientName} demande à accéder à ton Cockpit.`
+            : "Autoriser un connecteur"}
         </h1>
         <div className="mt-[18px]" aria-live="polite">
           {me.isPending && <p className="text-muted-foreground">Chargement…</p>}
@@ -93,14 +104,32 @@ export function Autoriser() {
           )}
           {request.isSuccess && (
             <>
-              <p className="text-[15px] font-semibold">
-                {request.data.clientName} veut accéder à tes projets Cockpit
+              <p className="text-[13.5px] text-muted-foreground">
+                Demande venue de{" "}
+                <span className="font-mono text-[11.5px] text-foreground">
+                  {request.data.returnHost}
+                </span>{" "}
+                · client vérifié
               </p>
-              <p className="mt-2 text-muted-foreground">
-                Après ton choix, ton navigateur retourne vers{" "}
-                <strong>{request.data.returnHost}</strong>.
+              <p className={`mt-4 ${sectionLabel}`}>Claude pourra</p>
+              <ul className="mt-2.5 flex flex-col gap-2.5 text-[13.5px]">
+                {CAN.map((line) => (
+                  <li key={line} className="flex gap-2.5">
+                    <span aria-hidden="true" className="text-dim">
+                      ✓
+                    </span>
+                    {line}
+                  </li>
+                ))}
+              </ul>
+              <p className={`mt-4 ${sectionLabel}`}>Claude ne pourra pas</p>
+              <p className="mt-2.5 flex gap-2.5 text-[13.5px] text-muted-foreground">
+                <span aria-hidden="true" className="text-dim">
+                  ✕
+                </span>
+                valider une US, merger une PR ou changer tes réglages
               </p>
-              <p className="mt-2 font-semibold">
+              <p className="mt-4 font-semibold">
                 N'autorise que si tu viens de lancer la connexion toi-même.
               </p>
               <div className="mt-4 flex gap-2">
@@ -121,6 +150,10 @@ export function Autoriser() {
                   Refuser
                 </button>
               </div>
+              <p className="mt-[18px] text-xs text-muted-foreground">
+                Chaque appel de Claude est écrit dans le Journal. Tu peux
+                retirer cet accès dans Réglages.
+              </p>
             </>
           )}
           {decide.isError && (

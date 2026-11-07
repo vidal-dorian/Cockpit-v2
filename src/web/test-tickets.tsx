@@ -36,6 +36,10 @@ export type FakeStory = {
     then: string;
   }[];
   dependsOn: { id: number; iWant: string; status: string }[];
+  /** What the Kanban route adds to a card; absent means no PR and no question. */
+  prNumber?: number;
+  prCiState?: string;
+  questionPending?: boolean;
 };
 export type Answer = { status: number; body?: unknown };
 export type Call = { method: string; path: string; body: unknown };
@@ -209,6 +213,10 @@ export function stubTicketApi(
                       position: s.position,
                       iWant: s.iWant,
                       status: s.status,
+                      prNumber: s.prNumber ?? null,
+                      prCiState: s.prCiState ?? null,
+                      criteriaCount: s.criteria.length,
+                      questionPending: s.questionPending ?? false,
                     },
                   ]
                 : [];
@@ -238,11 +246,14 @@ export function stubTicketApi(
             ticket: found,
             stories: stories
               .filter((s) => s.ticketId === found.id)
-              .map(({ id, position, iWant, status }) => ({
+              .map(({ id, position, iWant, status, criteria, dependsOn }) => ({
                 id,
                 position,
                 iWant,
                 status,
+                criteriaCount: criteria.length,
+                dependsOn: dependsOn.map((d) => d.id),
+                runId: null,
               })),
           });
         const key = method === "PATCH" ? "patch" : "delete";

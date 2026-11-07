@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { NavLink, useParams, useSearchParams } from "react-router";
+import { useState } from "react";
+import { Link, NavLink, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { CatalogLine } from "./CatalogLine.tsx";
 import { fetchCodeMap } from "./conception.ts";
@@ -9,7 +10,7 @@ import { ProjectConception } from "./ProjectConception.tsx";
 import { FeaturesExport } from "./ProjectFeatures.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
-import { ProjectRoutine } from "./ProjectRoutine.tsx";
+import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { fetchTickets, ProjectTickets } from "./ProjectTickets.tsx";
 import { rulesSentence, useRules } from "./rules.ts";
@@ -22,7 +23,6 @@ import {
   listCard,
   primaryButton,
   sectionLabel,
-  tabLink,
   urgentBadge,
 } from "./ui.ts";
 
@@ -83,6 +83,10 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
 
+// The tabs of the mockups sit 22px apart with their underline touching the border: the padding of a plain tab does not fit.
+const projectTab = ({ isActive }: { isActive: boolean }) =>
+  `inline-flex items-center border-b-2 pb-2.5 text-sm font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
+
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
@@ -92,9 +96,21 @@ const TAB_REST: Record<ProjectTab, string> = {
   tickets: "Claude écrit les user stories de chaque ticket.",
   conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
-  agents: "Les agents et les équipes qui développent les user stories.",
-  reglages: "L'écriture automatique des US de ce projet.",
+  agents: "Chacun lit le repo, puis passe la main au suivant.",
+  reglages: "",
 };
+
+// The second line of the Tickets tab, from the schedule of the automatic writing (decision 022 D).
+function writingSentence(
+  schedule: { frequency: string; hour: number | null } | undefined,
+) {
+  const hour = schedule?.hour ?? 7;
+  if (schedule?.frequency === "daily")
+    return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
+  if (schedule?.frequency === "weekly")
+    return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
+  return TAB_REST.tickets;
+}
 
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({
@@ -120,29 +136,37 @@ export function ProjectPage({
     queryFn: () => fetchStories(id),
     enabled: tab === "kanban",
   });
+  // How many files the plan of « Préparer pour Claude » adds, while it is on screen.
+  const [planned, setPlanned] = useState<number | null>(null);
   const notFound = health.data === "not_found";
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
     board.filter((s) => statuses.includes(s.status)).length;
   const waiting = count("to_validate", "to_rewrite", "in_review");
   const working = count("in_progress");
+  const asking = board.find((s) => s.questionPending);
   const kanbanSentence = {
+    inline: true,
     title: stories.isPending
       ? "Chargement…"
       : stories.isError
         ? (project?.fullName.split("/").pop() ?? "Projet")
-        : waiting > 0
-          ? waiting === 1
-            ? "1 user story t'attend."
-            : `${waiting} user stories t'attendent.`
-          : working > 0
-            ? `Claude développe ${plural(working, "user story", "user stories")}.`
-            : "Rien ne t'attend sur ce projet.",
+        : asking
+          ? `Claude t'attend sur l'US ${asking.id}.`
+          : waiting > 0
+            ? waiting === 1
+              ? "1 user story t'attend."
+              : `${waiting} user stories t'attendent.`
+            : working > 0
+              ? `Claude développe ${plural(working, "user story", "user stories")}.`
+              : "Rien ne t'attend sur ce projet.",
     rest: !stories.data
       ? undefined
       : board.length === 0
         ? "Aucune user story pour l'instant."
-        : `${plural(board.length, "user story", "user stories")} au Kanban.`,
+        : asking
+          ? `${plural(board.length - 1, "autre user story", "autres user stories")} au Kanban.`
+          : `${plural(board.length, "user story", "user stories")} au Kanban.`,
   };
   const red = Array.isArray(health.data)
     ? health.data.filter((line) => !line.ok).length
@@ -157,6 +181,11 @@ export function ProjectPage({
     queryFn: () => fetchCodeMap(id),
     enabled: tab === "conception",
   });
+  const schedule = useQuery({
+    queryKey: ["routine-schedule", id],
+    queryFn: () => fetchSchedule(id),
+    enabled: tab === "tickets",
+  });
   const rules = useRules(id, tab === "conception");
   const features = useFeatures(id, tab === "conception" && view === "features");
   const feature = chosenFeature(
@@ -165,53 +194,65 @@ export function ProjectPage({
   );
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
-  const sentence =
+  const sentence: { title: string; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
-      : tab === "sante" && Array.isArray(health.data)
-        ? red > 0
-          ? {
-              title: `${name} n'est pas encore prêt pour Claude.`,
-              rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
-            }
-          : {
-              title: `${name} est prêt pour Claude.`,
-              rest: "Tout le bilan est au vert.",
-            }
-        : tab === "conception" && view === "rules" && rules.data
-          ? { title: rulesSentence(rules.data), rest: undefined }
-          : tab === "conception" && view === "features" && features.data
+      : tab === "sante" && planned !== null
+        ? {
+            title: `Voici ce que Cockpit va écrire dans ${name}.`,
+            rest: `${plural(planned, "fichier nouveau", "fichiers nouveaux")}, rien n'est écrasé.`,
+          }
+        : tab === "sante" && Array.isArray(health.data)
+          ? red > 0
             ? {
-                title: feature
-                  ? featureSentence(feature)
-                  : "Pas encore de fonctionnalité.",
-                rest: feature
-                  ? "Un clic sur une règle ouvre l'écran de reprise."
-                  : undefined,
+                title: `${name} n'est pas encore prêt pour Claude.`,
+                rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
               }
-            : tab === "conception" && view === "features"
-              ? { title: name, rest: undefined }
-              : tab === "conception" && codeMap.data && codeMap.data.length > 0
-                ? {
-                    title: `Claude a lu ${name} : voici son modèle.`,
-                    rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                      codeMap.data.reduce(
-                        (n, m) => n + m.data.objects.length,
-                        0,
-                      ),
-                      "objet",
-                      "objets",
-                    )}, chacun avec le code qui le prouve.`,
-                  }
-                : tab === "tickets" && tickets.data
+            : {
+                title: `${name} est prêt pour Claude.`,
+                rest: "Tout le bilan est au vert.",
+              }
+          : tab === "conception" && view === "rules" && rules.data
+            ? { title: rulesSentence(rules.data), rest: undefined }
+            : tab === "conception" && view === "features" && features.data
+              ? {
+                  title: feature
+                    ? featureSentence(feature)
+                    : "Pas encore de fonctionnalité.",
+                  rest: feature
+                    ? "Un clic sur une règle ouvre l'écran de reprise."
+                    : undefined,
+                }
+              : tab === "conception" && view === "features"
+                ? { title: name, rest: undefined }
+                : tab === "conception" &&
+                    codeMap.data &&
+                    codeMap.data.length > 0
                   ? {
-                      title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                      rest: TAB_REST[tab],
+                      title: `Claude a lu ${name} : voici son modèle.`,
+                      rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                        codeMap.data.reduce(
+                          (n, m) => n + m.data.objects.length,
+                          0,
+                        ),
+                        "objet",
+                        "objets",
+                      )}, chacun avec le code qui le prouve.`,
                     }
-                  : {
-                      title: tab === "reglages" ? `Réglages de ${name}.` : name,
-                      rest: TAB_REST[tab],
-                    };
+                  : tab === "tickets" && tickets.data
+                    ? {
+                        title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                        rest: writingSentence(schedule.data),
+                      }
+                    : {
+                        title:
+                          tab === "reglages"
+                            ? `Réglages de ${name}.`
+                            : tab === "agents"
+                              ? `Les agents et les équipes de ${name}.`
+                              : name,
+                        rest: TAB_REST[tab],
+                      };
 
   return (
     <main className="pb-6">
@@ -225,57 +266,78 @@ export function ProjectPage({
         </>
       ) : (
         !projects.isPending && (
-          <>
-            <Breadcrumb
-              trail={[
-                { label: "Projets", to: "/projets" },
-                { label: project?.fullName.split("/").pop() ?? "Projet" },
-              ]}
-              repo={project?.fullName}
-            />
-            <StateSentence
-              title={sentence.title}
-              rest={sentence.rest}
-              actions={
-                project && (
-                  <div className="mt-1 flex flex-wrap justify-end gap-2">
-                    {view === "features" &&
-                      feature &&
-                      features.data &&
-                      codeMap.data && (
-                        <FeaturesExport
-                          fullName={project.fullName}
-                          feature={feature}
-                          features={features.data.features}
-                          modules={codeMap.data}
-                        />
-                      )}
-                    <a
-                      href={`https://github.com/${project.fullName}`}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className={button}
-                    >
-                      Ouvrir sur GitHub ↗
-                    </a>
-                  </div>
-                )
-              }
-            />
-          </>
+          <div className="flex flex-col gap-1.5 px-[26px] pt-6">
+            {/* The actions share the breadcrumb's row, the sentence sits under both (S36, S41). */}
+            <div className="flex items-start gap-3">
+              <nav
+                aria-label="Fil d'Ariane"
+                className="flex flex-wrap items-baseline gap-1.5 text-[12.5px] text-muted-foreground"
+              >
+                <Link
+                  to="/projets"
+                  className={`rounded-md hover:text-foreground ${focusRing}`}
+                >
+                  Projets
+                </Link>
+                <span aria-hidden="true">›</span>
+                <span>{name}</span>
+                {project && (
+                  <span className="font-mono text-[11.5px]">
+                    {project.fullName}
+                  </span>
+                )}
+              </nav>
+              {project && (
+                <div className="ml-auto flex flex-wrap justify-end gap-2">
+                  {view === "features" &&
+                    feature &&
+                    features.data &&
+                    codeMap.data && (
+                      <FeaturesExport
+                        fullName={project.fullName}
+                        feature={feature}
+                        features={features.data.features}
+                        modules={codeMap.data}
+                      />
+                    )}
+                  <a
+                    href={`https://github.com/${project.fullName}`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className={button}
+                  >
+                    Ouvrir sur GitHub ↗
+                  </a>
+                </div>
+              )}
+            </div>
+            <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
+              {sentence.title}
+              {sentence.rest && (
+                <>
+                  {sentence.inline && " "}
+                  <span
+                    className={`font-medium text-muted-foreground ${sentence.inline ? "" : "block"}`}
+                  >
+                    {sentence.rest}
+                  </span>
+                </>
+              )}
+            </h1>
+          </div>
         )
       )}
       {!notFound && (
         <nav
           aria-label="Sections du projet"
-          className="mx-[26px] mt-4 flex flex-wrap gap-x-2 border-b border-border"
+          className="mt-4 flex flex-wrap gap-x-[22px] border-b border-border px-[26px]"
         >
           {TABS.map((t) => (
             <NavLink
               key={t.tab}
               to={`/projets/${id}${t.to}`}
               end={t.to === ""}
-              className={tabLink}
+              className={projectTab}
             >
               {t.tab === "sante" && red > 0
                 ? `Santé · ${red} à corriger`
@@ -285,11 +347,11 @@ export function ProjectPage({
         </nav>
       )}
       {!notFound && tab === "sante" && (
-        <section className="mx-[26px] mt-6" aria-labelledby="bilan">
+        <section className="mx-[26px] mt-5" aria-labelledby="bilan">
           <h2 id="bilan" className="sr-only">
             Bilan de santé
           </h2>
-          <div className="mt-3" aria-live="polite">
+          <div aria-live="polite">
             {health.isPending && (
               <p className="text-muted-foreground">Chargement…</p>
             )}
@@ -326,6 +388,7 @@ export function ProjectPage({
                     projectId={id}
                     fullName={project.fullName}
                     archived={project.archived}
+                    onPlan={setPlanned}
                     red={health.data.some(
                       (line) =>
                         !line.ok &&
@@ -366,7 +429,7 @@ export function ProjectPage({
                           {line.ok ? "✓" : "✕"}
                         </span>
                         <p className="min-w-0 flex-1">
-                          <span className="block font-bold">
+                          <span className="block font-semibold">
                             {LABELS[line.key]}
                           </span>
                           {!line.ok && (
@@ -404,7 +467,9 @@ export function ProjectPage({
           archived={project.archived}
         />
       )}
-      {!notFound && tab === "reglages" && <ProjectRoutine projectId={id} />}
+      {!notFound && tab === "reglages" && (
+        <ProjectRoutine projectId={id} archived={project?.archived ?? false} />
+      )}
     </main>
   );
 }

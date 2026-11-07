@@ -10,7 +10,12 @@
   - la [040](040-accueil.md), choix D : Cockpit a de nouveau une barre latérale, et la pastille d'un projet y est ;
   - la [019](019-kanban.md), choix B : le Kanban a six colonnes, la première est « Idées » (les tickets à l'étape `new`, écran S00b) ;
   - la [034](034-developper-avec-claude.md), choix A : « Développer avec Claude » s'ouvre dans le panneau de droite, plus en haut de la page ;
-  - la [042](042-nouvelle-equipe-fenetre.md), choix A : « Nouvelle équipe » s'ouvre en plein écran, sur un canevas, plus dans une fenêtre modale.
+  - la [042](042-nouvelle-equipe-fenetre.md), choix A : « Nouvelle équipe » s'ouvre en plein écran, sur un canevas, plus dans une fenêtre modale ;
+  - la [025](025-issue-modifiee-sur-github.md), choix F et G : les boutons sont « Garder la version Cockpit » et « Garder la version GitHub » ;
+  - la [035](035-criteres-et-pr.md), choix F : « ✓ passe » / « ✕ échoue » et « PR #12 » ;
+  - la [038](038-suivi-de-la-pr.md), choix G : « PR #12 » dans le bloc GitHub ;
+  - la [027](027-preparer-pour-claude.md), choix F : le plan est une liste de fichiers avec un aperçu ;
+  - la [031](031-equipe-en-graphe.md), choix F : un commutateur Graphe / Liste remplace la liste sous le graphe.
 - **Modifiée par** : [046](046-logo-la-boucle.md) : le logo, repoussé ici, est tranché
 - **Écrans** : [`docs/ecrans/`](../ecrans/README.md) (63 écrans, PNG et HTML), validés par Dorian le 2026-11-07
 - **Tranche** : 9.3 du [découpage](../decoupage.md) pour la coque commune, puis la tranche de chaque écran
@@ -57,11 +62,15 @@ La 9.3 refait ce qui existe, avec les mêmes fonctions qu'avant. Ce dont la tran
 - **Les favoris** : la barre latérale liste à leur place les projets qui ne sont pas au repos (ceux de `GET /api/home`).
 - **La page Équipes d'agents** de la barre latérale.
 - **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages. La tranche R1 a ajouté Conception (entre Tickets et Santé, [043](043-carte-du-code.md)) ; CI / CD et Historique attendent leur tranche.
-- **Les entrées de Réglages Préférences, Membres, Abonnement et Données** : il reste Connecter Claude (avec Jetons MCP), Tâches cloud et Instance (administrateur).
+- **Les entrées de Réglages Préférences, Membres, Abonnement et Données** : il reste Connecter Claude (les jetons MCP y sont, `/reglages/jetons` renvoie à `/reglages`), Tâches cloud et Instance (administrateur).
 - **L'écran « Cockpit hors ligne » (S56)** : seule la page « Cette page n'existe pas. » est faite ; la perte du serveur reste l'alerte « Serveur injoignable » avec « Réessayer ».
 - **Les barres d'étapes d'un run** et la carte **« Pourquoi Claude demande »**.
 - **L'ouverture d'une carte du Kanban dans le panneau de droite** : une carte mène toujours à sa page.
+- **Ce que les écrans montrent encore et que le code n'a pas** (relevé à l'alignement des écrans construits, le logo mis à part) : le cloud et la nuit dans « Développer avec Claude » (S24, tranches 14.1 et 14.6), « Accès donnés à Claude » (S45), « Branchements » (S51), les filtres de Tous les projets, de Tickets et du Journal, le canevas de « Nouvelle équipe » (S38).
+- **L'adresse publique en lecture seule de S51** : l'index de `docs/ecrans/` décrit l'écran avec « adresse en lecture seule », et le choix I ci-dessus la garde en lecture seule. Mais la 028 I, qui reste, veut qu'il n'y ait pas d'« Adresse publique » dans Réglages, et `SettingsTabs.test.tsx` la fixe. La carte n'est pas construite ; la tension entre la 028 I et S51 reste à trancher.
 
 ## Écran contre décision
 
 Là où un écran contredit une décision, la 9.3 a suivi l'écran et la décision est marquée « modifiée par 045 » : 019 B (le Kanban passe de cinq à six colonnes, « Idées » en premier, tirée des tickets à l'étape `new`), 034 A (« Développer avec Claude » dans le panneau de droite) et 040 D (les projets passent de l'accueil à la barre latérale).
+
+L'alignement des écrans construits sur leurs maquettes en a marqué quatre autres : 025 F et G (« Garder la version Cockpit » et « Garder la version GitHub » à la place de « Garder la version de Cockpit » et « Reprendre la version de GitHub »), 035 F (« passe » et « échoue » à la place de « Réussi » et « Échoué », « PR #12 » à la place de « PR n° 12 »), 027 F (le plan de « Préparer pour Claude » est une liste de fichiers avec un aperçu, plus un contenu replié) et 031 F (la liste des étapes sous le graphe devient un commutateur Graphe / Liste ; la liste reste visible sur un téléphone et atteignable au clavier en vue Graphe).

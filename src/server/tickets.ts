@@ -6,11 +6,19 @@ import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { projects, tickets, userStories } from "./db/schema.ts";
+import {
+  acceptanceCriteria,
+  projects,
+  questions,
+  runs,
+  storyDependencies,
+  tickets,
+  userStories,
+} from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncTicketIssues } from "./issues.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
-import { type StoryStatus, storyStatuses, ticketStories } from "./stories.ts";
+import { type StoryStatus, storyStatuses } from "./stories.ts";
 
 const unauthorized = { error: "Unauthorized" };
 const notFound = { error: "Not found" };
@@ -204,6 +212,11 @@ export function ticketRoutes(
           iWant: userStories.iWant,
           status: userStories.status,
           issueDiverged: sql<boolean>`${userStories.issueDivergedAt} is not null`,
+          prNumber: userStories.prNumber,
+          prCiState: userStories.prCiState,
+          criteriaCount: sql<number>`(select count(*)::int from ${acceptanceCriteria} where ${acceptanceCriteria.storyId} = ${userStories.id})`,
+          // A running run of the story waits for an answer (decision 036).
+          questionPending: sql<boolean>`exists (select 1 from ${questions} inner join ${runs} on ${runs.id} = ${questions.runId} where ${runs.storyId} = ${userStories.id} and ${runs.status} = 'running' and ${questions.answer} is null)`,
         })
         .from(userStories)
         .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
@@ -255,7 +268,26 @@ export function ticketRoutes(
         Number(c.req.param("id")),
       );
       if (!found) return c.json(notFound, 404);
-      const stories = await ticketStories(db, found.ticket.id);
+      // The stories of the ticket in order, each with what its row says: criteria, dependencies, latest run.
+      // A single-table select leaves columns unqualified, so the subqueries name the outer table.
+      const storyId = sql.raw('"user_stories"."id"');
+      const stories = await db
+        .select({
+          id: userStories.id,
+          position: userStories.position,
+          iWant: userStories.iWant,
+          status: userStories.status,
+          criteriaCount: sql<number>`(select count(*)::int from ${acceptanceCriteria} where ${acceptanceCriteria.storyId} = ${storyId})`,
+          dependsOn: sql<
+            number[]
+          >`coalesce((select array_agg(${storyDependencies.dependsOnId} order by ${storyDependencies.dependsOnId}) from ${storyDependencies} where ${storyDependencies.storyId} = ${storyId}), '{}')`,
+          runId: sql<
+            number | null
+          >`(select max(${runs.id}) from ${runs} where ${runs.storyId} = ${storyId})`,
+        })
+        .from(userStories)
+        .where(eq(userStories.ticketId, found.ticket.id))
+        .orderBy(asc(userStories.position), asc(userStories.id));
       return c.json({
         ticket: present(
           found.ticket,

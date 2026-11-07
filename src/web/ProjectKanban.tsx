@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchTickets } from "./ProjectTickets.tsx";
 import { Dot } from "./Shell.tsx";
-import { STORY_STATUSES } from "./tickets.ts";
+import { plural, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
   badge,
@@ -36,7 +36,7 @@ const COLUMNS = [
 ] as const;
 
 const cardStyle =
-  "block rounded-xl border border-border bg-card px-[13px] py-[11px] hover:border-border-strong hover:bg-raised";
+  "flex flex-col items-start gap-2 rounded-[14px] border border-border bg-card p-3 hover:border-border-strong hover:bg-raised";
 
 // The column of each status; `satisfies` makes tsc fail when a story status has no column (abandoned has none).
 const COLUMN_OF = {
@@ -65,6 +65,8 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
   const ideas = (tickets.data ?? []).filter((t) => t.step === "new");
 
   const board = stories.data; // a const, so the narrowing holds inside the callbacks below
+  // Red only for the story the page sentence names, the first one waiting on an answer (decision 045 C).
+  const asking = board?.find((s) => s.questionPending)?.id;
 
   return (
     <section className="mx-[26px] mt-5" aria-labelledby="kanban">
@@ -116,12 +118,14 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                   <section key={name} className="sm:min-w-36 sm:flex-1">
                     <h3
                       aria-label={`${name} (${count})`}
-                      className="flex items-center gap-2 text-sm font-bold"
+                      className="flex items-center gap-2 px-0.5 text-[13px] font-semibold"
                     >
                       <Dot tone={dot} />
                       {name} <span className={badge}>{count}</span>
                     </h3>
-                    <p className="mt-0.5 mb-2 text-[12.5px] text-dim">{sub}</p>
+                    <p className="mt-0.5 mb-2.5 px-0.5 text-xs text-muted-foreground">
+                      {sub}
+                    </p>
                     {name === "Idées" && tickets.isPending ? (
                       <p className="text-muted-foreground">Chargement…</p>
                     ) : name === "Idées" && tickets.isError ? (
@@ -139,7 +143,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 to={`/tickets/${t.id}`}
                                 className={`${cardStyle} ${focusRing}`}
                               >
-                                <span className="block text-[13px] font-bold">
+                                <span className="block text-[13.5px] leading-snug font-semibold">
                                   {t.title}
                                 </span>{" "}
                                 <span className="block text-xs text-muted-foreground">
@@ -148,35 +152,70 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                               </Link>
                             </li>
                           ))}
-                        {cards.map((story) => (
-                          <li key={story.id}>
-                            <Link
-                              to={`/us/${story.id}`}
-                              className={`${cardStyle} ${focusRing} ${faded ? "opacity-60" : ""}`}
-                            >
-                              {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
-                              <span className="block text-[13px] font-bold">
-                                {story.iWant}
-                              </span>{" "}
-                              <span className="block text-xs text-muted-foreground">
-                                <span className="sr-only">Ticket : </span>
-                                {story.ticketTitle}
-                              </span>{" "}
-                              {story.issueDiverged && (
-                                <span
-                                  className={`mt-1 mr-2 max-w-full whitespace-normal! ${urgentBadge}`}
-                                >
-                                  Issue modifiée sur GitHub
-                                </span>
-                              )}
-                              {story.status === "to_rewrite" && (
-                                <span className={`mt-1 ${badge}`}>
-                                  {STORY_STATUSES.to_rewrite}
-                                </span>
-                              )}
-                            </Link>
-                          </li>
-                        ))}
+                        {cards.map((story) => {
+                          const detail = [
+                            story.status === "to_validate" ||
+                            story.status === "ready"
+                              ? plural(
+                                  story.criteriaCount,
+                                  "critère",
+                                  "critères",
+                                )
+                              : null,
+                            story.prNumber ? `PR #${story.prNumber}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ");
+                          return (
+                            <li key={story.id}>
+                              <Link
+                                to={`/us/${story.id}`}
+                                className={`${cardStyle} ${story.id === asking ? "border-you-line!" : ""} ${focusRing} ${faded ? "opacity-60" : ""}`}
+                              >
+                                {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
+                                <span className="block text-[13.5px] leading-snug font-semibold">
+                                  US {story.id} · {story.iWant}
+                                </span>{" "}
+                                <span className="block text-xs text-muted-foreground">
+                                  <span className="sr-only">Ticket : </span>
+                                  {story.ticketTitle}
+                                </span>{" "}
+                                {detail && (
+                                  <span className="block text-xs text-muted-foreground">
+                                    {detail}
+                                  </span>
+                                )}{" "}
+                                {story.issueDiverged && (
+                                  <span
+                                    className={`max-w-full whitespace-normal! ${urgentBadge}`}
+                                  >
+                                    Issue modifiée sur GitHub
+                                  </span>
+                                )}
+                                {story.questionPending ? (
+                                  <span
+                                    className={
+                                      story.id === asking ? urgentBadge : badge
+                                    }
+                                  >
+                                    ✦ Question pour toi
+                                  </span>
+                                ) : story.prCiState === "failure" &&
+                                  story.status === "in_review" ? (
+                                  <span className={badge}>✕ CI en échec</span>
+                                ) : (
+                                  story.status !== "in_progress" && (
+                                    <span
+                                      className={`${badge} first-letter:uppercase`}
+                                    >
+                                      {STORY_STATUSES[story.status]}
+                                    </span>
+                                  )
+                                )}
+                              </Link>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </section>

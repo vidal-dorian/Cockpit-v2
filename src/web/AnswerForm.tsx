@@ -9,11 +9,14 @@ export function AnswerForm({
   suggestedAnswers,
   queryKey,
   onSent,
+  label = "Répondre",
 }: {
   id: number;
   suggestedAnswers: string[] | null;
   queryKey: string[];
   onSent?: () => void;
+  /** The text of the white button. */
+  label?: string;
 }) {
   const queryClient = useQueryClient();
   const [typed, setTyped] = useState("");
@@ -49,7 +52,7 @@ export function AnswerForm({
             type="button"
             disabled={busy}
             onClick={() => send.mutate(answer)}
-            className={`flex items-center gap-2.5 rounded-[14px] border px-3.5 py-[11px] text-left text-[13.5px] font-semibold disabled:opacity-50 ${focusRing} ${send.variables === answer && busy ? "border-foreground bg-raised" : "border-border-strong bg-card hover:bg-raised-hover"}`}
+            className={`flex items-center gap-[9px] rounded-[14px] border px-3.5 py-[11px] text-left text-[13.5px] font-semibold disabled:opacity-50 ${focusRing} ${send.variables === answer && busy ? "border-foreground bg-raised" : "border-border-strong bg-card hover:bg-raised-hover"}`}
           >
             <span aria-hidden="true" className={kbd}>
               {i + 1}
@@ -57,13 +60,21 @@ export function AnswerForm({
             {answer}
           </button>
         ))}
-        <label className="grid gap-0.5 text-[13px] font-semibold">
-          Ta réponse
+        <label className="grid text-[13px] font-semibold">
+          <span className="sr-only">Ta réponse</span>
           <textarea
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+            placeholder="Autre réponse…"
+            rows={2}
             maxLength={10_000}
-            className={`${field} font-normal`}
+            className={`${field} mt-0 border-border bg-transparent text-center font-semibold placeholder:text-muted-foreground`}
           />
         </label>
         <button
@@ -71,7 +82,13 @@ export function AnswerForm({
           disabled={busy || typed.trim() === ""}
           className={`${panelPrimaryButton} mt-auto`}
         >
-          Répondre
+          {label}
+          <span
+            aria-hidden="true"
+            className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+          >
+            Ctrl Entrée
+          </span>
         </button>
       </form>
       {send.isError && (

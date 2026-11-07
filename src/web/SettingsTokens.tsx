@@ -91,6 +91,8 @@ export function Tokens() {
   const tokens = useQuery({ queryKey: ["tokens"], queryFn: fetchTokens });
   const [name, setName] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
+  // « + Nouveau jeton » reveals the form (S45); it stays open once revealed.
+  const [showForm, setShowForm] = useState(false);
   // The token waiting for its confirmation: a revoked token never works again, so we ask on the spot (decision 003, rule 4).
   const [confirming, setConfirming] = useState<number | null>(null);
   // The confirmation is gone and so is the button that opened it: the focus goes back to a new one, not to <body>.
@@ -136,56 +138,73 @@ export function Tokens() {
 
   return (
     <>
-      <h2
-        id="jetons"
-        ref={heading}
-        tabIndex={-1}
-        className={`${sectionLabel} ${focusRing}`}
-      >
-        Jetons MCP
-      </h2>
-      <p className="mt-1 text-[12.5px] text-muted-foreground">
-        Un jeton lie Claude Code à ton compte Cockpit. Place-le dans la variable
-        d'environnement <code>COCKPIT_MCP_TOKEN</code> : il n'est affiché qu'une
-        fois et Cockpit n'en garde que l'empreinte.
-      </p>
-
-      <h3 className={`mt-6 ${sectionLabel}`}>Nouveau jeton</h3>
-      {secret ? (
-        <NewSecret
-          secret={secret}
-          onDone={() => {
-            setSecret(null);
-            // Next tick: the field is rendered again once the secret is gone.
-            setTimeout(() => nameField.current?.focus());
-          }}
-        />
-      ) : (
-        <form
-          className="mt-2 flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            revoke.reset();
-            create.mutate();
-          }}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <h2
+          id="jetons"
+          ref={heading}
+          tabIndex={-1}
+          className={`${sectionLabel} ${focusRing}`}
         >
-          <label className="grow">
-            Nom
-            <input
-              ref={nameField}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={field}
+          Jetons MCP
+        </h2>
+        <span className="text-[12.5px] text-muted-foreground">
+          · pour un client sans connexion OAuth · affiché une seule fois
+        </span>
+        <button
+          type="button"
+          aria-expanded={showForm}
+          onClick={() => setShowForm(true)}
+          className={`ml-auto rounded-md text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
+        >
+          + Nouveau jeton
+        </button>
+      </div>
+
+      {showForm && (
+        <>
+          <p className="mt-2 text-[12.5px] text-muted-foreground">
+            Un jeton lie Claude Code à ton compte Cockpit. Place-le dans la
+            variable d'environnement <code>COCKPIT_MCP_TOKEN</code> : il n'est
+            affiché qu'une fois et Cockpit n'en garde que l'empreinte.
+          </p>
+          <h3 className="sr-only">Nouveau jeton</h3>
+          {secret ? (
+            <NewSecret
+              secret={secret}
+              onDone={() => {
+                setSecret(null);
+                // Next tick: the field is rendered again once the secret is gone.
+                setTimeout(() => nameField.current?.focus());
+              }}
             />
-          </label>
-          <button
-            type="submit"
-            disabled={create.isPending}
-            className={primaryButton}
-          >
-            Créer
-          </button>
-        </form>
+          ) : (
+            <form
+              className="mt-2 flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                revoke.reset();
+                create.mutate();
+              }}
+            >
+              <label className="grow">
+                Nom
+                <input
+                  ref={nameField}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={field}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={create.isPending}
+                className={primaryButton}
+              >
+                Créer
+              </button>
+            </form>
+          )}
+        </>
       )}
       {create.error && (
         <p role="alert" className={`mt-3 ${alertBox}`}>
@@ -193,7 +212,7 @@ export function Tokens() {
         </p>
       )}
 
-      <div className="mt-6" aria-live="polite">
+      <div className="mt-3" aria-live="polite">
         {tokens.isPending && (
           <p className="text-muted-foreground">Chargement…</p>
         )}
@@ -210,17 +229,20 @@ export function Tokens() {
             {tokens.data.map((t) => (
               <li
                 key={t.id}
-                className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-[18px] py-2"
+                className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
               >
-                <span className="font-semibold">{t.name}</span>
-                <span className="font-mono">…{t.lastFour}</span>
-                <span className="text-muted-foreground">
-                  Créé le {day(t.createdAt)}
+                <span aria-hidden="true" className="w-6 text-center text-dim">
+                  ⚿
                 </span>
-                <span className="text-muted-foreground">
-                  {t.lastUsedAt
-                    ? `Utilisé le ${day(t.lastUsedAt)}`
-                    : "Jamais utilisé"}
+                <span className="min-w-0 grow">
+                  <span className="block font-semibold">{t.name}</span>
+                  <span className="block text-[12.5px] text-muted-foreground">
+                    <span className="font-mono">…{t.lastFour}</span> · créé le{" "}
+                    {day(t.createdAt)} ·{" "}
+                    {t.lastUsedAt
+                      ? `dernier usage le ${day(t.lastUsedAt)}`
+                      : "jamais utilisé"}
+                  </span>
                 </span>
                 <span className="flex gap-2 sm:ml-auto">
                   {confirming === t.id ? (

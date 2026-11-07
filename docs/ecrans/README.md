@@ -111,7 +111,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | **les rôles** |
 | [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | **les prix** ([offres](../offres.md)) |
 | [S50](S50_Reglages_Donnees.png) | Données : exporter, supprimer son compte | 13.5 | | |
-| [S51](S51_Reglages_Instance.png) | Instance (administrateur) : adresse en lecture seule, branchements, utilisateurs | 1.6 (existe) | 012, 024, 028 I | |
+| [S51](S51_Reglages_Instance.png) | Instance (administrateur) : adresse en lecture seule, branchements, utilisateurs | 1.6 (existe) | 012, 024, 028 I | **l'adresse en lecture seule** : la 028 I ne veut pas d'adresse publique dans Réglages, la carte n'est pas construite (voir la 045) |
 
 ## 9 · Téléphone et erreurs
 

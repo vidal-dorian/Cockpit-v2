@@ -39,6 +39,16 @@ type Loaded = Exclude<
   null | "not_found"
 >;
 
+/** The second line of a story row: what Claude does, or its criteria and what it waits for. */
+function storyDetail(story: Loaded["stories"][number]) {
+  if (story.status === "in_progress" && story.runId != null)
+    return `Claude développe · Run ${story.runId}`;
+  const criteria = `${story.criteriaCount} ${story.criteriaCount === 1 ? "critère" : "critères"}`;
+  return story.dependsOn.length > 0
+    ? `${criteria} · dépend de l'${story.dependsOn.map((d) => `US ${d}`).join(", ")}`
+    : criteria;
+}
+
 /** The rest of the state sentence: what Claude wrote, and what waits for the user. */
 function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
   if (ticket.abandonedAt) return "Ce ticket est abandonné.";
@@ -48,9 +58,10 @@ function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
 }
 
 function TicketView({ ticket, stories }: Loaded) {
-  const projectName = useHome().data?.projects.find(
-    (p) => p.id === ticket.projectId,
-  )?.name;
+  const projectName = useHome()
+    .data?.projects.find((p) => p.id === ticket.projectId)
+    ?.name.split("/")
+    .pop();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
@@ -105,6 +116,26 @@ function TicketView({ ticket, stories }: Loaded) {
       focusAfter.current = "edit";
       setMode("view");
     },
+  });
+  const validate = useMutation({
+    mutationFn: async (storyId: number) => {
+      const res = await client.api.stories[":id"].validate.$post({
+        param: { id: String(storyId) },
+      });
+      if (!res.ok) throw await decisionError(res);
+    },
+    // Also after a refusal (wrong_status): show the real state of the ticket.
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
+        queryClient.invalidateQueries({ queryKey: ["story"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["tickets", String(ticket.projectId)],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["stories", String(ticket.projectId)],
+        }),
+      ]),
   });
   const remove = useMutation({
     mutationFn: async () => {
@@ -280,7 +311,12 @@ function TicketView({ ticket, stories }: Loaded) {
           </div>
           {stories.length > 0 && (
             <section className="px-[26px] pt-[22px]">
-              <h2 className={`mb-2 ${sectionLabel}`}>User stories</h2>
+              <h2 className={`mb-2 ${sectionLabel}`}>
+                User stories{" "}
+                <span className="font-medium tracking-normal text-dim normal-case">
+                  dans l'ordre où Claude les a écrites
+                </span>
+              </h2>
               {!ticket.storiesWrittenAt && (
                 <p className="mb-2 text-muted-foreground">
                   Claude n'a pas fini d'écrire les user stories de ce ticket.
@@ -290,21 +326,48 @@ function TicketView({ ticket, stories }: Loaded) {
                 {stories.map((story) => (
                   <li
                     key={story.id}
-                    className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
+                    className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-x-2 px-4 py-2"
                   >
-                    <span className="w-5 text-dim">{story.position}.</span>
-                    <Link
-                      to={`/us/${story.id}`}
-                      className={`font-semibold ${focusRing}`}
-                    >
-                      US {story.id} · {story.iWant}
-                    </Link>
-                    <span className={`${badge} sm:ml-auto`}>
-                      {STORY_STATUSES[story.status] ?? story.status}
+                    <span aria-hidden="true" className="text-dim">
+                      {story.status === "in_progress"
+                        ? "●"
+                        : story.status === "done"
+                          ? "✓"
+                          : "○"}
                     </span>
+                    <span className="min-w-0">
+                      <Link
+                        to={`/us/${story.id}`}
+                        className={`block font-semibold ${focusRing}`}
+                      >
+                        US {story.id} · {story.iWant}
+                      </Link>
+                      <span className="block text-[12.5px] text-muted-foreground">
+                        {storyDetail(story)}
+                      </span>
+                    </span>
+                    {story.status === "to_validate" ? (
+                      <button
+                        type="button"
+                        disabled={validate.isPending}
+                        onClick={() => validate.mutate(story.id)}
+                        className={button}
+                      >
+                        Valider
+                      </button>
+                    ) : (
+                      <span className={badge}>
+                        {STORY_STATUSES[story.status] ?? story.status}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ol>
+              {validate.error && (
+                <p role="alert" className={`mt-3 ${alertBox}`}>
+                  {validate.error.message}
+                </p>
+              )}
             </section>
           )}
           {mode === "abandon" && (

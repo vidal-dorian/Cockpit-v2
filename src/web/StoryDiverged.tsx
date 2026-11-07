@@ -1,10 +1,56 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useMemo } from "react";
 import { client } from "./api.ts";
-import { DiffList } from "./DiffList.tsx";
-import { diffLines } from "./diff.ts";
+import { type DiffLine, diffLines } from "./diff.ts";
+import { fetchMe } from "./Shell.tsx";
+import { useStoryValidation } from "./StoryDecisions.tsx";
 import { decisionError } from "./tickets.ts";
 import { alertBox, button, card, primaryButton, sectionLabel } from "./ui.ts";
+import { ago } from "./when.ts";
+
+const MARKS = {
+  same: { word: "", prefix: " ", style: "" },
+  removed: { word: "Retirée", prefix: "-", style: "text-dim line-through" },
+  added: {
+    word: "Ajoutée",
+    prefix: "+",
+    style: "bg-raised shadow-[inset_2px_0_0_var(--color-muted-foreground)]",
+  },
+};
+
+/** One side of the diff (S26): its lines in a code block, the marks always in words as well as in style (decision 003). */
+function DiffColumn({
+  title,
+  meta,
+  lines,
+}: {
+  title: string;
+  meta?: string | null;
+  lines: DiffLine[];
+}) {
+  return (
+    <section aria-label={title} className="grid content-start gap-2">
+      <div className="flex items-baseline gap-2">
+        <span className={sectionLabel}>{title}</span>
+        {meta && (
+          <span className="text-[12.5px] text-muted-foreground">{meta}</span>
+        )}
+      </div>
+      <ul className="min-h-40 overflow-x-auto rounded-xl border border-border bg-sunken py-2.5 font-mono text-xs leading-[1.65]">
+        {lines.map(({ type, text }, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: the lines are never reordered, and two can be equal
+          <li key={index} className={`flex gap-2 px-3.5 ${MARKS[type].style}`}>
+            <span aria-hidden="true">{MARKS[type].prefix}</span>
+            {MARKS[type].word && (
+              <span className="sr-only">{MARKS[type].word}</span>
+            )}
+            <span className="whitespace-pre-wrap break-words">{text}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /** An issue edited on GitHub (decision 025 E to G): the date, the title if it changed, the line by line diff of the bodies, and the choice of the user. */
 export function StoryDiverged({
@@ -26,6 +72,8 @@ export function StoryDiverged({
   statusRef: RefObject<HTMLElement | null>;
 }) {
   const queryClient = useQueryClient();
+  const validation = useStoryValidation(id);
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const resolve = useMutation({
     mutationFn: async (choice: "keep-cockpit" | "take-github") => {
       const param = { param: { id: String(id) } };
@@ -65,30 +113,42 @@ export function StoryDiverged({
           <span className="font-semibold">Titre</span> {diverged.githubTitle}
         </p>
       )}
-      <div className={`mt-3 overflow-x-auto p-3 ${card}`}>
-        {lines ? (
-          <DiffList lines={lines} />
-        ) : (
-          <>
-            <h3 className={sectionLabel}>Version de Cockpit</h3>
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-sm">
-              {diverged.cockpitBody}
-            </pre>
-            <h3 className={`mt-3 ${sectionLabel}`}>Version de GitHub</h3>
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-sm">
-              {diverged.githubBody}
-            </pre>
-          </>
-        )}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-3">
+      {lines ? (
+        <div className="mt-3 grid gap-3.5 md:grid-cols-2">
+          <DiffColumn
+            title="Dans Cockpit"
+            meta={
+              validation.data &&
+              `validée ${ago(validation.data.at)} par ${me.data?.name ?? "toi"}`
+            }
+            lines={lines.filter((l) => l.type !== "added")}
+          />
+          <DiffColumn
+            title="Sur GitHub"
+            meta={`modifiée ${ago(diverged.at)}`}
+            lines={lines.filter((l) => l.type !== "removed")}
+          />
+        </div>
+      ) : (
+        <div className={`mt-3 overflow-x-auto p-3 ${card}`}>
+          <h3 className={sectionLabel}>Version de Cockpit</h3>
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-sm">
+            {diverged.cockpitBody}
+          </pre>
+          <h3 className={`mt-3 ${sectionLabel}`}>Version de GitHub</h3>
+          <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-mono text-sm">
+            {diverged.githubBody}
+          </pre>
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={archived || resolve.isPending}
           onClick={() => resolve.mutate("take-github")}
           className={primaryButton}
         >
-          Reprendre la version de GitHub
+          Garder la version GitHub
         </button>
         <button
           type="button"
@@ -96,7 +156,7 @@ export function StoryDiverged({
           onClick={() => resolve.mutate("keep-cockpit")}
           className={button}
         >
-          Garder la version de Cockpit
+          Garder la version Cockpit
         </button>
       </div>
       {resolve.error && (

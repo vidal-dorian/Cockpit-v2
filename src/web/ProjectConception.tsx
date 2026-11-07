@@ -11,6 +11,7 @@ import { AnalyseWindow } from "./AnalyseWindow.tsx";
 import { ConceptionObject } from "./ConceptionObject.tsx";
 import { fetchCodeMap, linkLabel } from "./conception.ts";
 import { ProjectFeatures } from "./ProjectFeatures.tsx";
+import { chip } from "./ProjectTeam.tsx";
 import { Reprise } from "./Reprise.tsx";
 import { useRules } from "./rules.ts";
 import {
@@ -18,11 +19,9 @@ import {
   button,
   card,
   chipLink,
-  ghostButton,
   listCard,
   primaryButton,
   sectionLabel,
-  tabLink,
 } from "./ui.ts";
 
 const ConceptionGraph = lazy(() => import("./ConceptionGraph.tsx"));
@@ -171,8 +170,22 @@ export function ProjectConception({
       )}
       {module && (
         <>
-          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border">
-            <div role="tablist" className="flex flex-wrap gap-x-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* Below md the list only (043 J). */}
+            <div className="hidden gap-1.5 md:flex">
+              {(["graph", "list"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={view === v}
+                  className={chip(view === v)}
+                  onClick={() => setView(v)}
+                >
+                  {v === "graph" ? "Graphe" : "Liste"}
+                </button>
+              ))}
+            </div>
+            <div role="tablist" className="ml-auto flex flex-wrap gap-1.5">
               {modules.map((m, i) => (
                 <button
                   key={m.path}
@@ -182,7 +195,7 @@ export function ProjectConception({
                   aria-selected={m === module}
                   aria-controls="module-panel"
                   tabIndex={m === module ? 0 : -1}
-                  className={tabLink({ isActive: m === module })}
+                  className={chip(m === module)}
                   onClick={() => selectTab(m)}
                   onKeyDown={(e) => onTabKeyDown(e, i)}
                 >
@@ -193,43 +206,14 @@ export function ProjectConception({
                 </button>
               ))}
             </div>
-            {/* Below md the list only (043 J). */}
-            <div className="mb-1.5 hidden gap-1 md:flex">
-              {(["graph", "list"] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={view === v}
-                  className={view === v ? button : ghostButton}
-                  onClick={() => setView(v)}
-                >
-                  {v === "graph" ? "Graphe" : "Liste"}
-                </button>
-              ))}
-            </div>
           </div>
           <div
             role="tabpanel"
             id="module-panel"
             aria-labelledby={`tab-${modules.indexOf(module)}`}
-            className="mt-4"
+            className="mt-3.5"
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[12.5px] text-muted-foreground">
-                  Analysé au commit {module.commitSha.slice(0, 7)}
-                  {module.commitsSince !== null &&
-                    ` · ${plural(module.commitsSince, "commit", "commits")} depuis`}
-                </p>
-                <p className="font-mono text-[12.5px]">
-                  {module.data.runtimes
-                    .map((r) => `${r.name} ${r.version}`)
-                    .join(" · ")}
-                </p>
-              </div>
-              {analyse}
-            </div>
-            <div className={`mt-4 ${view === "graph" ? "md:hidden" : ""}`}>
+            <div className={`${view === "graph" ? "md:hidden" : ""}`}>
               <p className={`mb-2 ${sectionLabel}`}>Objets</p>
               <ul className={listCard}>
                 {module.data.objects.map((o) => (
@@ -268,7 +252,12 @@ export function ProjectConception({
               )}
             </div>
             {view === "graph" && (
-              <div className={`hidden md:block ${card} overflow-hidden`}>
+              <div
+                className={`relative hidden h-[420px] md:block ${card} overflow-hidden`}
+              >
+                <p className={`absolute top-3.5 left-4 z-10 ${sectionLabel}`}>
+                  {module.name} · {module.path}
+                </p>
                 <Suspense
                   fallback={
                     <p role="status" className="p-4 text-muted-foreground">
@@ -276,15 +265,32 @@ export function ProjectConception({
                     </p>
                   }
                 >
-                  <ConceptionGraph module={module} onOpen={openObject} />
+                  <ConceptionGraph
+                    module={module}
+                    selected={object?.name}
+                    onOpen={openObject}
+                  />
                 </Suspense>
               </div>
             )}
-            <p className="mt-3 text-[12.5px] text-muted-foreground">
-              {plural(module.data.objects.length, "objet", "objets")} ·{" "}
-              {plural(module.data.links.length, "lien", "liens")} · chaque objet
-              cite son fichier
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[12.5px] text-muted-foreground">
+              <p>
+                {plural(module.data.objects.length, "objet", "objets")} ·{" "}
+                {plural(module.data.links.length, "lien", "liens")} · chaque
+                objet cite son fichier
+              </p>
+              <p>
+                Analysé au commit {module.commitSha.slice(0, 7)}
+                {module.commitsSince !== null &&
+                  ` · ${plural(module.commitsSince, "commit", "commits")} depuis`}
+              </p>
+              <p className="font-mono">
+                {module.data.runtimes
+                  .map((r) => `${r.name} ${r.version}`)
+                  .join(" · ")}
+              </p>
+              <span className="ml-auto">{analyse}</span>
+            </div>
           </div>
         </>
       )}

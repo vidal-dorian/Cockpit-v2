@@ -100,7 +100,7 @@ describe("page /bienvenue", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: /^Bienvenue dans Cockpit/,
+        name: /^Bienvenue, Alice\./,
       }),
     ).toBeDefined();
     const page = screen.getByRole("main").textContent ?? "";
@@ -117,13 +117,13 @@ describe("page /bienvenue", () => {
     expect(page).toContain("Réglages");
   });
 
-  it("given the installation URL from /api/installation, when /bienvenue loads, then Installer Cockpit sur mon compte GitHub links to it", async () => {
+  it("given the installation URL from /api/installation, when /bienvenue loads, then Choisir mes repos sur GitHub ↗ links to it", async () => {
     stubApi(notInstalled());
 
     renderAt("/bienvenue");
 
     const link = await screen.findByRole("link", {
-      name: "Installer Cockpit sur mon compte GitHub",
+      name: "Choisir mes repos sur GitHub ↗",
     });
     expect(link.getAttribute("href")).toBe(INSTALL_URL);
   });
@@ -147,7 +147,7 @@ describe("page /bienvenue", () => {
 
     renderAt("/bienvenue");
 
-    await screen.findByRole("heading", { name: /^Bienvenue dans Cockpit/ });
+    await screen.findByRole("heading", { name: /^Bienvenue, Alice\./ });
     await waitFor(() => expect(calls).toContain("GET /api/installation"));
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("link", { name: "Installer" })).toBeNull();

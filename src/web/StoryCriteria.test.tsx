@@ -58,18 +58,18 @@ describe("criterion 9: the story page", () => {
     const text = (id: number) =>
       (screen.getByText(`donné ${id}`).closest("li") as HTMLElement)
         .textContent ?? "";
-    expect(text(1)).toContain("Réussi");
+    expect(text(1)).toContain("passe");
     expect(text(1)).toContain("src/a.test.ts > logs in");
-    expect(text(2)).toContain("Échoué");
+    expect(text(2)).toContain("échoue");
     expect(text(2)).toContain("src/b.test.ts > logs out");
-    expect(text(3)).not.toContain("Réussi");
-    expect(text(3)).not.toContain("Échoué");
+    expect(text(3)).not.toContain("passe");
+    expect(text(3)).not.toContain("échoue");
   });
 
-  it("given a prNumber of 12, when /us/21 loads, then a link « PR n° 12 » points at the pull request of the project", async () => {
+  it("given a prNumber of 12, when /us/21 loads, then a link « PR #12 » points at the pull request of the project", async () => {
     await load({ prNumber: 12 });
 
-    const link = within(main()).getByRole("link", { name: /PR n° 12/ });
+    const link = within(main()).getByRole("link", { name: /PR #12/ });
 
     expect(link.getAttribute("href")).toBe(
       "https://github.com/octocat/hello/pull/12",
@@ -79,6 +79,6 @@ describe("criterion 9: the story page", () => {
   it("given no prNumber, when /us/21 loads, then there is no PR link", async () => {
     await load({ prNumber: null });
 
-    expect(within(main()).queryByRole("link", { name: /PR n°/ })).toBeNull();
+    expect(within(main()).queryByRole("link", { name: /PR #/ })).toBeNull();
   });
 });

@@ -110,7 +110,7 @@ describe("criterion 10: the issue on the page of a story", () => {
     renderAt("/us/21");
 
     await loaded();
-    const link = within(main()).getByRole("link", { name: /Issue #12/ });
+    const link = within(main()).getByRole("link", { name: /Issue GitHub #12/ });
     expect(link.getAttribute("href")).toBe(URL_12);
     expect(main().textContent).not.toContain("pas à jour");
     expect(maybeButton("Republier")).toBeNull();
@@ -126,7 +126,7 @@ describe("criterion 10: the issue on the page of a story", () => {
     expect(button("Republier")).toBeDefined();
     expect(
       within(main())
-        .getByRole("link", { name: /Issue #12/ })
+        .getByRole("link", { name: /Issue GitHub #12/ })
         .getAttribute("href"),
     ).toBe(URL_12);
     expect(api.writes()).toEqual([]);
@@ -146,7 +146,7 @@ describe("criterion 10: the issue on the page of a story", () => {
     expect(maybeButton("Republier")).toBeNull();
     expect(
       within(main())
-        .getByRole("link", { name: /Issue #12/ })
+        .getByRole("link", { name: /Issue GitHub #12/ })
         .getAttribute("href"),
     ).toBe(URL_12);
   });
@@ -156,11 +156,13 @@ describe("criterion 10: the issue on the page of a story", () => {
     renderAt("/us/21");
     await loaded();
     expect(main().textContent).toContain(STALE);
-    expect(main().textContent).not.toContain("Issue #");
+    expect(main().textContent).not.toContain("Issue GitHub #");
 
     fireEvent.click(button("Republier"));
 
-    const link = await within(main()).findByRole("link", { name: /Issue #13/ });
+    const link = await within(main()).findByRole("link", {
+      name: /Issue GitHub #13/,
+    });
     expect(link.getAttribute("href")).toBe(
       "https://github.com/octocat/hello/issues/13",
     );
@@ -190,7 +192,7 @@ describe("criterion 10: the issue on the page of a story", () => {
       expect(within(main()).queryByRole("link", { name: /issue/i })).toBeNull();
       fireEvent.click(button("Valider"));
       const link = await within(main()).findByRole("link", {
-        name: /Issue #12/,
+        name: /Issue GitHub #12/,
       });
       expect(link.getAttribute("href")).toBe(URL_12);
       expect(maybeButton("Republier")).toBeNull();
@@ -424,12 +426,12 @@ describe("review S6: the page of a story and the Journal", () => {
       fireEvent.click(button("Republier"));
 
       const link = await within(main()).findByRole("link", {
-        name: new RegExp(`Issue #${number}`),
+        name: new RegExp(`Issue GitHub #${number}`),
       });
       await waitFor(() => {
         expect(document.activeElement).toBe(
           within(main()).getByRole("link", {
-            name: new RegExp(`Issue #${number}`),
+            name: new RegExp(`Issue GitHub #${number}`),
           }),
         );
       });

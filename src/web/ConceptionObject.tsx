@@ -59,9 +59,7 @@ export function ConceptionObject({
           </li>
         ))}
       </ul>
-      <p>
-        Défini dans <code>{path}</code>, {lines}
-      </p>
+      <p className={sectionLabel}>Le code</p>
       {code.data && (
         <CodeView
           path={path}
@@ -76,6 +74,9 @@ export function ConceptionObject({
           Le code n'a pas pu être lu : ouvre-le sur GitHub.
         </p>
       )}
+      <p className="text-[12.5px] text-muted-foreground">
+        Défini dans <code>{path}</code>, {lines}
+      </p>
       <a
         href={permalink(fullName, module.commitSha, path, start, end)}
         target="_blank"

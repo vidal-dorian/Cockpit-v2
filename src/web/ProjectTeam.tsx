@@ -29,13 +29,17 @@ import {
   dangerButton,
   field,
   focusRing,
+  ghostButton,
   listCard,
   primaryButton,
-  sectionLabel,
 } from "./ui.ts";
 
 // React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
 const StepGraph = lazy(() => import("./ProjectTeamGraph.tsx"));
+
+/** A pill of a row of choices (« Par défaut », « Graphe », a module): the chosen one is outlined. */
+export const chip = (on: boolean) =>
+  `inline-flex h-7 items-center whitespace-nowrap rounded-full border px-2.5 text-[12.5px] font-semibold disabled:opacity-50 ${focusRing} ${on ? "border-foreground bg-raised text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`;
 
 const TDD_AGENTS = ["test-writer", "reviewer"];
 // A team name is an agent name that fits `.claude/teams/<name>.md` in 255 characters (decision 032 A).
@@ -153,12 +157,15 @@ function StepEditor({
   onSteps,
   agents,
   archived,
+  view,
   onEditAgent,
 }: {
   steps: TeamStep[];
   onSteps: (next: TeamStep[]) => void;
   agents: Agent[];
   archived: boolean;
+  /** The dialog shows both: it has no switch. */
+  view: "graph" | "list" | "both";
   /** Absent in the dialog: the agent form would open behind it. */
   onEditAgent?: (name: string) => void;
 }) {
@@ -210,25 +217,53 @@ function StepEditor({
     setOpen(agent);
   };
 
+  const addButton = (
+    <button
+      type="button"
+      disabled={archived}
+      onClick={() => {
+        setOpen(null);
+        setAdding(true);
+      }}
+      className={
+        view === "graph"
+          ? `absolute bottom-4 left-4 h-[30px] ${button}`
+          : `mt-3 ${button}`
+      }
+    >
+      + Ajouter une étape
+    </button>
+  );
+
   return (
     <>
-      <Suspense
-        fallback={
-          <p role="status" className="hidden text-muted-foreground sm:block">
-            Chargement du graphe…
-          </p>
-        }
-      >
-        <StepGraph
-          id={uid}
-          steps={steps}
-          agents={agents}
-          selectedLoop={loopShown}
-          onOpen={select}
-          onLink={link}
-          onSelectLoop={setSelectedLoop}
-        />
-      </Suspense>
+      {view !== "list" && (
+        <div
+          className={`${card} relative h-16 sm:h-80 ${view === "both" ? "mt-3" : ""}`}
+        >
+          <Suspense
+            fallback={
+              <p
+                role="status"
+                className="hidden text-muted-foreground sm:block"
+              >
+                Chargement du graphe…
+              </p>
+            }
+          >
+            <StepGraph
+              id={uid}
+              steps={steps}
+              agents={agents}
+              selectedLoop={loopShown}
+              onOpen={select}
+              onLink={link}
+              onSelectLoop={setSelectedLoop}
+            />
+          </Suspense>
+          {view === "graph" && addButton}
+        </div>
+      )}
       {loopShown !== null && (
         <button
           type="button"
@@ -278,7 +313,10 @@ function StepEditor({
           </button>
         </div>
       )}
-      <ul className={`mt-3 ${listCard}`}>
+      {/* Graph view: the list stays for the keyboard (visually hidden from sm up) and is the only view on a phone (decision 031 F). */}
+      <ul
+        className={`mt-3 ${listCard} ${view === "graph" ? "sm:not-focus-within:sr-only" : ""}`}
+      >
         {steps.map((s, i) => (
           <li
             key={s.agent}
@@ -363,17 +401,7 @@ function StepEditor({
           onEditAgent={onEditAgent && (() => onEditAgent(openStep.agent))}
         />
       )}
-      <button
-        type="button"
-        disabled={archived}
-        onClick={() => {
-          setOpen(null);
-          setAdding(true);
-        }}
-        className={`mt-3 ${button}`}
-      >
-        Ajouter une étape
-      </button>
+      {view !== "graph" && addButton}
       {adding && (
         <div className={`${card} mt-3 p-4`}>
           <label htmlFor={`${uid}-step-add`} className="block">
@@ -496,6 +524,7 @@ function NewTeamDialog({
           onSteps={(next) => setDraft({ ...draft, steps: next })}
           agents={agents}
           archived={archived}
+          view="both"
         />
       )}
       {problem && <Problem problem={problem} />}
@@ -568,6 +597,7 @@ export function ProjectTeam({
   const [creating, setCreating] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [view, setView] = useState<"graph" | "list">("graph");
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   // Another team or a new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
@@ -639,36 +669,66 @@ export function ProjectTeam({
     setProblem(null);
     setDone(null);
   };
+  const viewSwitch = (
+    <span className="ml-auto flex gap-1.5">
+      {(["graph", "list"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          aria-pressed={view === v}
+          onClick={() => setView(v)}
+          className={chip(view === v)}
+        >
+          {v === "graph" ? "Graphe" : "Liste"}
+        </button>
+      ))}
+    </span>
+  );
   const picker = (
     <>
-      <label htmlFor="team-pick" className="mt-3 block">
-        Équipe
-      </label>
-      <select
-        id="team-pick"
-        className={field}
-        value={name ?? ""}
-        // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
-        disabled={commit.isPending}
-        onChange={(e) => {
-          const next = e.target.value || null;
-          if (!dirty) return goTo(next);
-          setCreating(null);
-          setDeleting(false);
-          setSwitchTo(next ?? "");
-        }}
-      >
-        <option value="">Par défaut (team.md)</option>
-        {/* A new team is not in the repo yet. */}
-        {(current === null && name !== null
-          ? [...teams.map((t) => t.name), name]
-          : teams.map((t) => t.name)
-        ).map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <fieldset aria-label="Équipe" className="contents">
+          {[
+            null,
+            ...(current === null && name !== null
+              ? [...teams.map((t) => t.name), name]
+              : teams.map((t) => t.name)),
+          ].map((n) => (
+            <button
+              key={n ?? ""}
+              type="button"
+              aria-pressed={name === n}
+              // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
+              disabled={commit.isPending}
+              onClick={() => {
+                if (n === name) return;
+                if (!dirty) return goTo(n);
+                setCreating(null);
+                setDeleting(false);
+                setSwitchTo(n ?? "");
+              }}
+              className={chip(name === n)}
+            >
+              {n ?? "Par défaut"}
+            </button>
+          ))}
+        </fieldset>
+        <button
+          type="button"
+          disabled={archived || commit.isPending}
+          onClick={() => {
+            setSwitchTo(null);
+            setDeleting(false);
+            setProblem(null);
+            setDone(null);
+            setCreating(initial ?? { steps: DEFAULT_STEPS, body: "" });
+          }}
+          className={`${chip(false)} border-transparent`}
+        >
+          Nouvelle équipe
+        </button>
+        {viewSwitch}
+      </div>
       {switchTo !== null && (
         <div className="mt-3">
           <p id="switch-team-warning">
@@ -704,36 +764,6 @@ export function ProjectTeam({
           </code>
         </p>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={archived || commit.isPending}
-          onClick={() => {
-            setSwitchTo(null);
-            setDeleting(false);
-            setProblem(null);
-            setDone(null);
-            setCreating(initial ?? { steps: DEFAULT_STEPS, body: "" });
-          }}
-          className={button}
-        >
-          Nouvelle équipe
-        </button>
-        {name !== null && current !== null && !deleting && (
-          <button
-            type="button"
-            disabled={archived || commit.isPending}
-            onClick={() => {
-              setSwitchTo(null);
-              setCreating(null);
-              setDeleting(true);
-            }}
-            className={button}
-          >
-            Supprimer l'équipe
-          </button>
-        )}
-      </div>
       {creating && (
         <NewTeamDialog
           start={creating}
@@ -756,6 +786,10 @@ export function ProjectTeam({
           }}
         />
       )}
+    </>
+  );
+  const deleteBlock = (
+    <>
       {deleting && (
         <div className="mt-3">
           <p id="delete-team-warning">
@@ -791,19 +825,22 @@ export function ProjectTeam({
     </>
   );
   const heading = (
-    <h2 id="team" className={sectionLabel}>
+    <h2 id="team" className="sr-only">
       Équipe
     </h2>
   );
   if (!draft)
     return (
-      <section aria-labelledby="team" hidden={hidden}>
+      <section aria-labelledby="team" hidden={hidden} className="contents">
         {heading}
-        {picker}
-        <p className="mt-3">
-          {name === null ? "Ce team.md contient" : "Cette équipe contient"} des
-          lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub
-        </p>
+        <div className="lg:col-span-2">{picker}</div>
+        <div className="min-w-0">
+          {deleteBlock}
+          <p className="mt-3">
+            {name === null ? "Ce team.md contient" : "Cette équipe contient"}{" "}
+            des lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub
+          </p>
+        </div>
       </section>
     );
 
@@ -823,60 +860,83 @@ export function ProjectTeam({
     steps.every((s) => s.loopTo === null || s.until.trim() !== "");
 
   return (
-    <section aria-labelledby="team" hidden={hidden}>
+    // `contents`: the chips span the page, the editor and the commit row are the left column of the grid of ProjectAgents.
+    <section aria-labelledby="team" hidden={hidden} className="contents">
       {heading}
-      {picker}
-      <StepEditor
-        key={key}
-        steps={steps}
-        onSteps={(next) => setDraft({ steps: next, body })}
-        agents={agents}
-        archived={archived}
-        onEditAgent={onEditAgent}
-      />
-      {problem && !creating && <Problem problem={problem} />}
-      {done && (
-        <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
-          <p>
-            {done.pullRequest
-              ? "La branche par défaut est protégée : une pull request est ouverte"
-              : "C'est fait"}
-          </p>
-          <a href={done.url} className={`underline ${focusRing}`}>
-            {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
-          </a>
+      <div className="lg:col-span-2">{picker}</div>
+      <div className="min-w-0">
+        <StepEditor
+          key={key}
+          steps={steps}
+          onSteps={(next) => setDraft({ steps: next, body })}
+          agents={agents}
+          archived={archived}
+          view={view}
+          onEditAgent={onEditAgent}
+        />
+        {problem && !creating && <Problem problem={problem} />}
+        {done && (
+          <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
+            <p>
+              {done.pullRequest
+                ? "La branche par défaut est protégée : une pull request est ouverte"
+                : "C'est fait"}
+            </p>
+            <a href={done.url} className={`underline ${focusRing}`}>
+              {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
+            </a>
+          </div>
+        )}
+        <div className="mt-3.5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!canCommit}
+            onClick={() => {
+              setProblem(null);
+              setDone(null);
+              commit.mutate({ name, before: current, after });
+            }}
+            className={primaryButton}
+          >
+            Faire le commit
+          </button>
+          <span className="text-[12.5px] text-muted-foreground">
+            Écrit dans{" "}
+            {name === null ? ".claude/team.md" : `.claude/teams/${name}.md`}
+          </span>
+          <button
+            type="button"
+            disabled={unchanged}
+            onClick={() => setShowDiff(true)}
+            className={ghostButton}
+          >
+            Voir les changements
+          </button>
+          {name !== null && current !== null && !deleting && (
+            <button
+              type="button"
+              disabled={archived || commit.isPending}
+              onClick={() => {
+                setSwitchTo(null);
+                setCreating(null);
+                setDeleting(true);
+              }}
+              className={ghostButton}
+            >
+              Supprimer l'équipe
+            </button>
+          )}
         </div>
-      )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={unchanged}
-          onClick={() => setShowDiff(true)}
-          className={button}
-        >
-          Voir les changements
-        </button>
-        <button
-          type="button"
-          disabled={!canCommit}
-          onClick={() => {
-            setProblem(null);
-            setDone(null);
-            commit.mutate({ name, before: current, after });
-          }}
-          className={primaryButton}
-        >
-          Faire le commit
-        </button>
+        {deleteBlock}
+        {showDiff &&
+          (lines ? (
+            <DiffList lines={lines} />
+          ) : (
+            <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
+              {after}
+            </pre>
+          ))}
       </div>
-      {showDiff &&
-        (lines ? (
-          <DiffList lines={lines} />
-        ) : (
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
-            {after}
-          </pre>
-        ))}
     </section>
   );
 }

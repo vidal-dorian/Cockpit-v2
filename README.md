@@ -19,17 +19,17 @@ Une App créée avant la [décision 026](docs/decisions/026-ecrire-dans-un-repo.
 
 ### Réglages
 
-La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec « Jetons MCP »), « Tâches cloud » (l'écriture automatique des US, voir plus bas) et « Instance » (pour l'administrateur seulement : les utilisateurs). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US, voir plus bas) et « Instance » (pour l'administrateur seulement : les utilisateurs). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### La page d'un projet
 
-La page d'un projet a six onglets : « Kanban » (`/projets/:id`, six colonnes dont « Idées », les tickets qui attendent leurs US), « Tickets », « Conception » (voir plus bas), « Santé » (le bilan, « Revérifier », « Préparer pour Claude »), « Agents » et « Réglages » (l'écriture automatique des US, l'ancien onglet « Écriture des US »). L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décisions [028](docs/decisions/028-creme-sombre-onglets-journal.md) et [045](docs/decisions/045-interface-quatre-temps.md).
+La page d'un projet a six onglets : « Kanban » (`/projets/:id`, six colonnes dont « Idées », les tickets qui attendent leurs US), « Tickets », « Conception » (voir plus bas), « Santé » (le bilan, « Revérifier », « Préparer pour Claude »), « Agents » et « Réglages » (l'écriture automatique des US, l'ancien onglet « Écriture des US » ; « Sur ce PC · Dossier du clone », le même que celui de « Développer avec Claude », retenu par le navigateur ; « Archiver le projet »). L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décisions [028](docs/decisions/028-creme-sombre-onglets-journal.md) et [045](docs/decisions/045-interface-quatre-temps.md).
 
-L'onglet « Agents » (`/projets/:id/agents`) modifie les agents de `.claude/agents/` du repo et ses équipes (`.claude/team.md` et `.claude/teams/<nom>.md`, en graphe ou en liste) : chaque changement montre son diff, puis fait un seul commit. Décisions [030](docs/decisions/030-editeur-d-agent.md), [031](docs/decisions/031-equipe-en-graphe.md), [032](docs/decisions/032-plusieurs-equipes.md) et [042](docs/decisions/042-nouvelle-equipe-fenetre.md).
+L'onglet « Agents » (`/projets/:id/agents`) modifie les agents de `.claude/agents/` du repo et ses équipes (`.claude/team.md` et `.claude/teams/<nom>.md`, au choix « Graphe » ou « Liste » ; l'éditeur d'un agent s'ouvre à côté de son fichier) : chaque changement montre son diff, puis fait un seul commit. Décisions [030](docs/decisions/030-editeur-d-agent.md), [031](docs/decisions/031-equipe-en-graphe.md), [032](docs/decisions/032-plusieurs-equipes.md) et [042](docs/decisions/042-nouvelle-equipe-fenetre.md).
 
 ### Le Journal
 
-Le Journal affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+Le Journal est groupé par jour et affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### Webhooks GitHub
 
@@ -37,7 +37,7 @@ Cockpit reçoit les webhooks de l'App sur `POST /api/webhooks/github` : la signa
 
 ### Une issue modifiée sur GitHub
 
-L'issue d'une user story est un rendu de Cockpit : on modifie l'US dans Cockpit, pas sur GitHub. Si quelqu'un modifie quand même le titre ou le corps de l'issue sur GitHub (pas l'App elle-même), Cockpit garde sa version, **n'écrit plus sur cette issue** et le dit : la carte du Kanban porte « Issue modifiée sur GitHub » et la page de l'US (`/us/:id`) montre la date, le titre s'il a changé et le diff ligne à ligne du corps. Deux choix : « Garder la version de Cockpit » efface l'écart et réécrit l'issue avec le rendu de Cockpit (quel que soit le statut de l'US) ; « Reprendre la version de GitHub » relit le récit, les notes et les critères de l'issue et les applique comme « Modifier » (US à valider, à réécrire ou prête), puis réécrit l'issue. Si le corps ne suit plus le gabarit de Cockpit, la reprise est refusée : garde la version de Cockpit ou recopie les changements avec « Modifier ». Le Journal garde « Issue modifiée sur GitHub », « Version de Cockpit gardée » et « Version de GitHub reprise », jamais le texte. Décision [025](docs/decisions/025-issue-modifiee-sur-github.md).
+L'issue d'une user story est un rendu de Cockpit : on modifie l'US dans Cockpit, pas sur GitHub. Si quelqu'un modifie quand même le titre ou le corps de l'issue sur GitHub (pas l'App elle-même), Cockpit garde sa version, **n'écrit plus sur cette issue** et le dit : la carte du Kanban porte « Issue modifiée sur GitHub » et la page de l'US (`/us/:id`) montre la date, le titre s'il a changé et le diff ligne à ligne du corps. Deux choix : « Garder la version Cockpit » efface l'écart et réécrit l'issue avec le rendu de Cockpit (quel que soit le statut de l'US) ; « Garder la version GitHub » relit le récit, les notes et les critères de l'issue et les applique comme « Modifier » (US à valider, à réécrire ou prête), puis réécrit l'issue. Si le corps ne suit plus le gabarit de Cockpit, la reprise est refusée : garde la version de Cockpit ou recopie les changements avec « Modifier ». Le Journal garde « Issue modifiée sur GitHub », « Version de Cockpit gardée » et « Version de GitHub reprise », jamais le texte. Décision [025](docs/decisions/025-issue-modifiee-sur-github.md).
 
 ### La carte du code (Conception)
 
@@ -73,7 +73,7 @@ Cockpit se branche à Claude comme un **connecteur claude.ai**, en trois étapes
 2. **Ouvrir claude.ai** ([claude.ai/customize/connectors](https://claude.ai/customize/connectors)), choisir « Ajouter un connecteur personnalisé » et coller l'adresse.
 3. **Se connecter** : claude.ai ouvre Cockpit ; connecte-toi avec GitHub si besoin, puis clique « Autoriser ».
 
-C'est fait : Claude voit tes projets partout (Claude Code en local et dans le cloud, claude.ai, le téléphone, les tâches planifiées). La connexion apparaît dans « Jetons MCP », où tu peux la révoquer. Sans compte claude.ai, Claude Code fait la même connexion au premier usage : `claude mcp add --transport http cockpit <adresse publique>/mcp`. Pour que claude.ai joigne Cockpit, l'adresse doit être publique : en local, seul Claude Code sur ton PC peut se connecter. Un `.mcp.json` qui déclare Cockpit masque le connecteur : mieux vaut ne pas l'y mettre. Détails dans la décision [021](docs/decisions/021-connecter-claude.md) (et la [006](docs/decisions/006-connexion-oauth.md)).
+C'est fait : Claude voit tes projets partout (Claude Code en local et dans le cloud, claude.ai, le téléphone, les tâches planifiées). La connexion apparaît dans les jetons MCP de « Connecter Claude », où tu peux la révoquer. Sans compte claude.ai, Claude Code fait la même connexion au premier usage : `claude mcp add --transport http cockpit <adresse publique>/mcp`. Pour que claude.ai joigne Cockpit, l'adresse doit être publique : en local, seul Claude Code sur ton PC peut se connecter. Un `.mcp.json` qui déclare Cockpit masque le connecteur : mieux vaut ne pas l'y mettre. Détails dans la décision [021](docs/decisions/021-connecter-claude.md) (et la [006](docs/decisions/006-connexion-oauth.md)).
 
 ### Plan B : un jeton créé à la main
 
@@ -101,7 +101,7 @@ Sans fichier : `claude mcp add --transport http cockpit https://cockpit.example.
 
 ## Développer une US avec Claude
 
-Sur la page d'une US prête, ou en revue pour la reprendre (`/us/:id`), « Développer avec Claude » ouvre un panneau à droite : la branche (nouvelle ou existante), le dossier du clone sur ton PC (retenu par le navigateur) et un prompt complémentaire facultatif. « Lancer Claude » ouvre Claude Desktop dans ce dossier avec `/dev-us` prérempli ; « Copier le prompt » sert si le lien ne marche pas. Le skill `/dev-us` (du catalogue, voir « Préparer pour Claude ») suit l'équipe du projet et rend compte par le MCP : la page du run (`/runs/:id`) montre ses étapes en direct, les résultats des critères et la PR liée ; Claude y pose ses questions, auxquelles tu réponds sur place ou depuis l'accueil. « Demander l'arrêt » arrête Claude à l'étape suivante, « Fermer le run » ferme un run muet, « Relancer » ramène à la page de l'US pour en lancer un autre. À la fin, le run dit « Acceptable » ou « À vérifier », avec ses raisons. Le merge reste à faire sur GitHub : Cockpit suit la PR par ses webhooks (« Actualiser » la relit) et passe l'US « terminée » au merge. Décisions [033](docs/decisions/033-run-minimal.md) à [039](docs/decisions/039-aide-a-la-decision.md).
+Sur la page d'une US prête, ou en revue pour la reprendre (`/us/:id`), « Développer avec Claude » ouvre un panneau à droite : la branche (nouvelle ou existante), le dossier du clone sur ton PC (retenu par le navigateur) et un prompt complémentaire facultatif (`Ctrl Entrée` lance, comme la réponse à une question de Claude). « Lancer Claude » ouvre Claude Desktop dans ce dossier avec `/dev-us` prérempli ; « Copier le prompt » sert si le lien ne marche pas. Le skill `/dev-us` (du catalogue, voir « Préparer pour Claude ») suit l'équipe du projet et rend compte par le MCP : la page du run (`/runs/:id`) montre ses étapes en direct, les résultats des critères et la PR liée ; Claude y pose ses questions, auxquelles tu réponds sur place ou depuis l'accueil. « Demander l'arrêt » arrête Claude à l'étape suivante, « Fermer le run » ferme un run muet (après la confirmation « Fermer le run ? »), « Relancer » ramène à la page de l'US pour en lancer un autre. À la fin, le run dit « Acceptable » ou « À vérifier », avec ses raisons. Le merge reste à faire sur GitHub : Cockpit suit la PR par ses webhooks (« Actualiser » la relit) et passe l'US « terminée » au merge. Décisions [033](docs/decisions/033-run-minimal.md) à [039](docs/decisions/039-aide-a-la-decision.md).
 
 L'accueil (`/`) répond à « qu'est-ce qui m'attend ? » : « À toi de jouer » (questions, US à valider, PR à relire, runs à vérifier), « Claude travaille ». Les projets qui ne sont pas au repos sont dans la barre latérale, avec leur pastille. Décision [040](docs/decisions/040-accueil.md).
 
@@ -111,7 +111,7 @@ Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que
 
 1. **Créer la tâche** sur [claude.ai/code/routines](https://claude.ai/code/routines) : déclencheur « API » seulement, le modèle de ton choix, seulement le connecteur Cockpit coché (claude.ai les coche tous : retire les autres ; voir « Connecter Claude Code »), et la consigne fournie par le bouton « Copier la consigne ».
 2. **Coller dans Cockpit** l'« Adresse de lancement » et le « Jeton » que claude.ai affiche une seule fois, puis « Enregistrer ». Le jeton est chiffré avec la clé de l'instance et n'est plus jamais affiché. Si claude.ai le refuse un jour, Cockpit l'indique (« à reconnecter ») : clique « Régénérer » sur la tâche et recolle le jeton.
-3. **Choisir la fréquence** dans l'onglet « Réglages » du projet : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Au planning, rien n'est lancé s'il n'y a aucune US à écrire.
+3. **Choisir la fréquence** (des cartes à choisir) dans l'onglet « Réglages » du projet : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Au planning, rien n'est lancé s'il n'y a aucune US à écrire.
 
 Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pas dans les tests, qui le simulent. Détails dans la décision [022](docs/decisions/022-routine-ecriture-us.md).
 
@@ -177,9 +177,9 @@ Dans GitHub : Actions → CD → Run workflow. `scripts/deploy.sh` vérifie le f
 
 Le premier déploiement affiche dans son journal la ligne `Cockpit setup code: XXXX-XXXX-XXXX-XXXX — open …/installation` (on la retrouve avec `docker compose --env-file /etc/cockpit/cockpit.env logs app`). Ensuite :
 
-1. Ouvrir l'adresse publique de Cockpit, entrer le code de démarrage.
-2. Cliquer sur « Créer l'App GitHub », puis sur « Create GitHub App » sur GitHub.
-3. Se connecter avec GitHub : on devient administrateur.
+1. Ouvrir l'adresse publique de Cockpit, entrer le code de démarrage (étape « Code de démarrage »).
+2. Lire les permissions demandées, cliquer sur « Créer l'App GitHub », puis sur « Create GitHub App » sur GitHub (étape « GitHub App »).
+3. Se connecter avec GitHub : on devient administrateur (étape « Premier compte »).
 
 ### Garder une copie de la clé de chiffrement
 
