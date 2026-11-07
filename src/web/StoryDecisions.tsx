@@ -56,6 +56,7 @@ export function StoryDecisions({
   project,
   archived,
   statusRef,
+  toDecide = [],
   children,
 }: {
   story: DecidedStory;
@@ -63,6 +64,8 @@ export function StoryDecisions({
   archived: boolean;
   /** The status of the story on the page (tabIndex -1): where the focus goes when the button that was used is gone. */
   statusRef: RefObject<HTMLElement | null>;
+  /** The rules of a takeover story that are still to decide (decision 047 K): the story cannot be validated before. */
+  toDecide?: string[];
   /** What the panel shows under its headline (the pull request of a story in review). */
   children?: React.ReactNode;
 }) {
@@ -155,7 +158,8 @@ export function StoryDecisions({
             {(status === "to_validate" || status === "to_rewrite") && (
               <button
                 type="button"
-                disabled={archived || run.isPending}
+                disabled={archived || run.isPending || toDecide.length > 0}
+                aria-describedby={toDecide.length > 0 ? "to-decide" : undefined}
                 onClick={() => {
                   run.reset();
                   run.mutate(() =>
@@ -224,6 +228,15 @@ export function StoryDecisions({
           <h2 className="text-xl leading-snug font-semibold">
             {HEADLINES[status]}
           </h2>
+          {toDecide.length > 0 &&
+            ["to_validate", "to_rewrite"].includes(status) && (
+              <p id="to-decide" className="text-muted-foreground">
+                {toDecide.length === 1
+                  ? "1 règle à trancher"
+                  : `${toDecide.length} règles à trancher`}{" "}
+                : {toDecide.join(" · ")}
+              </p>
+            )}
           {status === "to_validate" && (
             <>
               <p className={sectionLabel}>Après validation</p>

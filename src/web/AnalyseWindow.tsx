@@ -20,16 +20,16 @@ import {
   panelPrimaryButton,
 } from "./ui.ts";
 
-// The two files of decision 043 M, as the catalog names them.
+// The three files of decisions 043 M and 047 M, as the catalog names them.
 const ANALYSER_FILES = [
   ".claude/skills/analyser/SKILL.md",
   ".claude/agents/cartographer.md",
+  ".claude/agents/rules-analyst.md",
 ];
-const PROMPT = "/analyser";
 
 const storageKey = (projectId: string) => `cockpit.clone.${projectId}`;
 
-/** Decision 043 L and M, in the right panel: the link that opens Claude on the clone with /analyser, and for a repo that lacks the two files, their addition with the write of decision 026. */
+/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the three files, their addition with the write of decision 026. */
 export function AnalyseWindow({
   projectId,
   fullName,
@@ -50,6 +50,9 @@ export function AnalyseWindow({
       return "";
     }
   });
+  const [map, setMap] = useState(true);
+  const [rules, setRules] = useState(false);
+  const [features, setFeatures] = useState("");
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<{
@@ -103,7 +106,16 @@ export function AnalyseWindow({
     .trim()
     .replace(/^"(.*)"$/, "$1")
     .trim();
-  const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(PROMPT)}`;
+  const cases = [map && "carte", rules && "regles"].filter(Boolean);
+  const prompt = `/analyser ${cases.join(" ")}${rules ? ` ${features.trim()}` : ""}`;
+  // What is missing from the prompt, said next to the button (decision 045 K).
+  const lacking =
+    cases.length === 0
+      ? "Coche au moins une analyse : la carte ou les règles."
+      : rules && !features.trim()
+        ? "Indique les fonctionnalités à reprendre pour lancer Claude."
+        : null;
+  const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(prompt)}`;
   const plan = read.data?.plan;
   const missing = files.some((f) => f.status === "create");
 
@@ -114,7 +126,7 @@ export function AnalyseWindow({
         <>
           <a
             className={`${panelPrimaryButton} aria-disabled:opacity-50`}
-            {...(cleanFolder
+            {...(cleanFolder && !lacking
               ? {
                   href,
                   onClick: () => {
@@ -133,9 +145,10 @@ export function AnalyseWindow({
           <button
             type="button"
             className={panelButton}
+            disabled={!!lacking}
             onClick={() =>
               navigator.clipboard
-                .writeText(PROMPT)
+                .writeText(prompt)
                 .then(() => setCopied("yes"))
                 .catch(() => setCopied("no"))
             }
@@ -166,9 +179,40 @@ export function AnalyseWindow({
         Analyser avec Claude
       </h2>
       <p className="text-muted-foreground">
-        Claude lit le repo, dépose la carte du code, et Cockpit vérifie chaque
-        citation sur GitHub.
+        Claude lit le repo, dépose la carte du code ou les règles à valider, et
+        Cockpit vérifie chaque citation sur GitHub.
       </p>
+      <fieldset className="grid gap-2">
+        <legend className="sr-only">Ce que Claude analyse</legend>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={map}
+            onChange={(e) => setMap(e.target.checked)}
+          />
+          Carte
+        </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={rules}
+            onChange={(e) => setRules(e.target.checked)}
+          />
+          Règles
+        </label>
+      </fieldset>
+      {rules && (
+        <label className="block font-semibold">
+          Fonctionnalités à reprendre
+          <input
+            required
+            className={field}
+            value={features}
+            placeholder="Connexion, Facturation"
+            onChange={(e) => setFeatures(e.target.value)}
+          />
+        </label>
+      )}
       <label className="block font-semibold">
         Dossier du clone
         <input
@@ -180,6 +224,7 @@ export function AnalyseWindow({
         />
       </label>
       {!cleanFolder && <p>Indique le dossier du clone pour lancer Claude.</p>}
+      {lacking && <p>{lacking}</p>}
       {files.length > 0 && (
         <div>
           {missing && (
@@ -200,7 +245,7 @@ export function AnalyseWindow({
               disabled={archived || commit.isPending}
               onClick={() => {
                 setProblem(null);
-                // The plan as received (base commit and signature), reduced to the two files.
+                // The plan as received (base commit and signature), reduced to the three files.
                 commit.mutate({ ...plan, files });
               }}
             >
