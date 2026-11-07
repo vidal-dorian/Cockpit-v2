@@ -121,6 +121,6 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 | 036 | |
 | [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 | 018 | |
 | [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 | 014 | dicter, photo |
-| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 | | |
+| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : seule l'alerte « Serveur injoignable » existe |
 
 Sur le téléphone, la barre du bas (Accueil, Idée, Nuit, Projets) est la même sur chaque écran.

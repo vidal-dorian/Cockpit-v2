@@ -19,7 +19,7 @@ Une App créée avant la [décision 026](docs/decisions/026-ecrire-dans-un-repo.
 
 ### Réglages
 
-La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec « Jetons MCP »), « Tâches cloud » (l'écriture automatique des US, voir plus bas) et « Instance » (pour l'administrateur seulement : branchements et utilisateurs). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec « Jetons MCP »), « Tâches cloud » (l'écriture automatique des US, voir plus bas) et « Instance » (pour l'administrateur seulement : les utilisateurs). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### La page d'un projet
 
@@ -93,7 +93,7 @@ Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que
 
 1. **Créer la tâche** sur [claude.ai/code/routines](https://claude.ai/code/routines) : déclencheur « API » seulement, le modèle de ton choix, seulement le connecteur Cockpit coché (claude.ai les coche tous : retire les autres ; voir « Connecter Claude Code »), et la consigne fournie par le bouton « Copier la consigne ».
 2. **Coller dans Cockpit** l'« Adresse de lancement » et le « Jeton » que claude.ai affiche une seule fois, puis « Enregistrer ». Le jeton est chiffré avec la clé de l'instance et n'est plus jamais affiché. Si claude.ai le refuse un jour, Cockpit l'indique (« à reconnecter ») : clique « Régénérer » sur la tâche et recolle le jeton.
-3. **Choisir la fréquence** sur la page du projet (« Écriture automatique des US ») : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Au planning, rien n'est lancé s'il n'y a aucune US à écrire.
+3. **Choisir la fréquence** dans l'onglet « Réglages » du projet : désactivée, à la demande, chaque jour ou chaque semaine, à l'heure de ton navigateur. « Écrire les US maintenant » lance tout de suite. Au planning, rien n'est lancé s'il n'y a aucune US à écrire.
 
 Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pas dans les tests, qui le simulent. Détails dans la décision [022](docs/decisions/022-routine-ecriture-us.md).
 
