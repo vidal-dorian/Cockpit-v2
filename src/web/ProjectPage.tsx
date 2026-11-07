@@ -55,12 +55,7 @@ const EXPLANATIONS: Record<string, string> = {
     "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
 };
 
-export type ProjectTab =
-  | "kanban"
-  | "tickets"
-  | "sante"
-  | "ecriture-us"
-  | "agents";
+type ProjectTab = "kanban" | "tickets" | "sante" | "ecriture-us" | "agents";
 
 const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "kanban", to: "", label: "Kanban" },

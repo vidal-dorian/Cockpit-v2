@@ -1,7 +1,7 @@
 import type { StoryStatus } from "./stories.ts";
 
 /** The statuses from which a story has an issue (decision 020 A): everything past the validation. */
-export type IssueStatus = Exclude<StoryStatus, "to_validate" | "to_rewrite">;
+type IssueStatus = Exclude<StoryStatus, "to_validate" | "to_rewrite">;
 
 // The French word of the status and the issue's label, state and reason (decision 020 C and D).
 const BY_STATUS: Record<

@@ -15,7 +15,7 @@ export const githubAppConfig = {
   githubAppPrivateKey: privateKey,
 };
 
-export type GitHubRepo = {
+type GitHubRepo = {
   id: number;
   full_name: string;
   default_branch: string;
@@ -30,7 +30,7 @@ export const INSTALLATION_ID = 77;
  * - `symlink`: mode 120000 (a blob). `submodule`: a gitlink, tree entry of type `commit`, mode 160000.
  * - `large`: a regular file (100644) too large for Contents, which answers 200 with `content: ""` and `encoding: "none"`.
  */
-export type FakeGitEntry =
+type FakeGitEntry =
   | { kind: "executable"; content: string }
   | { kind: "symlink" }
   // GitHub answers 422 or 404 to the tree of a submodule (decision 013 H did not verify which), or even 200 with the tree of its commit when that commit is in the repo's objects: `treeStatus` picks it, 422 by default.
@@ -58,7 +58,7 @@ export const DEFAULT_WEBHOOK_URL =
   "https://cockpit.example.com/api/webhooks/github";
 
 /** The App's webhook as the stub holds it (decision 024 F); read and change it between two calls. */
-export type FakeWebhook = {
+type FakeWebhook = {
   url: string;
   /** Sent in the answer of `GET /app/hook/config` only when set. */
   active?: boolean;
@@ -82,7 +82,7 @@ export type FakeReview = {
 };
 
 /** An issue as the fake holds it (slice 4.6, decision 020); `labels` are names. */
-export type FakeIssue = {
+type FakeIssue = {
   number: number;
   title: string;
   body: string;

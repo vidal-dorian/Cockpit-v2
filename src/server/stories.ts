@@ -157,7 +157,7 @@ export function changeStory(
 }
 
 /** Writes fields of a locked story, and returns it as written. */
-export async function updateStory(
+async function updateStory(
   tx: Tx,
   id: number,
   set: Partial<Pick<Story, "status" | "rewriteComment">>,

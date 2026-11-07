@@ -5,7 +5,7 @@ import { parseTeam } from "./team.ts";
 const DEFAULT_TEAM = ["test-writer", "developer", "reviewer"];
 
 /** The fixed codes of decision 013; the page turns them into French. */
-export type HealthDetail =
+type HealthDetail =
   | "ok"
   | "missing"
   | "invalid_json"

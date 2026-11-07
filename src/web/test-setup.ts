@@ -1,3 +1,9 @@
+import { configure } from "@testing-library/react";
+
+// The screens load through stubbed fetches and lazy chunks: on a busy machine running the whole suite
+// they can take more than the default 1 s of findBy/waitFor.
+configure({ asyncUtilTimeout: 5000 });
+
 // React Flow measures its container with browser APIs jsdom lacks: the smallest stand-ins.
 globalThis.ResizeObserver ??= class {
   observe() {}

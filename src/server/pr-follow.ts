@@ -20,7 +20,7 @@ const FAILED = [
 ];
 
 /** The CI of a PR from the check runs of its head commit (decision 038 E): none is null, one waiting is pending, one failed is failure, else success. */
-export function ciState(runs: CheckRun[]) {
+function ciState(runs: CheckRun[]) {
   if (runs.length === 0) return null;
   if (runs.some((r) => r.conclusion && FAILED.includes(r.conclusion)))
     return "failure";
@@ -29,7 +29,7 @@ export function ciState(runs: CheckRun[]) {
 }
 
 /** The review of a PR from the last review of each reviewer, comments aside (decision 038 F). `reviews` is oldest first. */
-export function reviewState(reviews: Review[]) {
+function reviewState(reviews: Review[]) {
   const last = new Map<string, string>();
   for (const { login, state } of reviews)
     if (state !== "COMMENTED") last.set(login, state);

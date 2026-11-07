@@ -85,7 +85,9 @@ describe("loadOrCreateKey", () => {
     expect(created).toHaveLength(32);
     expect(existsSync(path)).toBe(true);
     expect(readFileSync(path)).toHaveLength(32);
-    expect(statSync(path).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX modes; the Pi (Linux) is where 0600 matters.
+    if (process.platform !== "win32")
+      expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
   it("given a key file created by a first call, when the key is loaded again, then the same key comes back", () => {
