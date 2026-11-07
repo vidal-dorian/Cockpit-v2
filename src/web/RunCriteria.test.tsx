@@ -75,7 +75,9 @@ describe("criterion 8: the Critères section of the run page", () => {
 
     renderAt("/runs/12");
 
-    const heading = await screen.findByRole("heading", { name: "Critères" });
+    const heading = await screen.findByRole("heading", {
+      name: /^Les critères/,
+    });
     const section = (heading.closest("section") ??
       heading.parentElement) as HTMLElement;
     const items = within(section).getAllByRole("listitem");

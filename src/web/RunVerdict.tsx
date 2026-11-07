@@ -1,4 +1,4 @@
-import { button, primaryButton } from "./ui.ts";
+import { button, card, primaryButton, sectionLabel } from "./ui.ts";
 
 export const REASONS: Record<string, string> = {
   run_not_succeeded: "Le run n'a pas réussi",
@@ -32,17 +32,30 @@ export function RunVerdict({
     ),
   };
   return (
-    <section className="mt-6">
-      <h2 className="font-heading text-xl font-bold">
-        {verdict.acceptable ? "Acceptable" : "À vérifier"}
-      </h2>
-      {verdict.reasons.length > 0 && (
-        <ul className="mt-2 list-disc pl-5">
-          {verdict.reasons.map((code) => (
-            <li key={code}>{texts[code] ?? code}</li>
-          ))}
-        </ul>
-      )}
+    <section>
+      <h2 className={sectionLabel}>Le verdict de Claude</h2>
+      <div className={`${card} mt-2 p-[18px]`}>
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h3 className="text-xl font-semibold">
+            {verdict.acceptable ? "Acceptable" : "À vérifier"}
+          </h3>
+          <span className="text-[13px] text-muted-foreground">
+            calculé à partir des critères et de la CI
+          </span>
+        </div>
+        {verdict.reasons.length > 0 && (
+          <ul className="mt-2 grid gap-1">
+            {verdict.reasons.map((code) => (
+              <li key={code}>
+                <span aria-hidden="true" className="mr-2 text-muted-foreground">
+                  ✕
+                </span>
+                {texts[code] ?? code}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
@@ -56,10 +69,7 @@ export function RunAction({
   merged: boolean;
 }) {
   return (
-    <a
-      href={prUrl}
-      className={`mt-6 inline-block ${merged ? button : primaryButton}`}
-    >
+    <a href={prUrl} className={merged ? button : primaryButton}>
       {merged ? "Voir la PR sur GitHub" : "Relire et merger sur GitHub"}
     </a>
   );
