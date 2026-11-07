@@ -71,6 +71,8 @@ const CATALOG: Record<string, string> = {
   // Slice R1 (decision 043 M).
   ".claude/agents/cartographer.md": fromCatalog("agents/cartographer.md"),
   ".claude/skills/analyser/SKILL.md": fromCatalog("skills/analyser/SKILL.md"),
+  // Slice R2 (decision 047 M).
+  ".claude/agents/rules-analyst.md": fromCatalog("agents/rules-analyst.md"),
 };
 const ALL = Object.keys(CATALOG).sort();
 const WITHOUT_CLAUDE_MD = ALL.filter((p) => p !== "CLAUDE.md");
@@ -222,6 +224,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare", () => {
       ".claude/skills/write-us/SKILL.md": "same",
       ".claude/agents/cartographer.md": "create",
       ".claude/skills/analyser/SKILL.md": "create",
+      ".claude/agents/rules-analyst.md": "create",
     });
     const developer = plan.files.find(
       (f) => f.path === ".claude/agents/developer.md",
@@ -369,6 +372,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
     expect([...body.created].sort()).toEqual([
       ".claude/agents/cartographer.md",
       ".claude/agents/reviewer.md",
+      ".claude/agents/rules-analyst.md",
       ".claude/agents/test-writer.md",
       ".claude/skills/analyser/SKILL.md",
       ".claude/skills/dev-us/SKILL.md",
@@ -385,6 +389,8 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
         CATALOG[".claude/skills/dev-us/SKILL.md"],
       ".claude/agents/cartographer.md":
         CATALOG[".claude/agents/cartographer.md"],
+      ".claude/agents/rules-analyst.md":
+        CATALOG[".claude/agents/rules-analyst.md"],
       ".claude/skills/analyser/SKILL.md":
         CATALOG[".claude/skills/analyser/SKILL.md"],
     });
@@ -809,7 +815,7 @@ describe("decision 027 E: the history of preparing a repo", () => {
       actor: "human",
       origin: "ui",
       action: "prepare_repo",
-      args: { created: 8 },
+      args: { created: 9 },
       result: "ok",
       detail: null,
       github_effects: { commitSha, pullRequest: null },
@@ -827,7 +833,7 @@ describe("decision 027 E: the history of preparing a repo", () => {
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({
       result: "ok",
-      args: { created: 8 },
+      args: { created: 9 },
       github_effects: { commitSha, pullRequest: 1 },
     });
   });

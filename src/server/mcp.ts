@@ -46,9 +46,11 @@ import {
   ticketStories,
   WrongStatus,
 } from "./stories.ts";
+import { createTakeoverStories, sourcesOf, takeoverArgs } from "./takeover.ts";
 import { AGENT_NAME } from "./team.ts";
 import {
   assertActive,
+  checkDependsOn,
   createTicket,
   criterionText,
   descriptionMd,
@@ -150,27 +152,7 @@ const storyInput = z.object({
 });
 
 /** `depends_on` holds positive positions, each once (decision 017 C); that they are strictly earlier needs the stories already written, so `create_user_stories` checks it in its transaction. The refusal names the faulty field. */
-const storyList = z
-  .array(storyInput)
-  .max(20)
-  .superRefine((list, ctx) => {
-    list.forEach((story, index) => {
-      const seen = new Set<number>();
-      story.depends_on?.forEach((position, at) => {
-        const problem =
-          position < 1
-            ? `position ${position} must be at least 1`
-            : seen.has(position) && `position ${position} is repeated`;
-        seen.add(position);
-        if (problem)
-          ctx.addIssue({
-            code: "custom",
-            path: [index, "depends_on", at],
-            message: problem,
-          });
-      });
-    });
-  });
+const storyList = z.array(storyInput).max(20).superRefine(checkDependsOn);
 
 /** A tool: validates its arguments, then runs. `inputSchema` is what `tools/list` shows Claude. */
 function tool<S extends z.ZodObject>(
@@ -686,9 +668,14 @@ const tools = {
       call.entry.storyId = story.id;
       return act(call.db, call.entry, async (tx) => {
         const { criteria, dependsOn } = await storyParts(tx, story.id);
+        const sources = await sourcesOf(
+          tx,
+          criteria.map((k) => k.id),
+        );
         return {
           story: {
             id: story.id,
+            kind: story.kind,
             position: story.position,
             as_a: story.asA,
             i_want: story.iWant,
@@ -709,6 +696,19 @@ const tools = {
             then: k.thenText,
             result: k.result,
             evidence: k.evidence,
+            // The rule of a takeover story (decision 047 N).
+            ...(k.takeoverState && {
+              summary: k.summary,
+              reasoning: k.reasoning,
+              doubt: k.doubt,
+              takeover_state: k.takeoverState,
+              sources: (sources.get(k.id) ?? []).map((s) => ({
+                path: s.path,
+                start_line: s.startLine,
+                end_line: s.endLine,
+                commit_sha: s.commitSha,
+              })),
+            }),
           })),
           depends_on: dependsOn.map((d) => ({
             id: d.id,
@@ -858,6 +858,22 @@ const tools = {
     },
   ),
 
+  create_takeover_stories: tool(
+    "Write the business rules of an existing feature as user stories to review, in /analyser (rules part), once the map of the code exists. Send the project_id, the commit_sha (40 hexadecimal characters: the commit of HEAD, which must be pushed), the feature (its name, 1 to 190 characters, so the ticket title 'Reprise : <feature>' stays within 200) and 1 to 20 stories, each with as_a / i_want / so_that, optional notes_md, optional depends_on (positions of EARLIER stories in this call, from 1) and 1 to 5 rules as criteria. At most 5 rules per story: cut a bigger one into several stories. A rule has summary (the rule in one sentence, 1 to 300 characters), given / when / then (the user's language), reasoning (why you think it holds, 1 to 1,000 characters), optional doubt (what you could not settle, up to 1,000 characters), 1 to 5 sources and optional object_names (up to 20 names of objects of the map). A source is { path, start_line, end_line } (lines from 1) of the code that shows the rule; Cockpit checks each one on GitHub at that commit, and at most 100 distinct files may be cited per call. Cockpit creates the ticket 'Reprise : <feature>' with its stories as to_validate, every rule pending: only the user judges them, in Cockpit. All or nothing. Refused with the faulty location (for example stories[1].criteria[3].sources[0]): fix it and send again. Refused on archived projects.",
+    takeoverArgs,
+    async (call, args) => {
+      call.entry.args = { projectId: args.project_id };
+      const project = await ownProject(call, args.project_id);
+      return createTakeoverStories(
+        call.db,
+        call.readGitHub,
+        call.entry,
+        project,
+        args,
+      );
+    },
+  ),
+
   finish_run: tool(
     "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure. Steps still open are closed as failed; a story still in_progress becomes ready again (in_review when a pull request is linked); after a stop request, failed is recorded as stopped. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
     z.object({
@@ -895,6 +911,8 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
   step_open:
     "this agent already has an open step. Report it finished before starting another.",
   no_open_step: "this agent has no open step. Report started first.",
+  takeover_story:
+    "this story holds rules read from existing code, which only the user judges in Cockpit. Do not rewrite it; tell the user.",
   project_archived:
     "this project is archived, so it is read-only. Tell the user, or use another project from list_projects.",
   question_pending:

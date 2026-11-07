@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -215,6 +216,8 @@ export const STORY_STATUSES = [
   "abandoned",
 ] as const;
 
+export const STORY_KINDS = ["feature", "takeover"] as const;
+
 export const PR_CI_STATES = ["pending", "success", "failure"] as const;
 export const PR_REVIEW_STATES = ["approved", "changes_requested"] as const;
 
@@ -233,6 +236,8 @@ export const userStories = pgTable(
     soThat: text("so_that").notNull(),
     notesMd: text("notes_md").notNull().default(""),
     status: text("status", { enum: STORY_STATUSES }).notNull(),
+    // A takeover story holds the rules Claude read in existing code (decision 047 C).
+    kind: text("kind", { enum: STORY_KINDS }).notNull().default("feature"),
     rewriteComment: text("rewrite_comment"),
     // The GitHub issue of the story (decision 020 E): its number, the SHA-256 of the last body published, and the claim of a creation in flight (G).
     issueNumber: integer("issue_number"),
@@ -267,6 +272,7 @@ export const userStories = pgTable(
       "user_stories_status_check",
       sql`${t.status} in ('to_validate', 'to_rewrite', 'ready', 'in_progress', 'in_review', 'done', 'abandoned')`,
     ),
+    check("user_stories_kind_check", sql`${t.kind} in ('feature', 'takeover')`),
     check(
       "user_stories_pr_ci_state_check",
       sql`${t.prCiState} in ('pending', 'success', 'failure')`,
@@ -370,6 +376,7 @@ export const runSteps = pgTable(
 );
 
 export const CRITERION_RESULTS = ["passed", "failed"] as const;
+export const TAKEOVER_STATES = ["pending", "kept"] as const;
 
 /** A criterion of a story; `result`, `evidence` and `resultRunId` are the last report of Claude (decision 035 A). */
 export const acceptanceCriteria = pgTable(
@@ -386,12 +393,45 @@ export const acceptanceCriteria = pgTable(
     result: text("result", { enum: CRITERION_RESULTS }),
     evidence: text("evidence"),
     resultRunId: integer("result_run_id").references(() => runs.id),
+    // The rule of a takeover story (decision 047 C and D); all null for an ordinary criterion.
+    summary: text("summary"),
+    reasoning: text("reasoning"),
+    doubt: text("doubt"),
+    objectNames: text("object_names").array(),
+    takeoverState: text("takeover_state", { enum: TAKEOVER_STATES }),
   },
   (t) => [
     check(
       "acceptance_criteria_result_check",
       sql`${t.result} in ('passed', 'failed')`,
     ),
+    check(
+      "acceptance_criteria_takeover_state_check",
+      sql`${t.takeoverState} in ('pending', 'kept')`,
+    ),
+  ],
+);
+
+/** The lines of code a rule cites, verified on GitHub at `commitSha` when it was written (decision 047 C). */
+export const codeSources = pgTable(
+  "code_sources",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    criterionId: integer("criterion_id")
+      .notNull()
+      .references(() => acceptanceCriteria.id, { onDelete: "cascade" }),
+    // From 0, in the order of the rule.
+    position: integer("position").notNull(),
+    path: text("path").notNull(),
+    startLine: integer("start_line").notNull(),
+    endLine: integer("end_line").notNull(),
+    commitSha: text("commit_sha").notNull(),
+  },
+  (t) => [
+    check("code_sources_lines_check", sql`${t.startLine} <= ${t.endLine}`),
+    check("code_sources_start_check", sql`${t.startLine} >= 1`),
+    index("code_sources_criterion_idx").on(t.criterionId),
+    index("code_sources_commit_path_idx").on(t.commitSha, t.path),
   ],
 );
 

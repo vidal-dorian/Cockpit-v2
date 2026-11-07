@@ -68,3 +68,11 @@ export const sectionLabel =
 /** A keyboard key, as in « N » or « Ctrl K ». */
 export const kbd =
   "rounded-[5px] border border-border-strong px-[5px] py-px font-mono text-[10.5px] font-medium text-muted-foreground";
+
+/** A tab of a row of links: the open one is underlined, the others are secondary. */
+export const tabLink = ({ isActive }: { isActive: boolean }) =>
+  `inline-flex min-h-10 items-center border-b-2 px-3 text-sm font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
+
+/** A chip of a row that switches the view of a tab (« Modèle », « Règles · 34 »): the open one has an ink border. */
+export const chipLink = ({ isActive }: { isActive: boolean }) =>
+  `inline-flex h-7 items-center rounded-full border px-2.5 text-[12.5px] font-semibold whitespace-nowrap ${focusRing} ${isActive ? "border-foreground bg-raised text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`;

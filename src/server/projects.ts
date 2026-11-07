@@ -56,9 +56,10 @@ const CATALOG_FILES = [
   "skills/dev-us/SKILL.md",
   "skills/write-us/SKILL.md",
 ].map(catalogFile);
-/** `/analyser` and its agent (decision 043 M): prepared with the rest, but no team agent. */
+/** `/analyser` and its agents (decisions 043 M and 047 M): prepared with the rest, but no team agent. */
 const ANALYSER_FILES = [
   "agents/cartographer.md",
+  "agents/rules-analyst.md",
   "skills/analyser/SKILL.md",
 ].map(catalogFile);
 const CLAUDE_MD = {

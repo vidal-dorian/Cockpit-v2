@@ -131,7 +131,7 @@ const arrowButton = `${squareButton} size-[30px]`;
 
 /**
  * The right panel (380 px, fixed on lg+; `<main>` makes room for it, below lg it follows the content).
- * `label` names it, `badge` is the pill on the left of the header, `counter` adds « i sur n » with Précédent and Suivant (`index` starts at 0),
+ * `label` names it, `badge` is the pill on the left of the header, `counter` adds « i sur n » with Précédent and Suivant (`index` starts at 0, `words` says them otherwise),
  * `meta` is a muted label on the right of the header (S24: « Développer avec Claude »),
  * `footer` is pinned at the bottom (the white button of the panel: `panelPrimaryButton`).
  */
@@ -151,6 +151,8 @@ export function Panel({
     total: number;
     onPrevious: () => void;
     onNext: () => void;
+    /** The words of a counter that is not « i sur n » with Précédent and Suivant: the text before the arrows and the names of the two arrows (« à relire », « Précédente », « Suivante »). */
+    words?: { count: string; previous: string; next: string };
   };
   meta?: React.ReactNode;
   children: React.ReactNode;
@@ -173,11 +175,12 @@ export function Panel({
         {counter && (
           <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
             <span>
-              {counter.index + 1} sur {counter.total}
+              {counter.words?.count ??
+                `${counter.index + 1} sur ${counter.total}`}
             </span>
             <button
               type="button"
-              aria-label="Précédent"
+              aria-label={counter.words?.previous ?? "Précédent"}
               disabled={counter.index === 0}
               onClick={counter.onPrevious}
               className={arrowButton}
@@ -186,7 +189,7 @@ export function Panel({
             </button>
             <button
               type="button"
-              aria-label="Suivant"
+              aria-label={counter.words?.next ?? "Suivant"}
               disabled={counter.index >= counter.total - 1}
               onClick={counter.onNext}
               className={arrowButton}

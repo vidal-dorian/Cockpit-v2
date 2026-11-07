@@ -10,6 +10,7 @@ import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { fetchTickets, ProjectTickets } from "./ProjectTickets.tsx";
+import { rulesSentence, useRules } from "./rules.ts";
 import { Breadcrumb, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -108,7 +109,14 @@ function writingSentence(
 }
 
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
-export function ProjectPage({ tab }: { tab: ProjectTab }) {
+export function ProjectPage({
+  tab,
+  view,
+}: {
+  tab: ProjectTab;
+  /** The takeover screen of the Conception tab (decision 047 I). */
+  view?: "rules";
+}) {
   const { id = "" } = useParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
   // No retry and no refetch on focus: the alert has its own Réessayer, "Revérifier" reads again, and each read costs several GitHub calls.
@@ -174,6 +182,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
     queryFn: () => fetchSchedule(id),
     enabled: tab === "tickets",
   });
+  const rules = useRules(id, tab === "conception");
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
   const sentence: { title: string; rest?: string; inline?: boolean } =
@@ -194,29 +203,31 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                 title: `${name} est prêt pour Claude.`,
                 rest: "Tout le bilan est au vert.",
               }
-          : tab === "conception" && codeMap.data && codeMap.data.length > 0
-            ? {
-                title: `Claude a lu ${name} : voici son modèle.`,
-                rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                  codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
-                  "objet",
-                  "objets",
-                )}, chacun avec le code qui le prouve.`,
-              }
-            : tab === "tickets" && tickets.data
+          : tab === "conception" && view === "rules" && rules.data
+            ? { title: rulesSentence(rules.data), rest: undefined }
+            : tab === "conception" && codeMap.data && codeMap.data.length > 0
               ? {
-                  title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                  rest: writingSentence(schedule.data),
+                  title: `Claude a lu ${name} : voici son modèle.`,
+                  rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                    codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
+                    "objet",
+                    "objets",
+                  )}, chacun avec le code qui le prouve.`,
                 }
-              : {
-                  title:
-                    tab === "reglages"
-                      ? `Réglages de ${name}.`
-                      : tab === "agents"
-                        ? `Les agents et les équipes de ${name}.`
-                        : name,
-                  rest: TAB_REST[tab],
-                };
+              : tab === "tickets" && tickets.data
+                ? {
+                    title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                    rest: writingSentence(schedule.data),
+                  }
+                : {
+                    title:
+                      tab === "reglages"
+                        ? `Réglages de ${name}.`
+                        : tab === "agents"
+                          ? `Les agents et les équipes de ${name}.`
+                          : name,
+                    rest: TAB_REST[tab],
+                  };
 
   return (
     <main className="pb-6">
@@ -286,7 +297,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
             <NavLink
               key={t.tab}
               to={`/projets/${id}${t.to}`}
-              end
+              end={t.to === ""}
               className={projectTab}
             >
               {t.tab === "sante" && red > 0
@@ -397,6 +408,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
           projectId={id}
           fullName={project.fullName}
           archived={project.archived}
+          screen={view === "rules" ? "rules" : "map"}
         />
       )}
       {!notFound && tab === "agents" && project && (

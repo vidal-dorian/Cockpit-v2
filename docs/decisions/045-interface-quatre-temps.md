@@ -44,7 +44,7 @@ Il a ensuite demandé les quatre couleurs des profils DISC (v8), puis de les rat
 
 ## Ce qui est repoussé
 
-- **Le logo** : les écrans montrent quatre carrés aux couleurs des temps, une proposition. Le composant `Logo` (les deux mains, 028 D) reste jusqu'à ce qu'une décision tranche. → tranché par la [046](046-logo-la-boucle.md) : la boucle.
+- **Le logo** : les écrans montrent quatre carrés aux couleurs des temps, une proposition. Le composant `Logo` (les deux mains, 028 D) reste jusqu'à ce qu'une décision tranche. → tranché par la [046](046-logo-la-boucle.md) : la boucle, que les écrans montrent depuis.
 - **Le thème clair** : la 15.3. Les jetons sont nommés pour recevoir un second thème.
 - **Les branches en parallèle dans une équipe** : une décision avant la tranche E6 (G).
 - **Ce que chaque écran marque « à trancher »** dans l'index (prix de l'abonnement, rôles des membres, coût…) : décidé avec sa tranche.

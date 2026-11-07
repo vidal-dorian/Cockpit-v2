@@ -840,7 +840,8 @@ export function stubGitHub(initial: {
             total_commits: ahead,
           });
         }
-        throw unexpectedFetch(route);
+        // The issues and labels of a repo with a Git history are served below (a validated story gets its issue, decision 020).
+        if (!/\/(labels|issues)(\/|$)/.test(rest)) throw unexpectedFetch(route);
       }
       const repoRoute =
         /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)(?:\/contents\/(.+)|\/git\/trees\/(.+))$/.exec(

@@ -1,6 +1,6 @@
 # Les écrans de Cockpit
 
-Chaque écran de Cockpit, dans le style **« Quatre temps »** ([décision 045](../decisions/045-interface-quatre-temps.md)). Ils ont été validés par Dorian le 2026-11-07. Leur logo (quatre carrés) est une ébauche : le logo est celui de la [décision 046](../decisions/046-logo-la-boucle.md), la boucle.
+Chaque écran de Cockpit, dans le style **« Quatre temps »** ([décision 045](../decisions/045-interface-quatre-temps.md)). Ils ont été validés par Dorian le 2026-11-07. Ils montrent le logo de la [décision 046](../decisions/046-logo-la-boucle.md), la boucle, à 20 px comme dans le code.
 
 Chaque écran existe en deux fichiers :
 - **`.png`** : pour le regarder ;
@@ -97,7 +97,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S41](S41_Reprise_Carte.png) | Onglet Conception : la carte du modèle, un objet et son code | R1 (existe) | 007, 043 | |
-| [S42](S42_Reprise_Regle.png) | Valider une règle à côté de son code | R2 | 007 | points ouverts de la 007 |
+| [S42](S42_Reprise_Regle.png) | Valider une règle à côté de son code | R2 (existe) | 007, 047 | |
 | [S43](S43_Reprise_Graphe.png) | Le graphe d'une fonctionnalité | R3 | 007 | |
 | [S44](S44_Reprise_Constats.png) | Les constats : failles, versions, architecture | R5, R6 | 007 | |
 

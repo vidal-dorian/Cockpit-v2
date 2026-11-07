@@ -53,6 +53,7 @@
 - **Fait** : tranche 9.1 (ménage de la doc : `decoupage.md`, `architecture.md`, README et décisions relus contre le code).
 - **Fait** : tranche 9.4 (logo « la boucle », [décision 046](decisions/046-logo-la-boucle.md)).
 - **Fait** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
+- **Fait** : tranche R2 (les règles et l'écran de reprise, [décision 047](decisions/047-ecran-de-reprise.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -295,7 +296,7 @@ Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée 
 | Plusieurs instances : quatre choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
 | Hébergeur ; facturation par personne ou par organisation (13.2, 13.3) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
-| Reprise : granularité des règles (R2), contrôle du mode « figer » (R4), coloration du code (R2), modèle de chaque agent d'analyse, doublons entre analyses (R5), `object_names` absent (R2) | [007](decisions/007-reprise-app-existante.md), points ouverts 1 à 6 |
+| Reprise : contrôle du mode « figer » (R4), modèle de chaque agent d'analyse, doublons entre analyses (R5). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris) | [007](decisions/007-reprise-app-existante.md), points ouverts 2, 4 et 5 ; [047](decisions/047-ecran-de-reprise.md) |
 | Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
 | Version téléphone (phase 15) | [003](decisions/003-interface.md), point ouvert 4 |
 
