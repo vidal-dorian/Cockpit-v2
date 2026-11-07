@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
@@ -232,10 +232,31 @@ export async function sourcesOf(db: Db, criterionIds: number[]) {
   return byCriterion;
 }
 
-/** The rules of a project as the takeover screen reads them (decision 047 I): those of its takeover stories to validate, or one rule whatever its story. */
-async function loadRules(db: Db, projectId: number, only?: number) {
+/** The valid modules of the map of a project. */
+async function mapModules(db: Db, projectId: number) {
+  const modules: z.output<typeof moduleData>[] = [];
+  for (const m of await db
+    .select({ data: codeMaps.data })
+    .from(codeMaps)
+    .where(eq(codeMaps.projectId, projectId))) {
+    const parsed = moduleData.safeParse(m.data);
+    if (parsed.success) modules.push(parsed.data);
+  }
+  return modules;
+}
+
+/** The rules of a project as the takeover screen reads them (decision 047 I): those of its takeover stories to validate, or one rule whatever its story; or, for the features (decision 048 A), those of the takeover stories not abandoned of the tickets not abandoned. */
+async function loadRules(
+  db: Db,
+  projectId: number,
+  which: "to_validate" | "features" | number = "to_validate",
+) {
   const rows = await db
-    .select({ criterion: acceptanceCriteria, story: userStories })
+    .select({
+      criterion: acceptanceCriteria,
+      story: userStories,
+      ticketTitle: tickets.title,
+    })
     .from(acceptanceCriteria)
     .innerJoin(userStories, eq(userStories.id, acceptanceCriteria.storyId))
     .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
@@ -243,9 +264,14 @@ async function loadRules(db: Db, projectId: number, only?: number) {
       and(
         eq(tickets.projectId, projectId),
         eq(userStories.kind, "takeover"),
-        only === undefined
+        which === "to_validate"
           ? eq(userStories.status, "to_validate")
-          : eq(acceptanceCriteria.id, only),
+          : which === "features"
+            ? and(
+                ne(userStories.status, "abandoned"),
+                isNull(tickets.abandonedAt),
+              )
+            : eq(acceptanceCriteria.id, which),
       ),
     )
     .orderBy(
@@ -257,18 +283,19 @@ async function loadRules(db: Db, projectId: number, only?: number) {
     db,
     rows.map((r) => r.criterion.id),
   );
-  const inMap = new Set<string>();
-  for (const m of await db
-    .select({ data: codeMaps.data })
-    .from(codeMaps)
-    .where(eq(codeMaps.projectId, projectId))) {
-    const parsed = moduleData.safeParse(m.data);
-    if (parsed.success) for (const o of parsed.data.objects) inMap.add(o.name);
-  }
-  return rows.map(({ criterion: k, story }) => ({
+  const inMap = new Set(
+    (await mapModules(db, projectId)).flatMap((m) =>
+      m.objects.map((o) => o.name),
+    ),
+  );
+  return rows.map(({ criterion: k, story, ticketTitle }) => ({
     id: k.id,
     storyId: story.id,
+    // Widened: the web only compares it with « to_validate ».
+    storyStatus: story.status as string,
+    asA: story.asA,
     ticketId: story.ticketId,
+    ticketTitle,
     position: k.position,
     summary: k.summary ?? "",
     reasoning: k.reasoning ?? "",
@@ -289,6 +316,53 @@ async function loadRules(db: Db, projectId: number, only?: number) {
       commitSha: s.commitSha,
     })),
   }));
+}
+
+/** Decision 048 A to C: the features (one per takeover ticket) with their actors and rules, and the links of the map between the objects those rules cite. */
+async function loadFeatures(db: Db, projectId: number) {
+  const rules = await loadRules(db, projectId, "features");
+  const features = new Map<
+    number,
+    {
+      id: number;
+      title: string;
+      actors: string[];
+      rules: Omit<
+        (typeof rules)[number],
+        "asA" | "ticketId" | "ticketTitle" | "position" | "reasoning" | "doubt"
+      >[];
+    }
+  >();
+  for (const {
+    asA,
+    ticketId,
+    ticketTitle,
+    position,
+    reasoning,
+    doubt,
+    ...rule
+  } of rules) {
+    const feature = features.get(ticketId) ?? {
+      id: ticketId,
+      title: ticketTitle.replace(/^Reprise : /, ""),
+      actors: [],
+      rules: [],
+    };
+    features.set(ticketId, feature);
+    const actor = asA.trim();
+    if (!feature.actors.some((a) => a.toLowerCase() === actor.toLowerCase()))
+      feature.actors.push(actor);
+    feature.rules.push(rule);
+  }
+  const cited = new Set(rules.flatMap((r) => r.objects.map((o) => o.name)));
+  const links = (await mapModules(db, projectId)).flatMap((m) =>
+    m.links.flatMap(({ from, to, kind }) =>
+      kind !== "extends" && cited.has(from) && cited.has(to)
+        ? [{ from, to, kind }]
+        : [],
+    ),
+  );
+  return { features: [...features.values()], links };
 }
 
 /** A permalink to the cited lines, as GitHub writes it. */
@@ -404,6 +478,17 @@ export function takeoverRoutes(db: Db) {
       );
       if (!project) return c.json({ error: "Not found" }, 404);
       return c.json({ rules: await loadRules(db, project.id) });
+    })
+    .get("/api/projects/:id/features", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      return c.json(await loadFeatures(db, project.id));
     })
     .post("/api/criteria/:id/keep", (c) =>
       decide(c, "keep_rule", setState("kept"), ruleAnswer),
