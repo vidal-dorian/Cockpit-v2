@@ -54,6 +54,7 @@
 - **Fait** : tranche 9.4 (logo « la boucle », [décision 046](decisions/046-logo-la-boucle.md)).
 - **Fait** : tranche R1 (la carte du code, [décision 043](decisions/043-carte-du-code.md)), la première de la phase 10.
 - **Fait** : tranche R2 (les règles et l'écran de reprise, [décision 047](decisions/047-ecran-de-reprise.md)).
+- **Fait** : tranche R3 (le graphe par fonctionnalité, [décision 048](decisions/048-graphe-par-fonctionnalite.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

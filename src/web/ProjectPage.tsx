@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { NavLink, useParams } from "react-router";
+import { NavLink, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { fetchCodeMap } from "./conception.ts";
+import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
+import { FeaturesExport } from "./ProjectFeatures.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { ProjectRoutine } from "./ProjectRoutine.tsx";
@@ -98,8 +100,8 @@ export function ProjectPage({
   view,
 }: {
   tab: ProjectTab;
-  /** The takeover screen of the Conception tab (decision 047 I). */
-  view?: "rules";
+  /** The takeover screen (decision 047 I) or the features (decision 048 E) of the Conception tab. */
+  view?: "rules" | "features";
 }) {
   const { id = "" } = useParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
@@ -154,6 +156,11 @@ export function ProjectPage({
     enabled: tab === "conception",
   });
   const rules = useRules(id, tab === "conception");
+  const features = useFeatures(id, tab === "conception" && view === "features");
+  const feature = chosenFeature(
+    features.data?.features ?? [],
+    useSearchParams()[0].get("f"),
+  );
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
   const sentence =
@@ -171,24 +178,38 @@ export function ProjectPage({
             }
         : tab === "conception" && view === "rules" && rules.data
           ? { title: rulesSentence(rules.data), rest: undefined }
-          : tab === "conception" && codeMap.data && codeMap.data.length > 0
+          : tab === "conception" && view === "features" && features.data
             ? {
-                title: `Claude a lu ${name} : voici son modèle.`,
-                rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                  codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
-                  "objet",
-                  "objets",
-                )}, chacun avec le code qui le prouve.`,
+                title: feature
+                  ? featureSentence(feature)
+                  : "Pas encore de fonctionnalité.",
+                rest: feature
+                  ? "Un clic sur une règle ouvre l'écran de reprise."
+                  : undefined,
               }
-            : tab === "tickets" && tickets.data
-              ? {
-                  title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                  rest: TAB_REST[tab],
-                }
-              : {
-                  title: tab === "reglages" ? `Réglages de ${name}.` : name,
-                  rest: TAB_REST[tab],
-                };
+            : tab === "conception" && view === "features"
+              ? { title: name, rest: undefined }
+              : tab === "conception" && codeMap.data && codeMap.data.length > 0
+                ? {
+                    title: `Claude a lu ${name} : voici son modèle.`,
+                    rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                      codeMap.data.reduce(
+                        (n, m) => n + m.data.objects.length,
+                        0,
+                      ),
+                      "objet",
+                      "objets",
+                    )}, chacun avec le code qui le prouve.`,
+                  }
+                : tab === "tickets" && tickets.data
+                  ? {
+                      title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                      rest: TAB_REST[tab],
+                    }
+                  : {
+                      title: tab === "reglages" ? `Réglages de ${name}.` : name,
+                      rest: TAB_REST[tab],
+                    };
 
   return (
     <main className="pb-6">
@@ -215,14 +236,27 @@ export function ProjectPage({
               rest={sentence.rest}
               actions={
                 project && (
-                  <a
-                    href={`https://github.com/${project.fullName}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={`mt-1 ${button}`}
-                  >
-                    Ouvrir sur GitHub ↗
-                  </a>
+                  <div className="mt-1 flex flex-wrap justify-end gap-2">
+                    {view === "features" &&
+                      feature &&
+                      features.data &&
+                      codeMap.data && (
+                        <FeaturesExport
+                          fullName={project.fullName}
+                          feature={feature}
+                          features={features.data.features}
+                          modules={codeMap.data}
+                        />
+                      )}
+                    <a
+                      href={`https://github.com/${project.fullName}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className={button}
+                    >
+                      Ouvrir sur GitHub ↗
+                    </a>
+                  </div>
                 )
               }
             />
@@ -348,7 +382,7 @@ export function ProjectPage({
           projectId={id}
           fullName={project.fullName}
           archived={project.archived}
-          screen={view === "rules" ? "rules" : "map"}
+          screen={view ?? "map"}
         />
       )}
       {!notFound && tab === "agents" && project && (
