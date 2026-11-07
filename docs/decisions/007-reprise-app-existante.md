@@ -301,7 +301,7 @@ Les citations des objets de la carte restent dans son `data` : elles sont rempla
 ## Points ouverts
 
 1. **Granularité** : combien de règles par US ? À fixer en écrivant `/analyser`, sur la v1 de Cockpit comme premier essai. *Tranché par la [047](047-ecran-de-reprise.md) : 5 règles au plus par US.*
-2. **Contrôle du mode « figer »** : le reviewer vérifie que la PR ne touche que des tests. Cockpit pourrait le vérifier lui-même sur le diff de la PR ; à décider en R4.
+2. **Contrôle du mode « figer »** : le reviewer vérifie que la PR ne touche que des tests. Cockpit pourrait le vérifier lui-même sur le diff de la PR ; à décider en R4. *Tranché par la [050](050-figer-l-existant.md) C : le reviewer et Cockpit, sur les fichiers de la PR.*
 3. **Coloration du code** à gauche : à choisir avec l'écran de reprise (R2), sans couleur codée en dur (003). *Tranché par la [047](047-ecran-de-reprise.md) F : Shiki, thème `css-variables`.*
 4. **Modèle de chaque agent** d'analyse (005) : `security-reviewer` et `architect` méritent sans doute le plus gros.
 5. **Doublons entre deux analyses** : `list_findings` évite de redéposer ce qui est connu, sans le garantir. À revoir en R5 si le cas se présente.

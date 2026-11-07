@@ -305,7 +305,11 @@ async function loadRules(
     when: k.whenText,
     // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
     then: k.thenText,
-    state: k.takeoverState ?? "pending",
+    // Frozen is computed, not stored: the story is merged and the rule's test passed (decision 050 F).
+    state:
+      which === "features" && story.status === "done" && k.result === "passed"
+        ? ("frozen" as const)
+        : (k.takeoverState ?? "pending"),
     objects: (k.objectNames ?? []).map((name) => ({
       name,
       inMap: inMap.has(name),

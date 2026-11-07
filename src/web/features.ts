@@ -50,4 +50,8 @@ export const objectHref = (projectId: string, name: string) =>
   `/projets/${projectId}/conception?objet=${encodeURIComponent(name)}`;
 
 export const stateWord = (rule: FeatureRule) =>
-  rule.state === "kept" ? "voulue" : "à trancher";
+  rule.state === "frozen"
+    ? "figée"
+    : rule.state === "kept"
+      ? "voulue"
+      : "à trancher";

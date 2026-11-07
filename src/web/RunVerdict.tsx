@@ -7,6 +7,7 @@ export const REASONS: Record<string, string> = {
   ci_pending: "La CI tourne encore",
   ci_missing: "Aucune CI sur la PR",
   changes_requested: "Des modifications sont demandées sur la PR",
+  app_code_changed: "La PR modifie du code de l'app, pas seulement des tests",
 };
 
 const count = (n: number, one: string, many: string) =>
@@ -16,10 +17,14 @@ const count = (n: number, one: string, many: string) =>
 export function RunVerdict({
   verdict,
   criteria,
+  story,
 }: {
   verdict: { acceptable: boolean; reasons: string[] };
   criteria: { result: string | null }[];
+  story: { prAppFiles: string[] | null; prAppFilesCount: number | null };
 }) {
+  const appFiles = story.prAppFiles ?? [];
+  const more = (story.prAppFilesCount ?? 0) - appFiles.length;
   const failed = criteria.filter((k) => k.result === "failed").length;
   const unreported = criteria.filter((k) => k.result === null).length;
   const texts: Record<string, string> = {
@@ -51,6 +56,18 @@ export function RunVerdict({
                   ✕
                 </span>
                 {texts[code] ?? code}
+                {code === "app_code_changed" && (
+                  <ul className="ml-6 font-mono text-[13px] text-muted-foreground">
+                    {appFiles.map((path) => (
+                      <li key={path}>{path}</li>
+                    ))}
+                    {more > 0 && (
+                      <li>
+                        + {more} {more === 1 ? "autre" : "autres"}
+                      </li>
+                    )}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

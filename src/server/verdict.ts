@@ -7,6 +7,8 @@ export function verdict(input: {
   prNumber: number | null;
   prCiState: (typeof PR_CI_STATES)[number] | null;
   prReviewState: (typeof PR_REVIEW_STATES)[number] | null;
+  kind?: "feature" | "takeover";
+  prAppFiles?: string[] | null;
 }) {
   const { criteria, prNumber, prCiState } = input;
   const reasons = [
@@ -22,6 +24,10 @@ export function verdict(input: {
     prNumber !== null && prCiState === "pending" && "ci_pending",
     prNumber !== null && prCiState === null && "ci_missing",
     input.prReviewState === "changes_requested" && "changes_requested",
+    // A takeover PR only freezes tests (decision 050 C).
+    input.kind === "takeover" &&
+      (input.prAppFiles?.length ?? 0) > 0 &&
+      "app_code_changed",
   ].filter((reason) => reason !== false);
   return { acceptable: reasons.length === 0, reasons };
 }
@@ -33,6 +39,8 @@ export const runVerdict = (
     prNumber: number | null;
     prCiState: (typeof PR_CI_STATES)[number] | null;
     prReviewState: (typeof PR_REVIEW_STATES)[number] | null;
+    kind?: "feature" | "takeover";
+    prAppFiles?: string[] | null;
   },
   criteria: {
     result: "passed" | "failed" | null;
@@ -48,4 +56,6 @@ export const runVerdict = (
     prNumber: story.prNumber,
     prCiState: story.prCiState,
     prReviewState: story.prReviewState,
+    kind: story.kind,
+    prAppFiles: story.prAppFiles,
   });
