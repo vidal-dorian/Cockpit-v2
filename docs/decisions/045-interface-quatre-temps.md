@@ -13,6 +13,7 @@
   - la [042](042-nouvelle-equipe-fenetre.md), choix A : « Nouvelle équipe » s'ouvre en plein écran, sur un canevas, plus dans une fenêtre modale ;
   - la [025](025-issue-modifiee-sur-github.md), choix F et G : les boutons sont « Garder la version Cockpit » et « Garder la version GitHub » ;
   - la [035](035-criteres-et-pr.md), choix F : « ✓ passe » / « ✕ échoue » et « PR #12 » ;
+  - la [038](038-suivi-de-la-pr.md), choix G : « PR #12 » dans le bloc GitHub ;
   - la [027](027-preparer-pour-claude.md), choix F : le plan est une liste de fichiers avec un aperçu ;
   - la [031](031-equipe-en-graphe.md), choix F : un commutateur Graphe / Liste remplace la liste sous le graphe.
 - **Modifiée par** : [046](046-logo-la-boucle.md) : le logo, repoussé ici, est tranché
