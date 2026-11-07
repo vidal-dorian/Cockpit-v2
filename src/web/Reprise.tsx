@@ -517,6 +517,9 @@ export function Reprise({
   const decision = useMutation({
     mutationFn: (act: () => Promise<unknown>) => act(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["story"] }),
+    // A stale screen (rule already decided elsewhere, story validated, ticket abandoned): show the real state.
+    onError: () =>
+      queryClient.invalidateQueries({ queryKey: rulesKey(projectId) }),
   });
   const replace = (next: Rule) =>
     queryClient.setQueryData<Rule[]>(rulesKey(projectId), (old) =>
