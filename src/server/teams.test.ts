@@ -209,10 +209,11 @@ describe("decision 032 C: the agents line checks the named teams", () => {
       expect(
         paths.filter((p) => p === `/repos/${REPO}/contents/${teamPath(name)}`),
       ).toHaveLength(1);
-    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(3);
+    // The three of before, and the five of the catalogue line (decision 049 H): the root, .claude, agents, skills and dev-us.
+    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(3 + 5);
   });
 
-  it("given a ready repo without .claude/teams, when the health is requested, then only the three tree reads of before are made (root, .claude, workflows) and no file is read", async () => {
+  it("given a ready repo without .claude/teams, when the health is requested, then only the three tree reads of before are made (root, .claude, workflows), besides the catalogue line, and no file is read but the catalogue ones", async () => {
     const ctx = await readyForHealth(READY);
 
     expect(await agentsLine(ctx)).toEqual({
@@ -221,8 +222,16 @@ describe("decision 032 C: the agents line checks the named teams", () => {
       detail: "ok",
     });
     const paths = repoCalls(ctx).map((c) => c.path);
-    expect(paths.filter((p) => p.includes("/contents/"))).toEqual([]);
-    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(3);
+    // The catalogue line (decision 049 H) reads the four catalogue files READY holds, and five trees on its way.
+    expect(paths.filter((p) => p.includes("/contents/")).sort()).toEqual(
+      [
+        ".claude/agents/developer.md",
+        ".claude/agents/reviewer.md",
+        ".claude/agents/test-writer.md",
+        SKILL,
+      ].map((path) => `/repos/${REPO}/contents/${path}`),
+    );
+    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(3 + 5);
   });
 });
 

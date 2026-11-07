@@ -13,6 +13,7 @@ Self-hosted control center for the GitHub repos developed with Claude Code. Read
 | `npm test` | Vitest, server and web (`npm test -- --project server` or `web` for one side; CI runs them in two jobs) |
 | `npm run lint` | Biome: lint, format and import order (`npx biome check --write` fixes) |
 | `npm run typecheck` | `tsc`, no emit |
+| `npm run catalog:history` | Regenerates `catalog/history.json` after a change to `catalog/` (decision 049); needs a full clone |
 | `npm run db:generate` | New migration in `drizzle/` from `src/server/db/schema.ts` |
 
 CI runs lint, typecheck, test and build, plus a Docker smoke test of the stack (`scripts/smoke-test.sh`, job `docker`). All of them must pass before a PR.
@@ -22,7 +23,7 @@ CI runs lint, typecheck, test and build, plus a Docker smoke test of the stack (
 - `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`: PostgreSQL in production, PGlite in tests via `test-db.ts`).
 - `src/web`: React page built by Vite. `api.ts` is the typed client of the server routes.
 - `drizzle/`: generated SQL migrations, applied at startup. Never edit an applied migration; add a new one.
-- `catalog/`: the agents (including `cartographer` and `rules-analyst`), skills (`/dev-us`, `/write-us`, `/analyser`) and starter `CLAUDE.md` that « Préparer pour Claude » writes into a user's repo (decision 027); copied into the Docker image.
+- `catalog/`: the agents (including `cartographer` and `rules-analyst`), skills (`/dev-us`, `/write-us`, `/analyser`) and starter `CLAUDE.md` that « Préparer pour Claude » writes into a user's repo (decision 027); `history.json` lists the hashes of every past version (decision 049); copied into the Docker image.
 - `docs/ecrans/`: every screen to build, as PNG and HTML, with an index giving each screen's slice, decisions and open points (decision 045). Build what the screen shows; when it contradicts a decision, the decision wins and you say so.
 - `scripts/`: deployment on the Pi (`deploy.sh`), daily backup (`backup.sh`) and the stack's smoke test (`smoke-test.sh`).
 

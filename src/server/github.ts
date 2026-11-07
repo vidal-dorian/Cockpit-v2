@@ -122,13 +122,13 @@ const MAX_PATH_LENGTH = 255;
 
 /** A file to add to a repo (decision 026). */
 export type WriteFile = { path: string; content: string };
-/** What `planRepoWrite` says of one file (a file given with `unlessExists`, a list of paths, is left out when any of them is there, decision 027 B): `exists` is never written, `current` is then the text in the repo. */
+/** What `planRepoWrite` says of one file (a file given with `unlessExists`, a list of paths, is left out when any of them is there, decision 027 B): `exists` is never written, `current` is then the text in the repo; `update` is an old original copy (decision 049 G), replaced, `current` being its text. */
 type RepoWritePlan = {
   baseSha: string;
   /** Proves the plan comes from `planRepoWrite` of this client and was not touched (decision 026 H). */
   signature?: string;
   files: (WriteFile & {
-    status: "create" | "same" | "exists";
+    status: "create" | "same" | "exists" | "update";
     current?: string;
   })[];
 };
@@ -588,8 +588,8 @@ export function githubClient(config: GitHubAppConfig) {
 
     /** The reading of decision 026 (`inspect`) on its own, as the installation: the files of one repo at a commit (decision 043 C). */
     async fileReader(installationId: number, fullName: string) {
-      const { inspect } = await writeAccess(installationId, fullName);
-      return { inspect };
+      const { inspect, head } = await writeAccess(installationId, fullName);
+      return { inspect, head };
     },
 
     /** How many commits `branch` has that `sha` has not (the `ahead_by` of GitHub's compare), null when GitHub does not know the commit any more (a force-push, decision 043 G). Other errors are left to the caller. */
@@ -722,11 +722,12 @@ export function githubClient(config: GitHubAppConfig) {
       };
     },
 
-    /** What writing `files` into the default branch would do (decision 026 A): each file is `create`, `same` or `exists` (never overwritten). Refused when the repo is empty or out of reach. Reads only. Throws on an invalid plan and on any other GitHub error. */
+    /** What writing `files` into the default branch would do (decision 026 A): each file is `create`, `same`, `update` (its repo text is an old copy according to `isOldCopy`) or `exists` (never overwritten). Refused when the repo is empty or out of reach. Reads only. Throws on an invalid plan and on any other GitHub error. */
     async planRepoWrite(
       installationId: number,
       fullName: string,
       files: (WriteFile & { unlessExists?: string[] })[],
+      isOldCopy: (path: string, text: string) => boolean = () => false,
     ): Promise<RepoWritePlan | RepoWriteRefusal> {
       checkWriteFiles(files);
       const repo = await writeAccess(installationId, fullName);
@@ -746,6 +747,8 @@ export function githubClient(config: GitHubAppConfig) {
             const found = await repo.inspect(file.path, head.sha);
             if (!found) return { ...file, status: "create" };
             if (found.text === file.content) return { ...file, status: "same" };
+            if (found.text !== undefined && isOldCopy(file.path, found.text))
+              return { ...file, status: "update", current: found.text };
             return {
               ...file,
               status: "exists",
@@ -761,7 +764,7 @@ export function githubClient(config: GitHubAppConfig) {
       return { ...unsigned, signature: sign(unsigned) };
     },
 
-    /** Adds the `create` files of the plan in ONE commit on the default branch, and nothing else (decision 026 A to C). The files to create are read again at the head of the branch (`repo_changed` when one is no longer absent), unless the plan is signed by this client and the branch is still at its base (decision 026 H). The branch is advanced without force, once; when it is protected, the commit goes to a branch `cockpit/<7>` and a pull request is opened (G). With nothing to create nothing is called and `commitSha` is the plan's base. */
+    /** Writes the `create` and `update` files of the plan in ONE commit on the default branch, and nothing else (decision 026 A to C, 049 G). The files are read again at the head of the branch (`repo_changed` when a `create` one is no longer absent or an `update` one is no longer its `current`), unless the plan is signed by this client and the branch is still at its base (decision 026 H). The branch is advanced without force, once; when it is protected, the commit goes to a branch `cockpit/<7>` and a pull request is opened (G). With nothing to write nothing is called and `commitSha` is the plan's base; `created` lists the paths written. */
     async applyRepoWrite(
       installationId: number,
       fullName: string,
@@ -779,20 +782,32 @@ export function githubClient(config: GitHubAppConfig) {
       | RepoWriteRefusal
     > {
       checkWriteFiles(plan.files);
-      const toCreate = plan.files.filter((file) => file.status === "create");
+      const toCreate = plan.files.filter(
+        (file) => file.status === "create" || file.status === "update",
+      );
       if (toCreate.length === 0)
         return { commitSha: plan.baseSha, created: [] };
       const repo = await writeAccess(installationId, fullName);
       const head = await repo.head();
       if ("refused" in head) return head;
       if (!(isSigned(plan) && head.sha === plan.baseSha)) {
-        const found = await Promise.all(
-          toCreate
-            .flatMap((file) => [file.path, ...(file.unlessExists ?? [])])
-            .map((path) => repo.inspect(path, head.sha)),
+        const changed = await Promise.all(
+          toCreate.map(async (file) => {
+            const found = await repo.inspect(file.path, head.sha);
+            const others = await Promise.all(
+              (file.unlessExists ?? []).map((path) =>
+                repo.inspect(path, head.sha),
+              ),
+            );
+            return (
+              others.some((state) => state !== null) ||
+              (file.status === "update"
+                ? found?.text !== file.current
+                : found !== null)
+            );
+          }),
         );
-        if (found.some((state) => state !== null))
-          return { refused: "repo_changed" };
+        if (changed.some(Boolean)) return { refused: "repo_changed" };
       }
       const done = await commitToHead(
         repo,

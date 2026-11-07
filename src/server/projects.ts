@@ -4,8 +4,23 @@ import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validator } from "hono/validator";
 import { z } from "zod";
-import { act, type Entry, Refused } from "./action.ts";
+import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
+import {
+  ANALYSER_FILES,
+  CATALOG_FILES,
+  CATALOG_TEXTS,
+  type CatalogState,
+  catalogStates,
+  DEV_US,
+  fileState,
+  HISTORY,
+  isCatalogPath,
+  isOldCopy,
+  readCatalogFiles,
+  recordedHashes,
+  recordWrites,
+} from "./catalog-update.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
 import {
@@ -14,7 +29,12 @@ import {
   type ReadGitHub,
   type WriteFile,
 } from "./github.ts";
-import { type HealthLine, healthLines, webhookLine } from "./health.ts";
+import {
+  catalogLine,
+  type HealthLine,
+  healthLines,
+  webhookLine,
+} from "./health.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
@@ -33,7 +53,7 @@ const prepareBody = z.object({
       z.object({
         path: z.string(),
         content: z.string(),
-        status: z.enum(["create", "same", "exists"]),
+        status: z.enum(["create", "same", "exists", "update"]),
         current: z.string().optional(),
       }),
     ),
@@ -41,27 +61,7 @@ const prepareBody = z.object({
 });
 
 const PREPARE_MESSAGE = "feat: prepare the repo for Claude (Cockpit)";
-const catalogFile = (file: string) => ({
-  path: `.claude/${file}`,
-  content: readFileSync(
-    new URL(`../../catalog/${file}`, import.meta.url),
-    "utf8",
-  ),
-});
-/** Where each file of `catalog/` goes in a repo (decision 027 B): the team agents (offered by the agents page too) and the dev and write skills. */
-const CATALOG_FILES = [
-  "agents/test-writer.md",
-  "agents/developer.md",
-  "agents/reviewer.md",
-  "skills/dev-us/SKILL.md",
-  "skills/write-us/SKILL.md",
-].map(catalogFile);
-/** `/analyser` and its agents (decisions 043 M and 047 M): prepared with the rest, but no team agent. */
-const ANALYSER_FILES = [
-  "agents/cartographer.md",
-  "agents/rules-analyst.md",
-  "skills/analyser/SKILL.md",
-].map(catalogFile);
+const UPDATE_MESSAGE = "chore: update the Claude files (Cockpit)";
 const CLAUDE_MD = {
   path: "CLAUDE.md",
   content: readFileSync(
@@ -91,6 +91,13 @@ const CATALOG_AGENTS = CATALOG_FILES.filter((f) =>
 
 // The longest name for which `.claude/agents/<name>.md` fits the 255 characters of decision 026 D.
 const MAX_AGENT_NAME = 255 - ".claude/agents/".length - ".md".length;
+
+// Decision 049 F: the files to update with the text each had in the repo when the plan was read; the texts written are the catalogue's.
+const catalogBody = z.object({
+  files: z
+    .array(z.object({ path: z.string(), before: z.string().nullable() }))
+    .min(1),
+});
 
 // Decision 030 E: `name` has the format of decision 029 B; `after` is at most 1 MiB, `before` is only compared.
 const agentBody = z
@@ -224,8 +231,19 @@ export function projectRoutes(
   const saveFile = async (
     c: Context<Env, string>,
     entry: Entry & { userId: number },
-    change: { path: string; before: string | null; after: string | null },
+    changes: { path: string; before: string | null; after: string | null }[],
     message: string,
+    hooks: {
+      /** Whether the request is valid for this project, asked once it is known to be the member's and not archived: no, and it is a 400. */
+      valid?: (projectId: number) => Promise<boolean>;
+      /** A refusal code to answer 409 and record, asked after `valid` with the member's project; it reads GitHub, so a failure is a 502. */
+      refuse?: (project: {
+        installationId: number;
+        fullName: string;
+      }) => Promise<string | null>;
+      /** Run in the transaction of the `ok` entry. */
+      onWritten?: (tx: Tx, projectId: number) => Promise<void>;
+    } = {},
   ) => {
     const record = async (error: unknown) => {
       try {
@@ -247,14 +265,21 @@ export function projectRoutes(
       await record(new Refused("project_archived"));
       return c.json({ error: "project_archived" }, 409);
     }
+    if (hooks.valid && !(await hooks.valid(id)))
+      return c.json({ error: "Bad request" }, 400);
     let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
     try {
+      const code = await hooks.refuse?.(project);
+      if (code) {
+        await record(new Refused(code));
+        return c.json({ error: code }, 409);
+      }
       result = await c
         .get("github")
         .applyRepoChanges(
           project.installationId,
           project.fullName,
-          [change],
+          changes,
           message,
         );
     } catch (error) {
@@ -282,10 +307,13 @@ export function projectRoutes(
           pullRequest: result.pullRequest?.number ?? null,
         },
       },
-      async () => {},
+      async (tx) => {
+        await hooks.onWritten?.(tx, id);
+      },
     );
     return c.json({
       commitSha: result.commitSha,
+      changed: result.changed,
       ...(result.pullRequest && { pullRequest: result.pullRequest }),
     });
   };
@@ -454,6 +482,17 @@ export function projectRoutes(
           return c.json({ lines: [...entry.lines, await webhook()] });
         }
         const lines = healthLines(read.files, publicUrl);
+        // Only a prepared repo has the line (decision 049 E); its files are read at the commit the health was computed from (H).
+        if (read.files.devUsSkill.includes("SKILL.md")) {
+          const { inspect } = await c
+            .get("github")
+            .fileReader(project.installationId, project.fullName);
+          const states = catalogStates({
+            files: await readCatalogFiles(inspect, read.commitSha),
+            recorded: await recordedHashes(db, project.id),
+          });
+          if (states) lines.push(catalogLine(states));
+        }
         // An empty repository has no ETag: nothing to remember.
         if (read.etag)
           remember(key, {
@@ -479,6 +518,7 @@ export function projectRoutes(
       if (!project) return c.json({ error: "Not found" }, 404);
       if (project.archivedAt) return c.json({ error: "project_archived" }, 409);
       try {
+        const recorded = await recordedHashes(db, project.id);
         // A read is not an action: no history entry (decision 013 G).
         const plan = await c
           .get("github")
@@ -486,6 +526,7 @@ export function projectRoutes(
             project.installationId,
             project.fullName,
             PREPARE_FILES,
+            (path, text) => isOldCopy(path, text, recorded),
           );
         if ("refused" in plan) return c.json({ error: plan.refused }, 409);
         return c.json({ plan });
@@ -503,6 +544,8 @@ export function projectRoutes(
       );
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { plan } = parsed.data;
+      const id = Number(c.req.param("id"));
+      const recorded = isDatabaseId(id) ? await recordedHashes(db, id) : {};
       try {
         checkWriteFiles(plan.files);
         // Only the catalogue goes through this route (decision 026 D: "the files come from the catalogue").
@@ -510,14 +553,17 @@ export function projectRoutes(
           const known = PREPARE_FILES.find((f) => f.path === file.path);
           if (
             !known ||
-            (file.status === "create" && file.content !== known.content)
+            ((file.status === "create" || file.status === "update") &&
+              file.content !== known.content) ||
+            // Decision 049 F: only an old original copy is replaced, never a hand-modified one.
+            (file.status === "update" &&
+              !isOldCopy(file.path, file.current ?? "", recorded))
           )
             throw new Error("Not a file of the catalogue");
         }
       } catch {
         return c.json({ error: "Bad request" }, 400);
       }
-      const id = Number(c.req.param("id"));
       const entry: Entry = {
         userId: user.userId,
         actor: "human",
@@ -588,9 +634,103 @@ export function projectRoutes(
             pullRequest: result.pullRequest?.number ?? null,
           },
         },
-        async () => {},
+        (tx) => recordWrites(tx, id, result.created),
       );
       return c.json(result);
+    })
+    .post("/api/projects/:id/catalog/plan", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      if (project.archivedAt) return c.json({ error: "project_archived" }, 409);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const { inspect, head } = await c
+          .get("github")
+          .fileReader(project.installationId, project.fullName);
+        const at = await head();
+        if ("refused" in at) return c.json({ error: at.refused }, 409);
+        const texts = await readCatalogFiles(inspect, at.sha);
+        const states = catalogStates({
+          files: texts,
+          recorded: await recordedHashes(db, project.id),
+        });
+        if (!states) return c.json({ error: "not_prepared" }, 409);
+        const files = states
+          .filter((f) => f.state === "old" || f.state === "absent")
+          .sort((a, b) => a.path.localeCompare(b.path))
+          .map(({ path, state }) => ({
+            path,
+            state: state as Extract<CatalogState, "old" | "absent">,
+            current: texts[path] ?? null,
+            content: CATALOG_TEXTS.get(path) as string,
+          }));
+        return c.json({ plan: { files } });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/projects/:id/catalog/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = catalogBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { files } = parsed.data;
+      if (
+        new Set(files.map((f) => f.path)).size !== files.length ||
+        !files.every((f) => isCatalogPath(f.path))
+      )
+        return c.json({ error: "Bad request" }, 400);
+      return saveFile(
+        c,
+        {
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action: "update_catalog",
+          args: { files: files.length },
+        },
+        files.map(({ path, before }) => ({
+          path,
+          before,
+          after: CATALOG_TEXTS.get(path) as string,
+        })),
+        UPDATE_MESSAGE,
+        {
+          // Only a file to update or to add is written: never a hand-modified or current one (decision 049 F).
+          valid: async (projectId) => {
+            const recorded = await recordedHashes(db, projectId);
+            return files.every((f) =>
+              ["old", "absent"].includes(
+                fileState(f.path, f.before, recorded, HISTORY),
+              ),
+            );
+          },
+          // Decision 049 D: a repo with no dev-us skill at the head is not prepared, as the plan says.
+          refuse: async ({ installationId, fullName }) => {
+            const { inspect, head } = await c
+              .get("github")
+              .fileReader(installationId, fullName);
+            const at = await head();
+            if ("refused" in at) return at.refused;
+            return (await inspect(DEV_US, at.sha)) ? null : "not_prepared";
+          },
+          onWritten: (tx, projectId) =>
+            recordWrites(
+              tx,
+              projectId,
+              files.map((f) => f.path),
+            ),
+        },
+      );
     })
     .get("/api/projects/:id/agents", async (c) => {
       const user = await currentUser(db, c);
@@ -657,7 +797,7 @@ export function projectRoutes(
           action: after === null ? "delete_agent" : "save_agent",
           args: { path },
         },
-        { path, before, after },
+        [{ path, before, after }],
         `feat: ${verb} the agent ${name} (Cockpit)`,
       );
     })
@@ -677,7 +817,7 @@ export function projectRoutes(
           action: after === null ? "delete_team" : "save_team",
           args: { path },
         },
-        { path, before, after },
+        [{ path, before, after }],
         !name
           ? "feat: update the team (Cockpit)"
           : `feat: ${after === null ? "remove" : "update"} the team ${name} (Cockpit)`,

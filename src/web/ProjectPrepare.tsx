@@ -20,6 +20,8 @@ const REFUSALS: Record<string, string> = {
   repo_unreachable:
     "L'App Cockpit ne voit plus ce repo : vérifie sur GitHub qu'elle y a encore accès.",
   project_archived: "Ce projet est archivé : plus rien ne s'y écrit.",
+  not_prepared:
+    "Ce repo n'est pas encore préparé pour Claude : commence par « Préparer pour Claude ».",
   repo_changed: "Le repo a changé entre-temps : regarde de nouveau",
   pull_request_forbidden:
     "La branche par défaut est protégée et l'App n'a pas le droit d'ouvrir une pull request : donne-lui « Pull requests » en écriture dans ses réglages, puis recommence.",
@@ -33,7 +35,7 @@ export type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
 /** What went wrong, for the page: `code` is the server's, never shown; `status` is 0 when no answer came. */
 export type Failure = { code: string; status: number; settingsUrl?: string };
-type Done = { url: string; pullRequest: boolean };
+export type Done = { url: string; pullRequest: boolean };
 
 export function message({ code, status }: Failure) {
   if (REFUSALS[code]) return REFUSALS[code];
@@ -61,7 +63,8 @@ export async function readPlan(id: string) {
 export function FileRow({ file }: { file: PlanFile }) {
   const lines = useMemo(
     () =>
-      file.status === "exists" && file.current !== undefined
+      (file.status === "exists" || file.status === "update") &&
+      file.current !== undefined
         ? diffLines(file.current, file.content)
         : null,
     [file],
@@ -97,33 +100,72 @@ export function FileRow({ file }: { file: PlanFile }) {
           Déjà là, pas un simple fichier : laissé tel quel
         </p>
       )}
-      {file.status === "exists" && file.current !== undefined && (
-        <>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Déjà là, différent : laissé tel quel
-          </p>
-          {lines ? (
-            <DiffList lines={lines} />
-          ) : (
-            <>
-              <h3 className="mt-3 font-semibold">Version du repo</h3>
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
-                {file.current}
-              </pre>
-              <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
-                {file.content}
-              </pre>
-            </>
-          )}
-        </>
-      )}
+      {(file.status === "exists" || file.status === "update") &&
+        file.current !== undefined && (
+          <>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {file.status === "update"
+                ? "Sera mis à jour"
+                : "Déjà là, différent : laissé tel quel"}
+            </p>
+            {lines ? (
+              <DiffList lines={lines} />
+            ) : (
+              <>
+                <h3 className="mt-3 font-semibold">Version du repo</h3>
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+                  {file.current}
+                </pre>
+                <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+                  {file.content}
+                </pre>
+              </>
+            )}
+          </>
+        )}
     </li>
+  );
+}
+
+/** The refusal of a write, in French, with the way out when there is one. */
+export function ProblemAlert({ problem }: { problem: Failure }) {
+  return (
+    <div role="alert" className={`mt-3 ${alertBox}`}>
+      <p>{message(problem)}</p>
+      {problem.status === 401 && (
+        <a href="/api/auth/login" className={`underline ${focusRing}`}>
+          Se connecter avec GitHub
+        </a>
+      )}
+      {problem.settingsUrl && (
+        <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
+          Réglages de l'App sur GitHub
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** What a write did: the commit, or the pull request when the default branch is protected (decision 026 G). */
+export function DoneBox({ done }: { done: Done }) {
+  return (
+    <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
+      <p>
+        {done.pullRequest
+          ? "La branche par défaut est protégée : une pull request est ouverte"
+          : "C'est fait"}
+      </p>
+      <a href={done.url} className={`underline ${focusRing}`}>
+        {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
+      </a>
+    </div>
   );
 }
 
 const FILE_NOTE: Record<string, string> = {
   create: "Sera ajouté",
+  update: "Sera mis à jour",
   same: "Déjà là, identique",
   exists: "Déjà là, différent : laissé tel quel",
   special: "Déjà là, pas un simple fichier : laissé tel quel",
@@ -140,7 +182,8 @@ function PlanView({ plan }: { plan: Plan }) {
   const file = plan.files.find((f) => f.path === selected) ?? plan.files[0];
   const lines = useMemo(
     () =>
-      file?.status === "exists" && file.current !== undefined
+      (file?.status === "exists" || file?.status === "update") &&
+      file.current !== undefined
         ? diffLines(file.current, file.content)
         : null,
     [file],
@@ -180,7 +223,11 @@ function PlanView({ plan }: { plan: Plan }) {
             {file.path}
           </span>
           <span className={badge}>
-            {file.status === "create" ? "nouveau" : "laissé tel quel"}
+            {file.status === "create"
+              ? "nouveau"
+              : file.status === "update"
+                ? "mis à jour"
+                : "laissé tel quel"}
           </span>
         </p>
         <div className="overflow-hidden rounded-xl border border-border bg-sunken py-2.5">
@@ -205,7 +252,7 @@ function PlanView({ plan }: { plan: Plan }) {
               {noteOf(file)}
             </p>
           )}
-          {file.status === "exists" &&
+          {(file.status === "exists" || file.status === "update") &&
             file.current !== undefined &&
             (lines ? (
               <DiffList lines={lines} />
@@ -251,7 +298,11 @@ export function ProjectPrepare({
   useEffect(
     () =>
       onPlan?.(
-        plan ? plan.files.filter((f) => f.status === "create").length : null,
+        plan
+          ? plan.files.filter(
+              (f) => f.status === "create" || f.status === "update",
+            ).length
+          : null,
       ),
     [plan, onPlan],
   );
@@ -338,33 +389,8 @@ export function ProjectPrepare({
           </div>
         </>
       )}
-      {problem && (
-        <div role="alert" className={`mt-3 ${alertBox}`}>
-          <p>{message(problem)}</p>
-          {problem.status === 401 && (
-            <a href="/api/auth/login" className={`underline ${focusRing}`}>
-              Se connecter avec GitHub
-            </a>
-          )}
-          {problem.settingsUrl && (
-            <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
-              Réglages de l'App sur GitHub
-            </a>
-          )}
-        </div>
-      )}
-      {done && (
-        <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
-          <p>
-            {done.pullRequest
-              ? "La branche par défaut est protégée : une pull request est ouverte"
-              : "C'est fait"}
-          </p>
-          <a href={done.url} className={`underline ${focusRing}`}>
-            {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
-          </a>
-        </div>
-      )}
+      {problem && <ProblemAlert problem={problem} />}
+      {done && <DoneBox done={done} />}
       {plan && (
         <>
           <PlanView plan={plan} />
@@ -373,7 +399,9 @@ export function ProjectPrepare({
               type="button"
               disabled={
                 commit.isPending ||
-                plan.files.every((f) => f.status !== "create")
+                plan.files.every(
+                  (f) => f.status !== "create" && f.status !== "update",
+                )
               }
               onClick={() => {
                 setProblem(null);

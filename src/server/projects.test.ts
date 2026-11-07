@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
+import { CATALOG_TEXTS } from "./catalog-update.ts";
 import {
   history,
   projectMembers,
@@ -579,7 +580,8 @@ describe("GET /api/projects/:id/health", () => {
     "CLAUDE.md": "# Project",
     ".github/workflows/ci.yml": "name: ci",
     ".mcp.json": mcpFile({ cockpit: cockpitServer(GOOD_AUTH) }),
-    ...Object.fromEntries(AGENT_FILES.map((path) => [path, "---\n---\n"])),
+    // Decision 049: the files of the catalogue as they are today, so the catalog line is ok.
+    ...Object.fromEntries(CATALOG_TEXTS),
   });
   // The ok lines carry this fixed detail (the red ones carry their reason).
   const OK = "ok";
@@ -588,6 +590,15 @@ describe("GET /api/projects/:id/health", () => {
     { key: "ci", ok: true, detail: OK },
     { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: true, detail: OK },
+    {
+      key: "catalog",
+      ok: true,
+      detail: OK,
+      files: [...CATALOG_TEXTS.keys()].map((path) => ({
+        path,
+        state: "current",
+      })),
+    },
     // Decision 024 F: the stub's webhook is the one of the test instance, with no failed delivery.
     { key: "webhook", ok: true, detail: OK },
   ];
@@ -626,6 +637,39 @@ describe("GET /api/projects/:id/health", () => {
   const CLAUDE_DIR = `${REPO}/git/trees/SHA:.claude?recursive=1`;
   const WORKFLOWS = `${REPO}/git/trees/SHA:.github/workflows`;
   const MCP_JSON = `${REPO}/contents/.mcp.json?ref=SHA`;
+  // Decision 049 H: a prepared repo adds the reads of the catalogue line, pinned to the same commit: the trees down to each file (the root by its bare sha) and each file present once.
+  const CATALOG_READS = [
+    `${REPO}/git/trees/SHA`,
+    ...[
+      ".claude",
+      ".claude/agents",
+      ".claude/skills",
+      ".claude/skills/analyser",
+      ".claude/skills/dev-us",
+      ".claude/skills/write-us",
+    ].map((dir) => `${REPO}/git/trees/SHA:${dir}`),
+    ...[...CATALOG_TEXTS.keys()].map((p) => `${REPO}/contents/${p}?ref=SHA`),
+  ];
+  const ALL_READS = [
+    MCP_JSON,
+    CLAUDE_DIR,
+    WORKFLOWS,
+    ROOT,
+    ...CATALOG_READS,
+  ].sort();
+  // The four stub agent files of AGENT_FILES only: the catalogue line reads those four, and the other four files are absent.
+  const CATALOG_READS_OF_FOUR = CATALOG_READS.filter(
+    (call) => !/write-us|analyser|cartographer|rules-analyst/.test(call),
+  );
+  const CATALOG_OF_FOUR = {
+    key: "catalog",
+    ok: false,
+    detail: "outdated",
+    files: [...CATALOG_TEXTS.keys()].map((path) => ({
+      path,
+      state: AGENT_FILES.includes(path) ? "modified" : "absent",
+    })),
+  };
   // Decision 021 H: a repo that does not declare Cockpit in .mcp.json is fine, so an empty repo is red on three lines only.
   const NOTHING_IN_PLACE = [
     { key: "claude_md", ok: false, detail: "missing" },
@@ -821,6 +865,7 @@ describe("GET /api/projects/:id/health", () => {
           { key: "mcp", ok: false, detail: "invalid_json" },
           READY_LINES[3],
           READY_LINES[4],
+          READY_LINES[5],
         ],
       });
     },
@@ -1095,12 +1140,10 @@ describe("GET /api/projects/:id/health", () => {
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(repoCalls(fetchMock)).toEqual(
-      [MCP_JSON, CLAUDE_DIR, WORKFLOWS, ROOT].sort(),
-    );
+    expect(repoCalls(fetchMock)).toEqual(ALL_READS);
   });
 
-  it("given a repo without .mcp.json, when the health is requested, then .mcp.json is not read: three calls, the root, .claude and .github/workflows", async () => {
+  it("given a repo without .mcp.json, when the health is requested, then .mcp.json is not read: the root, .claude and .github/workflows, besides the reads of the catalogue line", async () => {
     const { app, a, id, fetchMock } = await withRepo({
       "CLAUDE.md": "# x",
       ".github/workflows/ci.yml": "x",
@@ -1110,7 +1153,10 @@ describe("GET /api/projects/:id/health", () => {
     const res = await health(app, a.cookie, id);
 
     expect(res.status).toBe(200);
-    expect(repoCalls(fetchMock)).toEqual([CLAUDE_DIR, WORKFLOWS, ROOT].sort());
+    // Besides the reads of the catalogue line: only the four files present are read.
+    expect(repoCalls(fetchMock)).toEqual(
+      [CLAUDE_DIR, WORKFLOWS, ROOT, ...CATALOG_READS_OF_FOUR].sort(),
+    );
   });
 
   it.each([
@@ -1180,9 +1226,7 @@ describe("GET /api/projects/:id/health", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ lines: READY_LINES });
-    expect(repoCalls(fetchMock)).toEqual(
-      [MCP_JSON, CLAUDE_DIR, WORKFLOWS, ROOT].sort(),
-    );
+    expect(repoCalls(fetchMock)).toEqual(ALL_READS);
   });
 
   it("given the Claude files are missing in a repo with 150,000 files elsewhere, when the health is requested, then the lines are red for the right reason, not a 502", async () => {
@@ -1231,7 +1275,8 @@ describe("GET /api/projects/:id/health", () => {
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: OK },
         READY_LINES[3],
-        READY_LINES[4],
+        CATALOG_OF_FOUR,
+        READY_LINES[5],
       ],
     });
     expect(repoCalls(fetchMock)).toEqual(
@@ -1241,6 +1286,8 @@ describe("GET /api/projects/:id/health", () => {
         `${REPO}/git/trees/SHA:.claude`,
         `${REPO}/git/trees/SHA:.claude/agents`,
         `${REPO}/git/trees/SHA:.claude/skills/dev-us`,
+        // The catalogue line reads the same trees again, down to each file (decision 049 H).
+        ...CATALOG_READS_OF_FOUR,
       ].sort(),
     );
   });
@@ -1260,7 +1307,7 @@ describe("GET /api/projects/:id/health", () => {
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: OK },
         { key: "agents", ok: false, detail: "missing" },
-        READY_LINES[4],
+        READY_LINES[5],
       ],
     });
   });
@@ -1381,7 +1428,10 @@ describe("GET /api/projects/:id/health", () => {
 
     await health(app, a.cookie, id);
 
-    expect(repoCalls(fetchMock)).not.toContain(`${REPO}/git/trees/SHA:.claude`);
+    // The only plain read of .claude is the one of the catalogue line (decision 049 H), not a fallback of the health.
+    expect(
+      repoCalls(fetchMock).filter((c) => c === `${REPO}/git/trees/SHA:.claude`),
+    ).toHaveLength(1);
   });
 
   it("given a successful check, when it is done, then nothing is written to the history and the project is unchanged", async () => {
@@ -1592,7 +1642,6 @@ describe("GET /api/projects/:id/health", () => {
     Promise.all(
       fetchMock.mock.results.map(async (r) => (await r.value).status as number),
     );
-  const ALL_FOUR = [MCP_JSON, CLAUDE_DIR, WORKFLOWS, ROOT].sort();
   const linesOf = async (res: Response) => {
     expect(res.status).toBe(200);
     return ((await res.json()) as { lines: Line[] }).lines;
@@ -1673,7 +1722,7 @@ describe("GET /api/projects/:id/health", () => {
     const lines = await linesOf(await health(app, a.cookie, id));
 
     expect(lines).toEqual(READY_LINES);
-    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    expect(repoCalls(fetchMock)).toEqual(ALL_READS);
     expect(rootCalls(fetchMock)[0]?.ifNoneMatch).not.toBe("");
     expect(await statuses(fetchMock)).not.toContain(304);
     // The new state is what is cached now.
@@ -1741,7 +1790,7 @@ describe("GET /api/projects/:id/health", () => {
       .filter((c) => c.path.startsWith("/repos/") && !c.path.endsWith("/HEAD"))
       .map(
         (c) =>
-          /\/trees\/([^/:]+):/.exec(decodeURIComponent(c.path))?.[1] ??
+          /\/trees\/([0-9a-f]{40})/.exec(decodeURIComponent(c.path))?.[1] ??
           new URLSearchParams(c.search).get("ref"),
       );
 
@@ -1752,7 +1801,10 @@ describe("GET /api/projects/:id/health", () => {
 
     const [sha] = fetchMock.served;
     expect(sha).toMatch(/^[0-9a-f]{40}$/);
-    expect(pinnedShas(fetchMock)).toEqual([sha, sha, sha]);
+    // Every read but the root, the catalogue line's included (decision 049 H).
+    expect(pinnedShas(fetchMock)).toEqual(
+      Array(repoCalls(fetchMock).length - 1).fill(sha),
+    );
     expect(
       githubCalls(fetchMock).filter((c) =>
         decodeURIComponent(c.path).includes("HEAD:"),
@@ -1773,10 +1825,23 @@ describe("GET /api/projects/:id/health", () => {
       READY_LINES[1],
       READY_LINES[2],
       { key: "agents", ok: false, detail: "missing" },
-      READY_LINES[4],
+      {
+        ...READY_LINES[4],
+        ok: false,
+        detail: "outdated",
+        files: (READY_LINES[4] as { files: { path: string }[] }).files.map(
+          (f) =>
+            f.path === ".claude/agents/reviewer.md"
+              ? { ...f, state: "absent" }
+              : f,
+        ),
+      },
+      READY_LINES[5],
     ]);
     const [oldSha] = fetchMock.served;
-    expect(pinnedShas(fetchMock)).toEqual([oldSha, oldSha, oldSha]);
+    expect(pinnedShas(fetchMock)).toEqual(
+      Array(repoCalls(fetchMock).length - 1).fill(oldSha),
+    );
     fetchMock.mockClear();
 
     const second = await linesOf(await health(app, a.cookie, id));
@@ -1785,8 +1850,10 @@ describe("GET /api/projects/:id/health", () => {
     expect(fetchMock.served).toHaveLength(2);
     const newSha = fetchMock.served[1];
     expect(newSha).not.toBe(oldSha);
-    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
-    expect(pinnedShas(fetchMock)).toEqual([newSha, newSha, newSha]);
+    expect(repoCalls(fetchMock)).toEqual(ALL_READS);
+    expect(pinnedShas(fetchMock)).toEqual(
+      Array(repoCalls(fetchMock).length - 1).fill(newSha),
+    );
   });
 
   it("given a good check cached and a 500 on the root, when the health is requested, then 502 github_unavailable, and once GitHub answers 304 again the good cached lines are returned", async () => {
@@ -1826,7 +1893,7 @@ describe("GET /api/projects/:id/health", () => {
     fetchMock.mockClear();
     // The push is still not cached: the repo is read in full and the new lines come back.
     expect(await linesOf(await health(app, a.cookie, id))).toEqual(READY_LINES);
-    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    expect(repoCalls(fetchMock)).toEqual(ALL_READS);
     // The entry of the old state is still the one sent.
     expect(rootCalls(fetchMock)[0]?.ifNoneMatch).not.toBe("");
   });
@@ -1917,7 +1984,7 @@ describe("GET /api/projects/:id/health", () => {
     const res = await health(app, a.cookie, second);
 
     expect(res.status).toBe(200);
-    expect(repoCalls(fetchMock)).toEqual(ALL_FOUR);
+    expect(repoCalls(fetchMock)).toEqual(ALL_READS);
     expect(rootCalls(fetchMock).map((c) => c.ifNoneMatch)).toEqual([""]);
   });
 
@@ -1966,6 +2033,7 @@ describe("GET /api/projects/:id/health", () => {
         "GET /repos/user1000/r1/git/trees/SHA:.claude?recursive=1",
         "GET /repos/user1000/r1/git/trees/SHA:.github/workflows",
         "GET /repos/user1000/r1/git/trees/HEAD",
+        ...CATALOG_READS.map((call) => call.replace("/app/", "/r1/")),
       ].sort(),
     );
   });
@@ -1988,7 +2056,8 @@ describe("GET /api/projects/:id/health", () => {
     fetchMock.mockClear();
 
     await show("r2");
-    expect(callsOn("r2")).toHaveLength(4);
+    // The four reads of the health and those of the catalogue line.
+    expect(callsOn("r2")).toHaveLength(4 + CATALOG_READS.length);
   });
 
   // Decision 029 (slice E1): a project may describe its own team in .claude/team.md.

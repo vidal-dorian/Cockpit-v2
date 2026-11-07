@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, NavLink, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
+import { CatalogLine } from "./CatalogLine.tsx";
 import { fetchCodeMap } from "./conception.ts";
 import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
@@ -40,6 +41,7 @@ const LABELS: Record<string, string> = {
   ci: "CI",
   mcp: "Serveur MCP de Cockpit",
   agents: "Agents et skill de développement",
+  catalog: "Fichiers de Claude à jour",
   webhook: "Webhook de Cockpit",
 };
 
@@ -409,29 +411,39 @@ export function ProjectPage({
                   </button>
                 </div>
                 <ul className={listCard}>
-                  {health.data.map((line) => (
-                    <li
-                      key={line.key}
-                      className="flex min-h-[50px] items-center gap-3.5 px-4 py-2"
-                    >
-                      <span aria-hidden="true" className="w-4 text-dim">
-                        {line.ok ? "✓" : "✕"}
-                      </span>
-                      <p className="min-w-0 flex-1">
-                        <span className="block font-semibold">
-                          {LABELS[line.key]}
+                  {health.data.map((line) =>
+                    line.key === "catalog" && project ? (
+                      <CatalogLine
+                        key={line.key}
+                        line={line}
+                        projectId={id}
+                        fullName={project.fullName}
+                        archived={project.archived}
+                      />
+                    ) : (
+                      <li
+                        key={line.key}
+                        className="flex min-h-[50px] items-center gap-3.5 px-4 py-2"
+                      >
+                        <span aria-hidden="true" className="w-4 text-dim">
+                          {line.ok ? "✓" : "✕"}
                         </span>
-                        {!line.ok && (
-                          <span className="block text-[12.5px] text-muted-foreground">
-                            {EXPLANATIONS[`${line.key}.${line.detail}`]}
+                        <p className="min-w-0 flex-1">
+                          <span className="block font-semibold">
+                            {LABELS[line.key]}
                           </span>
-                        )}
-                      </p>
-                      <span className={line.ok ? badge : urgentBadge}>
-                        {line.ok ? "OK" : "À corriger"}
-                      </span>
-                    </li>
-                  ))}
+                          {!line.ok && (
+                            <span className="block text-[12.5px] text-muted-foreground">
+                              {EXPLANATIONS[`${line.key}.${line.detail}`]}
+                            </span>
+                          )}
+                        </p>
+                        <span className={line.ok ? badge : urgentBadge}>
+                          {line.ok ? "OK" : "À corriger"}
+                        </span>
+                      </li>
+                    ),
+                  )}
                 </ul>
               </>
             )}
