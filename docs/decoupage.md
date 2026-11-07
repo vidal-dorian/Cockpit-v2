@@ -192,6 +192,7 @@ L'ordre des phases 11 à 14 peut changer : rien ne dépend d'elles, la seule dé
 |---|---|---|
 | 9.1 | **Ménage de la doc** : `decoupage.md` et `architecture.md` disent la vérité, la décision en double devient la [042](decisions/042-nouvelle-equipe-fenetre.md), les statuts des décisions sont justes | Les docs décrivent le code d'aujourd'hui, et chaque décision implémentée est « validée » (007 et 041 restent à valider) |
 | 9.2 | **Changelog complet** : les tranches 1.5 à 4.8, commitées avant la règle `feat:`, apparaissent dans la prochaine release | La PR de release liste toutes les tranches |
+| 9.3 | **L'interface « Quatre temps »** ([045](decisions/045-interface-quatre-temps.md)) : jetons et polices, la coque (barre latérale, panneau de droite, barre d'idée), et les écrans qui existent déjà refaits comme dans [`docs/ecrans/`](ecrans/README.md) | L'accueil, un projet, une US et un run ressemblent à leurs écrans (S00a, S00b, S22, S29), avec les mêmes fonctions qu'avant |
 
 ## Phase 10 — Reprendre une app existante (la fonctionnalité phare)
 
@@ -268,6 +269,7 @@ Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, m
 | E2 | **Éditeur d'agent** ([030](decisions/030-editeur-d-agent.md)) : description, outils, modèle, prompt, aperçu ; ajouter, supprimer ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
 | E3 | **Écran « Équipe »** en graphe ([031](decisions/031-equipe-en-graphe.md)) : cartes déplaçables, liens « puis » et « boucle », liste pour le clavier, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
 | E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
+| E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle attendent leur décision | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
 
 Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les profils de départ selon l'abonnement Claude (E5) sont à redéfinir, voir la tranche 11.6.
 

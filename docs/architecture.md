@@ -197,6 +197,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [041](decisions/041-nom-et-site-vitrine.md) | Le nom du produit et le site vitrine | Proposée | Dirigo, vitrine `dirigo.dev` dans un repo à part (Cloudflare Pages), app `app.dirigo.dev` au passage chez l'hébergeur, renommage du code dans une tranche dédiée |
 | [042](decisions/042-nouvelle-equipe-fenetre.md) | « Nouvelle équipe » dans une fenêtre | Validée | La création d'une équipe s'ouvre dans une fenêtre sur son propre brouillon (modifie la 032 E) ; l'onglet Agents passe sur deux colonnes, équipe à gauche et agents à droite |
 | [044](decisions/044-la-nuit-de-claude.md) | La nuit de Claude | Proposée | Le soir, un programme d'US ; Claude les développe une par une dans le cloud par une seconde tâche `/fire` (22 h à 7 h) ; une question met l'US en pause (statut `paused`, modifie la 036 D et E) ; le matin, l'accueil raconte la nuit |
+| [045](decisions/045-interface-quatre-temps.md) | L'interface « Quatre temps » et les écrans de référence | Proposée | Quatre couleurs DISC rationnées (le rouge pour la seule chose à faire en premier), Urbanist, barre latérale et panneau de droite, outils plein écran, 63 écrans dans `docs/ecrans/` ; modifie 003, 028 (A–E, G, H), 034 A, 040 D, 042 A |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts

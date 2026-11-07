@@ -11,6 +11,7 @@
   - la [010](010-historique.md) pour `GET /api/history` (par pages) ;
   - la [012](012-configuration-automatique.md), choix C, et la [023](023-reglages-adresse-https.md), choix B : l'assistant ne demande plus de confirmer l'adresse (choix J).
 - **Répond à** : la demande du 2026-11-03 : « les maquettes appelées "crème sombre" sont les maquettes retenues » ; « le journal des logs est bien trop grand […] permettre à l'utilisateur d'afficher plus de logs » ; « dans la page des projets […] il faudrait des onglets, bilan de santé, kanbans, tickets, paramétrage pour l'écriture automatique des US » ; « dans la page des réglages, on a pas d'onglets » ; « la fonctionnalité d'adresse publique […] devrait disparaître ».
+- **Modifiée par** : [045](045-interface-quatre-temps.md) : style, valeurs, formes, barre du haut et largeur des pages (A à E), onglets d'un projet (G) et de Réglages (H) ; F, I et J restent
 
 ## Contexte
 
