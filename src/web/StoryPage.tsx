@@ -260,6 +260,11 @@ export function StoryPage() {
                       <span className={label}>Alors</span>{" "}
                       <span className={value}>{criterion.then}</span>
                     </p>
+                    {criterion.evidence && (
+                      <p className="mt-2 whitespace-pre-wrap text-[12.5px] text-muted-foreground">
+                        {criterion.evidence}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ol>

@@ -26,7 +26,7 @@ const STEPS = [
 ];
 
 const NEVER = [
-  "Il ne pousse jamais sur ta branche principale.",
+  "Il n'écrit dans un repo qu'après ton clic sur « Faire le commit ».",
   "Il ne merge jamais une PR à ta place.",
   "Il te montre chaque fichier avant de l'écrire dans un repo.",
 ];
