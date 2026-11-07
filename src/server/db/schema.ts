@@ -149,6 +149,40 @@ export const projectMembers = pgTable(
   ],
 );
 
+export const MODULE_KINDS = [
+  "web",
+  "api",
+  "mobile",
+  "library",
+  "other",
+] as const;
+
+/** The map of one module (sub-project) of a project, as Claude read it at a commit (decisions 007 and 043). `data` is validated by `moduleData` (code-map.ts) on write and on read. */
+export const codeMaps = pgTable(
+  "code_maps",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    modulePath: text("module_path").notNull(),
+    moduleName: text("module_name").notNull(),
+    moduleKind: text("module_kind", { enum: MODULE_KINDS }).notNull(),
+    commitSha: text("commit_sha").notNull(),
+    data: jsonb("data").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("code_maps_project_module_idx").on(t.projectId, t.modulePath),
+    check(
+      "code_maps_module_kind_check",
+      sql`${t.moduleKind} in ('web', 'api', 'mobile', 'library', 'other')`,
+    ),
+  ],
+);
+
 /** A raw idea of a project (decision 014). No step column: it is computed (decision 002). */
 export const tickets = pgTable("tickets", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

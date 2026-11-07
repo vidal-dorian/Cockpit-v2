@@ -207,7 +207,7 @@ describe("decision 043 G: GET /api/projects/:id/code-map", () => {
   it("given no session, when the map is read, then 401", async () => {
     const ctx = await ready();
 
-    expect((await read(ctx, undefined)).status).toBe(401);
+    expect((await read(ctx, "")).status).toBe(401);
   });
 });
 
@@ -282,13 +282,15 @@ describe("decision 043 H: GET /api/projects/:id/code", () => {
   it("given the same lines read twice, when each request is made, then GitHub is read each time (no copy is kept), at the cited commit", async () => {
     const ctx = await withMap();
     const before = contentsReads(githubCalls(ctx.fetchMock)).length;
+    const beforeAll = githubCalls(ctx.fetchMock).length;
 
     await code(ctx, cited(ctx, 18, 24));
     await code(ctx, cited(ctx, 18, 24));
 
-    const reads = githubCalls(ctx.fetchMock).filter((c) =>
-      c.path.endsWith("/contents/api/src/db.ts"),
-    );
+    // The submit of withMap() already read the file once to verify its citation.
+    const reads = githubCalls(ctx.fetchMock)
+      .slice(beforeAll)
+      .filter((c) => c.path.endsWith("/contents/api/src/db.ts"));
     expect(reads).toHaveLength(2);
     expect(reads.every((c) => c.search === `?ref=${ctx.sha}`)).toBe(true);
     expect(contentsReads(githubCalls(ctx.fetchMock)).length).toBeGreaterThan(
@@ -343,7 +345,7 @@ describe("decision 043 H: GET /api/projects/:id/code", () => {
   it("given no session, when a cited file is asked for, then 401", async () => {
     const ctx = await withMap();
 
-    expect((await code(ctx, cited(ctx, 18, 24), undefined)).status).toBe(401);
+    expect((await code(ctx, cited(ctx, 18, 24), "")).status).toBe(401);
   });
 
   it.each([

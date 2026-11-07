@@ -41,20 +41,26 @@ const prepareBody = z.object({
 });
 
 const PREPARE_MESSAGE = "feat: prepare the repo for Claude (Cockpit)";
-/** Where each file of `catalog/` goes in a repo (decision 027 B). */
+const catalogFile = (file: string) => ({
+  path: `.claude/${file}`,
+  content: readFileSync(
+    new URL(`../../catalog/${file}`, import.meta.url),
+    "utf8",
+  ),
+});
+/** Where each file of `catalog/` goes in a repo (decision 027 B): the team agents (offered by the agents page too) and the dev and write skills. */
 const CATALOG_FILES = [
   "agents/test-writer.md",
   "agents/developer.md",
   "agents/reviewer.md",
   "skills/dev-us/SKILL.md",
   "skills/write-us/SKILL.md",
-].map((file) => ({
-  path: `.claude/${file}`,
-  content: readFileSync(
-    new URL(`../../catalog/${file}`, import.meta.url),
-    "utf8",
-  ),
-}));
+].map(catalogFile);
+/** `/analyser` and its agent (decision 043 M): prepared with the rest, but no team agent. */
+const ANALYSER_FILES = [
+  "agents/cartographer.md",
+  "skills/analyser/SKILL.md",
+].map(catalogFile);
 const CLAUDE_MD = {
   path: "CLAUDE.md",
   content: readFileSync(
@@ -68,6 +74,7 @@ const CLAUDE_MD = {
 /** Every file the prepare routes may write (decision 027 B). */
 const PREPARE_FILES: (WriteFile & { unlessExists?: string[] })[] = [
   ...CATALOG_FILES,
+  ...ANALYSER_FILES,
   CLAUDE_MD,
 ];
 

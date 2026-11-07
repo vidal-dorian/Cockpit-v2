@@ -282,8 +282,9 @@ export function githubClient(config: GitHubAppConfig) {
           if (entry.type !== "blob" || !/^100(644|755)$/.test(entry.mode))
             return {};
           const { data } = await octokit.request(
-            "GET /repos/{owner}/{repo}/contents/{path}",
-            { owner, repo: name, path, ref: sha },
+            // The path is in the URL itself, each segment encoded: a {path} would encode the slashes.
+            `GET /repos/{owner}/{repo}/contents/${segments.map(encodeURIComponent).join("/")}`,
+            { owner, repo: name, ref: sha },
           );
           const file = Array.isArray(data) ? null : contentsSchema.parse(data);
           if (!file || file.encoding === "none") return {};
@@ -583,6 +584,33 @@ export function githubClient(config: GitHubAppConfig) {
         commitSha: root.sha,
         etag: root.etag,
       };
+    },
+
+    /** The reading of decision 026 (`inspect`) on its own, as the installation: the files of one repo at a commit (decision 043 C). */
+    async fileReader(installationId: number, fullName: string) {
+      const { inspect } = await writeAccess(installationId, fullName);
+      return { inspect };
+    },
+
+    /** How many commits `branch` has that `sha` has not (the `ahead_by` of GitHub's compare), null when GitHub does not know the commit any more (a force-push, decision 043 G). Other errors are left to the caller. */
+    async commitsSince(
+      installationId: number,
+      fullName: string,
+      sha: string,
+      branch: string,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      try {
+        const { data } = await octokit.request(
+          `GET /repos/{owner}/{repo}/compare/{sha}...${branch.split("/").map(encodeURIComponent).join("/")}`,
+          { owner, repo, sha },
+        );
+        return z.object({ ahead_by: z.number().int() }).parse(data).ahead_by;
+      } catch (error) {
+        if (isNotFound(error)) return null;
+        throw error;
+      }
     },
 
     /** The text of CLAUDE.md at the root of the default branch, "" when there is none (or the repo is empty), null when the root answers 404 (the App lost access to the repo). Like the health check, the file is read at the commit the root listing answered, so the two reads cannot mix two states. Errors are left to the caller. */
