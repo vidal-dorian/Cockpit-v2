@@ -199,9 +199,8 @@ const chosen = () => {
   return pressed?.textContent === "Par défaut" ? "" : pressed?.textContent;
 };
 const chips = () =>
-  screen
-    .getAllByRole("button", { pressed: false })
-    .concat(screen.getAllByRole("button", { pressed: true }))
+  within(screen.getByRole("group", { name: "Équipe" }))
+    .getAllByRole("button")
     .map((b) => b.textContent);
 const rowAgents = () =>
   screen
@@ -262,9 +261,7 @@ describe("decision 032 E: choosing a team", () => {
 
     await openTeam();
 
-    expect(chips()).toEqual(
-      expect.arrayContaining(["Par défaut", "leger", "docs"]),
-    );
+    expect(chips()).toEqual(["Par défaut", "leger", "docs"]);
     expect(chosen()).toBe("");
     expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
   });

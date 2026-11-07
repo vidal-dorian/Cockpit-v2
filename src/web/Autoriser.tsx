@@ -13,8 +13,10 @@ import {
 
 const CAN = [
   "lire tes projets, tickets et user stories",
-  "écrire des user stories, qui t'attendront « à valider »",
+  "noter des tickets dans tes projets",
+  "écrire et réécrire des user stories, qui t'attendront « à valider »",
   "suivre ses runs et te poser des questions",
+  "envoyer la carte du code d'un projet",
 ];
 
 async function fetchMe() {

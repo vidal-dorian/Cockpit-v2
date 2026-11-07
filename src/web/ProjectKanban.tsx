@@ -65,6 +65,8 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
   const ideas = (tickets.data ?? []).filter((t) => t.step === "new");
 
   const board = stories.data; // a const, so the narrowing holds inside the callbacks below
+  // Red only for the story the page sentence names, the first one waiting on an answer (decision 045 C).
+  const asking = board?.find((s) => s.questionPending)?.id;
 
   return (
     <section className="mx-[26px] mt-5" aria-labelledby="kanban">
@@ -168,7 +170,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                             <li key={story.id}>
                               <Link
                                 to={`/us/${story.id}`}
-                                className={`${cardStyle} ${story.questionPending ? "border-you-line!" : ""} ${focusRing} ${faded ? "opacity-60" : ""}`}
+                                className={`${cardStyle} ${story.id === asking ? "border-you-line!" : ""} ${focusRing} ${faded ? "opacity-60" : ""}`}
                               >
                                 {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
                                 <span className="block text-[13.5px] leading-snug font-semibold">
@@ -191,7 +193,11 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                   </span>
                                 )}
                                 {story.questionPending ? (
-                                  <span className={urgentBadge}>
+                                  <span
+                                    className={
+                                      story.id === asking ? urgentBadge : badge
+                                    }
+                                  >
                                     ✦ Question pour toi
                                   </span>
                                 ) : story.prCiState === "failure" &&

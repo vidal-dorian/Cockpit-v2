@@ -126,9 +126,6 @@ export default function ConceptionGraph({
         nodesDraggable={false}
         nodesFocusable={false}
         zoomOnScroll={false}
-        zoomOnPinch={false}
-        zoomOnDoubleClick={false}
-        panOnDrag={false}
         preventScrolling={false}
         style={{ background: "transparent" }}
         proOptions={{ hideAttribution: true }}

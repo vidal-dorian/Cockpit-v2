@@ -17,6 +17,7 @@ import {
   sectionLabel,
   urgentBadge,
 } from "./ui.ts";
+import { elapsed } from "./when.ts";
 
 type Item = NonNullable<ReturnType<typeof useHome>["data"]>["forYou"][number];
 
@@ -75,7 +76,7 @@ function subLine(item: Item, withKind = true) {
   const project = repoName(item.project.name);
   switch (item.kind) {
     case "answer":
-      return `Question de Claude · Run ${item.runId} · ${project}${item.askedAt ? ` · il attend depuis ${age(item.askedAt)}` : ""}`;
+      return `Question de Claude · Run ${item.runId} · ${project}${item.askedAt ? ` · il attend depuis ${elapsed(item.askedAt)}` : ""}`;
     case "validate":
       return withKind
         ? `À valider · ${project}`
@@ -300,17 +301,6 @@ function ItemPanel({
   );
 }
 
-/** « 4 min », « 1 h », « 2 j »: how long ago, as the mockup writes it. */
-function age(since: string) {
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - Date.parse(since)) / 60000),
-  );
-  if (minutes < 60) return `${minutes} min`;
-  if (minutes < 1440) return `${Math.floor(minutes / 60)} h`;
-  return `${Math.floor(minutes / 1440)} j`;
-}
-
 /** A row of « 2 · Ensuite »; « Valider » of a story to validate acts in place (POST /api/stories/:id/validate), a refusal shows next to the row. */
 function Row({ item, open }: { item: Item; open: () => void }) {
   const queryClient = useQueryClient();
@@ -366,7 +356,7 @@ function Row({ item, open }: { item: Item; open: () => void }) {
         />
       </span>
       <span className="min-w-10 text-right text-[12.5px] text-muted-foreground">
-        {since && age(since)}
+        {since && elapsed(since)}
       </span>
     </div>
   );

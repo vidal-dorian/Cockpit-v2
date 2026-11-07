@@ -61,7 +61,7 @@ describe("the cards of the Kanban", () => {
 
     const alpha = await screen.findByRole("link", { name: /vouloir-alpha/ });
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "Claude t'attend sur l'US 24.2 autres user stories au Kanban.",
+      "Claude t'attend sur l'US 24. 2 autres user stories au Kanban.",
     );
     expect(alpha.textContent).toContain("US 21 · vouloir-alpha");
     expect(alpha.textContent).toContain("1 critère");

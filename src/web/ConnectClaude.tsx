@@ -7,6 +7,7 @@ import {
   button,
   card,
   focusRing,
+  ghostButton,
   listCard,
   primaryButton,
   sectionLabel,
@@ -29,6 +30,29 @@ export function ConnectClaude() {
   // The section appears with its content: the address is what it is about.
   if (connect.isPending)
     return <p className="text-muted-foreground">Chargement…</p>;
+
+  const copyButton = (className: string) => (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          navigator.clipboard.writeText(connect.data?.mcpUrl ?? "").then(
+            () => setCopy("done"),
+            () => setCopy("failed"),
+          )
+        }
+        className={className}
+      >
+        Copier l'adresse
+      </button>
+      {/* No role="status": the section is already a live region, and Réglages has one status for the tokens. */}
+      <span className={copy === "failed" ? "text-destructive" : undefined}>
+        {copy === "done" && "Copié."}
+        {copy === "failed" &&
+          "Copie impossible : sélectionne l'adresse à la main."}
+      </span>
+    </>
+  );
 
   return (
     <section aria-labelledby="connecter">
@@ -55,7 +79,7 @@ export function ConnectClaude() {
                 <ul className="mt-3 grid gap-2.5">
                   <li className="flex items-center gap-3">
                     <span className={doneMark}>✓</span>
-                    <span>
+                    <span className="grow">
                       <b className="font-semibold">
                         Ajouter Cockpit comme connecteur sur claude.ai
                       </b>
@@ -66,6 +90,7 @@ export function ConnectClaude() {
                         </span>
                       </span>
                     </span>
+                    {copyButton(ghostButton)}
                   </li>
                   <li className="flex items-center gap-3">
                     <span className={doneMark}>✓</span>
@@ -92,28 +117,7 @@ export function ConnectClaude() {
                       onFocus={(e) => e.currentTarget.select()}
                       className={`min-h-[34px] min-w-0 grow rounded-[10px] border border-border-strong bg-sunken px-3 py-1.5 font-mono text-[13px] ${focusRing}`}
                     />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        navigator.clipboard.writeText(connect.data.mcpUrl).then(
-                          () => setCopy("done"),
-                          () => setCopy("failed"),
-                        )
-                      }
-                      className={button}
-                    >
-                      Copier l'adresse
-                    </button>
-                    {/* No role="status": the section is already a live region, and Réglages has one status for the tokens. */}
-                    <span
-                      className={
-                        copy === "failed" ? "text-destructive" : undefined
-                      }
-                    >
-                      {copy === "done" && "Copié."}
-                      {copy === "failed" &&
-                        "Copie impossible : sélectionne l'adresse à la main."}
-                    </span>
+                    {copyButton(button)}
                   </div>
                 </li>
                 <li className="px-[18px] py-3.5">

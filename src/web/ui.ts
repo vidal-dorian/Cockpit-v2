@@ -68,7 +68,3 @@ export const sectionLabel =
 /** A keyboard key, as in « N » or « Ctrl K ». */
 export const kbd =
   "rounded-[5px] border border-border-strong px-[5px] py-px font-mono text-[10.5px] font-medium text-muted-foreground";
-
-/** A tab of a row of links: the open one is underlined, the others are secondary. */
-export const tabLink = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex min-h-10 items-center border-b-2 px-3 text-sm font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;

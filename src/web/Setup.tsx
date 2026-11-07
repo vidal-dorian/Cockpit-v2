@@ -191,8 +191,7 @@ export function Setup() {
               setStep(1);
               start.mutate();
             }}
-            className={panelPrimaryButton}
-            style={{ width: "auto" }}
+            className={`${panelPrimaryButton} w-auto!`}
           >
             Créer l'App sur GitHub ↗
           </button>
@@ -274,8 +273,9 @@ export function Setup() {
         </p>
         <button
           type="submit"
-          className={panelPrimaryButton}
-          style={{ width: "auto" }}
+          // A start request is already on its way (sent from step 2): no second one.
+          disabled={start.isPending}
+          className={`${panelPrimaryButton} w-auto!`}
         >
           Continuer
         </button>

@@ -4,8 +4,9 @@ import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { fetchRun } from "./RunPage.tsx";
 import { RunVerdict } from "./RunVerdict.tsx";
-import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
@@ -27,16 +28,11 @@ import { useChanges } from "./useChanges.ts";
 function StoryVerdict({ runId }: { runId: number }) {
   const run = useQuery({
     queryKey: ["run", String(runId)],
-    queryFn: async () => {
-      const res = await client.api.runs[":id"].$get({
-        param: { id: String(runId) },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    },
+    queryFn: () => fetchRun(String(runId)),
   });
-  return run.data?.verdict ? (
-    <RunVerdict verdict={run.data.verdict} criteria={run.data.criteria} />
+  const data = typeof run.data === "object" ? run.data : null;
+  return data?.verdict ? (
+    <RunVerdict verdict={data.verdict} criteria={data.criteria} />
   ) : null;
 }
 
@@ -161,9 +157,7 @@ export function StoryPage() {
               trail={[
                 { label: "Projets", to: "/projets" },
                 {
-                  label:
-                    found.project.fullName.split("/").pop() ??
-                    found.project.fullName,
+                  label: repoName(found.project.fullName),
                   to: `/projets/${found.project.id}`,
                 },
                 {

@@ -78,7 +78,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
 
-// The tabs of the mockups sit 22px apart with their underline touching the border: tabLink's padding does not fit.
+// The tabs of the mockups sit 22px apart with their underline touching the border: the padding of a plain tab does not fit.
 const projectTab = ({ isActive }: { isActive: boolean }) =>
   `inline-flex items-center border-b-2 pb-2.5 text-sm font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
 
@@ -253,11 +253,14 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
               <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
                 {sentence.title}
                 {sentence.rest && (
-                  <span
-                    className={`font-medium text-muted-foreground ${sentence.inline ? "ml-2" : "block"}`}
-                  >
-                    {sentence.rest}
-                  </span>
+                  <>
+                    {sentence.inline && " "}
+                    <span
+                      className={`font-medium text-muted-foreground ${sentence.inline ? "" : "block"}`}
+                    >
+                      {sentence.rest}
+                    </span>
+                  </>
                 )}
               </h1>
             </div>

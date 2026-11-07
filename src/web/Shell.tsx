@@ -9,7 +9,8 @@ import { badge, focusRing, kbd } from "./ui.ts";
 // The shell of decision 045 F (sidebar, idea bar) and the pieces every page builds on (state sentence, breadcrumb, right panel, dot).
 
 /** « dorian/GestionProjet » shown as « GestionProjet »: the mockups never show the owner. */
-export const repoName = (fullName: string) => fullName.split("/").pop();
+export const repoName = (fullName: string) =>
+  fullName.split("/").pop() ?? fullName;
 
 export async function fetchHealth() {
   const res = await client.api.health.$get();
@@ -141,6 +142,7 @@ export function Panel({
   meta,
   children,
   footer,
+  onKeyDown,
 }: {
   label: string;
   badge?: React.ReactNode;
@@ -153,10 +155,13 @@ export function Panel({
   meta?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Keys pressed inside the panel (a shortcut that must not fire from the rest of the page). */
+  onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
 }) {
   return (
     <aside
       data-panel
+      onKeyDown={onKeyDown}
       aria-label={label}
       className="flex flex-col gap-3.5 border-t border-border bg-sunken p-[22px] lg:fixed lg:inset-y-0 lg:right-0 lg:z-10 lg:w-[380px] lg:overflow-y-auto lg:border-t-0 lg:border-l"
     >

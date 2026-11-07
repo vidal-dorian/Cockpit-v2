@@ -313,58 +313,59 @@ function StepEditor({
           </button>
         </div>
       )}
-      {view !== "graph" && (
-        <ul className={`mt-3 ${listCard}`}>
-          {steps.map((s, i) => (
-            <li
-              key={s.agent}
-              className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
-            >
-              <span className="font-semibold">{i + 1}</span>{" "}
-              <span className="font-mono font-semibold">{s.agent}</span>{" "}
-              <span>{s.does}</span>
-              {s.loopTo !== null && (
-                <span className="text-muted-foreground">
-                  Boucle vers {s.loopTo} : {s.until}
-                </span>
-              )}
-              <span className="flex gap-2 sm:ml-auto">
-                <button
-                  type="button"
-                  id={`${uid}-move-up-${s.agent}`}
-                  disabled={i === 0}
-                  onClick={() => {
-                    setSteps(moveStep(steps, s.agent, "up"));
-                    setMoved({ agent: s.agent, dir: "up" });
-                  }}
-                  className={button}
-                >
-                  Monter
-                </button>
-                <button
-                  type="button"
-                  id={`${uid}-move-down-${s.agent}`}
-                  disabled={i === steps.length - 1}
-                  onClick={() => {
-                    setSteps(moveStep(steps, s.agent, "down"));
-                    setMoved({ agent: s.agent, dir: "down" });
-                  }}
-                  className={button}
-                >
-                  Descendre
-                </button>
-                <button
-                  type="button"
-                  onClick={() => select(s.agent)}
-                  className={button}
-                >
-                  Modifier
-                </button>
+      {/* Graph view: the list stays for the keyboard (visually hidden from sm up) and is the only view on a phone (decision 031 F). */}
+      <ul
+        className={`mt-3 ${listCard} ${view === "graph" ? "sm:sr-only" : ""}`}
+      >
+        {steps.map((s, i) => (
+          <li
+            key={s.agent}
+            className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
+          >
+            <span className="font-semibold">{i + 1}</span>{" "}
+            <span className="font-mono font-semibold">{s.agent}</span>{" "}
+            <span>{s.does}</span>
+            {s.loopTo !== null && (
+              <span className="text-muted-foreground">
+                Boucle vers {s.loopTo} : {s.until}
               </span>
-            </li>
-          ))}
-        </ul>
-      )}
+            )}
+            <span className="flex gap-2 sm:ml-auto">
+              <button
+                type="button"
+                id={`${uid}-move-up-${s.agent}`}
+                disabled={i === 0}
+                onClick={() => {
+                  setSteps(moveStep(steps, s.agent, "up"));
+                  setMoved({ agent: s.agent, dir: "up" });
+                }}
+                className={button}
+              >
+                Monter
+              </button>
+              <button
+                type="button"
+                id={`${uid}-move-down-${s.agent}`}
+                disabled={i === steps.length - 1}
+                onClick={() => {
+                  setSteps(moveStep(steps, s.agent, "down"));
+                  setMoved({ agent: s.agent, dir: "down" });
+                }}
+                className={button}
+              >
+                Descendre
+              </button>
+              <button
+                type="button"
+                onClick={() => select(s.agent)}
+                className={button}
+              >
+                Modifier
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
       <p role="status" className="mt-3 empty:hidden">
         {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
       </p>
@@ -686,30 +687,32 @@ export function ProjectTeam({
   const picker = (
     <>
       <div className="flex flex-wrap items-center gap-1.5">
-        {[
-          null,
-          ...(current === null && name !== null
-            ? [...teams.map((t) => t.name), name]
-            : teams.map((t) => t.name)),
-        ].map((n) => (
-          <button
-            key={n ?? ""}
-            type="button"
-            aria-pressed={name === n}
-            // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
-            disabled={commit.isPending}
-            onClick={() => {
-              if (n === name) return;
-              if (!dirty) return goTo(n);
-              setCreating(null);
-              setDeleting(false);
-              setSwitchTo(n ?? "");
-            }}
-            className={chip(name === n)}
-          >
-            {n ?? "Par défaut"}
-          </button>
-        ))}
+        <fieldset aria-label="Équipe" className="contents">
+          {[
+            null,
+            ...(current === null && name !== null
+              ? [...teams.map((t) => t.name), name]
+              : teams.map((t) => t.name)),
+          ].map((n) => (
+            <button
+              key={n ?? ""}
+              type="button"
+              aria-pressed={name === n}
+              // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
+              disabled={commit.isPending}
+              onClick={() => {
+                if (n === name) return;
+                if (!dirty) return goTo(n);
+                setCreating(null);
+                setDeleting(false);
+                setSwitchTo(n ?? "");
+              }}
+              className={chip(name === n)}
+            >
+              {n ?? "Par défaut"}
+            </button>
+          ))}
+        </fieldset>
         <button
           type="button"
           disabled={archived || commit.isPending}

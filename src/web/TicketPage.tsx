@@ -329,7 +329,11 @@ function TicketView({ ticket, stories }: Loaded) {
                     className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-x-2 px-4 py-2"
                   >
                     <span aria-hidden="true" className="text-dim">
-                      {story.status === "in_progress" ? "●" : "✓"}
+                      {story.status === "in_progress"
+                        ? "●"
+                        : story.status === "done"
+                          ? "✓"
+                          : "○"}
                     </span>
                     <span className="min-w-0">
                       <Link
@@ -347,7 +351,7 @@ function TicketView({ ticket, stories }: Loaded) {
                         type="button"
                         disabled={validate.isPending}
                         onClick={() => validate.mutate(story.id)}
-                        className="inline-flex h-7 items-center rounded-[10px] border border-border-strong bg-raised px-2.5 text-[13px] font-semibold hover:bg-raised-hover disabled:opacity-50"
+                        className={button}
                       >
                         Valider
                       </button>

@@ -146,7 +146,7 @@ export function ProjectRoutine({
   const lastRun = saved?.lastRun;
 
   return (
-    // The right column of the mockup (the night, the clone folder) belongs to other slices: only the archiving exists.
+    // The right column of the mockup: the clone folder and the archiving (the night belongs to another slice).
     <div className="mx-[26px] mt-5 grid items-start gap-3.5 md:grid-cols-2">
       <section
         aria-labelledby="ecriture-auto"

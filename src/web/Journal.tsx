@@ -178,9 +178,14 @@ export function Journal() {
   });
   const entries = pages.data?.pages.flatMap((page) => page?.entries ?? []);
   // Grouped by day from the dates already read, in the order of the journal.
-  const days = [
-    ...Map.groupBy(entries ?? [], (entry) => dayLabel(entry.at)).entries(),
-  ];
+  const grouped = new Map<string, NonNullable<typeof entries>>();
+  for (const entry of entries ?? []) {
+    const day = dayLabel(entry.at);
+    const rows = grouped.get(day) ?? [];
+    rows.push(entry);
+    grouped.set(day, rows);
+  }
+  const days = [...grouped.entries()];
   const signedOut = pages.data?.pages[0] === null;
 
   return (

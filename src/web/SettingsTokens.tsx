@@ -30,7 +30,7 @@ async function failure(res: Response) {
   );
 }
 
-export async function fetchTokens() {
+async function fetchTokens() {
   const res = await client.api.me.tokens.$get();
   if (!res.ok) throw await failure(res);
   return (await res.json()).tokens;
@@ -154,7 +154,7 @@ export function Tokens() {
           type="button"
           aria-expanded={showForm}
           onClick={() => setShowForm(true)}
-          className="ml-auto text-[12.5px] text-muted-foreground hover:text-foreground"
+          className={`ml-auto rounded-md text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
         >
           + Nouveau jeton
         </button>
