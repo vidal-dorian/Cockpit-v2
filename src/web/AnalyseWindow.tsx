@@ -272,8 +272,8 @@ export function AnalyseWindow({
         <div>
           {missing && (
             <p className="mb-2">
-              Ce repo n'a pas encore /analyser : ajoute-le avant de lancer
-              Claude.
+              Il manque des fichiers de /analyser dans ce repo : ajoute-les
+              avant de lancer Claude.
             </p>
           )}
           <ul className={listCard}>
