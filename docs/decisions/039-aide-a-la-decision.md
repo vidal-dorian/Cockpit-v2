@@ -21,6 +21,8 @@ Le brief (§6) veut, en fin de run, chaque critère avec son résultat et sa pre
 | E | L'écran ? | Sur la page d'un run fini, **en tête** : « Acceptable » ou « À vérifier », et la liste des raisons ; puis les critères avec leur preuve (035) ; puis **une seule action principale**, le bouton **« Relire et merger sur GitHub »** vers la PR, quand elle existe et n'est pas encore mergée (une US `done` n'a plus qu'un simple lien « Voir la PR sur GitHub ») ; les étapes passent dans un bloc replié **« Journal détaillé »**. Un run en cours garde la page d'aujourd'hui. Le verdict se dit en mots, jamais par la seule couleur (003) |
 | F | L'historique ? | Rien : c'est une lecture |
 
+*Ajout par la [050](050-figer-l-existant.md) C : pour une US de reprise, la raison `app_code_changed` (« La PR modifie du code de l'app, pas seulement des tests ») s'ajoute à la fin de la liste.*
+
 ## Ce qui est repoussé
 
 - **Les runs à vérifier dans l'accueil** : 8.1.

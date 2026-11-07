@@ -1,6 +1,6 @@
 # 050 — Figer l'existant
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R4)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (choix E, point ouvert 2), [047 — Les règles et l'écran de reprise](047-ecran-de-reprise.md), [048 — Le graphe par fonctionnalité](048-graphe-par-fonctionnalite.md), [035 — Critères et PR](035-criteres-et-pr.md), [038 — Le suivi de la PR](038-suivi-de-la-pr.md), [039 — L'aide à la décision](039-aide-a-la-decision.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
@@ -23,6 +23,14 @@ Le point ouvert 2 de la 007 demandait qui vérifie que la PR ne touche que des t
 | E | Le stockage ? | Une colonne `pr_app_files` (`text[]`, nulle tant que rien n'est lu) sur `user_stories` : les chemins hors tests de la PR, **20 au plus** (le compte total en plus si la PR en a davantage). Remplie à chaque lecture de la PR d'une US de reprise (webhook ou « Actualiser », 038), comme le cache de la CI ; remise à nulle quand la PR est détachée |
 | F | L'état « figée » ? | Une règle de reprise est **figée** quand son US est terminée (la PR est mergée, 038) **et** que son critère est `passed`. C'est un état calculé, pas une colonne. Il s'affiche partout où l'état d'une règle s'affiche : le graphe et la liste par fonctionnalité (048 D, « figée » à côté de « à trancher » et « voulue »), la page de l'US et l'export Markdown |
 | G | Le catalogue ? | `/dev-us` (le skill), le `test-writer` et le `reviewer` gagnent le mode « figer ». `catalog/history.json` est régénéré (049 B), et les repos déjà préparés reçoivent « Mettre à jour » dans leur onglet Santé (049) |
+
+## Ce que le code a précisé (tranche R4)
+
+- **`isTestPath`** (`src/server/pr-files.ts`) applique D ; `readPullFiles` (`src/server/github.ts`) lit les fichiers de la PR par pages de 100, 30 pages au plus : GitHub ne sert que 3000 fichiers par PR, au-delà le compte est sous-estimé.
+- **Quand on lit** : seulement pour une US de reprise dont la PR est ouverte ou mergée, **avant** la transaction : une lecture qui échoue n'écrit rien.
+- **Colonnes** (migration `0025`) : `pr_app_files` (`text[]`, 20 chemins au plus, dans l'ordre de GitHub) et `pr_app_files_count` (le total). Une PR fermée sans merge les remet à nulles ; lier une autre PR les efface, avec les caches de la CI et de la revue.
+- **Verdict** : la raison `app_code_changed` vient en **dernier** dans l'ordre de la 039 C. `GET /api/runs/:id` rend sur l'US `kind`, `prAppFiles` et `prAppFilesCount` ; la page du run liste les fichiers, puis « + N autres » (« + 1 autre » au singulier).
+- **« Figée »** : `GET /api/projects/:id/features` rend `state: "frozen"` pour une règle dont l'US est terminée et le critère `passed` ; la liste et le graphe l'écrivent « figée » (`stateWord`) ; la page de l'US calcule « figée » elle-même.
 
 ## Ce qui est repoussé
 
