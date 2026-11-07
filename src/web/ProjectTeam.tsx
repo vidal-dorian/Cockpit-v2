@@ -315,7 +315,7 @@ function StepEditor({
       )}
       {/* Graph view: the list stays for the keyboard (visually hidden from sm up) and is the only view on a phone (decision 031 F). */}
       <ul
-        className={`mt-3 ${listCard} ${view === "graph" ? "sm:sr-only" : ""}`}
+        className={`mt-3 ${listCard} ${view === "graph" ? "sm:not-focus-within:sr-only" : ""}`}
       >
         {steps.map((s, i) => (
           <li

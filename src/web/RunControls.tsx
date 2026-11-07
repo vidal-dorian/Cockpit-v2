@@ -28,7 +28,7 @@ function CloseDialog({
       ref={ref}
       aria-labelledby="close-run-title"
       onClose={onCancel}
-      className="m-auto flex w-[min(460px,calc(100%-2rem))] flex-col gap-3 rounded-[14px] border border-border-strong bg-card p-[22px] text-left text-foreground backdrop:bg-background/70"
+      className="m-auto open:flex w-[min(460px,calc(100%-2rem))] flex-col gap-3 rounded-[14px] border border-border-strong bg-card p-[22px] text-left text-foreground backdrop:bg-background/70"
     >
       <h2 id="close-run-title" className="text-lg font-semibold">
         Fermer le run ?
