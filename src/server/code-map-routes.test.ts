@@ -27,6 +27,7 @@ import { userWithToken } from "./test-mcp.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const read = (
