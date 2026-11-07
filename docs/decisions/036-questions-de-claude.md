@@ -4,6 +4,7 @@
 - **Date** : 2026-11-05
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (`ask_user`, `get_answer`, et pourquoi ce sont deux outils), [002 — Modèle de données](002-modele-donnees.md) (`questions`), [003 — Interface](003-interface.md) (réponses rapides), [033 — Le run minimal](033-run-minimal.md)
+- **Modifiée par** : [044](044-la-nuit-de-claude.md) : la question d'un run « en pause » (`paused`) reste ouverte à la réponse (D et E)
 - **Tranche** : 7.4 du [découpage](../decoupage.md)
 
 ## Contexte

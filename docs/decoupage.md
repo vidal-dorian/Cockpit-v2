@@ -246,6 +246,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 14.3 | **File d'attente** : je mets des US prêtes en file, Cockpit les lance une par une | Trois US en file, la suivante démarre quand la précédente est finie |
 | 14.4 | **Relance automatique** : CI rouge, Claude relancé sur la même branche. À comparer d'abord avec l'Auto-fix natif de Claude Code | Une CI rouge relance le développement sans que je clique |
 | 14.5 | **Coût et budget** : le coût de chaque run (télémétrie OpenTelemetry) et un plafond qui demande l'arrêt du run | La page d'un run affiche son coût ; au plafond, l'arrêt est demandé |
+| 14.6 | **La nuit de Claude** ([044](decisions/044-la-nuit-de-claude.md)) : le soir, je compose le programme ; Claude développe les US une par une dans le cloud ; le matin, l'accueil raconte la nuit | Je lance la nuit avec deux US, PC éteint ; le matin, l'accueil montre la frise, une PR et la question de l'autre US |
 
 ## Phase 15 — Téléphone et ergonomie (pas prioritaire)
 
