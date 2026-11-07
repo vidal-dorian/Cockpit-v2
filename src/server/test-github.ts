@@ -75,12 +75,12 @@ export type FakeCheckRun = {
   status: "queued" | "in_progress" | "completed";
   conclusion: string | null;
 };
-/** A review of a PR, oldest first in the list given to `setReviews` (slice 7.6, decision 038 F). */
 /** A file of a PR: its path, or the new and old paths of a renamed file. */
 export type FakePullFile =
   | string
   | { filename: string; previous_filename: string };
 
+/** A review of a PR, oldest first in the list given to `setReviews` (slice 7.6, decision 038 F). */
 export type FakeReview = {
   login: string;
   state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED";
