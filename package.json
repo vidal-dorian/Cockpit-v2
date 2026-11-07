@@ -13,7 +13,8 @@
     "test": "vitest run",
     "lint": "biome check",
     "typecheck": "tsc",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "catalog:history": "node scripts/catalog-history.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",

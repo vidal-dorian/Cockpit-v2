@@ -150,6 +150,24 @@ export const projectMembers = pgTable(
   ],
 );
 
+/** The SHA-256 of each catalogue file Cockpit wrote into a project's repo, to tell an untouched copy from a hand-modified one (decision 049 A). */
+export const catalogWrites = pgTable(
+  "catalog_writes",
+  {
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    path: text("path").notNull(),
+    sha256: text("sha256").notNull(),
+    writtenAt: timestamp("written_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("catalog_writes_project_path_idx").on(t.projectId, t.path),
+  ],
+);
+
 export const MODULE_KINDS = [
   "web",
   "api",

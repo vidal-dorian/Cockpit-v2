@@ -121,6 +121,10 @@ export function AnalyseWindow({
   const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(prompt)}`;
   const plan = read.data?.plan;
   const missing = files.some((f) => f.status === "create");
+  // Decision 049 G: an old original copy is replaced too.
+  const writable = files.some(
+    (f) => f.status === "create" || f.status === "update",
+  );
 
   return (
     <Panel
@@ -241,7 +245,7 @@ export function AnalyseWindow({
               <FileRow key={file.path} file={file} />
             ))}
           </ul>
-          {missing && plan && !done && (
+          {writable && plan && !done && (
             <button
               type="button"
               className={`mt-3 ${button}`}

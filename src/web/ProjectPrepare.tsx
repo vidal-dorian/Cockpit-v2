@@ -25,7 +25,7 @@ export type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
 /** What went wrong, for the page: `code` is the server's, never shown; `status` is 0 when no answer came. */
 export type Failure = { code: string; status: number; settingsUrl?: string };
-type Done = { url: string; pullRequest: boolean };
+export type Done = { url: string; pullRequest: boolean };
 
 export function message({ code, status }: Failure) {
   if (REFUSALS[code]) return REFUSALS[code];
@@ -53,7 +53,8 @@ export async function readPlan(id: string) {
 export function FileRow({ file }: { file: PlanFile }) {
   const lines = useMemo(
     () =>
-      file.status === "exists" && file.current !== undefined
+      (file.status === "exists" || file.status === "update") &&
+      file.current !== undefined
         ? diffLines(file.current, file.content)
         : null,
     [file],
@@ -89,28 +90,66 @@ export function FileRow({ file }: { file: PlanFile }) {
           Déjà là, pas un simple fichier : laissé tel quel
         </p>
       )}
-      {file.status === "exists" && file.current !== undefined && (
-        <>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Déjà là, différent : laissé tel quel
-          </p>
-          {lines ? (
-            <DiffList lines={lines} />
-          ) : (
-            <>
-              <h3 className="mt-3 font-semibold">Version du repo</h3>
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
-                {file.current}
-              </pre>
-              <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
-              <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
-                {file.content}
-              </pre>
-            </>
-          )}
-        </>
-      )}
+      {(file.status === "exists" || file.status === "update") &&
+        file.current !== undefined && (
+          <>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {file.status === "update"
+                ? "Sera mis à jour"
+                : "Déjà là, différent : laissé tel quel"}
+            </p>
+            {lines ? (
+              <DiffList lines={lines} />
+            ) : (
+              <>
+                <h3 className="mt-3 font-semibold">Version du repo</h3>
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+                  {file.current}
+                </pre>
+                <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+                  {file.content}
+                </pre>
+              </>
+            )}
+          </>
+        )}
     </li>
+  );
+}
+
+/** The refusal of a write, in French, with the way out when there is one. */
+export function ProblemAlert({ problem }: { problem: Failure }) {
+  return (
+    <div role="alert" className={`mt-3 ${alertBox}`}>
+      <p>{message(problem)}</p>
+      {problem.status === 401 && (
+        <a href="/api/auth/login" className={`underline ${focusRing}`}>
+          Se connecter avec GitHub
+        </a>
+      )}
+      {problem.settingsUrl && (
+        <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
+          Réglages de l'App sur GitHub
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** What a write did: the commit, or the pull request when the default branch is protected (decision 026 G). */
+export function DoneBox({ done }: { done: Done }) {
+  return (
+    <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
+      <p>
+        {done.pullRequest
+          ? "La branche par défaut est protégée : une pull request est ouverte"
+          : "C'est fait"}
+      </p>
+      <a href={done.url} className={`underline ${focusRing}`}>
+        {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
+      </a>
+    </div>
   );
 }
 
@@ -214,33 +253,8 @@ export function ProjectPrepare({
           </div>
         </>
       )}
-      {problem && (
-        <div role="alert" className={`mt-3 ${alertBox}`}>
-          <p>{message(problem)}</p>
-          {problem.status === 401 && (
-            <a href="/api/auth/login" className={`underline ${focusRing}`}>
-              Se connecter avec GitHub
-            </a>
-          )}
-          {problem.settingsUrl && (
-            <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
-              Réglages de l'App sur GitHub
-            </a>
-          )}
-        </div>
-      )}
-      {done && (
-        <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
-          <p>
-            {done.pullRequest
-              ? "La branche par défaut est protégée : une pull request est ouverte"
-              : "C'est fait"}
-          </p>
-          <a href={done.url} className={`underline ${focusRing}`}>
-            {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
-          </a>
-        </div>
-      )}
+      {problem && <ProblemAlert problem={problem} />}
+      {done && <DoneBox done={done} />}
       {plan && (
         <>
           <ul className={`mt-3 ${listCard}`}>
@@ -253,7 +267,9 @@ export function ProjectPrepare({
               type="button"
               disabled={
                 commit.isPending ||
-                plan.files.every((f) => f.status !== "create")
+                plan.files.every(
+                  (f) => f.status !== "create" && f.status !== "update",
+                )
               }
               onClick={() => {
                 setProblem(null);

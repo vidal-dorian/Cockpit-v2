@@ -1,3 +1,4 @@
+import type { CatalogState } from "./catalog-update.ts";
 import type { RepoFiles } from "./github.ts";
 import { WEBHOOK_PATH } from "./instance.ts";
 import { parseTeam } from "./team.ts";
@@ -11,13 +12,16 @@ type HealthDetail =
   | "invalid_json"
   | "secret_in_clear"
   | "invalid_team"
+  | "outdated"
   | "wrong_url"
   | "last_delivery_failed"
   | "unknown";
 export type HealthLine = {
-  key: "claude_md" | "ci" | "mcp" | "agents" | "webhook";
+  key: "claude_md" | "ci" | "mcp" | "agents" | "catalog" | "webhook";
   ok: boolean;
   detail: HealthDetail;
+  /** The catalog line only (decision 049 E): the state of each file of the catalogue. */
+  files?: { path: string; state: CatalogState }[];
 };
 
 const line = (key: HealthLine["key"], detail: HealthDetail): HealthLine => ({
@@ -92,6 +96,19 @@ function agentsDetail(files: RepoFiles): HealthDetail {
     ? "ok"
     : "missing";
 }
+
+/** The line of the catalogue files (decision 049 E): red when a file has a new version or is missing; a hand-modified one does not count. */
+export const catalogLine = (
+  files: NonNullable<HealthLine["files"]>,
+): HealthLine => ({
+  ...line(
+    "catalog",
+    files.some((f) => f.state === "old" || f.state === "absent")
+      ? "outdated"
+      : "ok",
+  ),
+  files,
+});
 
 /** The fifth line (decision 024 F): the webhook reads are the App's, the same for every project; null when GitHub could not be asked. */
 export function webhookLine(
