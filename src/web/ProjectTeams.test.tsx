@@ -262,7 +262,9 @@ describe("decision 032 E: choosing a team", () => {
 
     await openTeam();
 
-    expect(chips()).toEqual(expect.arrayContaining(["Par défaut", "leger", "docs"]));
+    expect(chips()).toEqual(
+      expect.arrayContaining(["Par défaut", "leger", "docs"]),
+    );
     expect(chosen()).toBe("");
     expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
   });
@@ -276,6 +278,7 @@ describe("decision 032 E: choosing a team", () => {
     await waitFor(() =>
       expect(rowAgents()).toEqual(["developer", "doc-writer"]),
     );
+    fireEvent.click(screen.getByRole("button", { name: "Graphe" }));
     expect(screen.getByTestId("team-card-doc-writer").textContent).toContain(
       "documents",
     );
@@ -601,7 +604,7 @@ describe("decision 032 E: layout of the tab", () => {
     click("Ouvrir developer");
 
     const agentsSection = screen
-      .getByRole("heading", { level: 2, name: "Agents" })
+      .getByRole("heading", { level: 2, name: "Les agents du repo" })
       .closest("section") as HTMLElement;
     expect(agentsSection.className).toContain("lg:col-span-2");
   });

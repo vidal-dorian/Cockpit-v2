@@ -30,7 +30,7 @@ async function failure(res: Response) {
   );
 }
 
-async function fetchTokens() {
+export async function fetchTokens() {
   const res = await client.api.me.tokens.$get();
   if (!res.ok) throw await failure(res);
   return (await res.json()).tokens;

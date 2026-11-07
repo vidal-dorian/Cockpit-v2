@@ -275,27 +275,21 @@ export function Sidebar() {
           Réglages
         </NavLink>
         {me && (
-          <>
-            <div className="flex items-center gap-2.5 px-2.5 py-1">
-              {me.avatarUrl ? (
-                <img
-                  src={me.avatarUrl}
-                  alt=""
-                  className="size-6 rounded-full"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
-                >
-                  {(me.name ?? me.login).charAt(0)}
-                </span>
-              )}
-              <span className="min-w-0 flex-1 truncate font-semibold">
-                {me.name ?? me.login}
+          <div className="flex items-center gap-2.5 px-2.5 py-1">
+            {me.avatarUrl ? (
+              <img src={me.avatarUrl} alt="" className="size-6 rounded-full" />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
+              >
+                {(me.name ?? me.login).charAt(0)}
               </span>
-            </div>
-          </>
+            )}
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              {me.name ?? me.login}
+            </span>
+          </div>
         )}
         {logout.isError && (
           <p role="alert" className="px-2.5 text-destructive">

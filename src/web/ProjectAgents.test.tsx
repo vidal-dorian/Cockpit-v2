@@ -374,7 +374,7 @@ describe("decision 030 C, E: editing an agent", () => {
     renderAt("/projets/5/agents");
     await open("developer");
 
-    fireEvent.change(field("Prompt"), { target: { value: "New prompt\n" } });
+    fireEvent.change(field("Consigne"), { target: { value: "New prompt\n" } });
     fireEvent.click(commitButton());
 
     await screen.findByText(/C'est fait/);

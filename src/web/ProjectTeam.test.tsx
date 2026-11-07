@@ -189,8 +189,17 @@ const openTeam = async () => {
   await waitFor(() =>
     expect(screen.queryByText("Chargement du graphe…")).toBeNull(),
   );
+  // The tests read the steps in the list; `graph()` shows the cards.
+  fireEvent.click(screen.getByRole("button", { name: "Liste" }));
 };
-const card = (agent: string) => screen.getByTestId(`team-card-${agent}`);
+const graph = () =>
+  fireEvent.click(screen.getByRole("button", { name: "Graphe" }));
+const card = (agent: string) => {
+  if (!screen.queryByTestId(`team-card-${agent}`)) graph();
+  return screen.getByTestId(`team-card-${agent}`);
+};
+const list = () =>
+  fireEvent.click(screen.getByRole("button", { name: "Liste" }));
 const row = (agent: string) => {
   const found = screen
     .getAllByRole("listitem")
@@ -253,6 +262,7 @@ describe("decision 031 B, F: the section Équipe", () => {
     expect(card("developer").textContent).toContain("sonnet");
     expect(card("reviewer").textContent).toContain(SESSION_MODEL);
     expect(card("reviewer").textContent).toContain("reviews the diff");
+    list();
     expect(rowAgents()).toEqual(["test-writer", "developer", "reviewer"]);
     expect(row("test-writer").textContent).toMatch(/^\s*1/);
     expect(row("developer").textContent).toMatch(/^\s*2/);

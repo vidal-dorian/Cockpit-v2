@@ -151,7 +151,7 @@ describe("slice 9.3: Maintenant, Ensuite and Claude en ce moment", () => {
       "/runs/12",
       "/runs/13",
     ]);
-    expect(links[0]?.textContent).toContain("Run 12 · octocat/hello");
+    expect(links[0]?.textContent).toContain("Run 12 · hello");
     expect(links[0]?.textContent).toContain("developer");
     expect(links[1]?.textContent).toContain("Démarrage");
   });

@@ -48,9 +48,10 @@ function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
 }
 
 function TicketView({ ticket, stories }: Loaded) {
-  const projectName = useHome().data?.projects.find(
-    (p) => p.id === ticket.projectId,
-  )?.name;
+  const projectName = useHome()
+    .data?.projects.find((p) => p.id === ticket.projectId)
+    ?.name.split("/")
+    .pop();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
@@ -280,7 +281,12 @@ function TicketView({ ticket, stories }: Loaded) {
           </div>
           {stories.length > 0 && (
             <section className="px-[26px] pt-[22px]">
-              <h2 className={`mb-2 ${sectionLabel}`}>User stories</h2>
+              <h2 className={`mb-2 ${sectionLabel}`}>
+                User stories{" "}
+                <span className="font-medium tracking-normal text-dim normal-case">
+                  dans l'ordre où Claude les a écrites
+                </span>
+              </h2>
               {!ticket.storiesWrittenAt && (
                 <p className="mb-2 text-muted-foreground">
                   Claude n'a pas fini d'écrire les user stories de ce ticket.

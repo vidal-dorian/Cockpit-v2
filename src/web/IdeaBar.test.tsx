@@ -63,7 +63,7 @@ describe("slice 9.3: the idea bar", () => {
       }),
     );
     const status = await screen.findByRole("status");
-    expect(status.textContent).toContain("Idée notée dans octocat/world.");
+    expect(status.textContent).toContain("Idée notée dans world.");
     expect((await field()).value).toBe("");
   });
 

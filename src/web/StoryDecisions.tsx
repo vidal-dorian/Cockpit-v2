@@ -228,8 +228,7 @@ export function StoryDecisions({
             <>
               <p className={sectionLabel}>Après validation</p>
               <p className="text-[13px] leading-normal text-muted-foreground">
-                L'US devient prête, elle est publiée en issue sur GitHub, et
-                Claude peut la développer.
+                L'US est publiée sur GitHub, et Claude peut la développer.
               </p>
             </>
           )}

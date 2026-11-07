@@ -1,11 +1,14 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { Logo } from "./Logo.tsx";
 import {
   alertBox,
+  card,
   field,
+  ghostButton,
   listCard,
+  panelPrimaryButton,
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
@@ -22,12 +25,14 @@ function Frame({
 }) {
   return (
     <div className="min-h-screen md:grid md:grid-cols-[300px_minmax(0,1fr)]">
-      <aside className="flex flex-col gap-0.5 border-b border-border bg-card px-3 py-4 md:border-r md:border-b-0">
+      <aside className="flex flex-col gap-0.5 border-b border-border bg-card px-3 py-7 md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 px-2.5 pb-4 text-base font-bold">
           <Logo className="size-5" />
           Cockpit
         </div>
-        <p className={`${sectionLabel} px-2.5 pb-2`}>Mise en service</p>
+        <p className={`${sectionLabel} px-2.5 pb-2`}>
+          Mise en service · étape {Math.min(step, 3)} sur 3
+        </p>
         <ol className="flex flex-col gap-0.5">
           {STEPS.map((name, i) => (
             <li
@@ -58,7 +63,7 @@ function Frame({
 
 const wizardTitle = "text-[28px] leading-tight font-semibold";
 const wizardRest =
-  "mt-1.5 block text-[22px] leading-snug font-normal text-muted-foreground";
+  "block text-[28px] leading-tight font-medium text-muted-foreground";
 
 // What the App asks of GitHub and why (decision 012 D); the same list as the manifest of the server.
 const PERMISSIONS = [
@@ -133,58 +138,27 @@ export function Setup() {
     : failed
       ? "La création de l'App GitHub a échoué. Réessaie."
       : null;
+  // Step 2 shows the permissions; a refusal sends back to step 1, where the code and the address are.
+  const [step, setStep] = useState<1 | 2>(1);
+  // Read from the cache of App.tsx (same key): the wizard only shows what the server detected.
+  const detected = useQueryClient().getQueryData<{ detectedUrl?: string }>([
+    "setup",
+  ])?.detectedUrl;
 
-  return (
-    <Frame step={1}>
-      <div>
-        <h1 className={wizardTitle}>Installer Cockpit</h1>
-        <p className={wizardRest}>
-          Cockpit va créer sa propre App GitHub, avec ton accord. Il n'y a rien
-          à copier à la main.
-        </p>
-      </div>
-
-      {message && (
-        <p role="alert" className={alertBox}>
-          {message}
-        </p>
-      )}
-
-      <form
-        className="space-y-[22px]"
-        onSubmit={(event) => {
-          event.preventDefault();
-          start.mutate();
-        }}
-      >
-        <div>
-          <label htmlFor="setup-code" className="text-[13px] font-semibold">
-            Code de démarrage
-          </label>
-          <p
-            id="setup-code-help"
-            className="text-[12.5px] text-muted-foreground"
-          >
-            Affiché dans les logs du serveur au premier lancement.
-          </p>
-          <input
-            id="setup-code"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            aria-describedby="setup-code-help"
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            required
-            className={`${field} font-mono`}
-          />
-        </div>
-
+  if (step === 2)
+    return (
+      <Frame step={2}>
+        <h1 className={wizardTitle}>
+          Cockpit va créer sa GitHub App.
+          <span className={wizardRest}>
+            Un clic sur GitHub, puis tu reviens ici tout seul.
+          </span>
+        </h1>
         <section aria-labelledby="setup-permissions">
-          <h2 id="setup-permissions" className={sectionLabel}>
+          <h2 id="setup-permissions" className="sr-only">
             Ce que l'App demandera
           </h2>
-          <ul className={`mt-2 ${listCard}`}>
+          <ul className={listCard}>
             {PERMISSIONS.map(([name, access, why]) => (
               <li
                 key={name}
@@ -205,17 +179,105 @@ export function Setup() {
           <p className="mt-3 text-[12.5px] leading-normal text-muted-foreground">
             GitHub t'affichera ces droits sur sa page d'enregistrement. Clique
             sur « Create GitHub App » pour accepter : Cockpit récupère alors
-            l'App et te connecte. Sans cet accord, Cockpit ne fonctionne pour
-            personne.
+            l'App et te connecte. Les secrets de l'App sont chiffrés dans la
+            base avec la clé de ton instance.
           </p>
         </section>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={start.isPending}
+            onClick={() => {
+              setStep(1);
+              start.mutate();
+            }}
+            className={panelPrimaryButton}
+            style={{ width: "auto" }}
+          >
+            Créer l'App sur GitHub ↗
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className={`${ghostButton} h-[42px] text-sm`}
+          >
+            Retour
+          </button>
+        </div>
+      </Frame>
+    );
 
+  return (
+    <Frame step={1}>
+      <h1 className={wizardTitle}>
+        Colle le code de démarrage.
+        <span className={wizardRest}>
+          Il est écrit dans les journaux du serveur, au premier lancement.
+        </span>
+      </h1>
+
+      {message && (
+        <p role="alert" className={alertBox}>
+          {message}
+        </p>
+      )}
+
+      <form
+        className="space-y-[22px]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          start.reset();
+          setStep(2);
+        }}
+      >
+        <div>
+          <label htmlFor="setup-code" className="text-[13px] font-semibold">
+            Code de démarrage
+          </label>
+          <input
+            id="setup-code"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            aria-describedby="setup-code-help"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            required
+            className={`${field} h-[38px] font-mono text-[12.5px]`}
+          />
+          <p
+            id="setup-code-help"
+            className="mt-1.5 text-[12.5px] text-muted-foreground"
+          >
+            Il prouve que c'est toi qui as installé cette instance.
+          </p>
+        </div>
+        {detected && (
+          <p className={`flex items-center gap-2.5 ${card} px-4 py-3`}>
+            <span aria-hidden="true" className="text-dim">
+              ✓
+            </span>
+            <span>
+              Adresse détectée :{" "}
+              <span className="font-mono text-[11.5px] text-foreground">
+                {detected}
+              </span>
+            </span>
+            <span className="ml-auto text-[12.5px] text-muted-foreground">
+              rien à recopier
+            </span>
+          </p>
+        )}
+        <p className="text-[12.5px] leading-normal text-muted-foreground">
+          Ouvre Cockpit par son adresse en https:// : claude.ai l'exige pour le
+          connecteur. Elle servira à créer la GitHub App.
+        </p>
         <button
           type="submit"
-          disabled={start.isPending}
-          className={primaryButton}
+          className={panelPrimaryButton}
+          style={{ width: "auto" }}
         >
-          Créer l'App GitHub
+          Continuer
         </button>
       </form>
     </Frame>

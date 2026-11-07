@@ -13,6 +13,7 @@ import {
   dangerButton,
   field,
   focusRing,
+  ghostButton,
   listCard,
   primaryButton,
   sectionLabel,
@@ -39,11 +40,13 @@ function AgentForm({
   archived,
   pending,
   onCommit,
+  onClose,
 }: {
   editing: Editing;
   archived: boolean;
   pending: boolean;
   onCommit: (after: string | null) => void;
+  onClose: () => void;
 }) {
   const { name, before, base } = editing;
   const initial = parseAgent(base);
@@ -57,65 +60,96 @@ function AgentForm({
   const set = (key: keyof AgentFields) => (value: string) =>
     setFields((current) => current && { ...current, [key]: value });
 
+  const label = "block text-[13px] font-semibold";
   return (
-    <div className={`${card} mt-4 p-4`}>
+    <div className="mt-2">
       <h3 className="font-mono font-semibold">{name}</h3>
       {fields && initial ? (
-        <>
-          <label htmlFor="agent-description" className="mt-3 block">
-            Description
-          </label>
-          <input
-            id="agent-description"
-            className={field}
-            value={fields.description}
-            onChange={(e) => set("description")(e.target.value)}
-          />
-          <label htmlFor="agent-tools" className="mt-3 block">
-            Outils
-          </label>
-          <input
-            id="agent-tools"
-            className={field}
-            value={fields.tools}
-            onChange={(e) => set("tools")(e.target.value)}
-          />
-          <label htmlFor="agent-model" className="mt-3 block">
-            Modèle
-          </label>
-          <select
-            id="agent-model"
-            className={field}
-            value={fields.model}
-            onChange={(e) => set("model")(e.target.value)}
-          >
-            <option value="">{SESSION_MODEL}</option>
-            {[
-              ...MODELS,
-              ...(initial.model && !MODELS.includes(initial.model)
-                ? [initial.model]
-                : []),
-            ].map((model) => (
-              <option key={model}>{model}</option>
-            ))}
-          </select>
-          <label htmlFor="agent-prompt" className="mt-3 block">
-            Prompt
-          </label>
-          <textarea
-            id="agent-prompt"
-            rows={8}
-            className={`${field} font-mono`}
-            value={fields.prompt}
-            onChange={(e) => set("prompt")(e.target.value)}
-          />
-          {lines ? (
-            <DiffList lines={lines} />
-          ) : (
-            <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
-              {after}
-            </pre>
-          )}
+        <div className="mt-3 grid gap-4 lg:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-3.5">
+            <div>
+              <label htmlFor="agent-description" className={label}>
+                Description
+              </label>
+              <input
+                id="agent-description"
+                className={`${field} min-h-[38px]`}
+                value={fields.description}
+                onChange={(e) => set("description")(e.target.value)}
+              />
+              <small className="text-[12.5px] text-muted-foreground">
+                Claude s'en sert pour choisir quand appeler cet agent.
+              </small>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="agent-model" className={label}>
+                  Modèle
+                </label>
+                <select
+                  id="agent-model"
+                  className={`${field} min-h-[38px]`}
+                  value={fields.model}
+                  onChange={(e) => set("model")(e.target.value)}
+                >
+                  <option value="">{SESSION_MODEL}</option>
+                  {[
+                    ...MODELS,
+                    ...(initial.model && !MODELS.includes(initial.model)
+                      ? [initial.model]
+                      : []),
+                  ].map((model) => (
+                    <option key={model}>{model}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="agent-tools" className={label}>
+                  Outils
+                </label>
+                <input
+                  id="agent-tools"
+                  className={`${field} min-h-[38px]`}
+                  value={fields.tools}
+                  onChange={(e) => set("tools")(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="agent-prompt" className={label}>
+                Consigne
+              </label>
+              <textarea
+                id="agent-prompt"
+                rows={10}
+                className={`${field} min-h-[230px] font-mono text-[12.5px] leading-[1.6]`}
+                value={fields.prompt}
+                onChange={(e) => set("prompt")(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <span className={sectionLabel}>Le fichier qui sera écrit</span>
+            {lines ? (
+              <DiffList lines={lines} />
+            ) : (
+              <pre className="overflow-x-auto whitespace-pre-wrap text-sm">
+                {after}
+              </pre>
+            )}
+            <span className="text-[12.5px] text-muted-foreground">
+              .claude/agents/{name}.md
+            </span>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2">
+          L'en-tête de ce fichier n'est pas lisible par Cockpit : modifie-le sur
+          GitHub
+        </p>
+      )}
+      <div className="mt-3.5 flex flex-wrap items-center gap-2">
+        {fields && initial && (
           <button
             type="button"
             disabled={
@@ -125,57 +159,55 @@ function AgentForm({
               after === before
             }
             onClick={() => onCommit(after)}
-            className={`mt-3 ${primaryButton}`}
+            className={primaryButton}
           >
             Faire le commit
           </button>
-        </>
-      ) : (
-        <p className="mt-2">
-          L'en-tête de ce fichier n'est pas lisible par Cockpit : modifie-le sur
-          GitHub
-        </p>
-      )}
-      {before !== null && (
-        <div className="mt-3">
-          {confirming ? (
-            <>
-              <p id="delete-agent-warning">
-                Le fichier sera retiré du repo par un commit
-              </p>
+        )}
+        <button type="button" onClick={onClose} className={ghostButton}>
+          Annuler
+        </button>
+        {before !== null && (
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            {confirming ? (
+              <>
+                <p id="delete-agent-warning">
+                  Le fichier sera retiré du repo par un commit
+                </p>
+                <button
+                  type="button"
+                  aria-describedby="delete-agent-warning"
+                  disabled={archived || pending}
+                  onClick={() => onCommit(null)}
+                  className={dangerButton}
+                >
+                  Confirmer la suppression
+                </button>
+                <button
+                  type="button"
+                  aria-describedby="delete-agent-warning"
+                  // The button that asked is gone: keep the keyboard focus on the safe choice.
+                  // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                  autoFocus
+                  onClick={() => setConfirming(false)}
+                  className={button}
+                >
+                  Annuler
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
-                aria-describedby="delete-agent-warning"
                 disabled={archived || pending}
-                onClick={() => onCommit(null)}
-                className={`mt-2 ${dangerButton}`}
+                onClick={() => setConfirming(true)}
+                className={ghostButton}
               >
-                Confirmer la suppression
+                Supprimer l'agent
               </button>
-              <button
-                type="button"
-                aria-describedby="delete-agent-warning"
-                // The button that asked is gone: keep the keyboard focus on the safe choice.
-                // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-                autoFocus
-                onClick={() => setConfirming(false)}
-                className={`mt-2 ml-2 ${button}`}
-              >
-                Annuler
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              disabled={archived || pending}
-              onClick={() => setConfirming(true)}
-              className={button}
-            >
-              Supprimer l'agent
-            </button>
-          )}
-        </div>
-      )}
+            )}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -372,7 +404,7 @@ export function ProjectAgents({
             </a>
           </div>
         )}
-        {list && (
+        {list && !editing && (
           <>
             <ul className={`mt-2 ${listCard}`}>
               {list.agents.map((agent) => {
@@ -448,6 +480,7 @@ export function ProjectAgents({
             editing={editing}
             archived={archived}
             pending={commit.isPending}
+            onClose={() => setEditing(null)}
             onCommit={(after) => {
               setProblem(null);
               commit.mutate({ before: editing.before, after });
