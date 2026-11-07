@@ -4,7 +4,7 @@ import { Link, NavLink, useMatch } from "react-router";
 import { client } from "./api.ts";
 import { Logo } from "./Logo.tsx";
 import { ticketError } from "./tickets.ts";
-import { badge, focusRing, ghostButton, kbd } from "./ui.ts";
+import { badge, focusRing, kbd } from "./ui.ts";
 
 // The shell of decision 045 F (sidebar, idea bar) and the pieces every page builds on (state sentence, breadcrumb, right panel, dot).
 
@@ -266,30 +266,36 @@ export function Sidebar() {
           Réglages
         </NavLink>
         {me && (
-          <div className="flex items-center gap-2.5 px-2.5 py-1">
-            {me.avatarUrl ? (
-              <img src={me.avatarUrl} alt="" className="size-6 rounded-full" />
-            ) : (
-              <span
-                aria-hidden="true"
-                className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
-              >
-                {(me.name ?? me.login).charAt(0)}
+          <>
+            <div className="flex items-center gap-2.5 px-2.5 py-1">
+              {me.avatarUrl ? (
+                <img
+                  src={me.avatarUrl}
+                  alt=""
+                  className="size-6 rounded-full"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
+                >
+                  {(me.name ?? me.login).charAt(0)}
+                </span>
+              )}
+              <span className="min-w-0 flex-1 truncate font-semibold">
+                {me.name ?? me.login}
               </span>
-            )}
-            <span className="min-w-0 flex-1 truncate font-semibold">
-              {me.name ?? me.login}
-            </span>
-          </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
+              className={`ml-[34px] self-start rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-dim hover:text-foreground disabled:opacity-50 ${focusRing}`}
+            >
+              Se déconnecter
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          onClick={() => logout.mutate()}
-          disabled={logout.isPending}
-          className={ghostButton}
-        >
-          Se déconnecter
-        </button>
         {logout.isError && (
           <p role="alert" className="px-2.5 text-destructive">
             La déconnexion a échoué, réessaie.
@@ -389,10 +395,12 @@ export function IdeaBar() {
             setTitle(event.target.value);
             setDone(undefined);
           }}
-          className={`min-w-0 flex-1 bg-transparent placeholder:text-dim ${focusRing}`}
+          className={`field-sizing-content min-w-[7.5rem] max-w-full bg-transparent placeholder:text-dim ${focusRing}`}
         />
         <kbd className={kbd}>N</kbd>
-        <span className="text-[12.5px] text-muted-foreground">pour</span>
+        <span className="ml-auto text-[12.5px] text-muted-foreground">
+          pour
+        </span>
         <select
           aria-label="Projet"
           value={projectId}
