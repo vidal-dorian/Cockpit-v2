@@ -55,6 +55,7 @@ for (const file of FILES) {
     })
     .filter((text) => text !== null);
   versions.push(readFileSync(`catalog/${file}`, "utf8"));
+  // `new Set` keeps the first place of a repeated hash: a file reverted to an older text would not end its list (catalog-freeze tests catch it).
   history[`.claude/${file}`] = [...new Set(versions.map(sha256))];
 }
 writeFileSync("catalog/history.json", `${JSON.stringify(history, null, 2)}\n`);

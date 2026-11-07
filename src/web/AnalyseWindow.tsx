@@ -20,16 +20,19 @@ import {
   panelPrimaryButton,
 } from "./ui.ts";
 
-// The three files of decisions 043 M and 047 M, as the catalog names them.
+// The six files of /analyser (decisions 043 M, 047 M and 051 K), as the catalog names them.
 const ANALYSER_FILES = [
   ".claude/skills/analyser/SKILL.md",
   ".claude/agents/cartographer.md",
   ".claude/agents/rules-analyst.md",
+  ".claude/agents/bug-hunter.md",
+  ".claude/agents/security-reviewer.md",
+  ".claude/agents/architect.md",
 ];
 
 const storageKey = (projectId: string) => `cockpit.clone.${projectId}`;
 
-/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the three files, their addition with the write of decision 026. */
+/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the six files, their addition with the write of decision 026. */
 export function AnalyseWindow({
   projectId,
   fullName,
@@ -285,7 +288,7 @@ export function AnalyseWindow({
               disabled={archived || commit.isPending}
               onClick={() => {
                 setProblem(null);
-                // The plan as received (base commit and signature), reduced to the three files.
+                // The plan as received (base commit and signature), reduced to the six files.
                 commit.mutate({ ...plan, files });
               }}
             >

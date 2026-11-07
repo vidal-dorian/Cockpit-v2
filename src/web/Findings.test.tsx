@@ -753,3 +753,37 @@ describe("decision 051 G: the decisions", () => {
       ).toBe(true);
   });
 });
+
+describe("decision 051 G: a settled finding is only read", () => {
+  it("given a dismissed finding opened from « Rejetés », when its panel shows, then it has no decision and no reason field", async () => {
+    await open([
+      finding(2, { status: "dismissed", dismissReason: "faux positif" }),
+    ]);
+    fireEvent.click(filter("Rejetés"));
+
+    openFinding("Constat numéro 2");
+
+    const aside = inPanel();
+    expect(aside.getByText("Rejeté : faux positif")).toBeDefined();
+    for (const name of ["En faire un ticket", "Rejeter", "Plus tard"])
+      expect(aside.queryByRole("button", { name }), name).toBeNull();
+    expect(aside.queryByText(/Raison du rejet/)).toBeNull();
+    expect(aside.getByRole("button", { name: "Fermer" })).toBeDefined();
+  });
+
+  it("given a finding, when its row is read, then its accessible description names its type and severity", async () => {
+    await open([finding(1), finding(2, { kind: "security", severity: "low" })]);
+
+    const row = within(main()).getByRole("button", {
+      name: "Ouvrir Constat numéro 2",
+    });
+
+    expect(row.getAttribute("aria-describedby")).toBeTruthy();
+    const text = (row.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent)
+      .join(" ");
+    expect(text).toContain("faille");
+    expect(text).toContain("basse");
+  });
+});

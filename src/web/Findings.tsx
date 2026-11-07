@@ -67,6 +67,8 @@ function FindingPanel({
 }) {
   const [reason, setReason] = useState("");
   const off = archived || busy;
+  // A ticketed or dismissed finding is settled: it only reads (decision 051 G).
+  const decidable = finding.status === "open" || finding.status === "later";
   return (
     <Panel
       label="Constat"
@@ -77,36 +79,40 @@ function FindingPanel({
       }
       footer={
         <>
-          <button
-            type="button"
-            className={panelPrimaryButton}
-            disabled={off}
-            onClick={() => onDecide("ticket")}
-          >
-            En faire un ticket
-          </button>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              className={panelButton}
-              disabled={off}
-              onClick={() => onDecide("dismiss", reason.trim())}
-            >
-              Rejeter
-            </button>
-            <button
-              type="button"
-              className={panelButton}
-              disabled={off}
-              onClick={() => onDecide("later")}
-            >
-              Plus tard
-            </button>
-          </div>
-          {archived && (
-            <p className="text-center text-[13px] text-muted-foreground">
-              {ARCHIVED}
-            </p>
+          {decidable && (
+            <>
+              <button
+                type="button"
+                className={panelPrimaryButton}
+                disabled={off}
+                onClick={() => onDecide("ticket")}
+              >
+                En faire un ticket
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={panelButton}
+                  disabled={off}
+                  onClick={() => onDecide("dismiss", reason.trim())}
+                >
+                  Rejeter
+                </button>
+                <button
+                  type="button"
+                  className={panelButton}
+                  disabled={off}
+                  onClick={() => onDecide("later")}
+                >
+                  Plus tard
+                </button>
+              </div>
+              {archived && (
+                <p className="text-center text-[13px] text-muted-foreground">
+                  {ARCHIVED}
+                </p>
+              )}
+            </>
           )}
           <button type="button" className={ghostButton} onClick={onClose}>
             Fermer
@@ -140,15 +146,17 @@ function FindingPanel({
         fullName={fullName}
         sources={finding.sources}
       />
-      <label className="block font-semibold">
-        Raison du rejet (facultative)
-        <textarea
-          rows={2}
-          className={field}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
+      {decidable && (
+        <label className="block font-semibold">
+          Raison du rejet (facultative)
+          <textarea
+            rows={2}
+            className={field}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+      )}
     </Panel>
   );
 }
@@ -160,6 +168,8 @@ function Row({ finding, onOpen }: { finding: Finding; onOpen: () => void }) {
       <button
         type="button"
         aria-label={`Ouvrir ${finding.title}`}
+        // The name stays « Ouvrir <titre> »; the type, the place and the severity are its description.
+        aria-describedby={`about-${finding.id} severity-${finding.id}`}
         onClick={onOpen}
         className={`grid min-h-[50px] w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px] py-2 text-left hover:bg-raised ${focusRing}`}
       >
@@ -168,13 +178,19 @@ function Row({ finding, onOpen }: { finding: Finding; onOpen: () => void }) {
         </span>
         <span className="min-w-0">
           <span className="block truncate font-semibold">{finding.title}</span>
-          <span className="block truncate text-[12.5px] text-muted-foreground">
+          <span
+            id={`about-${finding.id}`}
+            className="block truncate text-[12.5px] text-muted-foreground"
+          >
             {KIND_WORD[finding.kind]}
             {place(finding) && ` · ${place(finding)}`}
             {finding.dismissReason && ` · ${finding.dismissReason}`}
           </span>
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span
+          id={`severity-${finding.id}`}
+          className="text-xs text-muted-foreground"
+        >
           {SEVERITY_WORD[finding.severity]}
         </span>
       </button>
@@ -283,13 +299,17 @@ export function Findings({
                 <button
                   type="button"
                   aria-label={`Ouvrir ${first.title}`}
+                  aria-describedby={`about-${first.id}`}
                   onClick={() => setOpenId(first.id)}
                   className={`min-w-0 rounded-md text-left ${focusRing}`}
                 >
                   <span className="block text-[15px] font-semibold">
                     {first.title}
                   </span>
-                  <span className="block text-[12.5px] text-muted-foreground">
+                  <span
+                    id={`about-${first.id}`}
+                    className="block text-[12.5px] text-muted-foreground"
+                  >
                     {KIND_WORD[first.kind]} {SEVERITY_WORD[first.severity]}
                     {place(first) && ` · ${place(first)}`}
                   </span>

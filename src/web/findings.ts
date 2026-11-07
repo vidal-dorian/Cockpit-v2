@@ -1,34 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
+import { client } from "./api.ts";
 
-/** Decision 051 C: a finding of Claude as GET /api/projects/:id/findings gives it, its cited sources and the choice-L reminder (`unprotected`) included. */
-export type Finding = {
-  id: number;
-  kind: "bug" | "security" | "architecture" | "stack";
-  source: string;
-  title: string;
-  bodyMd: string;
-  severity: "critical" | "high" | "medium" | "low";
-  effort: "small" | "medium" | "large" | null;
-  status: "open" | "ticketed" | "dismissed" | "later";
-  ticketId: number | null;
-  dismissReason: string | null;
-  commitSha: string;
-  createdAt: string;
-  sources: {
-    path: string;
-    startLine: number;
-    endLine: number;
-    commitSha: string;
-  }[];
-  unprotected: boolean;
-};
-
-// The routes of the findings are read by hand: the typed client does not know them yet, so the answer is typed here (like `fetchCode`).
+/** Decision 051 C: the findings of a project as the server gives them, their cited sources and the choice-L reminder (`unprotected`) included. */
 export async function fetchFindings(id: string) {
-  const res = await fetch(`/api/projects/${id}/findings`);
+  const res = await client.api.projects[":id"].findings.$get({
+    param: { id },
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return ((await res.json()) as { findings: Finding[] }).findings;
+  return (await res.json()).findings;
 }
+
+export type Finding = Awaited<ReturnType<typeof fetchFindings>>[number];
 
 export const findingsKey = (projectId: string) => ["findings", projectId];
 
@@ -43,13 +25,16 @@ export type Decision = "ticket" | "dismiss" | "later";
 
 /** Decision 051 G: the human decisions, which only exist in the interface. */
 export async function decide(id: number, action: Decision, reason?: string) {
-  const res = await fetch(`/api/findings/${id}/${action}`, {
-    method: "POST",
-    ...(action === "dismiss" && {
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(reason ? { reason } : {}),
-    }),
-  });
+  const param = { param: { id: String(id) } };
+  const res =
+    action === "dismiss"
+      ? await client.api.findings[":id"].dismiss.$post(param, {
+          init: {
+            body: JSON.stringify(reason ? { reason } : {}),
+            headers: { "content-type": "application/json" },
+          },
+        })
+      : await client.api.findings[":id"][action].$post(param);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 

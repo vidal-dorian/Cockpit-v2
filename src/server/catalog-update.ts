@@ -51,6 +51,12 @@ type Hashes = Record<string, string>;
 
 // Decision 051 L: the `model:` line of an agent is the user's choice (the agents tab), so it never makes a copy differ from the catalogue.
 const MODEL = /^model:.*\r?\n/m;
+const MODEL_LINES = [
+  ...["sonnet", "opus", "haiku", "fable", "inherit"].map(
+    (m) => `model: ${m}\n`,
+  ),
+  "",
+];
 /** The front matter without its closing fence, and what follows it. */
 const frontMatter = (text: string) => {
   const found = /^---\r?\n[\s\S]*?\r?\n(?=---\r?\n)/.exec(text);
@@ -83,16 +89,17 @@ export function fileState(
   if (text === null) return "absent";
   const catalogue = CATALOG_TEXTS.get(path) as string;
   if (text === catalogue) return "current";
-  // The copy with the model line of the catalogue: what a version of the catalogue looked like before the user chose a model.
-  const normal = withModelLine(text, modelLine(catalogue));
-  if (
-    normal === catalogue ||
-    withModelLine(text, "") === withModelLine(catalogue, "")
-  )
+  if (withModelLine(text, "") === withModelLine(catalogue, ""))
     return "current";
-  return [sha256(text), sha256(normal)].some(
-    (hash) => recorded[path] === hash || history[path]?.includes(hash),
-  )
+  // The copy with each model line a version of the catalogue may have had (not only today's): what it looked like before the user chose a model.
+  return [
+    text,
+    ...[modelLine(catalogue), ...MODEL_LINES].map((line) =>
+      withModelLine(text, line),
+    ),
+  ]
+    .map(sha256)
+    .some((hash) => recorded[path] === hash || history[path]?.includes(hash))
     ? "old"
     : "modified";
 }

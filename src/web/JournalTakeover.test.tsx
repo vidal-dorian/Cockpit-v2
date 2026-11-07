@@ -27,6 +27,11 @@ describe("decisions 043 E and 047: the Journal names the map and rule entries", 
     ["edit_rule", "ui", "Règle corrigée"],
     ["bug_rule", "ui", "Règle notée comme bug"],
     ["update_catalog", "ui", "Fichiers de Claude mis à jour"],
+    ["submit_findings", "mcp", "Constats déposés"],
+    ["list_findings", "mcp", "Constats listés"],
+    ["ticket_finding", "ui", "Constat transformé en ticket"],
+    ["dismiss_finding", "ui", "Constat rejeté"],
+    ["later_finding", "ui", "Constat remis à plus tard"],
   ])(
     "given an entry of %s (origin %s), when it is shown, then it reads « %s » and never the code",
     (action, origin, label) => {

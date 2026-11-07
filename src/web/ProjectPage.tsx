@@ -218,7 +218,7 @@ export function ProjectPage({
             ? {
                 title: findingsSentence(name, toDecide(findings.data)),
                 rest:
-                  findings.data.length > 0
+                  toDecide(findings.data).length > 0
                     ? "Triés par gravité. Une faille devient un ticket en un clic."
                     : undefined,
               }
