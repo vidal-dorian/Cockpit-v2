@@ -1,6 +1,6 @@
 # 045 — L'interface « Quatre temps » et les écrans de référence
 
-- **Statut** : proposée (les écrans sont validés ; le code suit avec la tranche 9.3 puis la tranche de chaque écran)
+- **Statut** : validée ; la coque et les écrans qui existaient sont construits (tranche 9.3), le reste suit avec la tranche de chaque écran
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [003 — Interface](003-interface.md), [028 — Style Crème sombre, onglets…](028-creme-sombre-onglets-journal.md), [040 — L'accueil](040-accueil.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md)
@@ -8,6 +8,7 @@
   - la [003](003-interface.md), section « Style visuel », et **rouvre l'une de ses pistes écartées**, la barre latérale (voir F) ; les règles d'ergonomie de la 003 restent ;
   - la [028](028-creme-sombre-onglets-journal.md), choix A à E (style, valeurs, formes, barre du haut, largeur des pages), G (onglets d'un projet) et H (onglets de Réglages) ; ses choix F, I et J restent (journal par pages, pas d'adresse publique dans Réglages ni dans l'assistant) ;
   - la [040](040-accueil.md), choix D : Cockpit a de nouveau une barre latérale, et la pastille d'un projet y est ;
+  - la [019](019-kanban.md), choix B : le Kanban a six colonnes, la première est « Idées » (les tickets à l'étape `new`, écran S00b) ;
   - la [034](034-developper-avec-claude.md), choix A : « Développer avec Claude » s'ouvre dans le panneau de droite, plus en haut de la page ;
   - la [042](042-nouvelle-equipe-fenetre.md), choix A : « Nouvelle équipe » s'ouvre en plein écran, sur un canevas, plus dans une fenêtre modale.
 - **Écrans** : [`docs/ecrans/`](../ecrans/README.md) (63 écrans, PNG et HTML), validés par Dorian le 2026-11-07
@@ -45,4 +46,20 @@ Il a ensuite demandé les quatre couleurs des profils DISC (v8), puis de les rat
 ## Limites connues
 
 - **Les PNG sont des instantanés** : ils ne se mettent pas à jour tout seuls. Quand un écran change sur le canevas, il faut réexporter son PNG et son HTML dans `docs/ecrans/`.
-- **Le code d'aujourd'hui garde Crème sombre** jusqu'à la tranche 9.3.
+- **Le code est en « Quatre temps »** depuis la tranche 9.3 : jetons, polices (Urbanist et JetBrains Mono), coque et écrans qui existaient. `Logo` (les deux mains) y est resté (voir « Ce qui est repoussé »).
+
+## Ce que la tranche 9.3 a laissé de côté
+
+La 9.3 refait ce qui existe, avec les mêmes fonctions qu'avant. Ce dont la tranche n'est pas construite n'apparaît pas (H et I : pas d'entrée sans sa tranche) ou tient lieu d'un autre élément :
+
+- **Chercher** (`Ctrl K`), la page **Claude** (tous les runs, la file), **Cette nuit** : pas dans la barre latérale.
+- **Les favoris** : la barre latérale liste à leur place les projets qui ne sont pas au repos (ceux de `GET /api/home`).
+- **La page Équipes d'agents** de la barre latérale.
+- **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages.
+- **Les entrées de Réglages Préférences, Membres, Abonnement et Données** : il reste Connecter Claude (avec Jetons MCP), Tâches cloud et Instance (administrateur).
+- **Les barres d'étapes d'un run** et la carte **« Pourquoi Claude demande »**.
+- **L'ouverture d'une carte du Kanban dans le panneau de droite** : une carte mène toujours à sa page.
+
+## Écran contre décision
+
+Là où un écran contredit une décision, la 9.3 a suivi l'écran et la décision est marquée « modifiée par 045 » : 019 B (le Kanban passe de cinq à six colonnes, « Idées » en premier, tirée des tickets à l'étape `new`), 034 A (« Développer avec Claude » dans le panneau de droite) et 040 D (les projets passent de l'accueil à la barre latérale).

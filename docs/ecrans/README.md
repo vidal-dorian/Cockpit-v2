@@ -10,7 +10,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 ## Comment s'en servir pour développer
 
-- **Un écran se développe avec sa tranche** : la colonne « Tranche » renvoie à [`decoupage.md`](../decoupage.md). La tranche 9.3 pose d'abord la coque commune : jetons, polices, barre latérale, panneau de droite et barre d'idée.
+- **Un écran se développe avec sa tranche** : la colonne « Tranche » renvoie à [`decoupage.md`](../decoupage.md). La tranche 9.3 a posé la coque commune (jetons, polices, barre latérale, panneau de droite et barre d'idée) et refait dans ce style les écrans qui existaient ; les autres écrans suivent avec leur tranche.
 - **L'écran montre le but, la décision dit les règles.** Quand les deux se contredisent, la décision l'emporte, et on le signale. Les données des écrans sont des exemples : les projets, les noms et les montants n'existent pas.
 - **« À trancher »** veut dire que l'écran montre une proposition, pas une décision. Il faut une décision avant de développer cette partie.
 - Les règles visuelles (une seule chose en rouge, un seul bouton blanc par zone, la phrase d'état en haut) sont dans la décision 045.
