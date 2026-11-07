@@ -10,6 +10,7 @@ import {
   text,
   webModule,
 } from "./test-code-map.ts";
+import { githubCalls } from "./test-github.ts";
 import {
   archiveProject,
   callTool,
@@ -611,6 +612,38 @@ describe("decision 043 B: the refusals say where", () => {
     expect(refused).toContain("100");
     expect(refused).toMatch(/several calls|more than one call|separate calls/i);
     expect(await stored(ctx.db)).toEqual([]);
+  });
+
+  it("given a module with no runtime, a manifest no runtime cites and objects citing 100 other files, when it is sent, then Refused: the manifest counts among the distinct files", async () => {
+    const many = Object.fromEntries(
+      Array.from({ length: 100 }, (_, i) => [`api/src/f${i}.ts`, text(3)]),
+    );
+    const ctx = await ready({ ...FILES, ...many });
+    const objects = Array.from({ length: 100 }, (_, i) => ({
+      name: `O${i}`,
+      kind: "type",
+      fields: [],
+      citation: cite(`api/src/f${i}.ts`, 1, 3),
+    }));
+
+    const refused = expectRefused(
+      await submit(ctx, [apiModule({ objects, links: [], runtimes: [] })]),
+    );
+
+    expect(refused).toContain("101");
+    expect(await stored(ctx.db)).toEqual([]);
+  });
+
+  it("given a valid call, when it is sent, then each folder of the repo is read once, the root included", async () => {
+    const ctx = await ready();
+
+    await submit(ctx);
+
+    const trees = githubCalls(ctx.fetchMock)
+      .filter((c) => c.path.includes("/git/trees/"))
+      .map((c) => c.path);
+    expect(trees.length).toBeGreaterThan(0);
+    expect(new Set(trees).size).toBe(trees.length);
   });
 
   it("given a call that cites the same file 150 times, when it is sent, then it is accepted (the limit counts distinct files)", async () => {

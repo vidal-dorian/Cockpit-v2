@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { client } from "./api.ts";
 import type { CodeModule, CodeObject } from "./conception.ts";
 import { Panel } from "./Shell.tsx";
-import { badge, focusRing, sectionLabel } from "./ui.ts";
+import { badge, focusRing, ghostButton, sectionLabel } from "./ui.ts";
 
 /** Decision 043 H: the cited lines and three lines around them, read on GitHub when the panel opens. The route reads its query by hand, so the client does not type it: `$path` gives the address, the answer is typed here. */
 async function fetchCode(
@@ -21,12 +22,18 @@ export function ConceptionObject({
   fullName,
   module,
   object,
+  onClose,
 }: {
   projectId: string;
   fullName: string;
   module: CodeModule;
   object: CodeObject;
+  onClose: () => void;
 }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // The panel takes the focus when it opens and when another object replaces the first.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the name is the trigger, not a value read.
+  useEffect(() => headingRef.current?.focus(), [object.name]);
   const { path, start_line: start, end_line: end } = object.citation;
   const code = useQuery({
     queryKey: ["code", projectId, module.commitSha, path, start, end],
@@ -46,12 +53,15 @@ export function ConceptionObject({
       label={`Objet ${object.name}`}
       badge={<span className={badge}>Objet</span>}
     >
-      <h2 className="text-xl font-semibold">{object.name}</h2>
+      <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold">
+        {object.name}
+      </h2>
       <p className="text-muted-foreground">{object.kind}</p>
       <p className={sectionLabel}>Les champs · {object.fields.length}</p>
       <ul className="font-mono text-[13px]">
-        {object.fields.map((f) => (
-          <li key={f.name}>
+        {object.fields.map((f, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: field names can repeat
+          <li key={`${i}-${f.name}`}>
             {f.name} <span className="text-muted-foreground">{f.type}</span>
           </li>
         ))}
@@ -85,13 +95,16 @@ export function ConceptionObject({
         </p>
       )}
       <a
-        href={`https://github.com/${fullName}/blob/${module.commitSha}/${path}#${anchor}`}
+        href={`https://github.com/${fullName}/blob/${module.commitSha}/${path.split("/").map(encodeURIComponent).join("/")}#${anchor}`}
         target="_blank"
         rel="noreferrer noopener"
         className={`underline ${focusRing}`}
       >
         Voir sur GitHub ↗
       </a>
+      <button type="button" className={ghostButton} onClick={onClose}>
+        Fermer
+      </button>
     </Panel>
   );
 }

@@ -87,6 +87,7 @@ function structuralRefusal({ modules }: Args) {
         `modules[${i}].path: another module of this call has the path ${m.path}`,
       );
     paths.add(m.path);
+    files.add(m.manifest);
     const names = new Set<string>();
     for (const [j, o] of m.objects.entries()) {
       if (names.has(o.name))
@@ -171,6 +172,7 @@ export async function submitCodeMap(
           fullName,
           args.commit_sha,
           citationsOf(args),
+          reader,
         );
         if ("refused" in checked)
           refusal = new LocatedRefusal("invalid_citation", checked.refused);
@@ -240,24 +242,38 @@ export function codeMapRoutes(db: Db, readGitHub: ReadGitHub) {
         Number(c.req.param("id")),
       );
       if (!project) return c.json({ error: "Not found" }, 404);
-      const rows = await stored(project.id);
+      const rows = (await stored(project.id)).flatMap((r) => {
+        const data = moduleData.safeParse(r.data);
+        if (data.success) return [{ ...r, data: data.data }];
+        console.error(
+          `Stored code map ${r.modulePath} is corrupt:`,
+          data.error,
+        );
+        return [];
+      });
       const shas = [...new Set(rows.map((r) => r.commitSha))];
       const since = new Map<string, number | null>();
       try {
         const ready = await readGitHub();
         if (!ready) throw new Error("Cockpit is not configured");
         await Promise.all(
-          shas.map(async (sha) =>
-            since.set(
-              sha,
-              await ready.github.commitsSince(
-                project.installationId,
-                project.fullName,
+          shas.map(async (sha) => {
+            try {
+              since.set(
                 sha,
-                project.defaultBranch,
-              ),
-            ),
-          ),
+                await ready.github.commitsSince(
+                  project.installationId,
+                  project.fullName,
+                  sha,
+                  project.defaultBranch,
+                ),
+              );
+            } catch (error) {
+              // One commit GitHub cannot compare must not hide the map: its count is unknown.
+              console.error("GitHub request failed:", error);
+              since.set(sha, null);
+            }
+          }),
         );
       } catch (error) {
         console.error("GitHub request failed:", error);
@@ -271,7 +287,7 @@ export function codeMapRoutes(db: Db, readGitHub: ReadGitHub) {
           commitSha: r.commitSha,
           createdAt: r.createdAt.toISOString(),
           commitsSince: since.get(r.commitSha) ?? null,
-          data: moduleData.parse(r.data),
+          data: r.data,
         })),
       });
     })
@@ -295,7 +311,15 @@ export function codeMapRoutes(db: Db, readGitHub: ReadGitHub) {
           and(eq(codeMaps.projectId, project.id), eq(codeMaps.commitSha, sha)),
         );
       const inMap = rows.some((r) => {
-        const data = moduleData.parse(r.data);
+        const parsed = moduleData.safeParse(r.data);
+        if (!parsed.success) {
+          console.error(
+            `Stored code map ${r.modulePath} is corrupt:`,
+            parsed.error,
+          );
+          return false;
+        }
+        const data = parsed.data;
         return [
           data.manifest,
           ...data.runtimes.map((x) => x.citation.path),
@@ -319,6 +343,9 @@ export function codeMapRoutes(db: Db, readGitHub: ReadGitHub) {
           lines: all.slice(firstLine - 1, end + LINE_CONTEXT),
         });
       } catch (error) {
+        // The commit vanished from GitHub (a forced push): the code is gone, not GitHub.
+        if ((error as { status?: number }).status === 404)
+          return c.json({ error: "Not found" }, 404);
         console.error("GitHub request failed:", error);
         return c.json(GITHUB_DOWN, 502);
       }

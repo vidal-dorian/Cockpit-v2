@@ -203,3 +203,18 @@ describe("decision 043 C: the first refusal", () => {
     await expect(verify([at("c[0]", "a.ts")])).rejects.toBeInstanceOf(Error);
   });
 });
+
+describe("decision 043 C: names of Object.prototype are paths like any other", () => {
+  it.each(["constructor", "toString", "__proto__"])(
+    "given a citation of %s on a repo without such a file, when it is verified, then it is refused",
+    async (path) => {
+      const { verify } = setup();
+
+      const result = await verify([at("c[0]", path)]);
+
+      expect(result).toEqual({
+        refused: expect.stringContaining("c[0]"),
+      });
+    },
+  );
+});

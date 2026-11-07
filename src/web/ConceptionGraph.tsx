@@ -38,14 +38,16 @@ function ObjectCard({ data: { object, onOpen } }: NodeProps<CardNode>) {
       <Handle type="source" position={Position.Right} />
       <button
         type="button"
+        data-object={object.name}
         onClick={onOpen}
         className={`${card} block w-[200px] p-3 text-left hover:border-border-strong hover:bg-raised ${focusRing}`}
       >
         <span className="block font-bold">{object.name}</span>
         <span className="block text-xs text-dim">{object.kind}</span>
-        {object.fields.slice(0, CARD_FIELDS).map((f) => (
+        {object.fields.slice(0, CARD_FIELDS).map((f, i) => (
           <span
-            key={f.name}
+            // biome-ignore lint/suspicious/noArrayIndexKey: field names can repeat
+            key={`${i}-${f.name}`}
             className="block truncate font-mono text-[10.5px] text-muted-foreground"
           >
             {f.name}
@@ -93,8 +95,8 @@ export default function ConceptionGraph({
         };
       }),
       edges: links.map(
-        (l): Edge => ({
-          id: `${l.from}-${l.kind}-${l.to}`,
+        (l, i): Edge => ({
+          id: `${i}-${l.from}-${l.kind}-${l.to}`,
           source: l.from,
           target: l.to,
           label: linkLabel(l),
@@ -111,6 +113,7 @@ export default function ConceptionGraph({
         nodeTypes={nodeTypes}
         nodesConnectable={false}
         nodesDraggable={false}
+        nodesFocusable={false}
         fitView
       >
         <Background />

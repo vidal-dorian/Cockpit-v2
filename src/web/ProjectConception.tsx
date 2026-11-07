@@ -1,5 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useCallback, useState } from "react";
+import {
+  type KeyboardEvent,
+  lazy,
+  Suspense,
+  useCallback,
+  useState,
+} from "react";
 import { AnalyseWindow } from "./AnalyseWindow.tsx";
 import { ConceptionObject } from "./ConceptionObject.tsx";
 import { fetchCodeMap, linkLabel } from "./conception.ts";
@@ -38,12 +44,38 @@ export function ProjectConception({
   // The right panel: an object of the module on screen, or the window of the analysis.
   const [side, setSide] = useState<{ object: string } | "analyse" | null>(null);
   const openObject = useCallback((object: string) => setSide({ object }), []);
+  const closeObject = (name: string) => {
+    setSide(null);
+    // Back to the button that opened the panel (the list one, or the card when the list is hidden).
+    for (const el of document.querySelectorAll<HTMLElement>("[data-object]")) {
+      if (el.dataset.object !== name) continue;
+      el.focus();
+      if (document.activeElement === el) break;
+    }
+  };
   const modules = map.data ?? [];
   const module = modules.find((m) => m.path === selected) ?? modules[0];
   const object =
     side && side !== "analyse"
       ? module?.data.objects.find((o) => o.name === side.object)
       : undefined;
+  const selectTab = (m: (typeof modules)[number]) => {
+    setSelected(m.path);
+    setSide(null);
+  };
+  const onTabKeyDown = (e: KeyboardEvent<HTMLElement>, at: number) => {
+    const to = {
+      ArrowRight: (at + 1) % modules.length,
+      ArrowLeft: (at - 1 + modules.length) % modules.length,
+      Home: 0,
+      End: modules.length - 1,
+    }[e.key];
+    const next = modules[to as number];
+    if (to === undefined || !next) return;
+    e.preventDefault();
+    selectTab(next);
+    document.getElementById(`tab-${to}`)?.focus();
+  };
   const analyse = (
     <button
       type="button"
@@ -82,17 +114,18 @@ export function ProjectConception({
         <>
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border">
             <div role="tablist" className="flex flex-wrap gap-x-2">
-              {modules.map((m) => (
+              {modules.map((m, i) => (
                 <button
                   key={m.path}
+                  id={`tab-${i}`}
                   type="button"
                   role="tab"
                   aria-selected={m === module}
+                  aria-controls="module-panel"
+                  tabIndex={m === module ? 0 : -1}
                   className={tabLink({ isActive: m === module })}
-                  onClick={() => {
-                    setSelected(m.path);
-                    setSide(null);
-                  }}
+                  onClick={() => selectTab(m)}
+                  onKeyDown={(e) => onTabKeyDown(e, i)}
                 >
                   {m.name}
                   <span className="ml-2 text-xs font-normal text-dim">
@@ -116,7 +149,12 @@ export function ProjectConception({
               ))}
             </div>
           </div>
-          <div role="tabpanel" className="mt-4">
+          <div
+            role="tabpanel"
+            id="module-panel"
+            aria-labelledby={`tab-${modules.indexOf(module)}`}
+            className="mt-4"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[12.5px] text-muted-foreground">
@@ -139,6 +177,7 @@ export function ProjectConception({
                   <li key={o.name}>
                     <button
                       type="button"
+                      data-object={o.name}
                       onClick={() => openObject(o.name)}
                       className="block min-h-[50px] w-full px-4 py-3 text-left hover:bg-raised"
                     >
@@ -155,9 +194,10 @@ export function ProjectConception({
                 <>
                   <p className={`mt-4 mb-2 ${sectionLabel}`}>Liens</p>
                   <ul className={listCard}>
-                    {module.data.links.map((l) => (
+                    {module.data.links.map((l, i) => (
                       <li
-                        key={`${l.from}-${l.kind}-${l.to}`}
+                        // biome-ignore lint/suspicious/noArrayIndexKey: two links can differ only by their cardinality
+                        key={`${i}-${l.from}-${l.kind}-${l.to}`}
                         className="min-h-[50px] px-4 py-3"
                       >
                         {l.from}{" "}
@@ -203,6 +243,7 @@ export function ProjectConception({
           fullName={fullName}
           module={module}
           object={object}
+          onClose={() => closeObject(object.name)}
         />
       )}
     </section>

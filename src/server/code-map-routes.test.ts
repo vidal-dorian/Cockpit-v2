@@ -382,3 +382,69 @@ describe("decision 043 H: GET /api/projects/:id/code", () => {
     },
   );
 });
+
+describe("decision 043 G, H: a failure of one row or one commit does not take the rest down", () => {
+  const corrupt = (ctx: Ctx) =>
+    ctx.db.execute(
+      sql`insert into code_maps (project_id, module_path, module_name, module_kind, commit_sha, data, created_at)
+          values (${ctx.projectId}, 'bad', 'Cassé', 'library', ${ctx.sha}, '{"manifest": 1}'::jsonb, now())`,
+    );
+
+  it("given a stored row that no longer fits the schema, when the map is read, then the row is skipped and the others come back", async () => {
+    const ctx = await ready();
+    expect((await submit(ctx, [webModule()])).isError).not.toBe(true);
+    await corrupt(ctx);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const modules = await modulesOf(await read(ctx));
+
+    expect(modules.map((m) => m.path)).toEqual(["web"]);
+  });
+
+  it("given a stored row that no longer fits the schema, when a cited file is asked for, then the other rows still answer", async () => {
+    const ctx = await ready();
+    expect((await submit(ctx)).isError).not.toBe(true);
+    await corrupt(ctx);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await code(ctx, {
+      sha: ctx.sha,
+      path: "api/src/db.ts",
+      start: "1",
+      end: "1",
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("given a compare that fails with a 500 for one commit, when the map is read, then the map is served and that commit has commitsSince null", async () => {
+    const ctx = await ready();
+    expect((await submit(ctx, [webModule()])).isError).not.toBe(true);
+    ctx.fetchMock.update({ failOn: (c) => c.path.includes("/compare/") });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const modules = await modulesOf(await read(ctx));
+
+    expect(modules.map((m) => [m.path, m.commitsSince])).toEqual([
+      ["web", null],
+    ]);
+  });
+
+  it("given a commit that vanished from GitHub, when a cited file is asked for, then 404 and not 502", async () => {
+    const ctx = await ready();
+    expect((await submit(ctx)).isError).not.toBe(true);
+    ctx.fetchMock.update({
+      failOn: (c) => (c.path.includes("/contents/") ? 404 : false),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await code(ctx, {
+      sha: ctx.sha,
+      path: "api/src/db.ts",
+      start: "1",
+      end: "1",
+    });
+
+    expect(res.status).toBe(404);
+  });
+});

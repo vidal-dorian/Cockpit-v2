@@ -52,7 +52,10 @@ export function AnalyseWindow({
   });
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{
+    url: string;
+    pullRequest: boolean;
+  } | null>(null);
   // Read when the window opens (a POST that writes nothing); an unreadable plan only means no proposal.
   const read = useQuery({
     queryKey: ["analyse-plan", projectId],
@@ -86,10 +89,12 @@ export function AnalyseWindow({
         return;
       }
       const { commitSha, pullRequest } = answer.done;
-      setDone(
-        pullRequest?.url ??
+      setDone({
+        url:
+          pullRequest?.url ??
           `https://github.com/${fullName}/commit/${commitSha}`,
-      );
+        pullRequest: !!pullRequest,
+      });
     },
     onError: () => setProblem({ code: "", status: 0 }),
   });
@@ -211,9 +216,12 @@ export function AnalyseWindow({
       )}
       {done && (
         <p>
-          C'est fait.{" "}
-          <a href={done} className="underline">
-            Voir le commit
+          {done.pullRequest
+            ? "La branche par défaut est protégée : une pull request est ouverte"
+            : "C'est fait"}
+          .{" "}
+          <a href={done.url} className="underline">
+            {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
           </a>
         </p>
       )}

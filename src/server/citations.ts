@@ -23,12 +23,16 @@ export async function verifyCitations(
   fullName: string,
   commitSha: string,
   citations: Citation[],
+  // A reader already built for this repo, so that the folders read before are kept (decision 043 C).
+  reader?: Awaited<ReturnType<ReturnType<typeof githubClient>["fileReader"]>>,
 ): Promise<{ lineCounts: Record<string, number> } | { refused: string }> {
-  const lineCounts: Record<string, number> = {};
-  if (citations.length === 0) return { lineCounts };
-  const { inspect } = await github.fileReader(installationId, fullName);
+  // A Map: a path such as `constructor` or `__proto__` is not a name of Object.prototype here.
+  const counts = new Map<string, number>();
+  if (citations.length === 0) return { lineCounts: {} };
+  const { inspect } =
+    reader ?? (await github.fileReader(installationId, fullName));
   for (const { where, path, start_line, end_line } of citations) {
-    if (!(path in lineCounts)) {
+    if (!counts.has(path)) {
       let found: Awaited<ReturnType<typeof inspect>>;
       try {
         found = await inspect(path, commitSha);
@@ -43,13 +47,13 @@ export async function verifyCitations(
         return {
           refused: `${where}: ${path} is not a readable file (a directory, a link, a submodule or a file too large)`,
         };
-      lineCounts[path] = countLines(found.text);
+      counts.set(path, countLines(found.text));
     }
-    const count = lineCounts[path] as number;
+    const count = counts.get(path) as number;
     if (end_line > count)
       return {
         refused: `${where}: lines ${start_line} to ${end_line} are past the end of ${path}, which has ${count} lines`,
       };
   }
-  return { lineCounts };
+  return { lineCounts: Object.fromEntries(counts) };
 }
