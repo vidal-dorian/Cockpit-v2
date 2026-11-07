@@ -8,6 +8,7 @@ import {
   badge,
   button,
   card,
+  dangerButton,
   field,
   focusRing,
   primaryButton,
@@ -16,10 +17,13 @@ import {
 } from "./ui.ts";
 
 const FREQUENCIES = {
-  off: "Désactivée",
-  on_demand: "À la demande",
-  daily: "Chaque jour",
-  weekly: "Chaque semaine",
+  off: { label: "Désactivée", hint: "" },
+  on_demand: { label: "À la demande", hint: "seulement avec le bouton" },
+  daily: {
+    label: "Chaque jour",
+    hint: "seulement s'il y a des tickets à traiter",
+  },
+  weekly: { label: "Chaque semaine", hint: "" },
 };
 type Frequency = keyof typeof FREQUENCIES;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -63,7 +67,13 @@ const when = (iso: string) =>
   });
 
 /** Decisions 022 D and H: the frequency of the writing of the stories of the project, the button, the last and the next run. */
-export function ProjectRoutine({ projectId }: { projectId: string }) {
+export function ProjectRoutine({
+  projectId,
+  archived,
+}: {
+  projectId: string;
+  archived: boolean;
+}) {
   const queryClient = useQueryClient();
   const schedule = useQuery({
     queryKey: ["routine-schedule", projectId],
@@ -136,10 +146,13 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
   const lastRun = saved?.lastRun;
 
   return (
-    // The mockup puts the writing of the US on the left half; the right half (the night, the clone folder) belongs to other slices.
-    <div className="mx-[26px] mt-5 grid gap-3.5 md:grid-cols-2">
-      <section aria-labelledby="ecriture-auto">
-        <h2 id="ecriture-auto" className={`mb-2 ${sectionLabel}`}>
+    // The right column of the mockup (the night, the clone folder) belongs to other slices: only the archiving exists.
+    <div className="mx-[26px] mt-5 grid items-start gap-3.5 md:grid-cols-2">
+      <section
+        aria-labelledby="ecriture-auto"
+        className={`px-[18px] py-4 ${card}`}
+      >
+        <h2 id="ecriture-auto" className={`mb-3 ${sectionLabel}`}>
           Écriture automatique des US
         </h2>
         <div aria-live="polite">
@@ -153,7 +166,7 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
             </p>
           )}
           {saved && form && routine.data && (
-            <div className={`grid gap-4 px-[18px] py-4 ${card}`}>
+            <div className="grid gap-4">
               {!canRun && (
                 <p className="text-muted-foreground">
                   {routine.data.needsReconnect
@@ -175,25 +188,49 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
                   save.mutate();
                 }}
               >
-                <label>
-                  Fréquence
-                  <select
-                    value={form.frequency}
-                    onChange={(e) =>
-                      setDraft({
-                        ...form,
-                        frequency: e.target.value as Frequency,
-                      })
-                    }
-                    className={field}
-                  >
-                    {Object.entries(FREQUENCIES).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <fieldset className="grid basis-full gap-2">
+                  <legend className="sr-only">Fréquence</legend>
+                  {(
+                    Object.entries(FREQUENCIES) as [
+                      Frequency,
+                      (typeof FREQUENCIES)[Frequency],
+                    ][]
+                  ).map(([value, { label, hint }]) => (
+                    <label
+                      key={value}
+                      className={`flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 ${form.frequency === value ? "border-foreground bg-raised" : "border-border bg-card"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="frequency"
+                        value={value}
+                        checked={form.frequency === value}
+                        onChange={() => setDraft({ ...form, frequency: value })}
+                        aria-labelledby={`frequency-${value}`}
+                        aria-describedby={
+                          hint ? `frequency-${value}-hint` : undefined
+                        }
+                        className={`mt-1 accent-foreground ${focusRing}`}
+                      />
+                      <span>
+                        <span
+                          id={`frequency-${value}`}
+                          className="block text-[13.5px] font-semibold"
+                        >
+                          {label}
+                        </span>
+                        {hint && (
+                          <span
+                            id={`frequency-${value}-hint`}
+                            className="block text-[12.5px] text-muted-foreground"
+                          >
+                            {hint}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
                 {form.frequency === "weekly" && (
                   <label>
                     Jour
@@ -292,6 +329,87 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
           )}
         </div>
       </section>
+      <div className="grid gap-3.5">
+        <CloneFolderCard projectId={projectId} />
+        <ArchiveCard projectId={projectId} archived={archived} />
     </div>
+  );
+}
+
+/** « Archiver le projet » with its confirmation: there is no unarchive yet (decision 003, rule 4). */
+function ArchiveCard({
+  projectId,
+  archived,
+}: {
+  projectId: string;
+  archived: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const archive = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.projects[":id"].archive.$post({
+        param: { id: projectId },
+      });
+      if (!res.ok) throw await failure(res, {});
+    },
+    onSettled: () => {
+      setConfirming(false);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories"] }),
+      ]);
+    },
+  });
+  return (
+    <section aria-labelledby="projet" className={`px-[18px] py-4 ${card}`}>
+      <h2 id="projet" className={`mb-3 ${sectionLabel}`}>
+        Projet
+      </h2>
+      {archived ? (
+        <span className={badge}>Archivé</span>
+      ) : confirming ? (
+        <>
+          <p>Archiver ce projet ? Il n'y a pas encore de désarchivage.</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => archive.mutate()}
+              disabled={archive.isPending}
+              className={dangerButton}
+            >
+              Confirmer l'archivage
+            </button>
+            <button
+              type="button"
+              // The Archiver button is gone: keep the keyboard focus on the safe choice.
+              // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+              autoFocus
+              onClick={() => setConfirming(false)}
+              className={button}
+            >
+              Annuler
+            </button>
+          </div>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className={button}
+        >
+          Archiver le projet
+        </button>
+      )}
+      <p className="mt-2.5 text-[12.5px] text-muted-foreground">
+        Archivé, il disparaît de la barre latérale ; rien n'est supprimé, ni ici
+        ni sur GitHub.
+      </p>
+      {archive.error && (
+        <p role="alert" className={`mt-3 ${alertBox}`}>
+          {archive.error.message}
+        </p>
+      )}
+    </section>
   );
 }

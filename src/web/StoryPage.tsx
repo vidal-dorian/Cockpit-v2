@@ -4,15 +4,15 @@ import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { RunVerdict } from "./RunVerdict.tsx";
 import { Breadcrumb, StateSentence } from "./Shell.tsx";
 import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
-import { CRITERION_RESULTS, RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
+import { RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
-  badge,
   button,
   card,
   focusRing,
@@ -22,6 +22,23 @@ import {
   sectionLabel,
 } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
+
+/** The verdict of the latest run of a story in review (decision 039 E), the same as on the page of the run. */
+function StoryVerdict({ runId }: { runId: number }) {
+  const run = useQuery({
+    queryKey: ["run", String(runId)],
+    queryFn: async () => {
+      const res = await client.api.runs[":id"].$get({
+        param: { id: String(runId) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+  });
+  return run.data?.verdict ? (
+    <RunVerdict verdict={run.data.verdict} criteria={run.data.criteria} />
+  ) : null;
+}
 
 /** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
 async function fetchStory(id: string) {
@@ -54,6 +71,16 @@ function stateSentence(status: string, prNumber: number | null) {
   }
 }
 
+const hour = (iso: string) =>
+  new Date(iso).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+/** « 7 nov., 09:30 → 10:30 »: when a run started and ended. */
+const runSpan = (run: { startedAt: string; finishedAt: string | null }) =>
+  `${new Date(run.startedAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}, ${hour(run.startedAt)}${run.finishedAt ? ` → ${hour(run.finishedAt)}` : ""}`;
+
 const Section = ({
   title,
   children,
@@ -82,6 +109,12 @@ export function StoryPage() {
     found && found.story.prNumber != null
       ? { ...found.story, prNumber: found.story.prNumber }
       : null;
+  const latestRun = found
+    ? found.story.runs?.reduce<{ id: number } | undefined>(
+        (best, run) => (!best || run.id > best.id ? run : best),
+        undefined,
+      )
+    : undefined;
   const github = pr && found && (
     <StoryGitHub story={pr} fullName={found.project.fullName} />
   );
@@ -187,7 +220,16 @@ export function StoryPage() {
                 )}
             </div>
             <section className="px-[26px] pt-3">
-              <h2 className="sr-only">Critères</h2>
+              <h2
+                className={`mb-2 flex items-baseline gap-2 ${found.story.criteria.some((k) => k.result) ? "" : "sr-only"}`}
+              >
+                <span className={sectionLabel}>Les critères</span>
+                {found.story.criteria.some((k) => k.result) && (
+                  <span className="text-[12.5px] text-muted-foreground">
+                    · résultat de Claude, avec la preuve
+                  </span>
+                )}
+              </h2>
               <ol className="grid gap-3">
                 {found.story.criteria.map((criterion, index) => (
                   <li
@@ -197,8 +239,12 @@ export function StoryPage() {
                     <div className="flex items-center justify-between gap-3">
                       <p className={sectionLabel}>Critère {index + 1}</p>
                       {criterion.result && (
-                        <span className={badge}>
-                          {CRITERION_RESULTS[criterion.result]}
+                        <span className="ml-auto max-w-[70%] truncate rounded-[5px] bg-raised px-2 py-1 text-xs font-semibold text-muted-foreground">
+                          {criterion.result === "passed"
+                            ? "✓ passe"
+                            : "✕ échoue"}
+                          {criterion.evidence &&
+                            ` · ${criterion.evidence.split("\n")[0]}`}
                         </span>
                       )}
                     </div>
@@ -214,11 +260,6 @@ export function StoryPage() {
                       <span className={label}>Alors</span>{" "}
                       <span className={value}>{criterion.then}</span>
                     </p>
-                    {criterion.result && criterion.evidence && (
-                      <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-muted-foreground">
-                        {criterion.evidence}
-                      </p>
-                    )}
                   </li>
                 ))}
               </ol>
@@ -264,27 +305,36 @@ export function StoryPage() {
               </Section>
             )}
             {(found.story.runs ?? []).length > 0 && (
-              <Section title="Runs">
+              <section className="px-[26px] pt-[22px]">
+                <div className="mb-2 flex items-baseline justify-between">
+                  <h2 className={sectionLabel}>Les runs</h2>
+                  <Link
+                    to={`/runs/${latestRun?.id}`}
+                    className={`text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
+                  >
+                    Voir le run ›
+                  </Link>
+                </div>
                 <ul className={listCard}>
                   {found.story.runs.map((run) => (
                     <li
                       key={run.id}
-                      className="flex min-h-[50px] flex-wrap items-center gap-x-3 px-4 py-2"
+                      className="flex min-h-[50px] flex-col justify-center px-4 py-2"
                     >
                       <Link
                         to={`/runs/${run.id}`}
-                        className={`font-semibold underline ${focusRing}`}
+                        className={`font-semibold ${focusRing}`}
                       >
-                        Run n° {run.id} ·{" "}
-                        {RUN_STATUSES[run.status] ?? run.status}
+                        Run {run.id} ·{" "}
+                        {(RUN_STATUSES[run.status] ?? run.status).toLowerCase()}
                       </Link>
                       <span className="text-[12.5px] text-muted-foreground">
-                        {new Date(run.startedAt).toLocaleString("fr-FR")}
+                        {runSpan(run)}
                       </span>
                     </li>
                   ))}
                 </ul>
-              </Section>
+              </section>
             )}
             <StoryHistory id={found.story.id} />
             <StoryDecisions
@@ -294,7 +344,12 @@ export function StoryPage() {
               archived={found.project.archived}
               statusRef={statusRef}
             >
-              {found.story.status === "in_review" && github}
+              {found.story.status === "in_review" && (
+                <>
+                  {github}
+                  {latestRun && <StoryVerdict runId={latestRun.id} />}
+                </>
+              )}
             </StoryDecisions>
           </>
         )}

@@ -244,12 +244,14 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     stub();
 
     await decide(() => {
-      fireEvent.click(screen.getByRole("button", { name: "Renvoyer" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Renvoyer à Claude" }),
+      );
       fireEvent.change(screen.getByLabelText(/Commentaire/), {
         target: { value: "Précise le cas vide" },
       });
       fireEvent.click(
-        screen.getByRole("button", { name: "Confirmer le renvoi" }),
+        screen.getByRole("button", { name: "Renvoyer à Claude" }),
       );
     }, "à réécrire");
 

@@ -202,7 +202,7 @@ export function StoryDecisions({
                   onClick={() => open("sendBack")}
                   className={panelButton}
                 >
-                  Renvoyer
+                  Renvoyer à Claude
                 </button>
               )}
             </div>
@@ -221,9 +221,12 @@ export function StoryDecisions({
     >
       {mode === null && (
         <>
-          <h2 className="text-lg leading-[1.35] font-semibold">
-            {HEADLINES[status]}
-          </h2>
+          {/* In review, the title of the pull request (in the children) is the headline. */}
+          {!prLink && (
+            <h2 className="text-lg leading-[1.35] font-semibold">
+              {HEADLINES[status]}
+            </h2>
+          )}
           {status === "to_validate" && (
             <>
               <p className={sectionLabel}>Après validation</p>
@@ -276,7 +279,7 @@ export function StoryDecisions({
               disabled={blank || run.isPending}
               className={panelPrimaryButton}
             >
-              Confirmer le renvoi
+              Renvoyer à Claude
             </button>
             <button type="button" onClick={close} className={ghostButton}>
               Annuler
@@ -485,10 +488,6 @@ export function StoryHistory({ id }: { id: number }) {
     queryKey: ["story-history", String(id)],
     enabled: opened,
     queryFn: () => fetchStoryHistory(id),
-  });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return (await res.json()).entries;
-    },
   });
 
   return (

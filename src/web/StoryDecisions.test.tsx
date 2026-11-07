@@ -18,7 +18,7 @@ import { fail, renderAt, story, ticket } from "./test-tickets.tsx";
 
 // Slice 4.4 (decision 018 J, I): the decisions on the page /us/:id. The labels pinned here (the decision names only
 // the four buttons) are the ones the form uses:
-// - « Renvoyer » opens a form: a field « Commentaire », « Confirmer le renvoi » (disabled while the comment is blank)
+// - « Renvoyer » opens a form: a field « Commentaire », « Renvoyer à Claude » (disabled while the comment is blank)
 //   and « Annuler ».
 // - « Abandonner » is replaced on the spot by « Confirmer l'abandon » and « Annuler ».
 // - « Modifier » opens a form: fields « En tant que », « Je veux », « Afin de », « Notes », and per criterion « Étant
@@ -106,7 +106,7 @@ describe("criterion 11: the buttons depend on the status", () => {
   const BUTTONS: Record<string, string[]> = {
     Valider: ["to_validate", "to_rewrite"],
     Modifier: ["to_validate", "to_rewrite", "ready"],
-    Renvoyer: ["to_validate"],
+    "Renvoyer à Claude": ["to_validate"],
     Abandonner: ALL.filter((s) => s !== "abandoned"),
   };
 
@@ -152,7 +152,7 @@ describe("criterion 11: Valider", () => {
       ]);
       expect(main().textContent).not.toContain(LABEL[status] as string);
       expect(maybeButton("Valider")).toBeNull();
-      expect(maybeButton("Renvoyer")).toBeNull();
+      expect(maybeButton("Renvoyer à Claude")).toBeNull();
       expect(main().textContent).not.toContain("Précise le cas vide");
       expect(main().textContent).not.toContain("wrong_status");
     },
@@ -192,10 +192,10 @@ describe("criterion 11: Renvoyer", () => {
     renderAt("/us/21");
     await loaded();
 
-    click("Renvoyer");
+    click("Renvoyer à Claude");
 
     expect(screen.getByLabelText(/Commentaire/)).toBeDefined();
-    expect(button("Confirmer le renvoi")).toBeDefined();
+    expect(button("Renvoyer à Claude")).toBeDefined();
     expect(button("Annuler")).toBeDefined();
     expect(api.writes()).toEqual([]);
   });
@@ -204,25 +204,25 @@ describe("criterion 11: Renvoyer", () => {
     const api = seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
 
-    expect(button("Confirmer le renvoi").disabled).toBe(true);
+    expect(button("Renvoyer à Claude").disabled).toBe(true);
     type(/Commentaire/, "   ");
-    expect(button("Confirmer le renvoi").disabled).toBe(true);
-    fireEvent.click(button("Confirmer le renvoi"));
+    expect(button("Renvoyer à Claude").disabled).toBe(true);
+    fireEvent.click(button("Renvoyer à Claude"));
     expect(api.writes()).toEqual([]);
     type(/Commentaire/, "Précise le cas vide");
-    expect(button("Confirmer le renvoi").disabled).toBe(false);
+    expect(button("Renvoyer à Claude").disabled).toBe(false);
   });
 
   it("given a comment, when Confirmer le renvoi is clicked, then the comment is posted to /send-back, the page says à réécrire and shows the comment, Renvoyer goes while Valider stays (a to_rewrite story can still be validated)", async () => {
     const api = seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
     type(/Commentaire/, "  Précise le cas vide ");
 
-    click("Confirmer le renvoi");
+    click("Renvoyer à Claude");
 
     await waitFor(() => expect(main().textContent).toContain("à réécrire"));
     const writes = api.writes();
@@ -233,22 +233,22 @@ describe("criterion 11: Renvoyer", () => {
       (writes[0]?.body as { comment?: string } | undefined)?.comment?.trim(),
     ).toBe("Précise le cas vide");
     expect(main().textContent).toContain("Précise le cas vide");
-    expect(maybeButton("Renvoyer")).toBeNull();
+    expect(maybeButton("Renvoyer à Claude")).toBeNull();
     expect(maybeButton("Valider")).not.toBeNull();
-    expect(maybeButton("Confirmer le renvoi")).toBeNull();
+    expect(maybeButton("Renvoyer à Claude")).toBeNull();
   });
 
   it("given the form is open, when Annuler is clicked, then the form closes, nothing is sent and the story stays à valider", async () => {
     const api = seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
     type(/Commentaire/, "Non");
 
     click("Annuler");
 
-    expect(maybeButton("Confirmer le renvoi")).toBeNull();
-    expect(button("Renvoyer")).toBeDefined();
+    expect(screen.queryByLabelText(/Commentaire/)).toBeNull();
+    expect(button("Renvoyer à Claude")).toBeDefined();
     expect(main().textContent).toContain("à valider");
     expect(api.writes()).toEqual([]);
   });
@@ -257,11 +257,11 @@ describe("criterion 11: Renvoyer", () => {
     const api = seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
     type(/Commentaire/, "Non");
     api.failNext.sendBack = fail(409, "wrong_status");
 
-    click("Confirmer le renvoi");
+    click("Renvoyer à Claude");
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/statut/i);
@@ -272,11 +272,11 @@ describe("criterion 11: Renvoyer", () => {
     const api = seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
     type(/Commentaire/, "x".repeat(2001));
     api.failNext.sendBack = fail(400, "Bad request");
 
-    click("Confirmer le renvoi");
+    click("Renvoyer à Claude");
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).not.toMatch(/bad request/i);
@@ -674,11 +674,11 @@ describe("criterion 11: the keyboard focus stays on an element that exists after
     seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
     type(/Commentaire/, "Précise le cas vide");
-    button("Confirmer le renvoi").focus();
+    button("Renvoyer à Claude").focus();
 
-    click("Confirmer le renvoi");
+    click("Renvoyer à Claude");
 
     await waitFor(() => expect(main().textContent).toContain("à réécrire"));
     await focusStays();
@@ -735,12 +735,12 @@ describe("criterion 11: a refused decision refreshes the story (decision 018 F)"
     const api = seed("to_validate");
     renderAt("/us/21");
     await loaded();
-    click("Renvoyer");
+    click("Renvoyer à Claude");
     type(/Commentaire/, "Non");
     const before = reads(api);
     api.failNext.sendBack = fail(409, "wrong_status");
 
-    click("Confirmer le renvoi");
+    click("Renvoyer à Claude");
 
     await screen.findByRole("alert");
     await waitFor(() => expect(reads(api)).toBeGreaterThan(before));

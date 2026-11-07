@@ -62,7 +62,7 @@ function seed(over: Record<string, unknown>) {
     prCiState: null,
     prReviewState: null,
     ...over,
-  } as Shown;
+  } as unknown as Shown;
   const api = stubTicketApi([ticket(7, "Idée")], [shown]);
   const inner = globalThis.fetch;
   const refresh: { answer: Record<string, unknown> | null } = { answer: null };
@@ -89,7 +89,7 @@ function seed(over: Record<string, unknown>) {
 }
 
 describe("criterion 8: the block « GitHub » of the story page", () => {
-  it("given a story in_review with prNumber 12, when /us/21 loads, then the block shows the link « PR n° 12 » to the pull request of the project and the state « Ouverte »", async () => {
+  it("given a story in_review with prNumber 12, when /us/21 loads, then the block shows the link « PR #12 » to the pull request of the project and the state « Ouverte »", async () => {
     seed({});
 
     renderAt("/us/21");
@@ -98,7 +98,7 @@ describe("criterion 8: the block « GitHub » of the story page", () => {
     const section = screen
       .getByRole("heading", { name: "GitHub" })
       .closest("section") as HTMLElement;
-    const link = within(section).getByRole("link", { name: /PR n° 12/ });
+    const link = within(section).getByRole("link", { name: /PR #12/ });
     expect(link.getAttribute("href")).toBe(
       "https://github.com/octocat/hello/pull/12",
     );

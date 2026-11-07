@@ -19,6 +19,7 @@ export function StoryGitHub({
 }: {
   story: {
     id: number;
+    iWant: string;
     status: string;
     branch?: string | null;
     prNumber: number;
@@ -74,7 +75,7 @@ export function StoryGitHub({
           href={`https://github.com/${fullName}/pull/${story.prNumber}`}
           className={`underline ${focusRing}`}
         >
-          PR n° {story.prNumber}
+          PR #{story.prNumber} · {story.iWant}
         </a>
       </p>
       <dl className="grid grid-cols-[110px_1fr] gap-x-2 gap-y-1.5 text-[13.5px]">

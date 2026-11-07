@@ -196,9 +196,7 @@ export function ProjectConception({
               <div
                 className={`relative hidden h-[420px] md:block ${card} overflow-hidden`}
               >
-                <p
-                  className={`absolute top-3.5 left-4 z-10 ${sectionLabel}`}
-                >
+                <p className={`absolute top-3.5 left-4 z-10 ${sectionLabel}`}>
                   {module.name} · {module.path}
                 </p>
                 <Suspense

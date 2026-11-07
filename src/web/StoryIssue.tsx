@@ -4,8 +4,8 @@ import { client } from "./api.ts";
 import { fetchMe } from "./Shell.tsx";
 import { fetchStoryHistory } from "./StoryDecisions.tsx";
 import { decisionError } from "./tickets.ts";
-import { ago } from "./when.ts";
 import { alertBox, button, focusRing } from "./ui.ts";
+import { ago } from "./when.ts";
 
 /** The GitHub issue of a story (decision 020 J): its link, and « Republier » when GitHub is behind the story. */
 export function StoryIssue({
@@ -66,13 +66,17 @@ export function StoryIssue({
   return (
     <div className="px-[26px] pt-3 text-[12.5px] text-muted-foreground">
       {issue.url && (
-        <a
-          ref={focusOnLink}
-          href={issue.url}
-          className={`underline ${focusRing}`}
-        >
-          Issue GitHub #{issue.number}
-        </a>
+        <>
+          Issue GitHub{" "}
+          <a
+            ref={focusOnLink}
+            href={issue.url}
+            aria-label={`Issue GitHub #${issue.number}`}
+            className={`underline ${focusRing}`}
+          >
+            #{issue.number}
+          </a>
+        </>
       )}
       {issue.url && validation.data && (
         <>

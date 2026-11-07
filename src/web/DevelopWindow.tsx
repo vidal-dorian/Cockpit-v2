@@ -109,42 +109,30 @@ export function DevelopWindow({
   const pending = story.dependsOn.filter((d) => d.status !== "done");
   const label = "block text-[13px] font-semibold";
   const hint = "text-[12.5px] text-muted-foreground";
-  const launchRef = useRef<HTMLAnchorElement>(null);
-  // Ctrl+Enter launches, as the shortcut shown on the button says.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid)
-        launchRef.current?.click();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [valid]);
 
   return (
     <Panel
       label="Développer avec Claude"
       badge={
-        // The panel header has no slot for a right-hand label: this block is as wide as the header.
-        <div className="flex w-[336px] items-center justify-between">
-          <span className={badge}>
-            <span className="inline-block first-letter:uppercase">
-              {STORY_STATUSES.ready}
-            </span>
+        <span className={badge}>
+          <span className="inline-block first-letter:uppercase">
+            {STORY_STATUSES.ready}
           </span>
-          <h2
-            id="develop-title"
-            ref={headingRef}
-            tabIndex={-1}
-            className="text-[12.5px] font-medium text-muted-foreground focus:outline-none"
-          >
-            Développer avec Claude
-          </h2>
-        </div>
+        </span>
+      }
+      meta={
+        <h2
+          id="develop-title"
+          ref={headingRef}
+          tabIndex={-1}
+          className="focus:outline-none"
+        >
+          Développer avec Claude
+        </h2>
       }
       footer={
         <>
           <a
-            ref={launchRef}
             className={`${panelPrimaryButton} aria-disabled:opacity-50`}
             {...(valid
               ? {
@@ -161,11 +149,6 @@ export function DevelopWindow({
               : { "aria-disabled": true, role: "link" })}
           >
             <span>Lancer Claude</span>
-            <kbd
-              className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
-            >
-              Ctrl Entrée
-            </kbd>
           </a>
           <button
             type="button"

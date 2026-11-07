@@ -4,11 +4,14 @@ import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
 import {
+  acceptanceCriteria,
   history,
   projectMembers,
   projects,
   sessions,
+  storyDependencies,
   tickets,
+  userStories,
   users,
 } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
@@ -362,6 +365,56 @@ describe("GET /api/tickets/:id", () => {
       ticket: { ...created, descriptionMd: description, step: "new" },
       stories: [],
     });
+  });
+});
+
+describe("GET /api/tickets/:id, the rows of the stories", () => {
+  it("given two stories, one with two criteria that depends on the other, when the ticket is read, then each story carries its criteria count, its dependencies and its latest run", async () => {
+    const { app, db, a, projectId } = await withProject();
+    const created = await makeTicket(app, a.cookie, projectId, { title: "T" });
+    const [first, second] = await db
+      .insert(userStories)
+      .values(
+        [1, 2].map((position) => ({
+          ticketId: created.id,
+          position,
+          asA: "a",
+          iWant: `veut ${position}`,
+          soThat: "b",
+          status: "ready",
+        })),
+      )
+      .returning();
+    assert(first && second);
+    await db.insert(acceptanceCriteria).values(
+      [1, 2].map((position) => ({
+        storyId: second.id,
+        position,
+        given: "g",
+        when: "w",
+        then: "t",
+      })),
+    );
+    await db
+      .insert(storyDependencies)
+      .values({ storyId: second.id, dependsOnId: first.id });
+
+    const res = await getTicket(app, a.cookie, created.id);
+
+    const body = (await res.json()) as {
+      stories: {
+        id: number;
+        criteriaCount: number;
+        dependsOn: number[];
+        runId: number | null;
+      }[];
+    };
+    expect(
+      body.stories.map((s) => [s.id, s.criteriaCount, s.dependsOn, s.runId]),
+    ).toEqual([
+      [first.id, 0, [], null],
+      [second.id, 2, [first.id], null],
+    ]);
   });
 });
 

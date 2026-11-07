@@ -132,13 +132,16 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
     board.filter((s) => statuses.includes(s.status)).length;
   const waiting = count("to_validate", "to_rewrite", "in_review");
   const working = count("in_progress");
+  const asking = board.find((s) => s.questionPending);
   const kanbanSentence = {
     inline: true,
     title: stories.isPending
       ? "Chargement…"
       : stories.isError
         ? (project?.fullName.split("/").pop() ?? "Projet")
-        : waiting > 0
+        : asking
+          ? `Claude t'attend sur l'US ${asking.id}.`
+          : waiting > 0
           ? waiting === 1
             ? "1 user story t'attend."
             : `${waiting} user stories t'attendent.`
@@ -149,7 +152,9 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
       ? undefined
       : board.length === 0
         ? "Aucune user story pour l'instant."
-        : `${plural(board.length, "user story", "user stories")} au Kanban.`,
+        : asking
+          ? `${plural(board.length - 1, "autre user story", "autres user stories")} au Kanban.`
+          : `${plural(board.length, "user story", "user stories")} au Kanban.`,
   };
   const red = Array.isArray(health.data)
     ? health.data.filter((line) => !line.ok).length
@@ -398,7 +403,9 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
           archived={project.archived}
         />
       )}
-      {!notFound && tab === "reglages" && <ProjectRoutine projectId={id} />}
+      {!notFound && tab === "reglages" && (
+        <ProjectRoutine projectId={id} archived={project?.archived ?? false} />
+      )}
     </main>
   );
 }
