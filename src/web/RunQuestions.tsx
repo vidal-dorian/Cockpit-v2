@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { Panel } from "./Shell.tsx";
 import { badge, listCard, sectionLabel, urgentBadge } from "./ui.ts";
@@ -18,12 +18,14 @@ export function RunQuestions({
   runId,
   running,
   questions,
+  onAnswered,
 }: {
   runId: string;
   running: boolean;
   questions: Question[];
+  /** Called once an answer is sent: the panel goes away with the last question, so the page moves the focus. */
+  onAnswered: () => void;
 }) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const [index, setIndex] = useState(0);
   const pending = running ? questions.filter((q) => q.answer === null) : [];
   const at = Math.min(index, pending.length - 1);
@@ -76,11 +78,7 @@ export function RunQuestions({
             </p>
           }
         >
-          <h2
-            ref={headingRef}
-            tabIndex={-1}
-            className="whitespace-pre-wrap text-xl font-semibold"
-          >
+          <h2 className="whitespace-pre-wrap text-xl font-semibold">
             {current.question}
           </h2>
           {current.suggestedAnswers && (
@@ -91,7 +89,7 @@ export function RunQuestions({
             id={current.id}
             suggestedAnswers={current.suggestedAnswers}
             queryKey={["run", runId]}
-            onSent={() => headingRef.current?.focus()}
+            onSent={onAnswered}
           />
         </Panel>
       )}

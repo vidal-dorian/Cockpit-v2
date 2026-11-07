@@ -161,6 +161,23 @@ describe("criterion 7: the Questions section of the run page", () => {
     expect(within(box).queryByRole("button", { name: "Envoyer" })).toBeNull();
   });
 
+  it("given the last pending question, when I answer it, then the focus is on the page title, not on the body", async () => {
+    stubApi([question(1)]);
+    renderAt("/runs/12");
+    const box = within(await section());
+
+    fireEvent.change(box.getByLabelText("Ta réponse"), {
+      target: { value: "Oui" },
+    });
+    fireEvent.click(box.getByRole("button", { name: "Répondre" }));
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("heading", { level: 1 }),
+      ),
+    );
+  });
+
   it("given a finished run with a pending question, when the page loads, then it shows Sans réponse and no field", async () => {
     stubApi([question(1, { suggestedAnswers: ["Valider"] })], "failed");
     renderAt("/runs/12");

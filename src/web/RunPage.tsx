@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { RunControls } from "./RunControls.tsx";
@@ -159,6 +160,7 @@ function Criteria({ criteria }: { criteria: NonNullable<Run["criteria"]> }) {
 /** What Claude does on a story, live (decision 033 I). */
 export function RunPage() {
   const { id = "" } = useParams();
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const result = useQuery({
     queryKey: ["run", id],
     queryFn: () => fetchRun(id),
@@ -221,6 +223,7 @@ export function RunPage() {
               ]}
             />
             <StateSentence
+              headingRef={titleRef}
               title={`Run ${found.run.id} · ${
                 waiting
                   ? "Claude attend ta réponse"
@@ -316,6 +319,7 @@ export function RunPage() {
                 runId={id}
                 running={found.run.status === "running"}
                 questions={found.questions ?? []}
+                onAnswered={() => titleRef.current?.focus()}
               />
               {found.run.summary && (
                 <section>

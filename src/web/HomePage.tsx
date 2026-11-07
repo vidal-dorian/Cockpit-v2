@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
@@ -88,21 +88,15 @@ const itemKey = (item: Item) =>
 function Section({
   label,
   hint,
-  headingRef,
   children,
 }: {
   label: React.ReactNode;
   hint?: string;
-  headingRef?: React.Ref<HTMLHeadingElement>;
   children: React.ReactNode;
 }) {
   return (
     <section className="px-[26px] pt-[22px]">
-      <h2
-        ref={headingRef}
-        tabIndex={headingRef ? -1 : undefined}
-        className="mb-2 flex items-center gap-2"
-      >
+      <h2 className="mb-2 flex items-center gap-2">
         {label}
         {hint && (
           <span className="text-[12.5px] font-normal text-muted-foreground">
@@ -157,14 +151,21 @@ function ItemPanel({
   total,
   onMove,
   onSent,
+  focusHeading,
 }: {
   item: Item;
   index: number;
   total: number;
   onMove: (index: number) => void;
   onSent: () => void;
+  focusHeading: boolean;
 }) {
   const kind = KINDS[item.kind];
+  const heading = useRef<HTMLHeadingElement>(null);
+  // « Répondre » of « 2 · Ensuite » opens the item here: the keyboard follows it.
+  useEffect(() => {
+    if (focusHeading) heading.current?.focus();
+  }, [focusHeading]);
   const urgent = index === 0;
   let footer: React.ReactNode;
   if (item.kind === "answer")
@@ -212,7 +213,11 @@ function ItemPanel({
       }}
       footer={footer}
     >
-      <h2 className="text-xl leading-snug font-semibold whitespace-pre-wrap">
+      <h2
+        ref={heading}
+        tabIndex={-1}
+        className="text-xl leading-snug font-semibold whitespace-pre-wrap focus:outline-none"
+      >
         {title(item)}
       </h2>
       <p className="text-muted-foreground">
@@ -220,6 +225,17 @@ function ItemPanel({
         {item.kind === "review" &&
           ` · ${item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"}`}
       </p>
+      {item.kind === "answer" && (
+        <p className="text-[12.5px] text-muted-foreground">
+          <Link to={`/us/${item.storyId}`} className={link}>
+            US {item.storyId} · {item.iWant}
+          </Link>
+          {" · "}
+          <Link to={`/runs/${item.runId}`} className={link}>
+            Run {item.runId} ↗
+          </Link>
+        </p>
+      )}
       {item.kind === "check" && (
         <ul className="list-disc pl-5">
           {item.reasons.map((code) => (
@@ -247,9 +263,11 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 /** The home of a logged-in user (045 D): the state in a sentence, what to do now, then next, what Claude does, the latest events; the first item is open in the right panel. */
 export function HomePage() {
   const home = useHome();
-  // The answered card goes away: keep the keyboard focus in the page.
+  // The answered card goes away, and its section with the last one: the h1 stays, so the keyboard focus lands there.
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [index, setIndex] = useState(0);
+  // The open item is the one the user chose, found again by its key when the list changes under them; `at` is where to land when it is gone.
+  const [opened, setOpened] = useState<{ key?: string; at: number }>({ at: 0 });
+  const [fromRow, setFromRow] = useState(false);
   if (home.isPending)
     return (
       <p className="px-[26px] pt-[26px] text-muted-foreground">Chargement…</p>
@@ -284,15 +302,25 @@ export function HomePage() {
             rest: claude,
           }
         : { title: "Rien ne t'attend.", rest: claude };
-  const shown = Math.min(index, forYou.length - 1);
-  const groups = Map.groupBy(
-    others.map((item, i) => ({ item, at: i + 1 })),
-    ({ item }) => item.kind,
-  );
+  const found = forYou.findIndex((item) => itemKey(item) === opened.key);
+  const shown = found >= 0 ? found : Math.min(opened.at, forYou.length - 1);
+  const open = (at: number, row = false) => {
+    const target = forYou[at];
+    if (target) setOpened({ key: itemKey(target), at });
+    setFromRow(row);
+  };
+  const groups: { kind: Item["kind"]; rows: { item: Item; at: number }[] }[] =
+    [];
+  others.forEach((item, i) => {
+    const row = { item, at: i + 1 };
+    const group = groups.find((g) => g.kind === item.kind);
+    if (group) group.rows.push(row);
+    else groups.push({ kind: item.kind, rows: [row] });
+  });
 
   return (
     <>
-      <StateSentence {...sentence} />
+      <StateSentence {...sentence} headingRef={headingRef} />
       {first && (
         <Section
           label={
@@ -303,7 +331,6 @@ export function HomePage() {
           hint={
             first.kind === "answer" ? "ce qui bloque Claude" : "ce qui t'attend"
           }
-          headingRef={headingRef}
         >
           <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-[14px] border border-you-line bg-you-ground px-[18px] py-4">
             <span
@@ -330,7 +357,7 @@ export function HomePage() {
           hint="sans urgence, dans cet ordre"
         >
           <div className={listCard}>
-            {[...groups].map(([kind, rows]) => (
+            {groups.map(({ kind, rows }) => (
               <div key={kind} className="divide-y divide-border">
                 <p className="flex min-h-9 items-center gap-2.5 px-[18px] text-[12.5px] font-semibold text-muted-foreground">
                   {KINDS[kind].group}
@@ -359,7 +386,7 @@ export function HomePage() {
                       </span>
                     </span>
                     <span className="flex gap-1.5">
-                      <RowActions item={item} open={() => setIndex(at)} />
+                      <RowActions item={item} open={() => open(at, true)} />
                     </span>
                   </div>
                 ))}
@@ -411,8 +438,12 @@ export function HomePage() {
           item={forYou[shown] ?? first}
           index={shown}
           total={forYou.length}
-          onMove={setIndex}
-          onSent={() => headingRef.current?.focus()}
+          onMove={open}
+          onSent={() => {
+            setFromRow(false);
+            headingRef.current?.focus();
+          }}
+          focusHeading={fromRow}
         />
       )}
     </>

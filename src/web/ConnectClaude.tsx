@@ -7,6 +7,7 @@ import {
   alertBox,
   button,
   card,
+  cardShape,
   focusRing,
   primaryButton,
   sectionLabel,
@@ -46,7 +47,7 @@ export function ConnectClaude() {
         {connect.isSuccess && (
           <>
             {connect.data.connected && connect.data.connectedAt && (
-              <p className={`mb-4 ${card} bg-raised p-4 font-semibold`}>
+              <p className={`mb-4 ${cardShape} bg-raised p-4 font-semibold`}>
                 Connecté depuis {connect.data.client}, le{" "}
                 {day(connect.data.connectedAt)}. C'est fait : Claude voit tes
                 projets partout, y compris dans les tâches planifiées.

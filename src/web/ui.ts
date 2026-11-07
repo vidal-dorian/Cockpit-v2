@@ -36,8 +36,11 @@ export const panelPrimaryButton = `${buttonBase} ${panelSize} ${primary}`;
 /** A destructive action: red fill, page-colored text. */
 export const dangerButton = `${buttonBase} ${buttonSize} border-destructive bg-destructive text-background hover:opacity-90`;
 
+/** The shape of a card without its fill, for a card on another surface (`bg-sunken`, `bg-raised`). */
+export const cardShape = "rounded-[14px] border border-border";
+
 /** A card: a bordered surface. */
-export const card = "rounded-[14px] border border-border bg-card";
+export const card = `${cardShape} bg-card`;
 
 /** A list of rows in one card: put `min-h-[50px]` rows inside, the dividers are drawn here. */
 export const listCard = `${card} divide-y divide-border overflow-hidden`;

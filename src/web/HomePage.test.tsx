@@ -330,3 +330,74 @@ describe("what was done lately", () => {
     );
   });
 });
+
+describe("slice 9.3 review: the answer panel", () => {
+  const second = { ...answer, questionId: 8, question: "Quel ordre ?" };
+
+  it("given a question, when the panel opens, then it links its story and its run", async () => {
+    await show({ forYou: [answer] });
+
+    const p = within(panel());
+    expect(p.getByText(/relire les exports/)).toBeDefined();
+    expect(
+      p
+        .getByRole("link", { name: /US 21 · relire les exports/ })
+        .getAttribute("href"),
+    ).toBe("/us/21");
+    expect(p.getByRole("link", { name: /Run 12/ }).getAttribute("href")).toBe(
+      "/runs/12",
+    );
+  });
+
+  it("given a typed answer to the 2nd question, when a question arrives before it, then the typed text and the question stay", async () => {
+    const api = await show({ forYou: [answer, second] });
+    fireEvent.click(within(panel()).getByRole("button", { name: "Suivant" }));
+    fireEvent.change(within(panel()).getByLabelText("Ta réponse"), {
+      target: { value: "à moitié tapé" },
+    });
+
+    api.state.home = {
+      ...empty(),
+      forYou: [
+        { ...answer, questionId: 9, question: "Nouvelle ?" },
+        answer,
+        second,
+      ],
+    };
+    for (const s of FakeEventSource.all) s.emit("change", "story:99");
+
+    await waitFor(() =>
+      expect(h1()).toContain("Claude est bloqué sur 3 runs."),
+    );
+    expect(within(panel()).getByText("Quel ordre ?")).toBeDefined();
+    expect(
+      (within(panel()).getByLabelText("Ta réponse") as HTMLTextAreaElement)
+        .value,
+    ).toBe("à moitié tapé");
+  });
+
+  it("given the last question, when I answer it, then the focus is on the page title, not on the body", async () => {
+    const api = await show({ forYou: [answer] });
+
+    api.state.home = empty();
+    fireEvent.click(within(panel()).getByRole("button", { name: "Envoyer" }));
+
+    await waitFor(() => expect(h1()).toContain("Rien ne t'attend."));
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 1 }),
+    );
+  });
+
+  it("given a question in « 2 · Ensuite », when I click Répondre, then it opens in the panel and the focus is on its heading", async () => {
+    await show({ forYou: [validate, answer] });
+
+    fireEvent.click(
+      within(section("2 · Ensuite")).getByRole("button", { name: "Répondre" }),
+    );
+
+    const heading = within(panel()).getByRole("heading", {
+      name: "Quel nom pour le bouton ?",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+});

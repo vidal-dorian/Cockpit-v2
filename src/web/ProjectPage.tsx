@@ -12,6 +12,7 @@ import {
   alertBox,
   badge,
   button,
+  focusRing,
   listCard,
   primaryButton,
   sectionLabel,
@@ -104,16 +105,18 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
   const waiting = count("to_validate", "to_rewrite", "in_review");
   const working = count("in_progress");
   const kanbanSentence = {
-    title:
-      waiting > 0
+    title: stories.isPending
+      ? "Chargement…"
+      : waiting > 0
         ? waiting === 1
           ? "1 user story t'attend."
           : `${waiting} user stories t'attendent.`
         : working > 0
           ? `Claude développe ${plural(working, "user story", "user stories")}.`
           : "Rien ne t'attend sur ce projet.",
-    rest:
-      board.length === 0
+    rest: !stories.data
+      ? undefined
+      : board.length === 0
         ? "Aucune user story pour l'instant."
         : `${plural(board.length, "user story", "user stories")} au Kanban.`,
   };
@@ -266,7 +269,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
                     type="button"
                     onClick={() => health.refetch()}
                     disabled={health.isFetching}
-                    className="rounded-md text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    className={`rounded-md text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50 ${focusRing}`}
                   >
                     {health.isFetching ? "Vérification…" : "Relancer le bilan"}
                   </button>

@@ -31,6 +31,8 @@ type State = {
   installed: boolean;
   repositories: Repo[];
   unauthorized?: boolean;
+  // The state of each project, as /api/home gives it (the other tests leave the home unanswered).
+  homeProjects?: { id: number; name: string; state: string }[];
   importAnswer?: Response;
 };
 
@@ -101,6 +103,12 @@ function stubApi(state: State) {
         return Response.json({ status: "ok", version: "0.1.0" });
       if (path === "/api/me")
         return Response.json({ login: "octocat", name: null, avatarUrl: null });
+      if (path === "/api/home" && state.homeProjects)
+        return Response.json({
+          forYou: [],
+          claudeWorks: [],
+          projects: state.homeProjects,
+        });
       if (path === "/api/projects" && method === "GET")
         return state.unauthorized
           ? unauthorized()
@@ -195,6 +203,59 @@ describe("Projets page, the list", () => {
       within(archived).queryByRole("button", { name: "Archiver" }),
     ).toBeNull();
   });
+
+  it.each([
+    ["for_you", "Claude t'attend"],
+    ["claude", "Claude travaille"],
+    ["idle", "rien en cours"],
+  ])(
+    "given a project in state %s, when /projets loads, then its row says %s",
+    async (state, words) => {
+      stubApi({
+        projects: [project(1, "octocat/hello")],
+        installed: true,
+        repositories: [],
+        homeProjects: [{ id: 1, name: "octocat/hello", state }],
+      });
+
+      renderAt("/projets");
+
+      // The sidebar names the project too: look in the page only.
+      expect(
+        await within(await screen.findByRole("main")).findByText(words),
+      ).toBeDefined();
+    },
+  );
+
+  it.each([
+    [[], "Aucun n'a besoin de toi."],
+    [["for_you"], "1 a besoin de toi."],
+    [["for_you", "for_you"], "2 ont besoin de toi."],
+  ])(
+    "given %j projects waiting, when /projets loads, then the title says %s and the archived projects are not counted",
+    async (states, words) => {
+      stubApi({
+        projects: [
+          project(1, "octocat/a"),
+          project(2, "octocat/b"),
+          project(3, "octocat/old", true),
+        ],
+        installed: true,
+        repositories: [],
+        homeProjects: states.map((state, i) => ({
+          id: i + 1,
+          name: `octocat/${i}`,
+          state,
+        })),
+      });
+
+      renderAt("/projets");
+
+      const title = await screen.findByRole("heading", { level: 1 });
+      await waitFor(() => expect(title.textContent).toContain(words));
+      expect(title.textContent).toContain("2 projets.");
+    },
+  );
 
   it("given an active and an archived project, when /projets loads, then each full name is a link to /projets/:id", async () => {
     stubApi({

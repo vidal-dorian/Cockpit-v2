@@ -29,8 +29,8 @@ async function fetchHome() {
 }
 
 /** What waits for the user (decision 040): the home reads it, and so do the sidebar and the idea bar. */
-export function useHome(enabled = true) {
-  return useQuery({ queryKey: ["home"], queryFn: fetchHome, enabled });
+export function useHome() {
+  return useQuery({ queryKey: ["home"], queryFn: fetchHome });
 }
 
 const DOT_TONES = {
@@ -57,19 +57,25 @@ export function Dot({
   );
 }
 
-/** The top of every page (045 D): a sentence saying the state. `rest` is part of the h1, in muted weight; `actions` sit on the right. */
+/** The top of every page (045 D): a sentence saying the state. `rest` is part of the h1, in muted weight; `actions` sit on the right; `headingRef` makes the h1 a focus target that outlives the panels of the page. */
 export function StateSentence({
   title,
   rest,
   actions,
+  headingRef,
 }: {
   title: React.ReactNode;
   rest?: React.ReactNode;
   actions?: React.ReactNode;
+  headingRef?: React.Ref<HTMLHeadingElement>;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 px-[26px] pt-[26px] [nav+&]:pt-1.5 [nav+*>&]:pt-1.5">
-      <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
+      <h1
+        ref={headingRef}
+        tabIndex={headingRef ? -1 : undefined}
+        className="text-[26px] leading-tight font-semibold tracking-[-.01em] focus:outline-none"
+      >
         {title}
         {rest && (
           <span className="block font-normal text-muted-foreground">
@@ -315,7 +321,7 @@ export function IdeaBar() {
   const projects = useHome().data?.projects ?? [];
   const routeId = useMatch("/projets/:id/*")?.params.id;
   const [title, setTitle] = useState("");
-  const [chosen, setChosen] = useState<string>();
+  const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
   const [done, setDone] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
 
@@ -334,27 +340,30 @@ export function IdeaBar() {
   }, []);
 
   const exists = (id?: string) => projects.some((p) => String(p.id) === id);
-  const projectId = exists(chosen)
-    ? (chosen as string)
+  // A choice holds for the page it was made on: another project page brings its own project back.
+  const picked = chosen?.routeId === routeId ? chosen?.id : undefined;
+  const projectId = exists(picked)
+    ? (picked as string)
     : exists(routeId)
       ? (routeId as string)
       : String(projects[0]?.id);
   const send = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
       const res = await client.api.projects[":id"].tickets.$post({
-        param: { id: projectId },
-        json: { title: title.trim() },
+        param: { id },
+        json: { title },
       });
       if (!res.ok) throw await ticketError(res);
     },
-    onSuccess: () => {
-      setTitle("");
+    onSuccess: (_, sent) => {
+      // Typing went on while it was sending: keep what is in the field now.
+      setTitle((current) => (current.trim() === sent.title ? "" : current));
       setDone(
-        `Idée notée dans ${projects.find((p) => String(p.id) === projectId)?.name}.`,
+        `Idée notée dans ${projects.find((p) => String(p.id) === sent.id)?.name}.`,
       );
       for (const queryKey of [
-        ["tickets", projectId],
-        ["stories", projectId],
+        ["tickets", sent.id],
+        ["stories", sent.id],
         ["home"],
       ])
         queryClient.invalidateQueries({ queryKey });
@@ -378,7 +387,8 @@ export function IdeaBar() {
         aria-label="Noter une idée"
         onSubmit={(event) => {
           event.preventDefault();
-          if (title.trim() !== "" && !send.isPending) send.mutate();
+          if (title.trim() !== "" && !send.isPending)
+            send.mutate({ id: projectId, title: title.trim() });
         }}
         className="flex items-center gap-2.5 rounded-[14px] border border-border bg-card py-2.5 pr-3 pl-4"
       >
@@ -404,7 +414,8 @@ export function IdeaBar() {
         <select
           aria-label="Projet"
           value={projectId}
-          onChange={(event) => setChosen(event.target.value)}
+          disabled={send.isPending}
+          onChange={(event) => setChosen({ routeId, id: event.target.value })}
           className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
         >
           {projects.map((p) => (

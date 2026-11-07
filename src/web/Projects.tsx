@@ -115,6 +115,7 @@ function ProjectList() {
                     ? "claude"
                     : "none"
               }
+              live={project.id !== first && states.get(project.id) === "claude"}
             />
             <Link
               to={`/projets/${project.id}`}
@@ -277,7 +278,8 @@ function Importable() {
 export function Projects() {
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
   const home = useHome().data;
-  const total = projects.data?.length ?? 0;
+  // The sidebar counts the same projects: the archived ones are out.
+  const total = projects.data?.filter((p) => !p.archived).length ?? 0;
   const waiting = (home?.projects ?? []).filter(
     (p) => p.state === "for_you",
   ).length;
@@ -286,7 +288,7 @@ export function Projects() {
       <StateSentence
         title={
           projects.data
-            ? `${total} ${total === 1 ? "projet" : "projets"}. ${waiting} ${waiting === 1 ? "a" : "ont"} besoin de toi.`
+            ? `${total} ${total === 1 ? "projet" : "projets"}. ${waiting === 0 ? "Aucun n'a" : waiting === 1 ? "1 a" : `${waiting} ont`} besoin de toi.`
             : "Projets"
         }
         rest="Les autres avancent seuls ou dorment."

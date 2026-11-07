@@ -31,7 +31,7 @@ import {
 import {
   alertBox,
   button,
-  card,
+  cardShape,
   panelPrimaryButton,
   primaryButton,
   sectionLabel,
@@ -130,7 +130,7 @@ function LoggedOut() {
         <ServerAlert />
       </div>
       <div className="hidden place-items-center border-l border-border bg-card md:grid">
-        <div className={`w-[420px] ${card} bg-sunken px-[30px] py-7`}>
+        <div className={`w-[420px] ${cardShape} bg-sunken px-[30px] py-7`}>
           <p className={sectionLabel}>La boucle de Cockpit</p>
           <ul className="mt-4 flex flex-col gap-3">
             {LOOP.map(([tone, title, rest]) => (
@@ -248,7 +248,6 @@ function Shell() {
               element={<Settings tab="ecriture-us" />}
             />
             <Route path="/bienvenue" element={<Welcome />} />
-            <Route path="/autoriser" element={<Autoriser />} />
             {/* The wizard's address: once it is done, nothing to show there. */}
             <Route path="/installation" element={<Navigate to="/" replace />} />
             <Route path="*" element={<NotFound />} />
@@ -266,17 +265,18 @@ function RedirectToSettings() {
   return <Navigate to={`/projets/${id}/reglages`} replace />;
 }
 
-/** The shell for a logged-in user, the login screen otherwise (/autoriser has its own, and says itself when the account cannot be read). */
+/** The shell for a logged-in user, the login screen otherwise. /autoriser (S05) is a card of its own, with or without a session: it says itself when the account cannot be read. */
 function Routed() {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
-  if (me.data) return <Shell />;
   return (
     <Routes>
       <Route path="/autoriser" element={<Autoriser />} />
       <Route
         path="*"
         element={
-          me.isPending ? (
+          me.data ? (
+            <Shell />
+          ) : me.isPending ? (
             <p className="p-4 text-muted-foreground">Chargement…</p>
           ) : me.isError ? (
             <div role="alert" className={`m-4 ${alertBox}`}>

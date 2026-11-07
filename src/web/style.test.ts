@@ -18,6 +18,21 @@ describe("the style (decision 028 A)", () => {
   });
 });
 
+describe("the values of the tokens of spec §1 (decision 045)", () => {
+  it.each([
+    ["color-card", "#161920"],
+    ["color-sunken", "#12141a"],
+    ["color-raised", "#1d2129"],
+    ["color-muted-foreground", "#a9b0bf"],
+    ["color-you-soft", "#34181d"],
+    ["color-you-text", "#ff8c98"],
+    ["color-destructive", "#ff5d6e"],
+  ])("given styles.css, when I read %s, then it is %s", (name, value) => {
+    const found = new RegExp(`--${name}:\\s*([^;]+);`).exec(css)?.[1];
+    expect(found?.trim().toLowerCase()).toBe(value);
+  });
+});
+
 describe("no hard-coded color (decision 028 A)", () => {
   const files = readdirSync(dir, { recursive: true, encoding: "utf8" })
     .filter((f) => /\.tsx?$/.test(f))

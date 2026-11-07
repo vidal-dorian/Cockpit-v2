@@ -188,7 +188,7 @@ describe("Réglages page, for a user who is not an administrator", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: /^Connecte|^Les jetons|^Voici ceux/,
+        name: /^Les jetons/,
       }),
     ).toBeDefined();
     expect(
@@ -205,6 +205,15 @@ describe("Réglages page, for a user who is not an administrator", () => {
     expect(screen.queryByText("alice")).toBeNull();
     expect(screen.queryByRole("button", { name: "Bloquer" })).toBeNull();
     expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
+  });
+
+  it("given a user who is not an administrator, when /reglages/utilisateurs loads, then the page does not announce the list of users above the refusal", async () => {
+    stubApi({ isAdmin: false, users: [admin] });
+
+    renderAt("/reglages/utilisateurs");
+
+    await screen.findByText("Cette page est réservée à l'administrateur.");
+    expect(screen.queryByText(/^Voici ceux/)).toBeNull();
   });
 
   it("given an administrator, when /reglages/jetons loads, then the section Jetons MCP is there and the users are not asked (decision 028 H)", async () => {
@@ -243,7 +252,7 @@ describe("Réglages page, the users", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: /^Connecte|^Les jetons|^Voici ceux/,
+        name: /^Voici ceux/,
       }),
     ).toBeDefined();
     expect(screen.getByRole("heading", { name: "Utilisateurs" })).toBeDefined();

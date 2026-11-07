@@ -8,6 +8,7 @@ import {
   listCard,
   primaryButton,
   sectionLabel,
+  urgentBadge,
 } from "./ui.ts";
 
 /** A page of the caller's entries (25), the one after the entry `before`; null when the server answers 401. */
@@ -86,7 +87,7 @@ export const RESULTS: Record<string, { label: string; style: string }> = {
   refused: { label: "Refusée", style: badge },
   error: {
     label: "Erreur",
-    style: `${badge} bg-destructive-soft text-destructive`,
+    style: urgentBadge,
   },
 };
 

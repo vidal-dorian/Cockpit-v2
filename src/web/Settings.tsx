@@ -5,7 +5,7 @@ import { client } from "./api.ts";
 import { ConnectClaude } from "./ConnectClaude.tsx";
 import { RoutineSettings } from "./RoutineSettings.tsx";
 import { Tokens } from "./SettingsTokens.tsx";
-import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
   button,
@@ -167,15 +167,7 @@ const subMenuItem = ({ isActive }: { isActive: boolean }) =>
 /** Réglages: a menu on the left, one entry per page (decisions 028 H and 045 I); Instance is the administrator's. */
 export function Settings({ tab }: { tab: SettingsTab }) {
   // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
-  const me = useQuery({
-    queryKey: ["me"],
-    queryFn: async () => {
-      const res = await client.api.me.$get();
-      if (res.status === 401) return null;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    },
-  });
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   if (me.isPending)
     return <p className="p-4 text-muted-foreground">Chargement…</p>;
   if (me.isError)
@@ -194,7 +186,11 @@ export function Settings({ tab }: { tab: SettingsTab }) {
   return (
     <main>
       <Breadcrumb trail={[{ label: "Réglages" }]} />
-      <StateSentence {...SENTENCES[tab]} />
+      <StateSentence
+        {...(tab === "utilisateurs" && !me.data?.isAdmin
+          ? { title: "L'instance est gérée par son administrateur." }
+          : SENTENCES[tab])}
+      />
       <div className="grid gap-[22px] px-[26px] pt-5 pb-6 md:grid-cols-[180px_minmax(0,1fr)]">
         <nav aria-label="Réglages" className="flex flex-col gap-0.5">
           <NavLink to="/reglages" end className={menuItem}>

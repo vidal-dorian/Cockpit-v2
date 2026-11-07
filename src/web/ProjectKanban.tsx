@@ -25,7 +25,7 @@ type StoryStatus = NonNullable<
   Awaited<ReturnType<typeof fetchStories>>
 >[number]["status"];
 
-// The six columns, in order: the dot names the « temps », the line says who moves the card (decision 045 H).
+// The six columns, in order: the dot names the « temps », the line says who moves the card (019 B modified by screen S00b of decision 045: the Idées column comes first).
 const COLUMNS = [
   { name: "Idées", dot: "idea", sub: "Claude écrit les US" },
   { name: "À valider", dot: "you", sub: "à toi" },
@@ -122,7 +122,13 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                       {name} <span className={badge}>{count}</span>
                     </h3>
                     <p className="mt-0.5 mb-2 text-[12.5px] text-dim">{sub}</p>
-                    {count === 0 ? (
+                    {name === "Idées" && tickets.isPending ? (
+                      <p className="text-muted-foreground">Chargement…</p>
+                    ) : name === "Idées" && tickets.isError ? (
+                      <p className="text-destructive">
+                        Impossible de lire les tickets.
+                      </p>
+                    ) : count === 0 ? (
                       <p className="text-muted-foreground">Aucune</p>
                     ) : (
                       <ul className="grid grid-cols-1 gap-2">
