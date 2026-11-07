@@ -47,6 +47,7 @@ export function homeRoutes(db: Db) {
         questionId: questions.id,
         question: questions.question,
         suggestedAnswers: questions.suggestedAnswers,
+        askedAt: questions.askedAt,
       })
       .from(runs)
       .innerJoin(userStories, eq(userStories.id, runs.storyId))
@@ -69,6 +70,7 @@ export function homeRoutes(db: Db) {
           prNumber: userStories.prNumber,
           prCiState: userStories.prCiState,
           prReviewState: userStories.prReviewState,
+          updatedAt: userStories.updatedAt,
         })
         .from(userStories)
         .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
@@ -82,6 +84,21 @@ export function homeRoutes(db: Db) {
         )
         .orderBy(asc(userStories.id))
     ).filter((w) => !working.has(w.storyId));
+
+    // The mockup says « 3 critères » under a story to validate.
+    const toValidate = waiting.filter((w) => w.status === "to_validate");
+    const criteriaCount = new Map<number, number>();
+    if (toValidate.length)
+      for (const k of await db
+        .select({ storyId: acceptanceCriteria.storyId })
+        .from(acceptanceCriteria)
+        .where(
+          inArray(
+            acceptanceCriteria.storyId,
+            toValidate.map((w) => w.storyId),
+          ),
+        ))
+        criteriaCount.set(k.storyId, (criteriaCount.get(k.storyId) ?? 0) + 1);
 
     const steps = running.length
       ? await db
@@ -167,6 +184,7 @@ export function homeRoutes(db: Db) {
                 questionId: r.questionId,
                 question: r.question,
                 suggestedAnswers: r.suggestedAnswers,
+                askedAt: r.askedAt,
                 runId: r.runId,
                 storyId: r.storyId,
                 iWant: r.iWant,
@@ -174,14 +192,14 @@ export function homeRoutes(db: Db) {
               },
             ],
       ),
-      ...waiting
-        .filter((w) => w.status === "to_validate")
-        .map((w) => ({
-          kind: "validate" as const,
-          storyId: w.storyId,
-          iWant: w.iWant,
-          project: project(w),
-        })),
+      ...toValidate.map((w) => ({
+        kind: "validate" as const,
+        storyId: w.storyId,
+        iWant: w.iWant,
+        criteriaCount: criteriaCount.get(w.storyId) ?? 0,
+        updatedAt: w.updatedAt,
+        project: project(w),
+      })),
       ...waiting.flatMap((w) =>
         w.status === "in_review" && w.prNumber !== null
           ? [
@@ -191,6 +209,7 @@ export function homeRoutes(db: Db) {
                 iWant: w.iWant,
                 prNumber: w.prNumber,
                 prCiState: w.prCiState,
+                updatedAt: w.updatedAt,
                 project: project(w),
               },
             ]

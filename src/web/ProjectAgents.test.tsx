@@ -660,8 +660,8 @@ describe("decision 030 H: after the commit and the refusals", () => {
     const calls = stubApi({ archived: true });
     renderAt("/projets/5/agents");
 
-    await open("developer");
-
+    await screen.findByRole("button", { name: "Ouvrir developer" });
+    // The list steps aside while an agent is open: « + Nouvel agent » is checked before.
     expect(
       (
         screen.getByRole("button", {
@@ -669,6 +669,7 @@ describe("decision 030 H: after the commit and the refusals", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+    await open("developer");
     expect(
       (
         screen.getByRole("button", {
