@@ -481,6 +481,17 @@ export async function fetchStoryHistory(id: number) {
   return (await res.json()).entries;
 }
 
+/** The latest successful validation of a story in its history: who validated it and when (null when it was never validated). */
+export function useStoryValidation(id: number) {
+  return useQuery({
+    queryKey: ["story-history", String(id), "validation"],
+    queryFn: async () =>
+      (await fetchStoryHistory(id)).find(
+        (e) => e.action === "validate_story" && e.result === "ok",
+      ) ?? null,
+  });
+}
+
 /** The entries of the user about this story, read when the section is opened (decision 018 I). */
 export function StoryHistory({ id }: { id: number }) {
   const [opened, setOpened] = useState(false);

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { fetchMe } from "./Shell.tsx";
-import { fetchStoryHistory } from "./StoryDecisions.tsx";
+import { useStoryValidation } from "./StoryDecisions.tsx";
 import { decisionError } from "./tickets.ts";
 import { alertBox, button, focusRing } from "./ui.ts";
 import { ago } from "./when.ts";
@@ -31,13 +31,7 @@ export function StoryIssue({
     setFocusLink(false);
   };
   // Who validated the story and when: its latest validation in the history (the issue is published at that moment).
-  const validation = useQuery({
-    queryKey: ["story-history", String(id), "validation"],
-    queryFn: async () =>
-      (await fetchStoryHistory(id)).find(
-        (e) => e.action === "validate_story" && e.result === "ok",
-      ) ?? null,
-  });
+  const validation = useStoryValidation(id);
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const publish = useMutation({
     mutationFn: async () => {

@@ -57,7 +57,7 @@ function stateSentence(status: string, prNumber: number | null) {
   const word = STORY_STATUSES[status] ?? status;
   switch (status) {
     case "to_validate":
-      return `Écrite par Claude, ${word} : attend ta validation.`;
+      return "Écrite par Claude · attend ta validation.";
     case "to_rewrite":
       return `Renvoyée à Claude, ${word} : il la réécrit avec ton commentaire.`;
     case "ready":

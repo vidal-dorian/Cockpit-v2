@@ -23,7 +23,7 @@ import { type Answer, fail, renderAt, story, ticket } from "./test-tickets.tsx";
 //   when the titles differ, a line « Titre » with GitHub's title; the diff of the bodies (Cockpit's version -> GitHub's) as list items:
 //   a removed line holds the word « Retirée », an added one the word « Ajoutée », an unchanged one neither.
 //   Over 2,000 lines on a side there is no diff: two headings « Version de Cockpit » and « Version de GitHub », each above its text.
-// - Two buttons, « Garder la version de Cockpit » (POST /api/stories/:id/issue/keep-cockpit) and « Reprendre la version de GitHub »
+// - Two buttons, « Garder la version Cockpit » (POST /api/stories/:id/issue/keep-cockpit) and « Garder la version GitHub »
 //   (POST /api/stories/:id/issue/take-github), no body, answer 200 { story }. Both are disabled in an archived project.
 // - A refusal shows a French role="alert": for not_template, the message of the decision, whole; « statut » for wrong_status, « archiv »
 //   for project_archived.
@@ -135,8 +135,8 @@ describe("criterion E: the section of a diverged issue", () => {
     expect(section().textContent).toContain(
       new Date(AT).toLocaleString("fr-FR"),
     );
-    expect(button("Garder la version de Cockpit")).toBeDefined();
-    expect(button("Reprendre la version de GitHub")).toBeDefined();
+    expect(button("Garder la version Cockpit")).toBeDefined();
+    expect(button("Garder la version GitHub")).toBeDefined();
   });
 
   it("given a story whose issue did not change on GitHub, when the page loads, then the section is not there", async () => {
@@ -148,10 +148,10 @@ describe("criterion E: the section of a diverged issue", () => {
     expect(screen.queryByRole("heading", { name: SECTION })).toBeNull();
     expect(main().textContent).not.toContain(SECTION);
     expect(
-      screen.queryByRole("button", { name: "Garder la version de Cockpit" }),
+      screen.queryByRole("button", { name: "Garder la version Cockpit" }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Reprendre la version de GitHub" }),
+      screen.queryByRole("button", { name: "Garder la version GitHub" }),
     ).toBeNull();
   });
 
@@ -174,28 +174,29 @@ describe("criterion E: the section of a diverged issue", () => {
     expect(section().textContent).not.toContain("Titre");
   });
 
-  it("given a body with a line changed and a line added, when the page loads, then the removed and added lines are marked by the words Retirée and Ajoutée, in order, and the unchanged lines by none", async () => {
+  it("given a body with a line changed and a line added, when the page loads, then Cockpit's column holds the unchanged and removed lines, GitHub's the unchanged and added ones, in order, marked by the words Retirée and Ajoutée", async () => {
     seed(diverged());
 
     renderAt("/us/21");
 
     await loaded();
-    const items = within(section())
-      .getAllByRole("listitem")
-      .map((li) => li.textContent ?? "");
-    expect(items).toHaveLength(5);
-    const only = (text: string) => items.findIndex((i) => i.includes(text));
-    expect(items[only("ligne deux")]).toMatch(/Retirée/);
-    expect(items[only("ligne deux")]).not.toMatch(/Ajoutée/);
-    expect(items[only("ligne 2 modifiée")]).toMatch(/Ajoutée/);
-    expect(items[only("ligne 2 modifiée")]).not.toMatch(/Retirée/);
-    expect(items[only("ligne ajoutée")]).toMatch(/Ajoutée/);
-    for (const same of ["ligne un", "ligne trois"])
-      expect(items[only(same)]).not.toMatch(/Retirée|Ajoutée/);
-    expect(only("ligne un")).toBeLessThan(only("ligne deux"));
-    expect(only("ligne deux")).toBeLessThan(only("ligne 2 modifiée"));
-    expect(only("ligne 2 modifiée")).toBeLessThan(only("ligne trois"));
-    expect(only("ligne trois")).toBeLessThan(only("ligne ajoutée"));
+    const items = (title: string) =>
+      within(within(section()).getByRole("region", { name: title }))
+        .getAllByRole("listitem")
+        .map((li) => li.textContent ?? "");
+    const cockpit = items("Dans Cockpit");
+    const github = items("Sur GitHub");
+    expect(cockpit).toHaveLength(3);
+    expect(github).toHaveLength(4);
+    expect(cockpit[0]).toContain("ligne un");
+    expect(cockpit[1]).toMatch(/Retirée.*ligne deux/);
+    expect(cockpit[2]).toContain("ligne trois");
+    expect(github[0]).toContain("ligne un");
+    expect(github[1]).toMatch(/Ajoutée.*ligne 2 modifiée/);
+    expect(github[2]).toContain("ligne trois");
+    expect(github[3]).toMatch(/Ajoutée.*ligne ajoutée/);
+    for (const same of [cockpit[0], cockpit[2], github[0], github[2]])
+      expect(same).not.toMatch(/Retirée|Ajoutée/);
   });
 
   it("given bodies of more than 2,000 lines, when the page loads, then both versions are shown one under the other, with no diff marks", async () => {
@@ -233,8 +234,8 @@ describe("criterion E: the section of a diverged issue", () => {
 
 describe("criterion F and G: the two buttons", () => {
   it.each([
-    ["Garder la version de Cockpit", "keep-cockpit"],
-    ["Reprendre la version de GitHub", "take-github"],
+    ["Garder la version Cockpit", "keep-cockpit"],
+    ["Garder la version GitHub", "take-github"],
   ])(
     "given a diverged issue, when « %s » is clicked, then it posts to /api/stories/21/issue/%s with no body and the section is gone",
     async (name, route) => {
@@ -260,12 +261,12 @@ describe("criterion F and G: the two buttons", () => {
     renderAt("/us/21");
     await loaded();
 
-    fireEvent.click(button("Reprendre la version de GitHub"));
+    fireEvent.click(button("Garder la version GitHub"));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe(NOT_TEMPLATE);
     expect(screen.getByRole("heading", { name: SECTION })).toBeDefined();
-    expect(button("Garder la version de Cockpit").disabled).toBe(false);
+    expect(button("Garder la version Cockpit").disabled).toBe(false);
   });
 
   it.each([
@@ -279,7 +280,7 @@ describe("criterion F and G: the two buttons", () => {
       renderAt("/us/21");
       await loaded();
 
-      fireEvent.click(button("Reprendre la version de GitHub"));
+      fireEvent.click(button("Garder la version GitHub"));
 
       const alert = await screen.findByRole("alert");
       expect(alert.textContent).toMatch(words);
@@ -292,19 +293,19 @@ describe("criterion F and G: the two buttons", () => {
     renderAt("/us/21");
 
     await loaded();
-    expect(button("Garder la version de Cockpit").disabled).toBe(true);
-    expect(button("Reprendre la version de GitHub").disabled).toBe(true);
+    expect(button("Garder la version Cockpit").disabled).toBe(true);
+    expect(button("Garder la version GitHub").disabled).toBe(true);
   });
 
   it.each(["in_progress", "in_review", "done", "abandoned"])(
-    "given a %s story, when the page loads, then « Garder la version de Cockpit » is offered (any status)",
+    "given a %s story, when the page loads, then « Garder la version Cockpit » is offered (any status)",
     async (status) => {
       seed(diverged(), { status });
 
       renderAt("/us/21");
 
       await loaded();
-      expect(button("Garder la version de Cockpit").disabled).toBe(false);
+      expect(button("Garder la version Cockpit").disabled).toBe(false);
     },
   );
 });

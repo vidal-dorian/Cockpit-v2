@@ -58,8 +58,24 @@ describe("criterion 11: GET /api/tickets/:id and the ticket list carry the stori
     };
     expect(body.ticket).toMatchObject({ id: ticketId, step: "to_validate" });
     expect(body.stories).toEqual([
-      { id: a, position: 1, iWant: "premier", status: "ready" },
-      { id: b, position: 2, iWant: "second", status: "to_validate" },
+      {
+        id: a,
+        position: 1,
+        iWant: "premier",
+        status: "ready",
+        criteriaCount: 1,
+        dependsOn: [],
+        runId: null,
+      },
+      {
+        id: b,
+        position: 2,
+        iWant: "second",
+        status: "to_validate",
+        criteriaCount: 1,
+        dependsOn: [],
+        runId: null,
+      },
     ]);
   });
 

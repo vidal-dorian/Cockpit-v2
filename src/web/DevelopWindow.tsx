@@ -109,6 +109,16 @@ export function DevelopWindow({
   const pending = story.dependsOn.filter((d) => d.status !== "done");
   const label = "block text-[13px] font-semibold";
   const hint = "text-[12.5px] text-muted-foreground";
+  const launchRef = useRef<HTMLAnchorElement>(null);
+  // Ctrl+Enter launches from the panel, as decision 003 (7) lists and the button shows.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid)
+        launchRef.current?.click();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [valid]);
 
   return (
     <Panel
@@ -133,6 +143,7 @@ export function DevelopWindow({
       footer={
         <>
           <a
+            ref={launchRef}
             className={`${panelPrimaryButton} aria-disabled:opacity-50`}
             {...(valid
               ? {
@@ -149,6 +160,12 @@ export function DevelopWindow({
               : { "aria-disabled": true, role: "link" })}
           >
             <span>Lancer Claude</span>
+            <span
+              aria-hidden="true"
+              className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+            >
+              Ctrl Entrée
+            </span>
           </a>
           <button
             type="button"
