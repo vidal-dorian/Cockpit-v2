@@ -155,7 +155,7 @@ describe("Project page, the health check", () => {
 
     const title = await screen.findByRole("heading", {
       level: 1,
-      name: "octocat/hello",
+      name: /^hello/,
     });
     expect(title).toBeDefined();
     await screen.findByRole("heading", { name: "Bilan de santé" });
@@ -166,9 +166,10 @@ describe("Project page, the health check", () => {
     stubApi({});
     renderAt("/projets");
 
-    fireEvent.click(await screen.findByRole("link", { name: "octocat/hello" }));
+    fireEvent.click(await screen.findByRole("link", { name: "hello" }));
 
-    await screen.findByRole("heading", { level: 1, name: "octocat/hello" });
+    // The sentence of the Kanban tab replaces the name as title (slice 9.3).
+    await screen.findByRole("heading", { level: 1, name: /user stor|Rien ne/ });
     expect(window.location.pathname).toBe("/projets/5");
     const tabs = screen.getByRole("navigation", { name: "Sections du projet" });
     expect(
@@ -296,7 +297,7 @@ describe("Project page, the health check", () => {
     expect(row.textContent).not.toContain("missing");
   });
 
-  it("given a red CI, when Revérifier is clicked, then the health is requested again and the line turns OK", async () => {
+  it("given a red CI, when Relancer le bilan is clicked, then the health is requested again and the line turns OK", async () => {
     const { healthPaths } = stubApi({
       answers: [
         answer([
@@ -314,7 +315,7 @@ describe("Project page, the health check", () => {
     );
     expect(healthPaths).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Revérifier" }));
+    fireEvent.click(screen.getByRole("button", { name: "Relancer le bilan" }));
 
     await waitFor(() => expect(healthPaths).toHaveLength(2));
     await waitFor(() =>

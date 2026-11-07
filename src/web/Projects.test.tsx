@@ -205,9 +205,9 @@ describe("Projets page, the list", () => {
 
     renderAt("/projets");
 
-    const active = await screen.findByRole("link", { name: "octocat/hello" });
+    const active = await screen.findByRole("link", { name: "hello" });
     expect(active.getAttribute("href")).toBe("/projets/5");
-    const archived = await screen.findByRole("link", { name: "octocat/old" });
+    const archived = await screen.findByRole("link", { name: "old" });
     expect(archived.getAttribute("href")).toBe("/projets/6");
   });
 

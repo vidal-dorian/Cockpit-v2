@@ -3,7 +3,14 @@ import { useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
-import { alertBox, button, card, focusRing, primaryButton } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  focusRing,
+  listCard,
+  primaryButton,
+  sectionLabel,
+} from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -59,11 +66,16 @@ function FileRow({ file }: { file: PlanFile }) {
     [file],
   );
   return (
-    <li className={`${card} p-4`}>
-      <p className="font-mono font-semibold">{file.path}</p>
+    <li className="min-h-[50px] px-4 py-3">
+      <p className="font-mono text-[13px] font-semibold">
+        <span aria-hidden="true" className="mr-2 text-dim">
+          {file.status === "create" ? "+" : "·"}
+        </span>
+        {file.path}
+      </p>
       {file.status === "create" && (
         <>
-          <p className="mt-1">Sera ajouté</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">Sera ajouté</p>
           <details className="mt-2">
             <summary className={`cursor-pointer ${focusRing}`}>
               Voir le contenu
@@ -74,13 +86,21 @@ function FileRow({ file }: { file: PlanFile }) {
           </details>
         </>
       )}
-      {file.status === "same" && <p className="mt-1">Déjà là, identique</p>}
+      {file.status === "same" && (
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Déjà là, identique
+        </p>
+      )}
       {file.status === "exists" && file.current === undefined && (
-        <p className="mt-1">Déjà là, pas un simple fichier : laissé tel quel</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Déjà là, pas un simple fichier : laissé tel quel
+        </p>
       )}
       {file.status === "exists" && file.current !== undefined && (
         <>
-          <p className="mt-1">Déjà là, différent : laissé tel quel</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Déjà là, différent : laissé tel quel
+          </p>
           {lines ? (
             <DiffList lines={lines} />
           ) : (
@@ -164,20 +184,42 @@ export function ProjectPrepare({
   });
 
   return (
-    <div className="mt-3">
-      {red && !done?.pullRequest && (
-        <button
-          type="button"
-          disabled={archived || read.isPending || commit.isPending}
-          onClick={() => {
-            setProblem(null);
-            setDone(null);
-            read.mutate();
-          }}
-          className={primaryButton}
-        >
-          Préparer pour Claude
-        </button>
+    <div className="mt-4">
+      {red && !done?.pullRequest && !plan && (
+        <>
+          <h2 className={`mb-2 text-you-text ${sectionLabel}`}>
+            1 · À corriger d'abord
+          </h2>
+          <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-you-line bg-you-ground px-4 py-3.5">
+            <span
+              aria-hidden="true"
+              className="grid size-9 flex-none place-items-center rounded-[10px] bg-you-soft text-you-text"
+            >
+              ✕
+            </span>
+            <p className="min-w-0 flex-1">
+              <span className="block font-bold">
+                Préparer le repo pour Claude
+              </span>
+              <span className="block text-[12.5px] text-muted-foreground">
+                ajoute /dev-us, les agents et le serveur MCP · un commit, montré
+                fichier par fichier avant
+              </span>
+            </p>
+            <button
+              type="button"
+              disabled={archived || read.isPending || commit.isPending}
+              onClick={() => {
+                setProblem(null);
+                setDone(null);
+                read.mutate();
+              }}
+              className={primaryButton}
+            >
+              Préparer pour Claude
+            </button>
+          </div>
+        </>
       )}
       {problem && (
         <div role="alert" className={`mt-3 ${alertBox}`}>
@@ -195,7 +237,7 @@ export function ProjectPrepare({
         </div>
       )}
       {done && (
-        <div className="mt-3 rounded-xl bg-done-soft p-4 text-done-text">
+        <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
           <p>
             {done.pullRequest
               ? "La branche par défaut est protégée : une pull request est ouverte"
@@ -208,24 +250,37 @@ export function ProjectPrepare({
       )}
       {plan && (
         <>
-          <ul className="mt-3 grid gap-2">
+          <ul className={`mt-3 ${listCard}`}>
             {plan.files.map((file) => (
               <FileRow key={file.path} file={file} />
             ))}
           </ul>
-          <button
-            type="button"
-            disabled={
-              commit.isPending || plan.files.every((f) => f.status !== "create")
-            }
-            onClick={() => {
-              setProblem(null);
-              commit.mutate(plan);
-            }}
-            className={`mt-3 ${button}`}
-          >
-            Faire le commit
-          </button>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={
+                commit.isPending ||
+                plan.files.every((f) => f.status !== "create")
+              }
+              onClick={() => {
+                setProblem(null);
+                commit.mutate(plan);
+              }}
+              className={primaryButton}
+            >
+              Faire le commit
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlan(null)}
+              className={button}
+            >
+              Annuler
+            </button>
+            <p className="text-[12.5px] text-muted-foreground">
+              Refusé si un fichier a changé sur GitHub entre-temps.
+            </p>
+          </div>
         </>
       )}
     </div>

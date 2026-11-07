@@ -236,7 +236,7 @@ describe("Project page, the tabs (decision 028 G)", () => {
     renderAt("/projets/5/sante");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "octocat/hello" }),
+      await screen.findByRole("heading", { level: 1, name: /^hello/ }),
     ).toBeDefined();
     const link = within(screen.getByRole("main")).getByRole("link", {
       name: /projets/i,

@@ -84,13 +84,14 @@ describe("criterion 2: the Kanban section and its five columns", () => {
     const names = within(kanban())
       .getAllByRole("heading")
       .map((h) => h.textContent ?? "")
-      .filter((text) => /\(\d+\)$/.test(text));
+      .filter((text) => /\d+$/.test(text) && !text.startsWith("Idées"));
+    // The count is a pill after the name since slice 9.3 (the accessible name keeps « (n) »).
     expect(names).toEqual([
-      "À valider (2)",
-      "Prêtes (1)",
-      "En cours (1)",
-      "En revue (1)",
-      "Terminées (1)",
+      "À valider 2",
+      "Prêtes 1",
+      "En cours 1",
+      "En revue 1",
+      "Terminées 1",
     ]);
     for (const name of COLUMNS)
       expect(within(column(name)).getByRole("list"), name).toBeDefined();
@@ -207,11 +208,11 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     });
   const goBackToProject = async () => {
     fireEvent.click(
-      within(screen.getByRole("navigation")).getByRole("link", {
-        name: "Tous les projets",
-      }),
+      within(
+        screen.getByRole("navigation", { name: "Navigation principale" }),
+      ).getByRole("link", { name: /^Tous les projets/ }),
     );
-    fireEvent.click(await screen.findByRole("link", { name: "octocat/hello" }));
+    fireEvent.click(await screen.findByRole("link", { name: "hello" }));
   };
   const decide = async (act: () => Promise<void> | void, done: string) => {
     renderWithClient();

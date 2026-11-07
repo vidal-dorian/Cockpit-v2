@@ -3,7 +3,17 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchRoutine } from "./RoutineSettings.tsx";
-import { alertBox, button, field, focusRing, primaryButton } from "./ui.ts";
+import {
+  alertBox,
+  badge,
+  button,
+  card,
+  field,
+  focusRing,
+  primaryButton,
+  sectionLabel,
+  urgentBadge,
+} from "./ui.ts";
 
 const FREQUENCIES = {
   off: "Désactivée",
@@ -126,11 +136,11 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
   const lastRun = saved?.lastRun;
 
   return (
-    <section className="mt-8" aria-labelledby="ecriture-auto">
-      <h2 id="ecriture-auto" className="font-heading text-xl font-bold">
+    <section className="mx-[26px] mt-6" aria-labelledby="ecriture-auto">
+      <h2 id="ecriture-auto" className={`mb-2 ${sectionLabel}`}>
         Écriture automatique des US
       </h2>
-      <div className="mt-3" aria-live="polite">
+      <div aria-live="polite">
         {(schedule.isPending || routine.isPending) && (
           <p className="text-muted-foreground">Chargement…</p>
         )}
@@ -141,7 +151,7 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
           </p>
         )}
         {saved && form && routine.data && (
-          <div className="grid gap-4">
+          <div className={`grid gap-4 p-4 ${card}`}>
             {!canRun && (
               <p className="text-muted-foreground">
                 {routine.data.needsReconnect
@@ -243,9 +253,7 @@ export function ProjectRoutine({ projectId }: { projectId: string }) {
                   {when(lastRun.at)}
                 </span>
                 {/* The word comes with the color (decision 003). */}
-                <span
-                  className={`rounded-full px-3 py-1 font-semibold ${lastRun.result === "ok" ? "bg-done-soft text-done-text" : "bg-destructive-soft text-destructive"}`}
-                >
+                <span className={lastRun.result === "ok" ? badge : urgentBadge}>
                   {lastRun.result === "ok" ? "Réussi" : "Échec"}
                 </span>
                 {lastRun.sessionUrl && (

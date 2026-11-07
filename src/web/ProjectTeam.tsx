@@ -26,9 +26,12 @@ import {
   alertBox,
   button,
   card,
+  dangerButton,
   field,
   focusRing,
+  listCard,
   primaryButton,
+  sectionLabel,
 } from "./ui.ts";
 
 // React Flow stays out of the main bundle, as react-markdown does (App.tsx); the list below works while it loads.
@@ -275,11 +278,11 @@ function StepEditor({
           </button>
         </div>
       )}
-      <ul className="mt-3 grid gap-2">
+      <ul className={`mt-3 ${listCard}`}>
         {steps.map((s, i) => (
           <li
             key={s.agent}
-            className={`${card} flex flex-wrap items-center gap-x-4 gap-y-2 p-4`}
+            className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
           >
             <span className="font-semibold">{i + 1}</span>{" "}
             <span className="font-mono font-semibold">{s.agent}</span>{" "}
@@ -768,7 +771,7 @@ export function ProjectTeam({
               setDeleting(false);
               commit.mutate({ name, before: current, after: null });
             }}
-            className={`mt-2 min-h-10 rounded-xl bg-destructive px-4 font-semibold text-card disabled:opacity-50 ${focusRing}`}
+            className={`mt-2 ${dangerButton}`}
           >
             Confirmer la suppression
           </button>
@@ -788,7 +791,7 @@ export function ProjectTeam({
     </>
   );
   const heading = (
-    <h2 id="team" className="font-heading text-xl font-bold">
+    <h2 id="team" className={sectionLabel}>
       Équipe
     </h2>
   );
@@ -833,7 +836,7 @@ export function ProjectTeam({
       />
       {problem && !creating && <Problem problem={problem} />}
       {done && (
-        <div className="mt-3 rounded-xl bg-done-soft p-4 text-done-text">
+        <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
           <p>
             {done.pullRequest
               ? "La branche par défaut est protégée : une pull request est ouverte"

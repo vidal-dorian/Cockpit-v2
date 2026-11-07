@@ -14,7 +14,7 @@ import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useRef } from "react";
 import { parseAgent } from "./agent-file.ts";
 import type { TeamStep } from "./team-file.ts";
-import { card, focusRing } from "./ui.ts";
+import { card, focusRing, sectionLabel } from "./ui.ts";
 
 const SESSION_MODEL = "Celui de la session";
 const COLUMN = 280;
@@ -24,6 +24,7 @@ type Agent = { name: string; text: string | null };
 /** Decision 031 B: the cards of the team in a React Flow graph, loaded on demand with its styles. */
 type CardData = {
   step: TeamStep;
+  index: number;
   model: string | null;
   absent: boolean;
   onOpen: () => void;
@@ -31,7 +32,7 @@ type CardData = {
 type CardNode = Node<CardData, "card">;
 
 function StepCard({ data }: NodeProps<CardNode>) {
-  const { step, model, absent, onOpen } = data;
+  const { step, index, model, absent, onOpen } = data;
   return (
     <>
       <Handle type="target" position={Position.Left} id="in" />
@@ -42,13 +43,16 @@ function StepCard({ data }: NodeProps<CardNode>) {
         type="button"
         data-testid={`team-card-${step.agent}`}
         onClick={onOpen}
-        className={`${card} block w-60 p-3 text-left ${focusRing}`}
+        className={`${card} block w-60 p-3 text-left hover:border-border-strong hover:bg-raised ${focusRing}`}
       >
-        <span className="block font-mono font-semibold">{step.agent}</span>
-        <span className="block text-sm text-muted-foreground">
+        <span className={`block ${sectionLabel}`}>Étape {index + 1}</span>
+        <span className="mt-1 block font-bold">{step.agent}</span>
+        <span className="block text-[12.5px] text-muted-foreground">
+          {step.does}
+        </span>
+        <span className="mt-1 block text-xs text-dim">
           {absent ? "Agent absent du repo" : (model ?? SESSION_MODEL)}
         </span>
-        <span className="mt-1 block text-sm">{step.does}</span>
       </button>
     </>
   );
@@ -122,6 +126,7 @@ export default function StepGraph({
           height: 110,
           data: {
             step,
+            index: i,
             model: (text && parseAgent(text)?.model) || null,
             absent: !agents.some((a) => a.name === step.agent),
             onOpen: () => opener.current(step.agent),
