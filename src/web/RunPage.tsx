@@ -5,7 +5,7 @@ import { client } from "./api.ts";
 import { RunControls } from "./RunControls.tsx";
 import { RunQuestions } from "./RunQuestions.tsx";
 import { RunAction, RunVerdict } from "./RunVerdict.tsx";
-import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
 import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
 import {
   alertBox,
@@ -19,7 +19,7 @@ import {
 import { useChanges } from "./useChanges.ts";
 
 /** The run with its steps, story and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
-async function fetchRun(id: string) {
+export async function fetchRun(id: string) {
   const res = await client.api.runs[":id"].$get({ param: { id } });
   if (res.status === 401) return null;
   if (res.status === 404) return "not_found" as const;
@@ -215,7 +215,7 @@ export function RunPage() {
               trail={[
                 { label: "Projets", to: "/projets" },
                 {
-                  label: found.project.name,
+                  label: repoName(found.project.name),
                   to: `/projets/${found.project.id}`,
                 },
                 { label: `US ${found.story.id}`, to: `/us/${found.story.id}` },
@@ -254,7 +254,7 @@ export function RunPage() {
               }
             />
             <div className="mt-5 grid gap-6 px-[26px]">
-              <div className="grid gap-1 text-[13px] text-muted-foreground">
+              <div className="-mb-3 grid gap-1 text-[12.5px] text-muted-foreground">
                 <p>
                   <span className={badge}>
                     {RUN_STATUSES[found.run.status] ?? found.run.status}
@@ -264,7 +264,7 @@ export function RunPage() {
                     {found.run.branch}
                   </span>{" "}
                   · modèle {found.run.model}
-                  {found.project.name && ` · ${found.project.name}`}
+                  {` · ${repoName(found.project.name)}`}
                 </p>
                 {found.run.comment && (
                   <p>

@@ -144,7 +144,7 @@ describe("/autoriser page", () => {
 
     await screen.findByRole("button", { name: "Autoriser" });
     expect(screen.getByRole("button", { name: "Refuser" })).toBeDefined();
-    expect(text()).toContain("Claude Code veut accéder à tes projets Cockpit");
+    expect(text()).toContain("Claude Code demande à accéder à ton Cockpit.");
     expect(text()).toContain("localhost");
     const asked = calls.find((c) => c.path === "/api/oauth/request");
     expect(Object.fromEntries(new URLSearchParams(asked?.search))).toEqual(
@@ -163,7 +163,7 @@ describe("/autoriser page", () => {
     renderAt(`/autoriser${SEARCH}`);
 
     await screen.findByRole("button", { name: "Autoriser" });
-    expect(text()).toContain("claude.ai veut accéder à tes projets Cockpit");
+    expect(text()).toContain("claude.ai demande à accéder à ton Cockpit.");
   });
 
   it("given the page, when Autoriser is clicked, then it posts the approval with the request and then goes to the returned URL", async () => {

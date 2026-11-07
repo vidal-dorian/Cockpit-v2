@@ -1,9 +1,8 @@
 import {
-  Background,
   type Connection,
-  Controls,
   type Edge,
   Handle,
+  MarkerType,
   type Node,
   type NodeProps,
   Position,
@@ -14,10 +13,11 @@ import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useRef } from "react";
 import { parseAgent } from "./agent-file.ts";
 import type { TeamStep } from "./team-file.ts";
-import { card, focusRing, sectionLabel } from "./ui.ts";
+import { focusRing } from "./ui.ts";
 
 const SESSION_MODEL = "Celui de la session";
-const COLUMN = 280;
+const COLUMN = 200;
+const CARD = 160;
 
 type Agent = { name: string; text: string | null };
 
@@ -43,14 +43,16 @@ function StepCard({ data }: NodeProps<CardNode>) {
         type="button"
         data-testid={`team-card-${step.agent}`}
         onClick={onOpen}
-        className={`${card} block w-60 p-3 text-left hover:border-border-strong hover:bg-raised ${focusRing}`}
+        className={`flex w-40 flex-col gap-[3px] rounded-xl border border-border-strong bg-card px-3 py-2.5 text-left hover:bg-raised ${focusRing}`}
       >
-        <span className={`block ${sectionLabel}`}>Étape {index + 1}</span>
-        <span className="mt-1 block font-bold">{step.agent}</span>
-        <span className="block text-[12.5px] text-muted-foreground">
+        <span className="text-[11.5px] text-muted-foreground">
+          Étape {index + 1}
+        </span>
+        <span className="text-[13px] font-semibold">{step.agent}</span>
+        <span className="line-clamp-2 text-[11.5px] text-muted-foreground">
           {step.does}
         </span>
-        <span className="mt-1 block text-xs text-dim">
+        <span className="text-[11.5px] text-dim">
           {absent ? "Agent absent du repo" : (model ?? SESSION_MODEL)}
         </span>
       </button>
@@ -59,6 +61,8 @@ function StepCard({ data }: NodeProps<CardNode>) {
 }
 
 const nodeTypes = { card: StepCard };
+
+const arrow = { type: MarkerType.ArrowClosed, color: "var(--color-dim)" };
 
 function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
   return steps.flatMap((s, i) => [
@@ -70,7 +74,7 @@ function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
             target: s.agent,
             sourceHandle: "out",
             targetHandle: "in",
-            label: "puis",
+            markerEnd: arrow,
             selectable: false,
           },
         ]
@@ -83,8 +87,18 @@ function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
             target: s.loopTo,
             sourceHandle: "loop-out",
             targetHandle: "loop-in",
-            label: `boucle : ${s.until}`,
-            style: { strokeDasharray: "6 4" },
+            type: "smoothstep",
+            pathOptions: { offset: 28 },
+            markerEnd: arrow,
+            label: `retour au ${s.loopTo} : ${s.until}`,
+            // Under the dashed line, like the mockup: no background, the text shifted down.
+            labelShowBg: false,
+            labelStyle: {
+              fill: "var(--color-muted-foreground)",
+              fontSize: 11.5,
+              transform: "translateY(14px)",
+            },
+            style: { strokeDasharray: "4 4" },
             selected: selected === s.agent,
           },
         ]
@@ -122,8 +136,8 @@ export default function StepGraph({
           type: "card",
           position: { x: i * COLUMN, y: 0 },
           // Known size: React Flow draws the card without waiting for a measure.
-          width: 240,
-          height: 110,
+          width: CARD,
+          height: 115,
           data: {
             step,
             index: i,
@@ -139,7 +153,8 @@ export default function StepGraph({
   const [nodes, setNodes, onNodesChange] = useNodesState(laidOut);
   useEffect(() => setNodes(laidOut), [laidOut, setNodes]);
   return (
-    <div className="mt-3 hidden h-72 sm:block">
+    // Flat like the mockup: no dots, no zoom controls, the page keeps its scroll; the cards can still be dragged and linked.
+    <div className="absolute inset-0 hidden sm:block">
       <ReactFlow
         id={id}
         nodes={nodes}
@@ -152,11 +167,16 @@ export default function StepGraph({
         }
         onPaneClick={() => onSelectLoop(null)}
         nodesConnectable
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+        panOnDrag={false}
+        preventScrolling={false}
+        style={{ background: "transparent" }}
+        proOptions={{ hideAttribution: true }}
         fitView
-      >
-        <Background />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+        fitViewOptions={{ maxZoom: 1, padding: 0.1 }}
+      />
     </div>
   );
 }

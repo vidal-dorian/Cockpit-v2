@@ -16,8 +16,10 @@ describe("slice 9.3: the unknown path (S56)", () => {
     renderAt("/nimporte-quoi");
 
     const h1 = await screen.findByRole("heading", { level: 1 });
-    expect(h1.textContent).toContain("Cette page n'existe pas.");
-    expect(h1.textContent).toContain("Elle a peut-être été déplacée.");
+    expect(h1.textContent).toBe("Cette page n'existe pas.");
+    expect(screen.getByRole("main").textContent).toContain(
+      "Elle a peut-être été déplacée.",
+    );
     const link = screen.getByRole("link", { name: "Retour à l'accueil" });
     expect(link.getAttribute("href")).toBe("/");
   });

@@ -98,7 +98,10 @@ describe("decision 030 A: the tab Agents", () => {
     for (const other of links.filter((l) => l !== agents))
       expect(other.getAttribute("aria-current")).toBeNull();
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Agents" }),
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Les agents du repo",
+      }),
     ).toBeDefined();
   });
 });

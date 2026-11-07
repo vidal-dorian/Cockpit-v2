@@ -225,6 +225,11 @@ async function open() {
   await screen.findByRole("button", { name: "Faire le commit" });
 }
 /** The list item of a file: the one that holds its path and none of the other paths of the plan. */
+/** The preview of the selected file, on the right of the list. */
+const preview = () => screen.getByRole("region", { name: /^Aperçu de / });
+const select = (path: string) =>
+  fireEvent.click(within(rowOf(path)).getByRole("button"));
+
 function rowOf(path: string, all = PLAN.files.map((f) => f.path)) {
   const rows = screen
     .getAllByRole("listitem")
@@ -316,16 +321,31 @@ describe("decision 027 F: the list of the files", () => {
     expect(main).not.toMatch(/\bexists\b|signed-by-the-server/);
   });
 
-  it("given a file to add, when the list is shown, then its content is in a closed details", async () => {
+  it("given the plan on screen, when it is shown, then the page sentence says what Cockpit will write and how many files are new", async () => {
     stubApi();
     renderAt("/projets/5/sante");
 
     await open();
 
-    const details = rowOf(TEST_WRITER).querySelector("details");
-    expect(details, "a <details> in the row").not.toBeNull();
-    expect((details as HTMLDetailsElement).open).toBe(false);
-    expect(details?.textContent).toContain("TEXTE-DU-NOUVEL-AGENT");
+    const h1 = screen.getByRole("heading", { level: 1 });
+    expect(h1.textContent).toContain(
+      "Voici ce que Cockpit va écrire dans hello.",
+    );
+    expect(h1.textContent).toContain("1 fichier nouveau, rien n'est écrasé.");
+  });
+
+  it("given a file to add, when the list is shown, then the first file is selected and its content is in the preview", async () => {
+    stubApi();
+    renderAt("/projets/5/sante");
+
+    await open();
+
+    expect(
+      within(rowOf(TEST_WRITER))
+        .getByRole("button")
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(preview().textContent).toContain("TEXTE-DU-NOUVEL-AGENT");
   });
 
   it("given a file that is there but different, when the list is shown, then its diff goes from the current text to the proposed one: a removed line is marked Retirée, an added one Ajoutée, an unchanged one neither", async () => {
@@ -334,7 +354,8 @@ describe("decision 027 F: the list of the files", () => {
 
     await open();
 
-    const items = within(rowOf(DEVELOPER))
+    select(DEVELOPER);
+    const items = within(preview())
       .getAllByRole("listitem")
       .map((li) => li.textContent ?? "");
     const only = (text: string) => items.findIndex((i) => i.includes(text));
@@ -355,8 +376,10 @@ describe("decision 027 F: the list of the files", () => {
 
     await open();
 
-    expect(rowOf(WRITE_US).textContent).not.toMatch(/Retirée|Ajoutée/);
-    expect(rowOf(REVIEWER).textContent).not.toMatch(/Retirée|Ajoutée/);
+    for (const path of [WRITE_US, REVIEWER]) {
+      select(path);
+      expect(preview().textContent, path).not.toMatch(/Retirée|Ajoutée/);
+    }
   });
 
   it("given a plan with files to add, when the list is shown, then « Faire le commit » is enabled", async () => {

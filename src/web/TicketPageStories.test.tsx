@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 
@@ -45,12 +51,42 @@ describe("criterion 14: Ticket page with stories", () => {
     expect(
       first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(rowOf(first).textContent).toMatch(/\b1\b/);
-    expect(rowOf(first).textContent).toMatch(/à valider/i);
-    expect(rowOf(second).textContent).toMatch(/\b2\b/);
+    // The row of a story to validate offers « Valider » (as the mockup S21) instead of its status.
+    expect(
+      within(rowOf(first)).getByRole("button", { name: "Valider" }),
+    ).toBeDefined();
+    expect(rowOf(first).textContent).toMatch(/1 critère/);
     expect(rowOf(second).textContent).toMatch(/prête/i);
     // The codes of the server are never shown.
     expect(main().textContent).not.toMatch(/to_validate|ready/);
+  });
+
+  it("given a story to validate, when « Valider » is clicked on its row, then it posts to /api/stories/21/validate", async () => {
+    stubTicketApi([written()], stories());
+    const inner = globalThis.fetch;
+    const posted: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const path = new URL(raw, "http://localhost").pathname;
+        if (init?.method === "POST" && path.endsWith("/validate")) {
+          posted.push(path);
+          return Response.json({ story: {} });
+        }
+        return inner(input, init);
+      }),
+    );
+    renderAt("/tickets/7");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Valider" }));
+
+    await waitFor(() => expect(posted).toEqual(["/api/stories/21/validate"]));
   });
 
   it("given a ticket whose step is to_validate, when the page loads, then the step reads À valider outside the list of stories", async () => {

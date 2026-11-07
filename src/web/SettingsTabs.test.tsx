@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
@@ -14,8 +8,8 @@ import { App } from "./App.tsx";
 //
 // Pinned choices (the decision leaves them open):
 // - 045 I: the tabs are a left menu; « Utilisateurs » is labelled « Instance » and « Écriture automatique des US » « Tâches cloud » (same routes).
-// - The tabs are links inside a <nav aria-label="Réglages">: « Connecter Claude » (/reglages), « Jetons MCP »
-//   (/reglages/jetons), « Utilisateurs » (/reglages/utilisateurs, administrator only) and
+// - The tabs are links inside a <nav aria-label="Réglages">: « Connecter Claude » (/reglages, with the section
+//   « Jetons MCP », 045 I; /reglages/jetons redirects to it), « Utilisateurs » (/reglages/utilisateurs, administrator only) and
 //   « Écriture automatique des US » (/reglages/ecriture-us). The open one has aria-current="page", the others have none.
 // - A section is told by its heading: « Connecter Claude », « Jetons MCP », « Utilisateurs », « Écrire les US automatiquement ».
 // - A non-administrator on /reglages/utilisateurs reads « Cette page est réservée à l'administrateur. » and /api/settings/users
@@ -113,19 +107,16 @@ const heading = (name: string) =>
 
 const TABS = {
   claude: "Connecter Claude",
-  tokens: "Jetons MCP",
   users: "Instance",
   routine: "Tâches cloud",
 };
 const HREFS: Record<string, string> = {
   [TABS.claude]: "/reglages",
-  [TABS.tokens]: "/reglages/jetons",
   [TABS.users]: "/reglages/utilisateurs",
   [TABS.routine]: "/reglages/ecriture-us",
 };
 const SECTIONS: Record<string, string> = {
   [TABS.claude]: "Connecter Claude",
-  [TABS.tokens]: "Jetons MCP",
   [TABS.users]: "Utilisateurs",
   [TABS.routine]: "Écrire les US automatiquement",
 };
@@ -143,7 +134,7 @@ async function tabNav() {
 }
 
 describe("Réglages, the four tabs (decision 028 H)", () => {
-  it("given an administrator, when /reglages loads, then the nav « Réglages » links Connecter Claude, Jetons MCP, Utilisateurs and Écriture automatique des US to their routes, Connecter Claude being the open one", async () => {
+  it("given an administrator, when /reglages loads, then the nav « Réglages » links Connecter Claude, Instance and Écriture automatique des US to their routes, Connecter Claude being the open one", async () => {
     stubApi(true);
 
     renderAt("/reglages");
@@ -160,7 +151,6 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
   });
 
   it.each([
-    [TABS.tokens, "/reglages/jetons"],
     [TABS.users, "/reglages/utilisateurs"],
     [TABS.routine, "/reglages/ecriture-us"],
   ])(
@@ -186,7 +176,9 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
     expect(
       await screen.findByRole("heading", { name: "Connecter Claude" }),
     ).toBeDefined();
-    expect(heading("Jetons MCP")).toBeNull();
+    expect(
+      await screen.findByRole("heading", { name: "Jetons MCP" }),
+    ).toBeDefined();
     expect(heading("Utilisateurs")).toBeNull();
     expect(heading("Écrire les US automatiquement")).toBeNull();
     expect(calls.some((c) => c.path === "/api/settings/users")).toBe(false);
@@ -194,7 +186,6 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
   });
 
   it.each([
-    [TABS.tokens, "/reglages/jetons"],
     [TABS.users, "/reglages/utilisateurs"],
     [TABS.routine, "/reglages/ecriture-us"],
   ])(
@@ -212,23 +203,18 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
     },
   );
 
-  it("given an administrator on /reglages, when the tab Jetons MCP is clicked, then the route changes and the section replaces the previous one", async () => {
+  it("given the old address /reglages/jetons, when it is opened, then it lands on /reglages where the tokens are", async () => {
     stubApi(true);
-    renderAt("/reglages");
-    const { link } = await tabNav();
-    await screen.findByRole("heading", { name: "Connecter Claude" });
 
-    fireEvent.click(link(TABS.tokens) as HTMLElement);
+    renderAt("/reglages/jetons");
 
     expect(
       await screen.findByRole("heading", { name: "Jetons MCP" }),
     ).toBeDefined();
-    expect(window.location.pathname).toBe("/reglages/jetons");
-    expect(heading("Connecter Claude")).toBeNull();
-    expect(link(TABS.tokens)?.getAttribute("aria-current")).toBe("page");
+    expect(window.location.pathname).toBe("/reglages");
   });
 
-  it("given a user who is not an administrator, when /reglages loads, then the tab Utilisateurs is not shown but the three others are", async () => {
+  it("given a user who is not an administrator, when /reglages loads, then the tab Utilisateurs is not shown but the two others are", async () => {
     stubApi(false);
 
     renderAt("/reglages");
@@ -236,7 +222,7 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
     const { link } = await tabNav();
     await screen.findByRole("heading", { name: "Connecter Claude" });
     expect(link(TABS.users)).toBeNull();
-    for (const name of [TABS.claude, TABS.tokens, TABS.routine])
+    for (const name of [TABS.claude, TABS.routine])
       expect(link(name), name).not.toBeNull();
   });
 
@@ -257,11 +243,9 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
 describe("Réglages, no more public address (decision 028 I)", () => {
   it.each([
     ["an administrator", true, "/reglages"],
-    ["an administrator", true, "/reglages/jetons"],
     ["an administrator", true, "/reglages/utilisateurs"],
     ["an administrator", true, "/reglages/ecriture-us"],
     ["a user who is not an administrator", false, "/reglages"],
-    ["a user who is not an administrator", false, "/reglages/jetons"],
     ["a user who is not an administrator", false, "/reglages/ecriture-us"],
   ])(
     "given %s (administrator: %s), when %s is opened, then there is no section Adresse publique and /api/settings/public-url is never requested",

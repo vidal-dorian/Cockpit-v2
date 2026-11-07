@@ -136,13 +136,15 @@ afterEach(() => {
 });
 
 describe("Réglages page, the section Connecter Claude", () => {
-  it("given a user, when /reglages loads, then the section Connecter Claude is shown alone, without Jetons MCP (decision 028 H)", async () => {
+  it("given a user, when /reglages loads, then the section Connecter Claude is followed by the section Jetons MCP (decision 045 I)", async () => {
     stubApi(NOT_CONNECTED);
 
     renderAt("/reglages");
 
     await connectSection();
-    expect(screen.queryByRole("heading", { name: "Jetons MCP" })).toBeNull();
+    expect(
+      await screen.findByRole("heading", { name: "Jetons MCP" }),
+    ).toBeDefined();
   });
 
   it("given an administrator, when /reglages loads, then the section Connecter Claude is shown without Utilisateurs (decision 028 H)", async () => {
@@ -154,15 +156,15 @@ describe("Réglages page, the section Connecter Claude", () => {
     expect(screen.queryByRole("heading", { name: "Utilisateurs" })).toBeNull();
   });
 
-  it("given the CLI note of the section, when it is read, then « Les jetons manuels (plus bas) » is a link to /reglages/jetons (decision 028 H)", async () => {
+  it("given the CLI note of the section, when it is read, then « Les jetons manuels (plus bas) » is a link to #jetons (decision 028 H)", async () => {
     stubApi(NOT_CONNECTED);
 
     renderAt("/reglages");
 
     const { section } = await connectSection();
     // The note sits in the closed <details>: look the link up in the DOM.
-    const link = section.querySelector('details a[href="/reglages/jetons"]');
-    expect(link, "a link to /reglages/jetons in the CLI note").not.toBeNull();
+    const link = section.querySelector('details a[href="#jetons"]');
+    expect(link, "a link to #jetons in the CLI note").not.toBeNull();
     expect(link?.textContent).toMatch(/jetons manuels/i);
   });
 

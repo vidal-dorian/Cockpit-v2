@@ -90,15 +90,22 @@ describe("start-up wizard", () => {
       renderAt(path);
 
       expect(
-        await screen.findByRole("heading", { name: "Installer Cockpit" }),
+        await screen.findByRole("heading", {
+          name: /^Colle le code de démarrage\./,
+        }),
       ).toBeDefined();
       expect(screen.getByLabelText("Code de démarrage")).toBeDefined();
       expect(screen.queryByLabelText("Adresse publique")).toBeNull();
       expect(screen.queryByText("Adresse publique")).toBeNull();
+      expect(screen.getByText(DETECTED)).toBeDefined();
+      fireEvent.change(screen.getByLabelText("Code de démarrage"), {
+        target: { value: "the-code" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
       for (const permission of ["Contenu", "Issues", "Pull requests"])
         expect(screen.getByText(new RegExp(permission))).toBeDefined();
       expect(
-        screen.getByRole("button", { name: "Créer l'App GitHub" }),
+        screen.getByRole("button", { name: "Créer l'App sur GitHub ↗" }),
       ).toBeDefined();
     },
   );
@@ -116,7 +123,10 @@ describe("start-up wizard", () => {
       target: { value: "the-code" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Créer l'App GitHub" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Créer l'App sur GitHub ↗" }),
+    );
 
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const start = calls.find((c) => c.path === "/api/setup/start");
@@ -143,7 +153,10 @@ describe("start-up wizard", () => {
       target: { value: "wrong" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Créer l'App GitHub" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Créer l'App sur GitHub ↗" }),
+    );
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Code de démarrage incorrect");
@@ -158,9 +171,7 @@ describe("start-up wizard", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/échoué/i);
     expect(alert.textContent).toMatch(/réessaie|réessayer/i);
-    expect(
-      screen.getByRole("button", { name: "Créer l'App GitHub" }),
-    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "Continuer" })).toBeDefined();
   });
 
   it("given the instance is configured, when the page loads, then the normal app renders and not the wizard", async () => {
@@ -172,11 +183,11 @@ describe("start-up wizard", () => {
       await screen.findByRole("heading", { name: "Cockpit" }),
     ).toBeDefined();
     expect(
-      screen.queryByRole("heading", { name: "Installer Cockpit" }),
+      screen.queryByRole("heading", { name: /^Colle le code de démarrage\./ }),
     ).toBeNull();
     expect(
       within(document.body).queryByRole("button", {
-        name: "Créer l'App GitHub",
+        name: "Continuer",
       }),
     ).toBeNull();
   });
@@ -196,7 +207,10 @@ describe("start-up wizard, refused address", () => {
     fireEvent.change(await screen.findByLabelText("Code de démarrage"), {
       target: { value: "the-code" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Créer l'App GitHub" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Créer l'App sur GitHub ↗" }),
+    );
     return { alert: await screen.findByRole("alert"), submit };
   };
 

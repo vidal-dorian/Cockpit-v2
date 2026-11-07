@@ -151,7 +151,7 @@ describe("slice 9.3: Maintenant, Ensuite and Claude en ce moment", () => {
       "/runs/12",
       "/runs/13",
     ]);
-    expect(links[0]?.textContent).toContain("Run 12 · octocat/hello");
+    expect(links[0]?.textContent).toContain("Run 12 · hello");
     expect(links[0]?.textContent).toContain("developer");
     expect(links[1]?.textContent).toContain("Démarrage");
   });
@@ -237,7 +237,11 @@ describe("slice 9.3: the right panel of the home", () => {
     fireEvent.change(within(panel()).getByLabelText("Ta réponse"), {
       target: { value: "Plutôt Publier" },
     });
-    fireEvent.click(within(panel()).getByRole("button", { name: "Répondre" }));
+    fireEvent.click(
+      within(panel()).getByRole("button", {
+        name: "Répondre et passer au suivant",
+      }),
+    );
 
     await waitFor(() =>
       expect(api.calls).toContainEqual({

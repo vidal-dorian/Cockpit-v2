@@ -9,6 +9,7 @@ import {
   button,
   dangerButton,
   focusRing,
+  ghostButton,
   listCard,
   primaryButton,
   sectionLabel,
@@ -105,7 +106,7 @@ function ProjectList() {
         {projects.data.map((project) => (
           <li
             key={project.id}
-            className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2"
+            className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
           >
             <Dot
               tone={
@@ -117,19 +118,23 @@ function ProjectList() {
               }
               live={project.id !== first && states.get(project.id) === "claude"}
             />
-            <Link
-              to={`/projets/${project.id}`}
-              className={`font-semibold hover:underline ${focusRing}`}
-            >
-              {project.fullName.split("/").pop()}
-            </Link>
-            <span className="font-mono text-[11.5px] text-dim">
-              {project.fullName}
+            <span className="min-w-0 flex-1 basis-48">
+              <Link
+                to={`/projets/${project.id}`}
+                className={`block truncate font-semibold hover:underline ${focusRing}`}
+              >
+                {project.fullName.split("/").pop()}
+              </Link>
+              <span className="block font-mono text-[11.5px] text-muted-foreground">
+                {project.fullName}
+              </span>
             </span>
-            <span className="text-[13px] text-muted-foreground">
+            <span
+              className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
+            >
               {STATE_TEXT[states.get(project.id) ?? "idle"]}
             </span>
-            <span className="flex gap-2 sm:ml-auto">
+            <span className="flex gap-2">
               {project.archived ? (
                 <span className={badge}>Archivé</span>
               ) : confirming === project.id ? (
@@ -158,10 +163,11 @@ function ProjectList() {
                   </button>
                 </>
               ) : (
+                // The mockup has no slot for it: a quiet button before the row's end.
                 <button
                   type="button"
                   onClick={() => setConfirming(project.id)}
-                  className={button}
+                  className={ghostButton}
                 >
                   Archiver
                 </button>
@@ -248,20 +254,24 @@ function Importable() {
           {repos.map((repo) => (
             <li
               key={repo.githubRepoId}
-              className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
+              className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-[18px] py-2"
             >
-              <span className="font-semibold">{repo.fullName}</span>
-              <span className="text-[13px] text-muted-foreground">
-                {repo.defaultBranch}
+              <span className="min-w-0 flex-1">
+                <span className="block font-mono text-[13px] font-semibold">
+                  {repo.fullName}
+                </span>
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {repo.defaultBranch}
+                </span>
               </span>
               {repo.imported ? (
-                <span className={`${badge} sm:ml-auto`}>Déjà importé</span>
+                <span className={badge}>Déjà importé</span>
               ) : (
                 <button
                   type="button"
                   onClick={() => importRepo.mutate(repo.githubRepoId)}
                   disabled={importRepo.isPending}
-                  className={`${button} sm:ml-auto`}
+                  className={button}
                 >
                   Importer
                 </button>
@@ -292,8 +302,13 @@ export function Projects() {
             : "Projets"
         }
         rest="Les autres avancent seuls ou dorment."
+        actions={
+          <a href="#importer" className={`mt-1 ${button}`}>
+            + Importer un repo
+          </a>
+        }
       />
-      <section className="mx-[26px] mt-6" aria-labelledby="mes-projets">
+      <section className="mx-[26px] mt-5" aria-labelledby="mes-projets">
         <h2 id="mes-projets" className={`mb-2 ${sectionLabel}`}>
           Mes projets
         </h2>

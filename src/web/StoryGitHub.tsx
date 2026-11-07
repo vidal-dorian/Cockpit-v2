@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "./api.ts";
-import { alertBox, button, card, focusRing, sectionLabel } from "./ui.ts";
+import { alertBox, focusRing, ghostButton, sectionLabel } from "./ui.ts";
 
 const CI = {
   pending: "En cours",
@@ -19,7 +19,9 @@ export function StoryGitHub({
 }: {
   story: {
     id: number;
+    iWant: string;
     status: string;
+    branch?: string | null;
     prNumber: number;
     prCiState: keyof typeof CI | null;
     prReviewState: keyof typeof REVIEW | null;
@@ -40,38 +42,61 @@ export function StoryGitHub({
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["story"] }),
   });
 
+  const rows: [string, string | null][] = [
+    ["Branche", story.branch ?? null],
+    // The state comes from the story: unknown once it is abandoned or back to ready.
+    [
+      "État",
+      story.status === "done"
+        ? "Mergée"
+        : story.status === "in_review" || story.status === "in_progress"
+          ? "Ouverte"
+          : null,
+    ],
+    ["CI", story.prCiState ? CI[story.prCiState] : "Aucune"],
+    ["Revue", story.prReviewState ? REVIEW[story.prReviewState] : "En attente"],
+  ];
+
   return (
-    <section className={`${card} p-4`}>
-      <h2 className={sectionLabel}>GitHub</h2>
-      <p className="mt-2 font-semibold">
+    <section className="grid gap-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className={sectionLabel}>GitHub</h2>
+        <button
+          type="button"
+          disabled={refresh.isPending}
+          onClick={() => refresh.mutate()}
+          className={ghostButton}
+        >
+          Actualiser
+        </button>
+      </div>
+      <p className="text-lg font-semibold">
         <a
           href={`https://github.com/${fullName}/pull/${story.prNumber}`}
           className={`underline ${focusRing}`}
         >
-          PR n° {story.prNumber}
+          PR #{story.prNumber} · {story.iWant}
         </a>
       </p>
-      {/* The state comes from the story: unknown once it is abandoned or back to ready. */}
-      {story.status === "done" ? (
-        <p>État : Mergée</p>
-      ) : story.status === "in_review" || story.status === "in_progress" ? (
-        <p>État : Ouverte</p>
-      ) : null}
-      <p>CI : {story.prCiState ? CI[story.prCiState] : "Aucune"}</p>
-      <p>
-        Revue :{" "}
-        {story.prReviewState ? REVIEW[story.prReviewState] : "En attente"}
-      </p>
-      <button
-        type="button"
-        disabled={refresh.isPending}
-        onClick={() => refresh.mutate()}
-        className={`mt-3 ${button}`}
-      >
-        Actualiser
-      </button>
+      <dl className="grid grid-cols-[110px_1fr] gap-x-2 gap-y-1.5 text-[13.5px]">
+        {rows.map(
+          ([term, value]) =>
+            value && (
+              <div key={term} className="contents">
+                <dt className="text-muted-foreground">{term}</dt>
+                <dd
+                  className={
+                    term === "Branche" ? "font-mono text-[12.5px]" : ""
+                  }
+                >
+                  {value}
+                </dd>
+              </div>
+            ),
+        )}
+      </dl>
       {refresh.error && (
-        <p role="alert" className={`mt-3 ${alertBox}`}>
+        <p role="alert" className={alertBox}>
           {refresh.error.message}
         </p>
       )}

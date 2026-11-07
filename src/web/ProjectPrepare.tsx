@@ -1,9 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
-import { alertBox, button, focusRing, listCard, primaryButton } from "./ui.ts";
+import { plural } from "./tickets.ts";
+import {
+  alertBox,
+  badge,
+  button,
+  focusRing,
+  listCard,
+  primaryButton,
+} from "./ui.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -114,23 +122,139 @@ export function FileRow({ file }: { file: PlanFile }) {
   );
 }
 
+const FILE_NOTE: Record<string, string> = {
+  create: "Sera ajouté",
+  same: "Déjà là, identique",
+  exists: "Déjà là, différent : laissé tel quel",
+  special: "Déjà là, pas un simple fichier : laissé tel quel",
+};
+
+const noteOf = (file: PlanFile) =>
+  file.status === "exists" && file.current === undefined
+    ? FILE_NOTE.special
+    : FILE_NOTE[file.status];
+
+/** The master/detail of the plan (screen S13): the files on the left, the selected one on the right, the first one at first. */
+function PlanView({ plan }: { plan: Plan }) {
+  const [selected, setSelected] = useState(plan.files[0]?.path);
+  const file = plan.files.find((f) => f.path === selected) ?? plan.files[0];
+  const lines = useMemo(
+    () =>
+      file?.status === "exists" && file.current !== undefined
+        ? diffLines(file.current, file.content)
+        : null,
+    [file],
+  );
+  if (!file) return null;
+  return (
+    <div className="mt-3 grid items-start gap-3.5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      <ul className={listCard}>
+        {plan.files.map((f) => (
+          <li key={f.path}>
+            <button
+              type="button"
+              aria-pressed={f.path === file.path}
+              onClick={() => setSelected(f.path)}
+              className={`flex min-h-[50px] w-full items-start gap-3 px-4 py-2.5 text-left ${focusRing} ${f.path === file.path ? "bg-raised shadow-[inset_2px_0_0_var(--color-foreground)]" : "hover:bg-raised"}`}
+            >
+              <span aria-hidden="true" className="w-4 text-center text-dim">
+                {f.status === "create" ? "+" : "·"}
+              </span>
+              <span className="min-w-0">
+                <span className="block break-all font-mono text-[13px] font-semibold">
+                  {f.path}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {noteOf(f)}
+                  {f.status === "create" &&
+                    ` · ${plural(f.content.split("\n").length, "ligne", "lignes")}`}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <section aria-label={`Aperçu de ${file.path}`} className="min-w-0">
+        <p className="mb-2 flex flex-wrap items-center gap-2.5">
+          <span className="break-all font-mono text-[13px] font-semibold">
+            {file.path}
+          </span>
+          <span className={badge}>
+            {file.status === "create" ? "nouveau" : "laissé tel quel"}
+          </span>
+        </p>
+        <div className="overflow-hidden rounded-xl border border-border bg-sunken py-2.5">
+          {file.status === "create" && (
+            <pre className="overflow-x-auto font-mono text-xs leading-[1.65]">
+              {file.content.split("\n").map((text, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: the lines are never reordered
+                <div key={i} className="px-3.5">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block w-7 text-past"
+                  >
+                    {i + 1}
+                  </span>
+                  {text}
+                </div>
+              ))}
+            </pre>
+          )}
+          {file.status !== "create" && (
+            <p className="px-3.5 pb-1 text-[13px] text-muted-foreground">
+              {noteOf(file)}
+            </p>
+          )}
+          {file.status === "exists" &&
+            file.current !== undefined &&
+            (lines ? (
+              <DiffList lines={lines} />
+            ) : (
+              <div className="px-3.5">
+                <h3 className="mt-3 font-semibold">Version du repo</h3>
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+                  {file.current}
+                </pre>
+                <h3 className="mt-3 font-semibold">Version de Cockpit</h3>
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-sm">
+                  {file.content}
+                </pre>
+              </div>
+            ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 /** Decision 027 F: « Préparer pour Claude », the files that would be added to the repo, and the commit that adds them. Stays mounted once the health is green, to say what was done. */
 export function ProjectPrepare({
   projectId,
   fullName,
   archived,
   red,
+  onPlan,
 }: {
   projectId: string;
   fullName: string;
   archived: boolean;
   /** The line claude_md or agents of the health is red. */
   red: boolean;
+  /** Tells the page header how many files the plan on screen adds (null when there is no plan). */
+  onPlan?: (added: number | null) => void;
 }) {
   const queryClient = useQueryClient();
   const [plan, setPlan] = useState<Plan | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+
+  useEffect(
+    () =>
+      onPlan?.(
+        plan ? plan.files.filter((f) => f.status === "create").length : null,
+      ),
+    [plan, onPlan],
+  );
 
   const read = useMutation({
     mutationFn: () => readPlan(projectId),
@@ -177,7 +301,7 @@ export function ProjectPrepare({
   });
 
   return (
-    <div className="mt-4">
+    <div>
       {red && !done?.pullRequest && !plan && (
         <>
           <h2 className="mb-2 text-[11.5px] font-bold uppercase tracking-[.08em] text-you-text">
@@ -191,7 +315,7 @@ export function ProjectPrepare({
               ✕
             </span>
             <p className="min-w-0 flex-1">
-              <span className="block font-bold">
+              <span className="block text-[15px] font-semibold">
                 Préparer le repo pour Claude
               </span>
               <span className="block text-[12.5px] text-muted-foreground">
@@ -243,11 +367,7 @@ export function ProjectPrepare({
       )}
       {plan && (
         <>
-          <ul className={`mt-3 ${listCard}`}>
-            {plan.files.map((file) => (
-              <FileRow key={file.path} file={file} />
-            ))}
-          </ul>
+          <PlanView plan={plan} />
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"

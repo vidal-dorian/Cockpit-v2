@@ -211,7 +211,7 @@ export function StoryDecisions({
                   onClick={() => open("sendBack")}
                   className={panelButton}
                 >
-                  Renvoyer
+                  Renvoyer à Claude
                 </button>
               )}
             </div>
@@ -230,9 +230,12 @@ export function StoryDecisions({
     >
       {mode === null && (
         <>
-          <h2 className="text-xl leading-snug font-semibold">
-            {HEADLINES[status]}
-          </h2>
+          {/* In review, the title of the pull request (in the children) is the headline. */}
+          {!prLink && (
+            <h2 className="text-lg leading-[1.35] font-semibold">
+              {HEADLINES[status]}
+            </h2>
+          )}
           {toDecide.length > 0 &&
             ["to_validate", "to_rewrite"].includes(status) && (
               <p id="to-decide" className="text-muted-foreground">
@@ -245,7 +248,7 @@ export function StoryDecisions({
           {status === "to_validate" && (
             <>
               <p className={sectionLabel}>Après validation</p>
-              <p className="text-muted-foreground">
+              <p className="text-[13px] leading-normal text-muted-foreground">
                 L'US est publiée sur GitHub, et Claude peut la développer.
               </p>
             </>
@@ -280,14 +283,14 @@ export function StoryDecisions({
             );
           }}
         >
-          <h2 className="text-xl leading-snug font-semibold">
+          <h2 className="text-lg leading-[1.35] font-semibold">
             Qu'est-ce que Claude doit changer ?
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Il réécrira l'US avec ton commentaire, puis elle reviendra ici.
           </p>
-          <label className="block font-semibold">
-            Commentaire pour Claude
+          <label className="block">
+            <span className="sr-only">Commentaire pour Claude</span>
             <textarea
               // The Renvoyer button is gone: keep the keyboard focus in the form.
               // biome-ignore lint/a11y/noAutofocus: focus moves with the form the user just asked for
@@ -295,16 +298,19 @@ export function StoryDecisions({
               value={comment}
               onChange={(event) => setComment(event.target.value)}
               rows={6}
-              className={field}
+              className={`${field} mt-0 leading-relaxed`}
             />
           </label>
+          <p className="text-xs text-muted-foreground">
+            Obligatoire · {comment.length} caractère{comment.length > 1 && "s"}
+          </p>
           <div className="mt-auto flex flex-col gap-2">
             <button
               type="submit"
               disabled={blank || run.isPending}
               className={panelPrimaryButton}
             >
-              Confirmer le renvoi
+              Renvoyer à Claude
             </button>
             <button type="button" onClick={close} className={ghostButton}>
               Annuler
@@ -314,7 +320,7 @@ export function StoryDecisions({
       )}
       {mode === "abandon" && (
         <>
-          <h2 className="text-xl leading-snug font-semibold">
+          <h2 className="text-lg leading-[1.35] font-semibold">
             Abandonner cette user story ?
           </h2>
           <p id="abandon-story-warning">
@@ -498,19 +504,32 @@ const draftOf = (story: DecidedStory) => ({
   criteria: story.criteria.map(withKey),
 });
 
+export async function fetchStoryHistory(id: number) {
+  const res = await client.api.stories[":id"].history.$get({
+    param: { id: String(id) },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).entries;
+}
+
+/** The latest successful validation of a story in its history: who validated it and when (null when it was never validated). */
+export function useStoryValidation(id: number) {
+  return useQuery({
+    queryKey: ["story-history", String(id), "validation"],
+    queryFn: async () =>
+      (await fetchStoryHistory(id)).find(
+        (e) => e.action === "validate_story" && e.result === "ok",
+      ) ?? null,
+  });
+}
+
 /** The entries of the user about this story, read when the section is opened (decision 018 I). */
 export function StoryHistory({ id }: { id: number }) {
   const [opened, setOpened] = useState(false);
   const entries = useQuery({
     queryKey: ["story-history", String(id)],
     enabled: opened,
-    queryFn: async () => {
-      const res = await client.api.stories[":id"].history.$get({
-        param: { id: String(id) },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return (await res.json()).entries;
-    },
+    queryFn: () => fetchStoryHistory(id),
   });
 
   return (

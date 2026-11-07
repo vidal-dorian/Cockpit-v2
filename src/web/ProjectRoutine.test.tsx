@@ -16,7 +16,7 @@ import { App } from "./App.tsx";
 // Pinned choices (the decision leaves them open):
 // - The page reads GET /api/projects/:id/routine ({ frequency, hour, weekday, timeZone, nextRunAt, lastRun }) and,
 //   to know whether a routine is connected, GET /api/me/routine ({ connected, needsReconnect, ... }).
-// - The frequency is a <select> labelled « Fréquence », its option values off / on_demand / daily / weekly
+// - The frequency is a group of four radios (« Fréquence »), their values off / on_demand / daily / weekly
 //   (labels: Désactivée, À la demande, Chaque jour, Chaque semaine). « Heure » is a <select> of 24 options (values
 //   0..23), shown for daily and weekly only; « Jour » a <select> of 7 options (values 1..7, Monday 1), shown for weekly only.
 // - « Enregistrer » saves with PUT /api/projects/:id/routine, always with the time zone of the browser
@@ -24,6 +24,13 @@ import { App } from "./App.tsx";
 // - « Écrire les US maintenant » posts to /api/projects/:id/routine/run, then reads the schedule again.
 // - The last run reads « Dernier lancement », « Réussi » or « Échec », with the link « Voir la session » when there is
 //   a session url; the next one reads « Prochain passage » and a French date, or nothing when there is none.
+
+const choose = (section: HTMLElement, value: string) =>
+  fireEvent.click(
+    within(section)
+      .getAllByRole("radio")
+      .find((r) => (r as HTMLInputElement).value === value) as HTMLElement,
+  );
 
 type Schedule = {
   frequency: "off" | "on_demand" | "daily" | "weekly";
@@ -177,6 +184,8 @@ function stubApi(state: State) {
         };
         return Response.json({ sessionUrl: NEW_SESSION });
       }
+      if (path === "/api/projects/5/archive" && method === "POST")
+        return Response.json({ ok: true });
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     }),
   );
@@ -233,15 +242,14 @@ describe("Project page, the section Écriture automatique des US", () => {
     renderAt("/projets/5/ecriture-us");
 
     const section = await routineSection();
-    const frequency = within(section).getByLabelText(
-      "Fréquence",
-    ) as HTMLSelectElement;
-    expect(
-      within(frequency)
-        .getAllByRole("option")
-        .map((o) => (o as HTMLOptionElement).value),
-    ).toEqual(["off", "on_demand", "daily", "weekly"]);
-    expect(frequency.value).toBe("off");
+    const radios = within(section).getAllByRole("radio") as HTMLInputElement[];
+    expect(radios.map((r) => r.value)).toEqual([
+      "off",
+      "on_demand",
+      "daily",
+      "weekly",
+    ]);
+    expect(radios.map((r) => r.checked)).toEqual([true, false, false, false]);
     expect(within(section).queryByLabelText("Heure")).toBeNull();
     expect(within(section).queryByLabelText("Jour")).toBeNull();
   });
@@ -258,8 +266,12 @@ describe("Project page, the section Écriture automatique des US", () => {
     expect(within(hour).getAllByRole("option")).toHaveLength(24);
     expect(hour.value).toBe("7");
     expect(
-      (within(section).getByLabelText("Fréquence") as HTMLSelectElement).value,
-    ).toBe("daily");
+      (
+        within(section).getByRole("radio", {
+          name: "Chaque jour",
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
     expect(within(section).queryByLabelText("Jour")).toBeNull();
   });
 
@@ -290,15 +302,13 @@ describe("Project page, the section Écriture automatique des US", () => {
     stubApi({ schedule: OFF, routine: CONNECTED });
     renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
-    const frequency = within(section).getByLabelText("Fréquence");
-
-    fireEvent.change(frequency, { target: { value: "daily" } });
+    choose(section, "daily");
     expect(within(section).getByLabelText("Heure")).toBeDefined();
     expect(within(section).queryByLabelText("Jour")).toBeNull();
-    fireEvent.change(frequency, { target: { value: "weekly" } });
+    choose(section, "weekly");
     expect(within(section).getByLabelText("Heure")).toBeDefined();
     expect(within(section).getByLabelText("Jour")).toBeDefined();
-    fireEvent.change(frequency, { target: { value: "on_demand" } });
+    choose(section, "on_demand");
     expect(within(section).queryByLabelText("Heure")).toBeNull();
     expect(within(section).queryByLabelText("Jour")).toBeNull();
   });
@@ -308,9 +318,7 @@ describe("Project page, the section Écriture automatique des US", () => {
     const calls = stubApi({ schedule: OFF, routine: CONNECTED });
     renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
-    fireEvent.change(within(section).getByLabelText("Fréquence"), {
-      target: { value: "daily" },
-    });
+    choose(section, "daily");
     fireEvent.change(within(section).getByLabelText("Heure"), {
       target: { value: "7" },
     });
@@ -340,9 +348,7 @@ describe("Project page, the section Écriture automatique des US", () => {
     const calls = stubApi({ schedule: OFF, routine: CONNECTED });
     renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
-    fireEvent.change(within(section).getByLabelText("Fréquence"), {
-      target: { value: "weekly" },
-    });
+    choose(section, "weekly");
     fireEvent.change(within(section).getByLabelText("Jour"), {
       target: { value: "3" },
     });
@@ -369,9 +375,7 @@ describe("Project page, the section Écriture automatique des US", () => {
     renderAt("/projets/5/ecriture-us");
     const section = await routineSection();
     await within(section).findByLabelText("Heure");
-    fireEvent.change(within(section).getByLabelText("Fréquence"), {
-      target: { value: "on_demand" },
-    });
+    choose(section, "on_demand");
 
     fireEvent.click(
       within(section).getByRole("button", { name: "Enregistrer" }),
@@ -584,9 +588,7 @@ describe("Project page, the section Écriture automatique des US", () => {
       });
       renderAt("/projets/5/ecriture-us");
       const section = await routineSection();
-      fireEvent.change(within(section).getByLabelText("Fréquence"), {
-        target: { value: "on_demand" },
-      });
+      choose(section, "on_demand");
 
       fireEvent.click(
         within(section).getByRole("button", { name: "Enregistrer" }),
@@ -598,4 +600,36 @@ describe("Project page, the section Écriture automatique des US", () => {
       expect(alert.textContent).not.toMatch(/\b(400|409|500)\b|HTTP/);
     },
   );
+
+  it("given the Réglages tab, when « Archiver le projet » is clicked and confirmed, then the archive route is posted once; Annuler posts nothing", async () => {
+    const calls = stubApi({ schedule: OFF, routine: CONNECTED });
+    renderAt("/projets/5/reglages");
+    await routineSection();
+    const archives = () => calls.filter((c) => c.path.endsWith("/archive"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Archiver le projet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(archives()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Archiver le projet" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmer l'archivage" }),
+    );
+    await waitFor(() => expect(archives()).toHaveLength(1));
+    expect(archives()[0]?.method).toBe("POST");
+  });
+
+  it("given a folder remembered by « Développer avec Claude », when the Réglages tab loads, then the clone folder shows it, and typing another one stores it under the same key", async () => {
+    window.localStorage.setItem("cockpit.clone.5", "/home/me/hello");
+    stubApi({ schedule: OFF, routine: CONNECTED });
+    renderAt("/projets/5/reglages");
+    await routineSection();
+
+    const input = screen.getByLabelText("Dossier du clone") as HTMLInputElement;
+    expect(input.value).toBe("/home/me/hello");
+    fireEvent.change(input, { target: { value: "/work/hello" } });
+
+    expect(window.localStorage.getItem("cockpit.clone.5")).toBe("/work/hello");
+    window.localStorage.removeItem("cockpit.clone.5");
+  });
 });

@@ -5,7 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [004 — Outils MCP](004-outils-mcp.md) (`report_criterion`, `link_pull_request`, `finish_run`), [002 — Modèle de données](002-modele-donnees.md) (le résultat d'un critère est le dernier compte rendu), [033 — Le run minimal](033-run-minimal.md), [020 — Issues GitHub](020-issues-github.md)
 - **Modifie** : la [033](033-run-minimal.md) D, qui prend fin : `finish_run` refuse de nouveau `succeeded` sans PR liée, comme le voulait la 004
-- **Modifiée par** : [038 — Le suivi de la PR](038-suivi-de-la-pr.md) (lève la limite d'un `pr_number` resté d'une PR fermée)
+- **Modifiée par** : [038 — Le suivi de la PR](038-suivi-de-la-pr.md) (lève la limite d'un `pr_number` resté d'une PR fermée) ; [045](045-interface-quatre-temps.md) : la page de l'US écrit « ✓ passe » / « ✕ échoue » et « PR #12 » (F)
 - **Tranche** : 7.3 du [découpage](../decoupage.md)
 
 ## Contexte

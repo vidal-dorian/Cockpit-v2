@@ -374,7 +374,7 @@ describe("decision 030 C, E: editing an agent", () => {
     renderAt("/projets/5/agents");
     await open("developer");
 
-    fireEvent.change(field("Prompt"), { target: { value: "New prompt\n" } });
+    fireEvent.change(field("Consigne"), { target: { value: "New prompt\n" } });
     fireEvent.click(commitButton());
 
     await screen.findByText(/C'est fait/);
@@ -422,7 +422,7 @@ describe("decision 030 D: adding an agent", () => {
     renderAt("/projets/5/agents");
     await screen.findByRole("button", { name: "Ouvrir developer" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter un agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Nouvel agent" }));
     fireEvent.change(field("Nom de l'agent"), {
       target: { value: "developer" },
     });
@@ -441,7 +441,7 @@ describe("decision 030 D: adding an agent", () => {
       renderAt("/projets/5/agents");
       await screen.findByRole("button", { name: "Ouvrir developer" });
 
-      fireEvent.click(screen.getByRole("button", { name: "Ajouter un agent" }));
+      fireEvent.click(screen.getByRole("button", { name: "+ Nouvel agent" }));
       fireEvent.change(field("Nom de l'agent"), { target: { value: name } });
 
       expect(
@@ -456,7 +456,7 @@ describe("decision 030 D: adding an agent", () => {
     renderAt("/projets/5/agents");
     await screen.findByRole("button", { name: "Ouvrir developer" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter un agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Nouvel agent" }));
     fireEvent.change(field("Nom de l'agent"), {
       target: { value: "doc-writer" },
     });
@@ -495,7 +495,7 @@ describe("decision 030 D: adding an agent", () => {
     renderAt("/projets/5/agents");
     await screen.findByRole("button", { name: "Ouvrir developer" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Ajouter un agent" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Nouvel agent" }));
     fireEvent.change(field("Nom de l'agent"), {
       target: { value: "test-writer" },
     });
@@ -660,15 +660,16 @@ describe("decision 030 H: after the commit and the refusals", () => {
     const calls = stubApi({ archived: true });
     renderAt("/projets/5/agents");
 
-    await open("developer");
-
+    await screen.findByRole("button", { name: "Ouvrir developer" });
+    // The list steps aside while an agent is open: « + Nouvel agent » is checked before.
     expect(
       (
         screen.getByRole("button", {
-          name: "Ajouter un agent",
+          name: "+ Nouvel agent",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+    await open("developer");
     expect(
       (
         screen.getByRole("button", {

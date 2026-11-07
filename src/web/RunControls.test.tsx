@@ -6,14 +6,24 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderAt } from "./test-tickets.tsx";
 
 // Slice 7.5 (decision 037 F): the controls of the page of a run. Pinned: GET /api/runs/:id also gives
 // run.stopRequestedAt (ISO string | null) and story.status; the page POSTs /api/runs/12/stop and /api/runs/12/close
 // (no body) and refetches the run. The stub below answers the refetch with the state the POST would have made.
 
+// jsdom has no showModal on <dialog>: stub it and restore the original.
+const realShowModal = HTMLDialogElement.prototype.showModal;
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute("open", "");
+  };
+});
+
 afterEach(() => {
+  if (realShowModal) HTMLDialogElement.prototype.showModal = realShowModal;
+  else Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
   cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState({}, "", "/");

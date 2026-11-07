@@ -1,6 +1,9 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the name of a Given/When/Then field of the API (decision 017)
+
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.ts";
+import { questions, runs, userStories } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
 import { abandonStory, validate } from "./test-decisions.ts";
 import { testAppOptions } from "./test-instance.ts";
@@ -37,6 +40,10 @@ type Card = {
   iWant: string;
   status: string;
   issueDiverged: boolean;
+  prNumber: number | null;
+  prCiState: string | null;
+  criteriaCount: number;
+  questionPending: boolean;
 };
 
 const listStories = (app: App, cookie: string, projectId: number | string) =>
@@ -82,6 +89,10 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           iWant: "s1p1",
           status: "to_rewrite",
           issueDiverged: false,
+          prNumber: null,
+          prCiState: null,
+          criteriaCount: 1,
+          questionPending: false,
         },
         {
           id: s1p2,
@@ -91,6 +102,10 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           iWant: "s1p2",
           status: "in_review",
           issueDiverged: false,
+          prNumber: null,
+          prCiState: null,
+          criteriaCount: 1,
+          questionPending: false,
         },
         {
           id: s2p1,
@@ -100,9 +115,57 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           iWant: "s2p1",
           status: "ready",
           issueDiverged: false,
+          prNumber: null,
+          prCiState: null,
+          criteriaCount: 1,
+          questionPending: false,
         },
       ],
     });
+  });
+
+  it("given stories with criteria, a PR with a failing CI and a running run with a pending question, when read, then the card has criteriaCount, prNumber, prCiState and questionPending", async () => {
+    const { app, db, alice, projectId } = await withProject();
+    const ticket = await seedTicket(db, projectId, "Le ticket");
+    const asking = await seedStory(db, ticket, {
+      status: "in_progress",
+      criteria: [
+        { given: "a", when: "b", then: "c" },
+        { given: "d", when: "e", then: "f" },
+      ],
+    });
+    const reviewed = await seedStory(db, ticket, { status: "in_review" });
+    await db
+      .update(userStories)
+      .set({ prNumber: 44, prCiState: "failure" })
+      .where(eq(userStories.id, reviewed));
+    const [run] = await db
+      .insert(runs)
+      .values({
+        storyId: asking,
+        userId: alice.id,
+        status: "running",
+        modelActual: "sonnet",
+      })
+      .returning({ id: runs.id });
+    await db
+      .insert(questions)
+      .values({ runId: run?.id ?? 0, question: "Quoi ?" });
+
+    const cards = await cardsOf(app, alice.cookie, projectId);
+
+    expect(
+      cards.map((c) => [
+        c.id,
+        c.criteriaCount,
+        c.prNumber,
+        c.prCiState,
+        c.questionPending,
+      ]),
+    ).toEqual([
+      [asking, 2, null, null, true],
+      [reviewed, 1, 44, "failure", false],
+    ]);
   });
 
   it("given a project without story, when it is read, then 200 with an empty list", async () => {
