@@ -18,6 +18,7 @@ import { type FireRoutine, routineRoutes } from "./routines.ts";
 import { runRoutes } from "./runs.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
+import { takeoverRoutes } from "./takeover.ts";
 import { ticketRoutes } from "./tickets.ts";
 import { tokenRoutes } from "./tokens.ts";
 import { webhookRoutes } from "./webhooks.ts";
@@ -86,6 +87,7 @@ export function createApp(
       .route("/", webhookRoutes(db, readInstance))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       .route("/", codeMapRoutes(db, readGitHub))
+      .route("/", takeoverRoutes(db))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))

@@ -528,6 +528,8 @@ describe("decision 047 H: GET /api/projects/:id/code serves the code a rule cite
   it("given a file cited by no rule and no map, when it is asked, then 404 and GitHub is not read", async () => {
     const ctx = await ready();
     await created(ctx, [storyOf(1)]);
+    // Creating the rule already read its own cited file to verify it.
+    const before = githubCalls(ctx.fetchMock).length;
 
     const res = await code(ctx, {
       sha: ctx.sha,
@@ -537,7 +539,7 @@ describe("decision 047 H: GET /api/projects/:id/code serves the code a rule cite
     });
 
     expect(res.status).toBe(404);
-    expect(contentsReads(githubCalls(ctx.fetchMock))).toEqual([]);
+    expect(contentsReads(githubCalls(ctx.fetchMock).slice(before))).toEqual([]);
   });
 
   it("given a file cited by a rule at one commit, when it is asked at another commit, then 404", async () => {

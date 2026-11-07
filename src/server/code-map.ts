@@ -5,21 +5,29 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import { type Citation, verifyCitations } from "./citations.ts";
 import type { Db } from "./db/db.ts";
-import { codeMaps, MODULE_KINDS, type projects } from "./db/schema.ts";
+import {
+  acceptanceCriteria,
+  codeMaps,
+  codeSources,
+  MODULE_KINDS,
+  type projects,
+  tickets,
+  userStories,
+} from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { memberProject } from "./projects.ts";
 import { noNul } from "./tickets.ts";
 
 // Decision 043 A. The same schema validates what Claude sends, what is stored and what is read back (D).
-const MAX_FILES = 100;
-const text = (max: number) => z.string().min(1).max(max).refine(noNul);
+export const MAX_FILES = 100;
+export const text = (max: number) => z.string().min(1).max(max).refine(noNul);
 const line = z.number().int().min(1).max(10_000_000);
-const citation = z
+export const citation = z
   .object({ path: text(255), start_line: line, end_line: line })
   .refine((c) => c.start_line <= c.end_line, {
     message: "start_line must not be after end_line",
   });
-const moduleData = z.object({
+export const moduleData = z.object({
   manifest: text(255),
   runtimes: z
     .array(z.object({ name: text(100), version: text(100), citation }))
@@ -133,6 +141,42 @@ const citationsOf = ({ modules }: Args): Citation[] =>
     })),
   ]);
 
+/** Reads the commit and the citations on GitHub: the refusal that says where, or undefined. Only a GitHub failure is thrown. Shared by `submit_code_map` and `create_takeover_stories` (decision 047 B). */
+export async function citationRefusal(
+  readGitHub: ReadGitHub,
+  { installationId, fullName }: typeof projects.$inferSelect,
+  commitSha: string,
+  citations: Citation[],
+) {
+  const ready = await readGitHub();
+  if (!ready) throw new Error("Cockpit is not configured");
+  const { github } = ready;
+  // The root tree of the commit: 404 when GitHub does not know it.
+  const reader = await github.fileReader(installationId, fullName);
+  const known = await reader.inspect("", commitSha).then(
+    () => true,
+    (error) => {
+      if ((error as { status?: number }).status === 404) return false;
+      throw error;
+    },
+  );
+  if (!known)
+    return new LocatedRefusal(
+      "unknown_commit",
+      `commit_sha: GitHub does not know the commit ${commitSha} in ${fullName}. Use the commit of HEAD after pushing.`,
+    );
+  const checked = await verifyCitations(
+    github,
+    installationId,
+    fullName,
+    commitSha,
+    citations,
+    reader,
+  );
+  if ("refused" in checked)
+    return new LocatedRefusal("invalid_citation", checked.refused);
+}
+
 /** `submit_code_map` (decision 043): everything is checked, GitHub included, before the one transaction that replaces the modules of the call. GitHub is read before it, which would otherwise hold a connection. */
 export async function submitCodeMap(
   db: Db,
@@ -147,36 +191,12 @@ export async function submitCodeMap(
   let failed: unknown;
   if (!refusal) {
     try {
-      const ready = await readGitHub();
-      if (!ready) throw new Error("Cockpit is not configured");
-      const { github } = ready;
-      const { installationId, fullName } = project;
-      // The root tree of the commit: 404 when GitHub does not know it.
-      const reader = await github.fileReader(installationId, fullName);
-      const known = await reader.inspect("", args.commit_sha).then(
-        () => true,
-        (error) => {
-          if ((error as { status?: number }).status === 404) return false;
-          throw error;
-        },
+      refusal = await citationRefusal(
+        readGitHub,
+        project,
+        args.commit_sha,
+        citationsOf(args),
       );
-      if (!known)
-        refusal = new LocatedRefusal(
-          "unknown_commit",
-          `commit_sha: GitHub does not know the commit ${args.commit_sha} in ${fullName}. Use the commit of HEAD after pushing.`,
-        );
-      else {
-        const checked = await verifyCitations(
-          github,
-          installationId,
-          fullName,
-          args.commit_sha,
-          citationsOf(args),
-          reader,
-        );
-        if ("refused" in checked)
-          refusal = new LocatedRefusal("invalid_citation", checked.refused);
-      }
     } catch (error) {
       failed = error;
     }
@@ -326,7 +346,30 @@ export function codeMapRoutes(db: Db, readGitHub: ReadGitHub) {
           ...data.objects.map((x) => x.citation.path),
         ].includes(path);
       });
-      if (!inMap) return c.json({ error: "Not found" }, 404);
+      // Or a line a rule of the project cites at this commit (decision 047 H).
+      const [cited] = inMap
+        ? []
+        : await db
+            .select({ id: codeSources.id })
+            .from(codeSources)
+            .innerJoin(
+              acceptanceCriteria,
+              eq(acceptanceCriteria.id, codeSources.criterionId),
+            )
+            .innerJoin(
+              userStories,
+              eq(userStories.id, acceptanceCriteria.storyId),
+            )
+            .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+            .where(
+              and(
+                eq(tickets.projectId, project.id),
+                eq(codeSources.commitSha, sha),
+                eq(codeSources.path, path),
+              ),
+            )
+            .limit(1);
+      if (!inMap && !cited) return c.json({ error: "Not found" }, 404);
       try {
         const ready = await readGitHub();
         if (!ready) throw new Error("Cockpit is not configured");
