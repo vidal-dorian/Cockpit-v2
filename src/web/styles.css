@@ -72,8 +72,8 @@ body {
   --logo-done: #34d399;
 }
 
-/* The logo is still at rest; on hover the loop spins into a vortex, collapses into
-   its core and blooms back, once. */
+/* The logo is still at rest, its core always visible; on hover the loop spins into a
+   vortex, collapses into the core, which swells, and blooms back, once. */
 .logo {
   overflow: visible;
 }
@@ -81,9 +81,6 @@ body {
 .logo-core {
   transform-box: view-box;
   transform-origin: 60px 60px;
-}
-.logo-core {
-  opacity: 0;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -118,21 +115,14 @@ body {
 @keyframes logo-core {
   0%,
   64% {
-    opacity: 0;
-    transform: scale(0);
-  }
-  70% {
-    opacity: 1;
-    transform: scale(1.5);
-  }
-  78% {
-    opacity: 1;
     transform: scale(1);
   }
-  86%,
+  70% {
+    transform: scale(1.5);
+  }
+  78%,
   100% {
-    opacity: 0;
-    transform: scale(0);
+    transform: scale(1);
   }
 }
 
