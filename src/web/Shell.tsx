@@ -1,0 +1,419 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useMatch } from "react-router";
+import { client } from "./api.ts";
+import { Logo } from "./Logo.tsx";
+import { ticketError } from "./tickets.ts";
+import { badge, focusRing, ghostButton, kbd } from "./ui.ts";
+
+// The shell of decision 045 F (sidebar, idea bar) and the pieces every page builds on (state sentence, breadcrumb, right panel, dot).
+
+export async function fetchHealth() {
+  const res = await client.api.health.$get();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** The logged-in account, or null when the server answers 401. */
+export async function fetchMe() {
+  const res = await client.api.me.$get();
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchHome() {
+  const res = await client.api.home.$get();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** What waits for the user (decision 040): the home reads it, and so do the sidebar and the idea bar. */
+export function useHome(enabled = true) {
+  return useQuery({ queryKey: ["home"], queryFn: fetchHome, enabled });
+}
+
+const DOT_TONES = {
+  idea: "bg-idea",
+  you: "bg-you",
+  claude: "bg-claude",
+  done: "bg-done",
+  none: "bg-border-strong",
+};
+
+/** A 7 px dot naming a « temps » (the colour budget of 045 C); `live` makes the Claude dot pulse. */
+export function Dot({
+  tone,
+  live = false,
+}: {
+  tone: keyof typeof DOT_TONES;
+  live?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-block size-[7px] flex-none rounded-full ${DOT_TONES[tone]} ${live ? "animate-pulse ring-[3px] ring-claude-glow" : ""}`}
+    />
+  );
+}
+
+/** The top of every page (045 D): a sentence saying the state. `rest` is part of the h1, in muted weight; `actions` sit on the right. */
+export function StateSentence({
+  title,
+  rest,
+  actions,
+}: {
+  title: React.ReactNode;
+  rest?: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-[26px] pt-[26px]">
+      <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
+        {title}
+        {rest && (
+          <span className="block font-normal text-muted-foreground">
+            {rest}
+          </span>
+        )}
+      </h1>
+      {actions}
+    </div>
+  );
+}
+
+/** The muted line above a state sentence: links for the steps with `to`, then the optional repo full name in mono. */
+export function Breadcrumb({
+  trail,
+  repo,
+}: {
+  trail: { label: string; to?: string }[];
+  repo?: string;
+}) {
+  return (
+    <nav
+      aria-label="Fil d'Ariane"
+      className="flex flex-wrap items-baseline gap-1.5 px-[26px] pt-[18px] text-[13px] text-muted-foreground"
+    >
+      {trail.map((step, i) => (
+        <span key={step.label} className="contents">
+          {i > 0 && <span aria-hidden="true">›</span>}
+          {step.to ? (
+            <Link
+              to={step.to}
+              className={`rounded-md hover:text-foreground ${focusRing}`}
+            >
+              {step.label}
+            </Link>
+          ) : (
+            <span>{step.label}</span>
+          )}
+        </span>
+      ))}
+      {repo && <span className="font-mono text-[11.5px]">{repo}</span>}
+    </nav>
+  );
+}
+
+// A square icon button: the caller adds the size.
+const squareButton = `grid place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
+const arrowButton = `${squareButton} size-[30px]`;
+
+/**
+ * The right panel (380 px, fixed on lg+; `<main>` makes room for it, below lg it follows the content).
+ * `label` names it, `badge` is the pill on the left of the header, `counter` adds « i sur n » with Précédent and Suivant (`index` starts at 0),
+ * `footer` is pinned at the bottom (the white button of the panel: `panelPrimaryButton`).
+ */
+export function Panel({
+  label,
+  badge: badgeNode,
+  counter,
+  children,
+  footer,
+}: {
+  label: string;
+  badge?: React.ReactNode;
+  counter?: {
+    index: number;
+    total: number;
+    onPrevious: () => void;
+    onNext: () => void;
+  };
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <aside
+      data-panel
+      aria-label={label}
+      className="flex flex-col gap-3.5 border-t border-border bg-sunken p-[22px] lg:fixed lg:inset-y-0 lg:right-0 lg:z-10 lg:w-[380px] lg:overflow-y-auto lg:border-t-0 lg:border-l"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div>{badgeNode}</div>
+        {counter && (
+          <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <span>
+              {counter.index + 1} sur {counter.total}
+            </span>
+            <button
+              type="button"
+              aria-label="Précédent"
+              disabled={counter.index === 0}
+              onClick={counter.onPrevious}
+              className={arrowButton}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label="Suivant"
+              disabled={counter.index >= counter.total - 1}
+              onClick={counter.onNext}
+              className={arrowButton}
+            >
+              ↓
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-3.5">{children}</div>
+      {footer && <div className="mt-4 flex flex-col gap-2">{footer}</div>}
+    </aside>
+  );
+}
+
+const navItem = ({ isActive }: { isActive: boolean }) =>
+  `flex h-[34px] items-center gap-2.5 rounded-[9px] px-2.5 font-semibold ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+const subItem = ({ isActive }: { isActive: boolean }) =>
+  `flex h-[30px] items-center gap-2.5 rounded-lg pr-2.5 pl-[22px] text-[13.5px] font-medium ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+const sidebarLabel =
+  "mx-2.5 mt-3.5 mb-1 text-[11px] font-bold uppercase tracking-[.08em] text-dim";
+
+/** The left column of a logged-in user (045 F): navigation with counters, the projects that are not idle, Réglages, the account and the version. */
+export function Sidebar() {
+  const queryClient = useQueryClient();
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data;
+  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
+  const home = useHome().data;
+  const logout = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.auth.logout.$post();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
+  });
+
+  const forYou = home?.forYou ?? [];
+  const firstProject = forYou[0]?.project.id;
+  const projects = (home?.projects ?? []).filter((p) => p.state !== "idle");
+
+  return (
+    <aside
+      aria-label="Barre latérale"
+      className="flex flex-col border-r border-border bg-card px-3 py-4 md:sticky md:top-0 md:h-screen md:overflow-y-auto"
+    >
+      <Link
+        to="/"
+        className={`mb-3.5 flex items-center gap-2.5 rounded-xl px-2.5 text-base font-bold ${focusRing}`}
+      >
+        <Logo className="h-7 w-auto" />
+        Cockpit
+      </Link>
+      <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">
+        <NavLink to="/" end className={navItem}>
+          Accueil
+          {forYou.length > 0 && (
+            <>
+              {" "}
+              <span className={`${badge} ml-auto`}>{forYou.length}</span>
+            </>
+          )}
+        </NavLink>
+        {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}
+        {projects.map((p) => {
+          const count = forYou.filter(
+            (item) => item.project.id === p.id,
+          ).length;
+          return (
+            <NavLink
+              key={p.id}
+              to={`/projets/${p.id}`}
+              aria-label={p.name}
+              className={subItem}
+            >
+              <Dot tone={p.id === firstProject ? "you" : "none"} />
+              {p.name.split("/").pop()}
+              {count > 0 && <span className={`${badge} ml-auto`}>{count}</span>}
+            </NavLink>
+          );
+        })}
+        <NavLink to="/projets" end className={subItem}>
+          Tous les projets
+          <span className="ml-auto text-muted-foreground">
+            {home?.projects.length}
+          </span>
+        </NavLink>
+        <Link to="/projets" className={subItem({ isActive: false })}>
+          + Importer un repo
+        </Link>
+        <p className={sidebarLabel}>Configurer</p>
+        <NavLink to="/journal" className={navItem}>
+          Journal
+        </NavLink>
+      </nav>
+      <div className="mt-auto flex flex-col gap-0.5 pt-4">
+        <NavLink to="/reglages" className={navItem}>
+          Réglages
+        </NavLink>
+        {me && (
+          <div className="flex items-center gap-2.5 px-2.5 py-1">
+            {me.avatarUrl ? (
+              <img src={me.avatarUrl} alt="" className="size-6 rounded-full" />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="grid size-6 place-items-center rounded-full bg-raised-hover text-xs font-semibold uppercase"
+              >
+                {(me.name ?? me.login).charAt(0)}
+              </span>
+            )}
+            <span className="min-w-0 flex-1 truncate font-semibold">
+              {me.name ?? me.login}
+            </span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => logout.mutate()}
+          disabled={logout.isPending}
+          className={ghostButton}
+        >
+          Se déconnecter
+        </button>
+        {logout.isError && (
+          <p role="alert" className="px-2.5 text-destructive">
+            La déconnexion a échoué, réessaie.
+          </p>
+        )}
+        {health.data && (
+          <p className="mt-2 px-2.5 text-[11.5px] text-dim">{`Cockpit v${health.data.version}`}</p>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/** The bar at the bottom of the center (045 F): note an idea as a ticket of a project; `n` anywhere focuses it. Hidden without a project. */
+export function IdeaBar() {
+  const queryClient = useQueryClient();
+  const projects = useHome().data?.projects ?? [];
+  const routeId = useMatch("/projets/:id/*")?.params.id;
+  const [title, setTitle] = useState("");
+  const [chosen, setChosen] = useState<string>();
+  const [done, setDone] = useState<string>();
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "n") return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement;
+      if (target.isContentEditable || target.closest("input, textarea, select"))
+        return;
+      event.preventDefault();
+      input.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const exists = (id?: string) => projects.some((p) => String(p.id) === id);
+  const projectId = exists(chosen)
+    ? (chosen as string)
+    : exists(routeId)
+      ? (routeId as string)
+      : String(projects[0]?.id);
+  const send = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.projects[":id"].tickets.$post({
+        param: { id: projectId },
+        json: { title: title.trim() },
+      });
+      if (!res.ok) throw await ticketError(res);
+    },
+    onSuccess: () => {
+      setTitle("");
+      setDone(
+        `Idée notée dans ${projects.find((p) => String(p.id) === projectId)?.name}.`,
+      );
+      for (const queryKey of [
+        ["tickets", projectId],
+        ["stories", projectId],
+        ["home"],
+      ])
+        queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  if (projects.length === 0) return null;
+  return (
+    <div className="sticky bottom-0 mx-[26px] mt-4 mb-5">
+      {send.isError && (
+        <p role="alert" className="mb-2 text-destructive">
+          {send.error.message}
+        </p>
+      )}
+      {done && !send.isError && (
+        <p role="status" className="mb-2 text-muted-foreground">
+          {done}
+        </p>
+      )}
+      <form
+        aria-label="Noter une idée"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (title.trim() !== "" && !send.isPending) send.mutate();
+        }}
+        className="flex items-center gap-2.5 rounded-[14px] border border-border bg-card py-2.5 pr-3 pl-4"
+      >
+        <span aria-hidden="true" className="text-muted-foreground">
+          ✎
+        </span>
+        <input
+          ref={input}
+          aria-label="Idée"
+          placeholder="Noter une idée…"
+          value={title}
+          maxLength={200}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setDone(undefined);
+          }}
+          className={`min-w-0 flex-1 bg-transparent placeholder:text-dim ${focusRing}`}
+        />
+        <kbd className={kbd}>N</kbd>
+        <span className="text-[12.5px] text-muted-foreground">pour</span>
+        <select
+          aria-label="Projet"
+          value={projectId}
+          onChange={(event) => setChosen(event.target.value)}
+          className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
+        >
+          {projects.map((p) => (
+            <option key={p.id} value={p.id} className="bg-card">
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          aria-label="Noter l'idée"
+          disabled={title.trim() === "" || send.isPending}
+          className={`${squareButton} size-9`}
+        >
+          ↑
+        </button>
+      </form>
+    </div>
+  );
+}

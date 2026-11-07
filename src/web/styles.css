@@ -1,43 +1,57 @@
 @import "tailwindcss";
 
-/* Design tokens: decision 003 for the names and the ergonomics, decision 028 B for the values (Crème sombre).
+/* Design tokens: decision 003 for the names and the ergonomics, decision 045 for the values (Quatre temps).
    Names follow the shadcn/ui conventions (background, foreground, primary…) so its components use them as is. */
 @theme {
-  --font-sans: "Geist Variable", sans-serif;
-  --font-heading: "Geist Variable", sans-serif;
-  --font-mono: "Geist Mono Variable", monospace;
+  --font-sans: "Urbanist Variable", sans-serif;
+  --font-heading: "Urbanist Variable", sans-serif;
+  --font-mono: "JetBrains Mono Variable", monospace;
 
-  --color-background: #1c1917;
-  --color-foreground: #f6eee6;
-  --color-card: #262220;
-  /* Sunken surface: panels and card footers. */
-  --color-sunken: #211d1b;
-  /* Secondary buttons, and their hover. */
-  --color-raised: #2f2a27;
-  --color-raised-hover: #36302c;
-  --color-border: #3a3430;
-  --color-border-strong: #4a433e;
-  --color-muted-foreground: #a99e94;
+  --color-background: #0e1015;
+  --color-foreground: #f2f4f8;
+  --color-card: #161920;
+  /* Sunken surface: fields, the right panel. */
+  --color-sunken: #12141a;
+  /* Secondary buttons and neutral badges, and their hover. */
+  --color-raised: #1d2129;
+  --color-raised-hover: #252a34;
+  --color-border: #262b35;
+  --color-border-strong: #343b48;
+  --color-muted-foreground: #a9b0bf;
+  /* Dimmer than muted (section labels), and what is past. */
+  --color-dim: #6f7787;
+  --color-past: #4a5262;
 
-  /* Orange: waiting for you. Dark text on it, as decided in 003. */
-  --color-primary: #ff8a57;
-  --color-primary-hover: #ff9a6c;
-  --color-primary-foreground: #1c1917;
-  --color-you-soft: #3d2a20;
-  --color-you-text: #ffab85;
+  /* The main button is white: ink on the dark page (045 C). */
+  --color-primary: #f2f4f8;
+  --color-primary-hover: #ffffff;
+  --color-primary-foreground: #0e1015;
 
-  /* Cream: Claude is working. */
-  --color-claude: #e9dfd5;
-  --color-claude-soft: #36302c;
-  --color-claude-text: #f6eee6;
+  /* Yellow: the « Idées » time. */
+  --color-idea: #f5c542;
+  --color-idea-soft: #2e2716;
+  --color-idea-text: #ffd873;
 
-  /* Warm gray: done or validated, it fades. */
-  --color-done: #7a716a;
-  --color-done-soft: #2f2a27;
-  --color-done-text: #c9bfb4;
+  /* Red: the first thing for you to do, and errors. */
+  --color-you: #ff5d6e;
+  --color-you-soft: #34181d;
+  --color-you-text: #ff8c98;
+  --color-you-line: rgba(255, 93, 110, 0.55);
+  --color-you-ground: #1a1418;
 
-  --color-destructive: #f0905f;
-  --color-destructive-soft: #3a2219;
+  /* Blue-violet: Claude is working. */
+  --color-claude: #7c8cff;
+  --color-claude-soft: #1c2044;
+  --color-claude-text: #a9b4ff;
+  --color-claude-glow: rgba(124, 140, 255, 0.18);
+
+  /* Green: the « Terminées » time. */
+  --color-done: #34d399;
+  --color-done-soft: #11302a;
+  --color-done-text: #6ee7b7;
+
+  --color-destructive: #ff5d6e;
+  --color-destructive-soft: #34181d;
 }
 
 :root {
@@ -45,21 +59,22 @@
 }
 
 body {
-  @apply bg-background font-sans text-[15px] text-foreground;
+  @apply bg-background font-sans text-sm text-foreground antialiased;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Colors of the logo (Logo.tsx), from the Crème sombre palette above (decision 028 B).
+/* Colors of the logo (Logo.tsx), from the Quatre temps palette above (decision 045).
    Plain variables, not @theme ones: Tailwind drops theme variables no utility uses. */
 :root {
-  --logo-coral: #ff8a57;
-  --logo-coral-soft: #ffab85;
-  --logo-hand: #f6eee6;
-  --logo-hand-tint: #ffd6bf;
-  --logo-stone-light: #a99e94;
-  --logo-stone: #7a716a;
-  --logo-stone-deep: #4a433e;
-  --logo-finger: #3a3430;
-  --logo-wire: #e9dfd5;
+  --logo-coral: #ff5d6e;
+  --logo-coral-soft: #ff8c98;
+  --logo-hand: #f2f4f8;
+  --logo-hand-tint: #ffd0d5;
+  --logo-stone-light: #a9b0bf;
+  --logo-stone: #6f7787;
+  --logo-stone-deep: #343b48;
+  --logo-finger: #262b35;
+  --logo-wire: #a9b0bf;
 }
 
 /* The logo is still at rest and plays once when it is hovered. Every keyframe set

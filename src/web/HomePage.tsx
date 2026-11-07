@@ -1,24 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
-import { client } from "./api.ts";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
 import { REASONS } from "./RunVerdict.tsx";
-import { alertBox, card, focusRing } from "./ui.ts";
+import { Dot, Panel, StateSentence, useHome } from "./Shell.tsx";
+import {
+  alertBox,
+  badge,
+  button,
+  focusRing,
+  listCard,
+  panelButton,
+  panelPrimaryButton,
+  sectionLabel,
+  urgentBadge,
+} from "./ui.ts";
 
-async function fetchHome() {
-  const res = await client.api.home.$get();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
-/** What waits for the user (decision 040), shared by the page and the counter of the top bar. */
-export function useHome(enabled: boolean) {
-  return useQuery({ queryKey: ["home"], queryFn: fetchHome, enabled });
-}
-
-type Home = Awaited<ReturnType<typeof fetchHome>>;
+type Item = NonNullable<ReturnType<typeof useHome>["data"]>["forYou"][number];
 
 // The item has no counts: the run page's « 2 critères en échec » becomes a plain sentence.
 const REASON_TEXTS: Record<string, string> = {
@@ -33,67 +32,204 @@ const CI_WORDS = {
   success: "La CI est verte",
 };
 
-const PASTILLES = {
-  for_you: ["À toi", "bg-you-soft text-you-text"],
-  claude: ["Claude travaille", "bg-claude-soft text-claude-text"],
-  idle: ["Rien en cours", "bg-done-soft text-done-text"],
-} as const;
-
 const link = `font-semibold underline ${focusRing}`;
+const rowAction = button;
+
+const KINDS = {
+  answer: {
+    glyph: "✦",
+    badge: "Question de Claude",
+    group: "Questions",
+    hint: "",
+  },
+  validate: {
+    glyph: "✓",
+    badge: "À valider",
+    group: "À valider",
+    hint: "Claude ne peut pas les développer avant",
+  },
+  review: {
+    glyph: "⇄",
+    badge: "À relire",
+    group: "À relire",
+    hint: "tes PR sur GitHub",
+  },
+  check: {
+    glyph: "!",
+    badge: "À vérifier",
+    group: "À vérifier",
+    hint: "le verdict de Claude",
+  },
+};
+
+const prUrl = (item: Extract<Item, { kind: "review" }>) =>
+  `https://github.com/${item.project.name}/pull/${item.prNumber}`;
+
+const title = (item: Item) =>
+  item.kind === "answer" ? item.question : item.iWant;
+
+/** « À relire · PR #14 · La CI est verte · octocat/hello »: what the item is, then where. */
+function subLine(item: Item) {
+  switch (item.kind) {
+    case "answer":
+      return `Question de Claude · Run ${item.runId} · ${item.project.name}`;
+    case "validate":
+      return `À valider · ${item.project.name}`;
+    case "review":
+      return `À relire · PR #${item.prNumber} · ${item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"} · ${item.project.name}`;
+    case "check":
+      return `À vérifier · Run ${item.runId} · ${item.project.name}`;
+  }
+}
+
+const itemKey = (item: Item) =>
+  `${item.kind}-${item.kind === "answer" ? item.questionId : item.storyId}`;
 
 function Section({
-  title,
+  label,
+  hint,
   headingRef,
   children,
 }: {
-  title: string;
+  label: React.ReactNode;
+  hint?: string;
   headingRef?: React.Ref<HTMLHeadingElement>;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-8">
+    <section className="px-[26px] pt-[22px]">
       <h2
         ref={headingRef}
-        tabIndex={-1}
-        className="font-heading text-xl font-bold"
+        tabIndex={headingRef ? -1 : undefined}
+        className="mb-2 flex items-center gap-2"
       >
-        {title}
+        {label}
+        {hint && (
+          <span className="text-[12.5px] font-normal text-muted-foreground">
+            · {hint}
+          </span>
+        )}
       </h2>
       {children}
     </section>
   );
 }
 
-function Story({
-  iWant,
-  project,
-}: {
-  iWant: string;
-  project: { name: string };
-}) {
-  return (
-    <>
-      <span className="font-semibold">{iWant}</span>
-      <span className="text-muted-foreground"> · {project.name}</span>
-    </>
-  );
-}
-
-function ForYouItem({
-  item,
-  onSent,
-}: {
-  item: Home["forYou"][number];
-  onSent: () => void;
-}) {
+/** The actions of a row of « 2 · Ensuite »: the links of the item, or the panel for a question. */
+function RowActions({ item, open }: { item: Item; open: () => void }) {
   switch (item.kind) {
     case "answer":
       return (
+        <button type="button" onClick={open} className={rowAction}>
+          Répondre
+        </button>
+      );
+    case "validate":
+      return (
+        <Link to={`/us/${item.storyId}`} className={rowAction}>
+          Ouvrir
+        </Link>
+      );
+    case "review":
+      return (
         <>
-          <p className="whitespace-pre-wrap font-semibold">{item.question}</p>
-          <p>
-            <Story {...item} />
-          </p>
+          <a href={prUrl(item)} className={rowAction}>
+            Relire la PR #{item.prNumber}
+          </a>
+          <Link to={`/us/${item.storyId}`} className={rowAction}>
+            Ouvrir
+          </Link>
+        </>
+      );
+    case "check":
+      return (
+        <Link to={`/runs/${item.runId}`} className={rowAction}>
+          Ouvrir le run
+        </Link>
+      );
+  }
+}
+
+/** The panel of the item at `index`: what it is, and the way to deal with it. */
+function ItemPanel({
+  item,
+  index,
+  total,
+  onMove,
+  onSent,
+}: {
+  item: Item;
+  index: number;
+  total: number;
+  onMove: (index: number) => void;
+  onSent: () => void;
+}) {
+  const kind = KINDS[item.kind];
+  const urgent = index === 0;
+  let footer: React.ReactNode;
+  if (item.kind === "answer")
+    footer = (
+      <p className="text-center text-[13px] text-muted-foreground">
+        Plus tard · Claude reste en pause
+      </p>
+    );
+  else if (item.kind === "validate")
+    footer = (
+      <Link to={`/us/${item.storyId}`} className={panelPrimaryButton}>
+        Ouvrir l'US
+      </Link>
+    );
+  else if (item.kind === "review")
+    footer = (
+      <>
+        <a href={prUrl(item)} className={panelPrimaryButton}>
+          Relire la PR #{item.prNumber}
+        </a>
+        <Link to={`/us/${item.storyId}`} className={panelButton}>
+          Ouvrir l'US
+        </Link>
+      </>
+    );
+  else
+    footer = (
+      <Link to={`/runs/${item.runId}`} className={panelPrimaryButton}>
+        Ouvrir le run
+      </Link>
+    );
+  return (
+    <Panel
+      label={kind.badge}
+      badge={
+        <span className={urgent ? urgentBadge : badge}>
+          {kind.glyph} {kind.badge}
+        </span>
+      }
+      counter={{
+        index,
+        total,
+        onPrevious: () => onMove(index - 1),
+        onNext: () => onMove(index + 1),
+      }}
+      footer={footer}
+    >
+      <h2 className="text-xl leading-snug font-semibold whitespace-pre-wrap">
+        {title(item)}
+      </h2>
+      <p className="text-muted-foreground">
+        {item.project.name}
+        {item.kind === "review" &&
+          ` · ${item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"}`}
+      </p>
+      {item.kind === "check" && (
+        <ul className="list-disc pl-5">
+          {item.reasons.map((code) => (
+            <li key={code}>{REASON_TEXTS[code] ?? code}</li>
+          ))}
+        </ul>
+      )}
+      {item.kind === "answer" && (
+        <>
+          <p className={sectionLabel}>Choisis une réponse</p>
           <AnswerForm
             id={item.questionId}
             suggestedAnswers={item.suggestedAnswers}
@@ -101,138 +237,184 @@ function ForYouItem({
             onSent={onSent}
           />
         </>
-      );
-    case "validate":
-      return (
-        <Link to={`/us/${item.storyId}`} className={link}>
-          <Story {...item} />
-        </Link>
-      );
-    case "review":
-      return (
-        <>
-          <p>
-            <Story {...item} />
-          </p>
-          <p>
-            {item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"} ·{" "}
-            <a
-              href={`https://github.com/${item.project.name}/pull/${item.prNumber}`}
-              className={link}
-            >
-              Relire la PR #{item.prNumber}
-            </a>{" "}
-            ·{" "}
-            <Link to={`/us/${item.storyId}`} className={link}>
-              Voir l'US
-            </Link>
-          </p>
-        </>
-      );
-    case "check":
-      return (
-        <>
-          <Link to={`/runs/${item.runId}`} className={link}>
-            <Story {...item} />
-          </Link>
-          <ul className="list-disc pl-5">
-            {item.reasons.map((code) => (
-              <li key={code}>{REASON_TEXTS[code] ?? code}</li>
-            ))}
-          </ul>
-        </>
-      );
-  }
+      )}
+    </Panel>
+  );
 }
 
-/** The home of a logged-in user (decision 040): what waits for them, what Claude does, the projects. */
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
+/** The home of a logged-in user (045 D): the state in a sentence, what to do now, then next, what Claude does, the latest events; the first item is open in the right panel. */
 export function HomePage() {
-  const home = useHome(true);
-  // The answered card goes away: keep the keyboard focus in the section.
+  const home = useHome();
+  // The answered card goes away: keep the keyboard focus in the page.
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [index, setIndex] = useState(0);
   if (home.isPending)
-    return <p className="mt-8 text-muted-foreground">Chargement…</p>;
+    return (
+      <p className="px-[26px] pt-[26px] text-muted-foreground">Chargement…</p>
+    );
   if (home.isError)
     return (
-      <div role="alert" className={`mt-8 ${alertBox}`}>
+      <div role="alert" className={`mx-[26px] mt-[26px] ${alertBox}`}>
         <p>Impossible de lire l'accueil.</p>
       </div>
     );
-  const { forYou, claudeWorks, projects } = home.data;
+  const { forYou, claudeWorks } = home.data;
+  const [first, ...others] = forYou;
+  const blocked = forYou.filter((item) => item.kind === "answer").length;
+  const w = claudeWorks.length;
+  const claude =
+    w === 0
+      ? "Claude ne travaille sur rien."
+      : `Claude travaille sur ${w} ${plural(w, "run", "runs")}, tout va bien.`;
+  const sentence =
+    blocked > 0
+      ? {
+          title: `Claude est bloqué sur ${blocked} ${plural(blocked, "run", "runs")}.`,
+          rest: "Le reste peut attendre.",
+        }
+      : forYou.length > 0
+        ? {
+            title: plural(
+              forYou.length,
+              "1 chose t'attend.",
+              `${forYou.length} choses t'attendent.`,
+            ),
+            rest: claude,
+          }
+        : { title: "Rien ne t'attend.", rest: claude };
+  const shown = Math.min(index, forYou.length - 1);
+  const groups = Map.groupBy(
+    others.map((item, i) => ({ item, at: i + 1 })),
+    ({ item }) => item.kind,
+  );
+
   return (
     <>
-      <Section title="À toi de jouer" headingRef={headingRef}>
-        {forYou.length === 0 ? (
-          <p className="mt-2 text-muted-foreground">Rien ne t'attend.</p>
-        ) : (
-          <ul className="mt-2 grid gap-2">
-            {forYou.map((item) => (
-              <li
-                key={`${item.kind}-${item.kind === "answer" ? item.questionId : item.storyId}`}
-                className={`${card} p-3`}
-              >
-                <ForYouItem
-                  item={item}
-                  onSent={() => headingRef.current?.focus()}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-      <Section title="Claude travaille">
-        {claudeWorks.length === 0 ? (
-          <p className="mt-2 text-muted-foreground">
-            Claude ne travaille sur rien.
-          </p>
-        ) : (
-          <ul className="mt-2 grid gap-2">
-            {claudeWorks.map((work) => (
-              <li key={work.runId}>
-                <Link
-                  to={`/runs/${work.runId}`}
-                  className={`${card} block p-3 ${focusRing}`}
-                >
-                  <Story {...work} />
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {work.step ?? "Démarrage"}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-      <Section title="Projets">
-        {projects.length === 0 ? (
-          <p className="mt-2">
-            Aucun projet.{" "}
-            <Link to="/projets" className={link}>
-              Importer un projet
-            </Link>
-          </p>
-        ) : (
-          <ul className="mt-2 grid gap-2">
-            {projects.map((p) => (
-              <li key={p.id}>
-                <Link
-                  to={`/projets/${p.id}`}
-                  className={`${card} flex items-center justify-between gap-3 p-3 ${focusRing}`}
-                >
-                  <span className="font-semibold">{p.name}</span>
-                  <span
-                    className={`rounded-full px-3 py-1 font-semibold ${PASTILLES[p.state][1]}`}
+      <StateSentence {...sentence} />
+      {first && (
+        <Section
+          label={
+            <span className="text-[11.5px] font-bold uppercase tracking-[.08em] text-you-text">
+              1 · Maintenant
+            </span>
+          }
+          hint={
+            first.kind === "answer" ? "ce qui bloque Claude" : "ce qui t'attend"
+          }
+          headingRef={headingRef}
+        >
+          <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-[14px] border border-you-line bg-you-ground px-[18px] py-4">
+            <span
+              aria-hidden="true"
+              className="grid size-9 place-items-center rounded-[10px] bg-you-soft font-bold text-you-text"
+            >
+              ✦
+            </span>
+            <span className="min-w-0">
+              <b className="block text-[15px] font-semibold">{title(first)}</b>
+              <span className="text-[12.5px] text-muted-foreground">
+                {subLine(first)}
+              </span>
+            </span>
+            <span className="hidden text-[12.5px] text-muted-foreground lg:block">
+              ouverte à droite →
+            </span>
+          </div>
+        </Section>
+      )}
+      {others.length > 0 && (
+        <Section
+          label={<span className={sectionLabel}>2 · Ensuite</span>}
+          hint="sans urgence, dans cet ordre"
+        >
+          <div className={listCard}>
+            {[...groups].map(([kind, rows]) => (
+              <div key={kind} className="divide-y divide-border">
+                <p className="flex min-h-9 items-center gap-2.5 px-[18px] text-[12.5px] font-semibold text-muted-foreground">
+                  {KINDS[kind].group}
+                  <span className={badge}>{rows.length}</span>
+                  {KINDS[kind].hint && (
+                    <span className="font-medium">· {KINDS[kind].hint}</span>
+                  )}
+                </p>
+                {rows.map(({ item, at }) => (
+                  <div
+                    key={itemKey(item)}
+                    className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px]"
                   >
-                    {PASTILLES[p.state][0]}
-                  </span>
-                </Link>
-              </li>
+                    <span
+                      aria-hidden="true"
+                      className="text-center text-[13px] font-bold text-dim"
+                    >
+                      {KINDS[kind].glyph}
+                    </span>
+                    <span className="min-w-0">
+                      <b className="block truncate font-semibold">
+                        {title(item)}
+                      </b>
+                      <span className="block text-[12.5px] text-muted-foreground">
+                        {subLine(item)}
+                      </span>
+                    </span>
+                    <span className="flex gap-1.5">
+                      <RowActions item={item} open={() => setIndex(at)} />
+                    </span>
+                  </div>
+                ))}
+              </div>
             ))}
+          </div>
+        </Section>
+      )}
+      {w > 0 && (
+        <Section
+          label={
+            <>
+              <Dot tone="claude" live />
+              <span className={sectionLabel}>Claude en ce moment</span>
+            </>
+          }
+        >
+          <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {claudeWorks.map((work) => {
+              const waiting =
+                first?.kind === "answer" && first.runId === work.runId;
+              return (
+                <li key={work.runId} className="min-w-0">
+                  <Link
+                    to={`/runs/${work.runId}`}
+                    className={`flex flex-col gap-1.5 rounded-xl border bg-card px-[13px] py-[11px] ${focusRing} ${waiting ? "border-you-line" : "border-border"}`}
+                  >
+                    <b className="truncate text-[13px] font-semibold">
+                      Run {work.runId} · {work.project.name}
+                    </b>
+                    <small
+                      className={`text-xs ${waiting ? "text-you-text" : "text-muted-foreground"}`}
+                    >
+                      {waiting
+                        ? "en pause · attend ta réponse"
+                        : (work.step ?? "Démarrage")}
+                    </small>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
-        )}
-      </Section>
+        </Section>
+      )}
       <Recent />
+      {first && (
+        <ItemPanel
+          key={itemKey(forYou[shown] ?? first)}
+          item={forYou[shown] ?? first}
+          index={shown}
+          total={forYou.length}
+          onMove={setIndex}
+          onSent={() => headingRef.current?.focus()}
+        />
+      )}
     </>
   );
 }
@@ -246,7 +428,7 @@ function Recent() {
   const entries = history.data?.entries.slice(0, 5);
   if (history.isPending) return null;
   return (
-    <Section title="Dernièrement">
+    <Section label={<span className={sectionLabel}>Dernièrement</span>}>
       {history.isError ? (
         <p className="mt-2 text-muted-foreground">
           Impossible de lire le journal.

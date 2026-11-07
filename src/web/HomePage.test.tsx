@@ -14,13 +14,13 @@ import {
   PROJECT,
   stubHome,
 } from "./test-home.tsx";
+import { panel } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 8.1 (decision 040 B to H): the home page of a logged-in user. Pinned (the decision leaves them open):
-// - the sections are headings « À toi de jouer », « Claude travaille », « Projets » (each section is the <section> of its heading);
+// Slice 8.1 (decision 040 B to H), restyled by slice 9.3 (decision 045): the home page of a logged-in user. Pinned:
+// - what waits for the user is « 1 · Maintenant » (the first item) and « 2 · Ensuite » (the others), the item at the panel is in aside[data-panel];
 // - the CI is in words: « La CI échoue » (failure), « La CI tourne encore » (pending), « La CI est verte » (success), « Aucune CI » (null);
-// - the link to import projects (no project at all) is a link named /import/i to /projets;
-// - the pastilles are the words « À toi », « Claude travaille », « Rien en cours » in the row of the project.
+// - the projects and their pastilles moved to the sidebar (Shell.test.tsx).
 
 afterEach(() => {
   cleanup();
@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 const section = (name: string) => {
-  const heading = screen.getByRole("heading", { name });
+  const heading = screen.getByRole("heading", { name: new RegExp(name) });
   const found = heading.closest("section");
   if (!found) throw new Error(`no <section> around « ${name} »`);
   return found;
@@ -38,11 +38,12 @@ const hrefs = (el: HTMLElement) =>
   within(el)
     .queryAllByRole("link")
     .map((a) => a.getAttribute("href"));
+const h1 = () => screen.getByRole("heading", { level: 1 }).textContent ?? "";
 
 async function show(data: Partial<HomeData>, loggedIn = true) {
   const api = stubHome({ ...empty(), ...data }, loggedIn);
   renderAt("/");
-  await screen.findByRole("heading", { name: "À toi de jouer" });
+  await screen.findByRole("heading", { level: 1 });
   return api;
 }
 
@@ -79,25 +80,19 @@ const check = {
   project: PROJECT,
 };
 
-describe("criterion 5: the sections and the items of forYou", () => {
-  it("given a logged-in user, when the home loads, then it has À toi de jouer, Claude travaille and Projets", async () => {
-    await show({});
-
-    for (const name of ["À toi de jouer", "Claude travaille", "Projets"])
-      expect(screen.getByRole("heading", { name })).toBeDefined();
-  });
-
-  it("given a question, when the home loads, then it shows the question, the story, the project and the answer block", async () => {
+describe("criterion 5: the items of forYou", () => {
+  it("given a question, when the home loads, then the panel shows the question, the project and the answer block", async () => {
     await show({ forYou: [answer] });
 
-    const s = section("À toi de jouer");
-    expect(s.textContent).toContain("Quel nom pour le bouton ?");
-    expect(s.textContent).toContain("relire les exports");
-    expect(s.textContent).toContain("octocat/hello");
-    expect(within(s).getByRole("button", { name: "Valider" })).toBeDefined();
-    expect(within(s).getByRole("button", { name: "Envoyer" })).toBeDefined();
-    expect(within(s).getByLabelText("Ta réponse")).toBeDefined();
-    expect(within(s).getByRole("button", { name: "Répondre" })).toBeDefined();
+    expect(section("1 · Maintenant").textContent).toContain(
+      "Quel nom pour le bouton ?",
+    );
+    expect(section("1 · Maintenant").textContent).toContain("octocat/hello");
+    const p = within(panel());
+    expect(p.getByRole("button", { name: "Valider" })).toBeDefined();
+    expect(p.getByRole("button", { name: "Envoyer" })).toBeDefined();
+    expect(p.getByLabelText("Ta réponse")).toBeDefined();
+    expect(p.getByRole("button", { name: "Répondre" })).toBeDefined();
   });
 
   it("given a question, when I click a suggested answer, then it is POSTed to /api/questions/7/answer and the home is read again", async () => {
@@ -105,7 +100,7 @@ describe("criterion 5: the sections and the items of forYou", () => {
     const before = api.homeReads();
 
     api.state.home = { ...empty() };
-    fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
+    fireEvent.click(within(panel()).getByRole("button", { name: "Envoyer" }));
 
     await waitFor(() =>
       expect(api.calls).toContainEqual({
@@ -115,16 +110,16 @@ describe("criterion 5: the sections and the items of forYou", () => {
       }),
     );
     await waitFor(() => expect(api.homeReads()).toBeGreaterThan(before));
-    expect(await screen.findByText("Rien ne t'attend.")).toBeDefined();
+    await waitFor(() => expect(h1()).toContain("Rien ne t'attend."));
   });
 
   it("given a question, when I type my answer and send it, then it is POSTed as typed", async () => {
     const api = await show({ forYou: [answer] });
 
-    fireEvent.change(screen.getByLabelText("Ta réponse"), {
+    fireEvent.change(within(panel()).getByLabelText("Ta réponse"), {
       target: { value: "Plutôt Publier" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Répondre" }));
+    fireEvent.click(within(panel()).getByRole("button", { name: "Répondre" }));
 
     await waitFor(() =>
       expect(api.calls).toContainEqual({
@@ -135,13 +130,13 @@ describe("criterion 5: the sections and the items of forYou", () => {
     );
   });
 
-  it("given a story to validate, when the home loads, then it shows the story and the project and links to /us/22", async () => {
+  it("given a story to validate, when the home loads, then it shows the story and the project and the panel links to /us/22", async () => {
     await show({ forYou: [validate] });
 
-    const s = section("À toi de jouer");
+    const s = section("1 · Maintenant");
     expect(s.textContent).toContain("trier les exports");
     expect(s.textContent).toContain("octocat/hello");
-    expect(hrefs(s)).toContain("/us/22");
+    expect(hrefs(panel())).toContain("/us/22");
   });
 
   it.each([
@@ -150,43 +145,55 @@ describe("criterion 5: the sections and the items of forYou", () => {
     ["success", "La CI est verte"],
     [null, "Aucune CI"],
   ])(
-    "given a PR to review with CI %s, when the home loads, then it says « %s » and links to GitHub and /us/23",
+    "given a PR to review with CI %s, when the home loads, then it says « %s » and the panel links to GitHub and /us/23",
     async (ci, words) => {
       await show({ forYou: [review(ci)] });
 
-      const s = section("À toi de jouer");
+      const s = section("1 · Maintenant");
       expect(s.textContent).toContain(words);
       expect(s.textContent).toContain("exporter en CSV");
       expect(s.textContent).toContain("octocat/hello");
-      expect(hrefs(s)).toContain("https://github.com/octocat/hello/pull/14");
-      expect(hrefs(s)).toContain("/us/23");
+      expect(hrefs(panel())).toContain(
+        "https://github.com/octocat/hello/pull/14",
+      );
+      expect(hrefs(panel())).toContain("/us/23");
     },
   );
 
-  it("given a run to check, when the home loads, then it links to /runs/31 and gives the reasons in French", async () => {
+  it("given a run to check, when the home loads, then the panel links to /runs/31 and gives the reasons in French", async () => {
     await show({ forYou: [check] });
 
-    const s = section("À toi de jouer");
-    expect(s.textContent).toContain("filtrer par date");
-    expect(s.textContent).toContain("octocat/hello");
-    expect(hrefs(s)).toContain("/runs/31");
-    expect(s.textContent).toContain("Le run n'a pas réussi");
-    expect(s.textContent).toContain("La CI échoue");
-    expect(s.textContent).toContain("Aucune PR liée");
+    expect(section("1 · Maintenant").textContent).toContain("filtrer par date");
+    expect(section("1 · Maintenant").textContent).toContain("octocat/hello");
+    expect(hrefs(panel())).toContain("/runs/31");
+    expect(panel().textContent).toContain("Le run n'a pas réussi");
+    expect(panel().textContent).toContain("La CI échoue");
+    expect(panel().textContent).toContain("Aucune PR liée");
   });
 
   it("given items of every kind, when the home loads, then they are listed in the order the server gave", async () => {
     await show({ forYou: [answer, validate, review("success"), check] });
 
-    const text = section("À toi de jouer").textContent ?? "";
+    const text =
+      section("1 · Maintenant").textContent +
+      (section("2 · Ensuite").textContent ?? "");
     const at = [
-      "relire les exports",
+      "Quel nom pour le bouton ?",
       "trier les exports",
       "exporter en CSV",
       "filtrer par date",
     ].map((t) => text.indexOf(t));
     expect(at.every((i) => i >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
+  });
+
+  it("given a second item, when the home loads, then its row of 2 · Ensuite keeps the links of today: the PR on GitHub and the US", async () => {
+    await show({ forYou: [validate, review("success")] });
+
+    expect(hrefs(section("2 · Ensuite"))).toEqual([
+      "https://github.com/octocat/hello/pull/14",
+      "/us/23",
+    ]);
   });
 
   it("given runs working, when the home loads, then each row links to /runs/:id with its step agent or « Démarrage »", async () => {
@@ -209,45 +216,25 @@ describe("criterion 5: the sections and the items of forYou", () => {
       ],
     });
 
-    const s = section("Claude travaille");
+    const s = section("Claude en ce moment");
     expect(hrefs(s)).toEqual(["/runs/12", "/runs/13"]);
     const [first, second] = within(s).getAllByRole("link");
-    expect(first?.textContent).toContain("relire les exports");
     expect(first?.textContent).toContain("octocat/hello");
     expect(first?.textContent).toContain("developer");
     expect(second?.textContent).toContain("Démarrage");
     expect(first?.textContent).not.toContain("Démarrage");
   });
-
-  it.each([
-    ["for_you", "À toi"],
-    ["claude", "Claude travaille"],
-    ["idle", "Rien en cours"],
-  ])(
-    "given a project in state %s, when the home loads, then its row shows « %s »",
-    async (state, word) => {
-      await show({ projects: [{ id: 5, name: "octocat/hello", state }] });
-
-      const s = section("Projets");
-      expect(s.textContent).toContain("octocat/hello");
-      expect(s.textContent).toContain(word);
-    },
-  );
 });
 
 describe("criterion 6: the empty states", () => {
-  it("given nothing to do and Claude idle, when the home loads, then both sections say so", async () => {
+  it("given nothing to do and Claude idle, when the home loads, then the sentence says so", async () => {
     await show({ projects: [{ id: 5, name: "octocat/hello", state: "idle" }] });
 
-    expect(section("À toi de jouer").textContent).toContain(
-      "Rien ne t'attend.",
-    );
-    expect(section("Claude travaille").textContent).toContain(
-      "Claude ne travaille sur rien.",
-    );
+    expect(h1()).toContain("Rien ne t'attend.");
+    expect(h1()).toContain("Claude ne travaille sur rien.");
   });
 
-  it("given items in both sections, when the home loads, then the empty messages are not shown", async () => {
+  it("given items and a run, when the home loads, then the empty messages are not shown", async () => {
     await show({
       forYou: [validate],
       claudeWorks: [
@@ -255,25 +242,8 @@ describe("criterion 6: the empty states", () => {
       ],
     });
 
-    expect(screen.queryByText("Rien ne t'attend.")).toBeNull();
-    expect(screen.queryByText("Claude ne travaille sur rien.")).toBeNull();
-  });
-
-  it("given no project at all, when the home loads, then Projets links to the import of projects (/projets)", async () => {
-    await show({});
-
-    const link = within(section("Projets")).getByRole("link", {
-      name: /import/i,
-    });
-    expect(link.getAttribute("href")).toBe("/projets");
-  });
-
-  it("given a project, when the home loads, then there is no import link", async () => {
-    await show({ projects: [{ id: 5, name: "octocat/hello", state: "idle" }] });
-
-    expect(
-      within(section("Projets")).queryByRole("link", { name: /import/i }),
-    ).toBeNull();
+    expect(h1()).not.toContain("Rien ne t'attend.");
+    expect(h1()).not.toContain("Claude ne travaille sur rien.");
   });
 });
 
@@ -288,11 +258,7 @@ describe("criterion 8: the home follows the stream", () => {
     api.state.home = { ...empty(), forYou: [validate] };
     source?.emit("change", "story:99");
 
-    await waitFor(() =>
-      expect(section("À toi de jouer").textContent).toContain(
-        "trier les exports",
-      ),
-    );
+    await waitFor(() => expect(h1()).toContain("1 chose t'attend."));
     expect(api.homeReads()).toBeGreaterThan(before);
   });
 });
@@ -302,13 +268,10 @@ describe("criterion 9: logged out", () => {
     const api = stubHome(empty(), false);
     renderAt("/");
 
-    expect(await screen.findByText("Serveur OK · v0.1.0")).toBeDefined();
     expect(
       await screen.findByRole("link", { name: "Se connecter avec GitHub" }),
     ).toBeDefined();
-    expect(
-      screen.queryByRole("heading", { name: "À toi de jouer" }),
-    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Maintenant/ })).toBeNull();
     expect(api.homeReads()).toBe(0);
   });
 });
@@ -323,30 +286,7 @@ const entry = (i: number, project: string | null, action = "login") => ({
   project,
 });
 
-describe("open a project and see what was done lately", () => {
-  it("given active projects, when the home loads, then each project of Projets is a link to /projets/:id named after it", async () => {
-    await show({
-      projects: [
-        { id: 5, name: "octocat/hello", state: "idle" },
-        { id: 8, name: "octocat/world", state: "claude" },
-      ],
-    });
-
-    const s = section("Projets");
-    expect(
-      within(s)
-        .getByRole("link", { name: /octocat\/hello/ })
-        .getAttribute("href"),
-    ).toBe("/projets/5");
-    expect(
-      within(s)
-        .getByRole("link", { name: /octocat\/world/ })
-        .getAttribute("href"),
-    ).toBe("/projets/8");
-    expect(s.textContent).toContain("Rien en cours");
-    expect(s.textContent).toContain("Claude travaille");
-  });
-
+describe("what was done lately", () => {
   it("given more than 5 history entries, when the home loads, then Dernièrement lists the first 5 with action, project and date, and links to /journal", async () => {
     const api = stubHome(empty());
     api.state.history = {

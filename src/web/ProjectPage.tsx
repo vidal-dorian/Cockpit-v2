@@ -55,14 +55,14 @@ const EXPLANATIONS: Record<string, string> = {
     "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
 };
 
-type ProjectTab = "kanban" | "tickets" | "sante" | "ecriture-us" | "agents";
+type ProjectTab = "kanban" | "tickets" | "sante" | "agents" | "reglages";
 
 const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "kanban", to: "", label: "Kanban" },
   { tab: "tickets", to: "/tickets", label: "Tickets" },
   { tab: "sante", to: "/sante", label: "Santé" },
-  { tab: "ecriture-us", to: "/ecriture-us", label: "Écriture des US" },
   { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
 
 /** The page of a project in five tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
@@ -215,7 +215,7 @@ export function ProjectPage({ tab }: { tab: ProjectTab }) {
           archived={project.archived}
         />
       )}
-      {!notFound && tab === "ecriture-us" && <ProjectRoutine projectId={id} />}
+      {!notFound && tab === "reglages" && <ProjectRoutine projectId={id} />}
     </main>
   );
 }

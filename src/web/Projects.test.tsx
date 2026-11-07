@@ -160,12 +160,14 @@ afterEach(() => {
 });
 
 describe("navigation", () => {
-  it("given the home page, when it loads, then the header links to /projets", async () => {
+  it("given the home page, when it loads, then the sidebar links to /projets", async () => {
     stubApi({ projects: [], installed: false, repositories: [] });
 
     renderAt("/");
 
-    const link = await screen.findByRole("link", { name: "Projets" });
+    const link = await screen.findByRole("link", {
+      name: /^Tous les projets/,
+    });
     expect(link.getAttribute("href")).toBe("/projets");
   });
 });

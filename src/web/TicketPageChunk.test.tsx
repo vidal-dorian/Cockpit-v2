@@ -28,6 +28,8 @@ describe("Ticket page, loading", () => {
     expect(alert.textContent).not.toMatch(/dynamically imported/);
     expect(screen.getByRole("button", { name: "Recharger" })).toBeDefined();
     // The navigation stays usable.
-    expect(screen.getByRole("link", { name: "Projets" })).toBeDefined();
+    expect(
+      screen.getByRole("link", { name: "Tous les projets" }),
+    ).toBeDefined();
   });
 });

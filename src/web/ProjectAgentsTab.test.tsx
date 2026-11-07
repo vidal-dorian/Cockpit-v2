@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
 // Slice E2 (decision 030 A): « Agents » is the fifth tab of the project page, a link to /projets/:id/agents inside <nav aria-label="Sections du projet">,
-// after « Écriture des US »; its section is told by an h2 « Agents ».
+// before « Réglages » (slice 9.3); its section is told by an h2 « Agents ».
 
 afterEach(() => {
   cleanup();
@@ -72,7 +72,7 @@ function stubApi() {
 }
 
 describe("decision 030 A: the tab Agents", () => {
-  it("given a project, when /projets/:id/agents opens, then « Agents » is the fifth tab, a link to that route marked open, and its section has the h2 « Agents »", async () => {
+  it("given a project, when /projets/:id/agents opens, then « Agents » is the fourth tab, a link to that route marked open, and its section has the h2 « Agents »", async () => {
     stubApi();
     window.history.replaceState({}, "", "/projets/5/agents");
 
@@ -91,11 +91,11 @@ describe("decision 030 A: the tab Agents", () => {
     });
     const links = within(nav).getAllByRole("link");
     expect(links).toHaveLength(5);
-    const last = links[4] as HTMLElement;
-    expect(last.textContent?.trim()).toBe("Agents");
-    expect(last.getAttribute("href")).toBe("/projets/5/agents");
-    expect(last.getAttribute("aria-current")).toBe("page");
-    for (const other of links.slice(0, 4))
+    const agents = links[3] as HTMLElement;
+    expect(agents.textContent?.trim()).toBe("Agents");
+    expect(agents.getAttribute("href")).toBe("/projets/5/agents");
+    expect(agents.getAttribute("aria-current")).toBe("page");
+    for (const other of links.filter((l) => l !== agents))
       expect(other.getAttribute("aria-current")).toBeNull();
     expect(
       await screen.findByRole("heading", { level: 2, name: "Agents" }),

@@ -84,7 +84,7 @@ afterEach(() => {
 });
 
 describe("home page", () => {
-  it("shows the title and the server version", async () => {
+  it("shows the title of the login screen", async () => {
     stubApi({ "GET /api/health": health, "GET /api/me": unauthorized });
 
     renderApp();
@@ -92,7 +92,6 @@ describe("home page", () => {
     expect(
       await screen.findByRole("heading", { name: "Cockpit" }),
     ).toBeDefined();
-    expect(await screen.findByText("Serveur OK · v0.1.0")).toBeDefined();
   });
 
   it("shows the error and lets the user retry", async () => {
@@ -114,7 +113,8 @@ describe("home page", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Réessayer" }));
-    expect(await screen.findByText("Serveur OK · v0.1.0")).toBeDefined();
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(healthCalls).toBe(2);
   });
 });
 

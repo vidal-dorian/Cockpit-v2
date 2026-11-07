@@ -208,7 +208,7 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
   const goBackToProject = async () => {
     fireEvent.click(
       within(screen.getByRole("navigation")).getByRole("link", {
-        name: "Projets",
+        name: "Tous les projets",
       }),
     );
     fireEvent.click(await screen.findByRole("link", { name: "octocat/hello" }));
