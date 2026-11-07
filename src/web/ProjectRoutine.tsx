@@ -332,6 +332,7 @@ export function ProjectRoutine({
       <div className="grid gap-3.5">
         <CloneFolderCard projectId={projectId} />
         <ArchiveCard projectId={projectId} archived={archived} />
+      </div>
     </div>
   );
 }
@@ -410,6 +411,44 @@ function ArchiveCard({
           {archive.error.message}
         </p>
       )}
+    </section>
+  );
+}
+
+// Same key as DevelopWindow.tsx (`storageKey`): the folder is shared with « Développer avec Claude ».
+const cloneKey = (projectId: string) => `cockpit.clone.${projectId}`;
+
+/** « Sur ce PC »: the folder of the clone, remembered by this browser (decision 034). */
+function CloneFolderCard({ projectId }: { projectId: string }) {
+  const [folder, setFolder] = useState(() => {
+    try {
+      return window.localStorage.getItem(cloneKey(projectId)) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  return (
+    <section aria-labelledby="sur-ce-pc" className={`px-[18px] py-4 ${card}`}>
+      <h2 id="sur-ce-pc" className={`mb-3 ${sectionLabel}`}>
+        Sur ce PC
+      </h2>
+      <label className="text-[13px] font-semibold">
+        Dossier du clone
+        <input
+          className={`${field} font-mono`}
+          value={folder}
+          placeholder="/home/dorian/code/mon-repo"
+          onChange={(e) => {
+            setFolder(e.target.value);
+            try {
+              window.localStorage.setItem(cloneKey(projectId), e.target.value);
+            } catch {}
+          }}
+        />
+      </label>
+      <p className="mt-2.5 text-[12.5px] text-muted-foreground">
+        Retenu par ce navigateur, pour lancer Claude Desktop au bon endroit.
+      </p>
     </section>
   );
 }

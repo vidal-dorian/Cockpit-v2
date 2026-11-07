@@ -244,19 +244,21 @@ export function ticketRoutes(
       );
       if (!found) return c.json(notFound, 404);
       // The stories of the ticket in order, each with what its row says: criteria, dependencies, latest run.
+      // A single-table select leaves columns unqualified, so the subqueries name the outer table.
+      const storyId = sql.raw('"user_stories"."id"');
       const stories = await db
         .select({
           id: userStories.id,
           position: userStories.position,
           iWant: userStories.iWant,
           status: userStories.status,
-          criteriaCount: sql<number>`(select count(*)::int from ${acceptanceCriteria} where ${acceptanceCriteria.storyId} = ${userStories.id})`,
+          criteriaCount: sql<number>`(select count(*)::int from ${acceptanceCriteria} where ${acceptanceCriteria.storyId} = ${storyId})`,
           dependsOn: sql<
             number[]
-          >`coalesce((select array_agg(${storyDependencies.dependsOnId} order by ${storyDependencies.dependsOnId}) from ${storyDependencies} where ${storyDependencies.storyId} = ${userStories.id}), '{}')`,
+          >`coalesce((select array_agg(${storyDependencies.dependsOnId} order by ${storyDependencies.dependsOnId}) from ${storyDependencies} where ${storyDependencies.storyId} = ${storyId}), '{}')`,
           runId: sql<
             number | null
-          >`(select max(${runs.id}) from ${runs} where ${runs.storyId} = ${userStories.id})`,
+          >`(select max(${runs.id}) from ${runs} where ${runs.storyId} = ${storyId})`,
         })
         .from(userStories)
         .where(eq(userStories.ticketId, found.ticket.id))

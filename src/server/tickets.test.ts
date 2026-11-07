@@ -381,7 +381,7 @@ describe("GET /api/tickets/:id, the rows of the stories", () => {
           asA: "a",
           iWant: `veut ${position}`,
           soThat: "b",
-          status: "ready",
+          status: "ready" as const,
         })),
       )
       .returning();
@@ -390,9 +390,9 @@ describe("GET /api/tickets/:id, the rows of the stories", () => {
       [1, 2].map((position) => ({
         storyId: second.id,
         position,
-        given: "g",
-        when: "w",
-        then: "t",
+        givenText: "g",
+        whenText: "w",
+        thenText: "t",
       })),
     );
     await db

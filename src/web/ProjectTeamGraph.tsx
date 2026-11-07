@@ -91,10 +91,12 @@ function edgesOf(steps: TeamStep[], selected: string | null): Edge[] {
             pathOptions: { offset: 28 },
             markerEnd: arrow,
             label: `retour au ${s.loopTo} : ${s.until}`,
-            labelBgStyle: { fill: "var(--color-card)" },
+            // Under the dashed line, like the mockup: no background, the text shifted down.
+            labelShowBg: false,
             labelStyle: {
               fill: "var(--color-muted-foreground)",
               fontSize: 11.5,
+              transform: "translateY(14px)",
             },
             style: { strokeDasharray: "4 4" },
             selected: selected === s.agent,

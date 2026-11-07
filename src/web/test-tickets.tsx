@@ -246,11 +246,14 @@ export function stubTicketApi(
             ticket: found,
             stories: stories
               .filter((s) => s.ticketId === found.id)
-              .map(({ id, position, iWant, status }) => ({
+              .map(({ id, position, iWant, status, criteria, dependsOn }) => ({
                 id,
                 position,
                 iWant,
                 status,
+                criteriaCount: criteria.length,
+                dependsOn: dependsOn.map((d) => d.id),
+                runId: null,
               })),
           });
         const key = method === "PATCH" ? "patch" : "delete";

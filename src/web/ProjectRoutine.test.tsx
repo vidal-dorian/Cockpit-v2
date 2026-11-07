@@ -618,4 +618,18 @@ describe("Project page, the section Écriture automatique des US", () => {
     await waitFor(() => expect(archives()).toHaveLength(1));
     expect(archives()[0]?.method).toBe("POST");
   });
+
+  it("given a folder remembered by « Développer avec Claude », when the Réglages tab loads, then the clone folder shows it, and typing another one stores it under the same key", async () => {
+    window.localStorage.setItem("cockpit.clone.5", "/home/me/hello");
+    stubApi({ schedule: OFF, routine: CONNECTED });
+    renderAt("/projets/5/reglages");
+    await routineSection();
+
+    const input = screen.getByLabelText("Dossier du clone") as HTMLInputElement;
+    expect(input.value).toBe("/home/me/hello");
+    fireEvent.change(input, { target: { value: "/work/hello" } });
+
+    expect(window.localStorage.getItem("cockpit.clone.5")).toBe("/work/hello");
+    window.localStorage.removeItem("cockpit.clone.5");
+  });
 });
