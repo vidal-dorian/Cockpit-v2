@@ -5,6 +5,7 @@ import { fetchCodeMap } from "./conception.ts";
 import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
+import { FeaturesExport } from "./ProjectFeatures.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { ProjectRoutine } from "./ProjectRoutine.tsx";
@@ -182,26 +183,33 @@ export function ProjectPage({
                 title: feature
                   ? featureSentence(feature)
                   : "Pas encore de fonctionnalité.",
-                rest: undefined,
+                rest: feature
+                  ? "Un clic sur une règle ouvre l'écran de reprise."
+                  : undefined,
               }
-            : tab === "conception" && codeMap.data && codeMap.data.length > 0
-              ? {
-                  title: `Claude a lu ${name} : voici son modèle.`,
-                  rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                    codeMap.data.reduce((n, m) => n + m.data.objects.length, 0),
-                    "objet",
-                    "objets",
-                  )}, chacun avec le code qui le prouve.`,
-                }
-              : tab === "tickets" && tickets.data
+            : tab === "conception" && view === "features"
+              ? { title: name, rest: undefined }
+              : tab === "conception" && codeMap.data && codeMap.data.length > 0
                 ? {
-                    title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                    rest: TAB_REST[tab],
+                    title: `Claude a lu ${name} : voici son modèle.`,
+                    rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                      codeMap.data.reduce(
+                        (n, m) => n + m.data.objects.length,
+                        0,
+                      ),
+                      "objet",
+                      "objets",
+                    )}, chacun avec le code qui le prouve.`,
                   }
-                : {
-                    title: tab === "reglages" ? `Réglages de ${name}.` : name,
-                    rest: TAB_REST[tab],
-                  };
+                : tab === "tickets" && tickets.data
+                  ? {
+                      title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                      rest: TAB_REST[tab],
+                    }
+                  : {
+                      title: tab === "reglages" ? `Réglages de ${name}.` : name,
+                      rest: TAB_REST[tab],
+                    };
 
   return (
     <main className="pb-6">
@@ -228,14 +236,27 @@ export function ProjectPage({
               rest={sentence.rest}
               actions={
                 project && (
-                  <a
-                    href={`https://github.com/${project.fullName}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={`mt-1 ${button}`}
-                  >
-                    Ouvrir sur GitHub ↗
-                  </a>
+                  <div className="mt-1 flex flex-wrap justify-end gap-2">
+                    {view === "features" &&
+                      feature &&
+                      features.data &&
+                      codeMap.data && (
+                        <FeaturesExport
+                          fullName={project.fullName}
+                          feature={feature}
+                          features={features.data.features}
+                          modules={codeMap.data}
+                        />
+                      )}
+                    <a
+                      href={`https://github.com/${project.fullName}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className={button}
+                    >
+                      Ouvrir sur GitHub ↗
+                    </a>
+                  </div>
                 )
               }
             />

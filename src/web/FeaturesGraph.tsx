@@ -53,6 +53,7 @@ function ItemNode({ data }: NodeProps<Item>) {
   return (
     <>
       <Handle type="target" position={Position.Left} />
+      <Handle type="target" id="peer" position={Position.Right} />
       <Handle type="source" position={Position.Right} />
       {onClick ? (
         <button
@@ -111,10 +112,12 @@ export default function FeaturesGraph({
       });
       for (const actor of f.actors) {
         const clear = !!chosen?.actors.some((a) => key(a) === key(actor));
-        items.set(`a${key(actor)}`, {
-          column: 0,
-          node: { title: actor, clear },
-        });
+        // The first spelling names the node.
+        if (!items.has(`a${key(actor)}`))
+          items.set(`a${key(actor)}`, {
+            column: 0,
+            node: { title: actor, clear },
+          });
         ends.push([`a${key(actor)}`, `f${f.id}`, clear && isChosen]);
       }
       for (const r of f.rules) {
@@ -188,6 +191,8 @@ export default function FeaturesGraph({
           id: `${i}-${source}-${target}`,
           source,
           target,
+          // An object link enters by the right side: it would curve back across the column.
+          targetHandle: i >= ends.length ? "peer" : undefined,
           style: clear ? undefined : { opacity: 0.25 },
         }),
       ),

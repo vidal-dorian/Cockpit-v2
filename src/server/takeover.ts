@@ -250,6 +250,7 @@ async function loadRules(
   db: Db,
   projectId: number,
   which: "to_validate" | "features" | number = "to_validate",
+  modules?: Awaited<ReturnType<typeof mapModules>>,
 ) {
   const rows = await db
     .select({
@@ -284,14 +285,14 @@ async function loadRules(
     rows.map((r) => r.criterion.id),
   );
   const inMap = new Set(
-    (await mapModules(db, projectId)).flatMap((m) =>
+    (modules ?? (await mapModules(db, projectId))).flatMap((m) =>
       m.objects.map((o) => o.name),
     ),
   );
   return rows.map(({ criterion: k, story, ticketTitle }) => ({
     id: k.id,
     storyId: story.id,
-    // Widened: the web only compares it with « to_validate ».
+    // Widened to string: the web's test fixture (FakeFeature) types it as string, and the web only compares it with « to_validate ».
     storyStatus: story.status as string,
     asA: story.asA,
     ticketId: story.ticketId,
@@ -320,7 +321,8 @@ async function loadRules(
 
 /** Decision 048 A to C: the features (one per takeover ticket) with their actors and rules, and the links of the map between the objects those rules cite. */
 async function loadFeatures(db: Db, projectId: number) {
-  const rules = await loadRules(db, projectId, "features");
+  const modules = await mapModules(db, projectId);
+  const rules = await loadRules(db, projectId, "features", modules);
   const features = new Map<
     number,
     {
@@ -355,14 +357,11 @@ async function loadFeatures(db: Db, projectId: number) {
     feature.rules.push(rule);
   }
   const cited = new Set(rules.flatMap((r) => r.objects.map((o) => o.name)));
-  const links = (await mapModules(db, projectId)).flatMap((m) =>
-    m.links.flatMap(({ from, to, kind }) =>
-      kind !== "extends" && cited.has(from) && cited.has(to)
-        ? [{ from, to, kind }]
-        : [],
-    ),
-  );
-  return { features: [...features.values()], links };
+  const links = new Map<string, { from: string; to: string; kind: string }>();
+  for (const { from, to, kind } of modules.flatMap((m) => m.links))
+    if (from !== to && cited.has(from) && cited.has(to))
+      links.set(JSON.stringify([from, to, kind]), { from, to, kind });
+  return { features: [...features.values()], links: [...links.values()] };
 }
 
 /** A permalink to the cited lines, as GitHub writes it. */

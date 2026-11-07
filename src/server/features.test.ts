@@ -301,3 +301,28 @@ describe("decision 048 C: access and isolation", () => {
     expect(await res.json()).toEqual({ features: [], links: [] });
   });
 });
+
+describe("decision 048 B: the links are clean", () => {
+  it("given a link twice, a link of an object to itself and an extends link, when the features are read, then each pair is there once, the self link is not and extends is", async () => {
+    const ctx = await ready();
+    const ref = { from: "Order", to: "User", kind: "references" };
+    await submit(ctx, [
+      apiModule({
+        links: [
+          ref,
+          { ...ref, cardinality: "0..1" },
+          { from: "User", to: "User", kind: "references" },
+          { from: "Order", to: "User", kind: "extends" },
+        ],
+      }),
+    ]);
+    await created(ctx, [
+      storyOf(1, [rule(1, { object_names: ["Order", "User"] })]),
+    ]);
+
+    expect((await featuresOf(ctx)).links).toEqual([
+      ref,
+      { from: "Order", to: "User", kind: "extends" },
+    ]);
+  });
+});

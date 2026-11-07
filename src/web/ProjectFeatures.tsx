@@ -35,7 +35,46 @@ function download(name: string, text: string) {
   // A title can hold characters a file name cannot.
   anchor.download = name.replace(/[\\/:*?"<>|]/g, "-");
   anchor.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** « Exporter en Markdown » and « Tout le projet » (decision 048 I), for the actions slot of the header. */
+export function FeaturesExport({
+  fullName,
+  feature,
+  features,
+  modules,
+}: {
+  fullName: string;
+  feature: Feature;
+  features: Feature[];
+  modules: Parameters<typeof featuresMarkdown>[1];
+}) {
+  const exportFile = (name: string, list: Feature[]) =>
+    download(
+      `conception-${name}.md`,
+      featuresMarkdown(list, modules, fullName),
+    );
+  return (
+    <>
+      <button
+        type="button"
+        className={button}
+        onClick={() => exportFile(feature.title, [feature])}
+      >
+        Exporter en Markdown
+      </button>
+      <button
+        type="button"
+        className={ghostButton}
+        onClick={() =>
+          exportFile(fullName.split("/").pop() ?? fullName, features)
+        }
+      >
+        Tout le projet
+      </button>
+    </>
+  );
 }
 
 /** Decision 048 E to J: the third view of the tab « Conception », the graph of the features (S43) or its four catalogues as lists. */
@@ -55,8 +94,8 @@ export function ProjectFeatures({
   });
   const [params, setParams] = useSearchParams();
   const [view, setView] = useState<"graph" | "list">("graph");
-  const [analyse, setAnalyse] = useState(false);
-  const openAnalyse = useCallback(() => setAnalyse(true), []);
+  const [analyse, setAnalyse] = useState<"map" | "rules" | null>(null);
+  const openAnalyse = useCallback(() => setAnalyse("map"), []);
   const choose = useCallback(
     (id: number) => setParams({ f: String(id) }, { replace: true }),
     [setParams],
@@ -65,16 +104,29 @@ export function ProjectFeatures({
   const failed = features.isError || map.isError;
   const objects = feature ? objectsOf(feature) : [];
   const absent = objects.filter((o) => !o.inMap).length;
-  const analyseButton = (label: string, className: string) => (
-    <button type="button" className={className} onClick={openAnalyse}>
+  const analyseButton = (
+    label: string,
+    className: string,
+    open: "map" | "rules" = "map",
+  ) => (
+    <button
+      type="button"
+      className={className}
+      onClick={() => setAnalyse(open)}
+    >
       {label}
     </button>
   );
-  const exportFile = (name: string, list: Feature[]) =>
-    download(
-      `conception-${name}.md`,
-      featuresMarkdown(list, map.data ?? [], fullName),
-    );
+  const unmappedNotice = absent > 0 && (
+    <div className="mt-2 flex flex-wrap items-center gap-3">
+      <p className="text-[13px] text-muted-foreground">
+        {absent === 1
+          ? "Cet objet n'est pas dans la carte du code. Relance l'analyse pour l'y ajouter."
+          : "Ces objets ne sont pas dans la carte du code. Relance l'analyse pour les y ajouter."}
+      </p>
+      {analyseButton("Relancer l'analyse", button)}
+    </div>
+  );
 
   return (
     <>
@@ -104,50 +156,24 @@ export function ProjectFeatures({
             Pas encore de fonctionnalité reprise. Choisis-en une dans « Analyser
             avec Claude ».
           </p>
-          {analyseButton("Analyser avec Claude", primaryButton)}
+          {analyseButton("Analyser avec Claude", primaryButton, "rules")}
         </div>
       )}
       {features.data && map.data && feature && (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-muted-foreground">
-              Un clic sur une règle ouvre l'écran de reprise.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {/* Below md the list only (007). */}
-              <div className="hidden gap-1 md:flex">
-                {(["graph", "list"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    aria-pressed={view === v}
-                    className={view === v ? button : ghostButton}
-                    onClick={() => setView(v)}
-                  >
-                    {v === "graph" ? "Graphe" : "Liste"}
-                  </button>
-                ))}
-              </div>
+          {/* Below md the list only (007). */}
+          <div className="hidden justify-end gap-1 md:flex">
+            {(["graph", "list"] as const).map((v) => (
               <button
+                key={v}
                 type="button"
-                className={button}
-                onClick={() => exportFile(feature.title, [feature])}
+                aria-pressed={view === v}
+                className={view === v ? button : ghostButton}
+                onClick={() => setView(v)}
               >
-                Exporter en Markdown
+                {v === "graph" ? "Graphe" : "Liste"}
               </button>
-              <button
-                type="button"
-                className={ghostButton}
-                onClick={() =>
-                  exportFile(
-                    fullName.split("/").pop() ?? fullName,
-                    features.data.features,
-                  )
-                }
-              >
-                Tout le projet
-              </button>
-            </div>
+            ))}
           </div>
           {view === "graph" && (
             <div className={`mt-4 hidden md:block ${card} overflow-hidden`}>
@@ -244,18 +270,12 @@ export function ProjectFeatures({
                   </li>
                 ))}
               </ul>
-              {absent > 0 && (
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <p className="text-[13px] text-muted-foreground">
-                    {absent === 1
-                      ? "Cet objet n'est pas dans la carte du code. Relance l'analyse pour l'y ajouter."
-                      : "Ces objets ne sont pas dans la carte du code. Relance l'analyse pour les y ajouter."}
-                  </p>
-                  {analyseButton("Relancer l'analyse", button)}
-                </div>
-              )}
+              {unmappedNotice}
             </section>
           </div>
+          {view === "graph" && (
+            <div className="hidden md:block">{unmappedNotice}</div>
+          )}
         </>
       )}
       {analyse && (
@@ -263,7 +283,8 @@ export function ProjectFeatures({
           projectId={projectId}
           fullName={fullName}
           archived={archived}
-          onClose={() => setAnalyse(false)}
+          initialRules={analyse === "rules"}
+          onClose={() => setAnalyse(null)}
         />
       )}
     </>
