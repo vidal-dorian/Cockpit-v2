@@ -578,7 +578,7 @@ describe("criterion 1: authentication of POST /mcp", () => {
 });
 
 describe("criterion 2: tools/list", () => {
-  it("given a valid token, when tools/list is posted, then exactly the 17 tools, each with an English description and an input schema naming its arguments", async () => {
+  it("given a valid token, when tools/list is posted, then exactly the 18 tools, each with an English description and an input schema naming its arguments", async () => {
     const { app, alice } = await withProject();
 
     const res = await rpc(app, "tools/list", {}, `Bearer ${alice.secret}`);
