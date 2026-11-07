@@ -19,6 +19,14 @@ const git = (...args) =>
 const sha256 = (text) =>
   createHash("sha256").update(text, "utf8").digest("hex");
 
+// A shallow clone would silently drop the oldest versions: an original copy would then read as modified by hand.
+if (git("rev-parse", "--is-shallow-repository").trim() === "true") {
+  console.error(
+    "Shallow clone: run `git fetch --unshallow` first, so every version of the catalogue is listed.",
+  );
+  process.exit(1);
+}
+
 const history = {};
 for (const file of FILES) {
   const versions = git("log", "--format=%H", "--", `catalog/${file}`)
