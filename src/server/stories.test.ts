@@ -1599,6 +1599,7 @@ describe("criterion 7: get_user_story", () => {
         i_want: "relire",
         so_that: "corriger",
         notes_md: "des **notes**",
+        kind: "feature",
         status: "to_rewrite",
         rewrite_comment: "Précise le cas vide",
         branch: null,

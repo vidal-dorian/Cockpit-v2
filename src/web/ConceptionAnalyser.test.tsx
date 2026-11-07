@@ -15,9 +15,9 @@ import { renderAt } from "./test-tickets.tsx";
 // Pinned where the decision leaves it open (the developer follows these):
 // - The window is the right Panel: role complementary named « Analyser avec Claude », whose heading (same name) takes the focus. Both buttons of the tab open it.
 // - It has the text field « Dossier du clone », remembered per project in localStorage under `cockpit.clone.5` (the key of DevelopWindow), prefilled from it.
-// - « Ouvrir Claude » is an <a href> when the folder is filled, `claude://code/new?folder=<encoded folder>&q=<encoded "/analyser">`; with no folder the same element has no href
-//   or aria-disabled="true" (or is a disabled button). Clicking it stores the folder. « Copier le prompt » writes the prompt, exactly `/analyser`, to the clipboard and « Copié » is shown.
-// - No checkbox yet: the map is the only analysis of R1. « Annuler » closes the window.
+// - « Ouvrir Claude » is an <a href> when the folder is filled, `claude://code/new?folder=<encoded folder>&q=<encoded "/analyser carte">`; with no folder the same element has no href
+//   or aria-disabled="true" (or is a disabled button). Clicking it stores the folder. « Copier le prompt » writes the prompt, exactly `/analyser carte`, to the clipboard and « Copié » is shown.
+// - Two checkboxes since R2 (decision 047 L, details in AnalyseRules.test.tsx): « Carte » checked at first, « Règles » not, so the first prompt is `/analyser carte`. « Annuler » closes the window.
 
 afterEach(() => {
   cleanup();
@@ -85,15 +85,19 @@ describe("decision 043 L: opening the window", () => {
     );
   });
 
-  it("given the window, when it is shown, then it has no checkbox (the map is the only analysis of R1)", async () => {
+  it("given the window, when it is shown, then it has two checkboxes, « Carte » checked and « Règles » not (decision 047 L)", async () => {
     const { panel } = await openWindow("Analyser avec Claude");
 
-    expect(within(panel).queryAllByRole("checkbox")).toHaveLength(0);
+    const boxes = within(panel).getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes.map((b) => [b.labels?.[0]?.textContent, b.checked])).toEqual([
+      ["Carte", true],
+      ["Règles", false],
+    ]);
   });
 });
 
 describe("decision 043 L: the clone folder, remembered per project", () => {
-  it("given cockpit.clone.5 in localStorage, when the window opens, then the field is prefilled and « Ouvrir Claude » is a link to the folder with /analyser", async () => {
+  it("given cockpit.clone.5 in localStorage, when the window opens, then the field is prefilled and « Ouvrir Claude » is a link to the folder with /analyser carte", async () => {
     window.localStorage.setItem("cockpit.clone.5", FOLDER);
 
     const { panel, ui } = await openWindow("Analyser avec Claude");
@@ -102,7 +106,7 @@ describe("decision 043 L: the clone folder, remembered per project", () => {
     const open = openClaude(panel);
     expect(open.disabled).toBe(false);
     expect(open.href).toBe(
-      `claude://code/new?folder=${encodeURIComponent(FOLDER)}&q=${encodeURIComponent("/analyser")}`,
+      `claude://code/new?folder=${encodeURIComponent(FOLDER)}&q=${encodeURIComponent("/analyser carte")}`,
     );
   });
 
@@ -115,7 +119,7 @@ describe("decision 043 L: the clone folder, remembered per project", () => {
     const open = openClaude(panel);
     expect(open.disabled).toBe(false);
     expect(open.href).toBe(
-      `claude://code/new?folder=${encodeURIComponent(WINDOWS)}&q=${encodeURIComponent("/analyser")}`,
+      `claude://code/new?folder=${encodeURIComponent(WINDOWS)}&q=${encodeURIComponent("/analyser carte")}`,
     );
   });
 
@@ -130,7 +134,7 @@ describe("decision 043 L: the clone folder, remembered per project", () => {
 });
 
 describe("decision 043 L: « Copier le prompt »", () => {
-  it("given the window, when « Copier le prompt » is clicked, then /analyser is written to the clipboard and « Copié » is shown", async () => {
+  it("given the window, when « Copier le prompt » is clicked, then /analyser carte is written to the clipboard and « Copié » is shown", async () => {
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -140,7 +144,9 @@ describe("decision 043 L: « Copier le prompt »", () => {
 
     fireEvent.click(ui.getByRole("button", { name: "Copier le prompt" }));
 
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("/analyser"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("/analyser carte"),
+    );
     expect(await ui.findByText("Copié")).toBeDefined();
   });
 });

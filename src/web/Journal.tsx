@@ -74,6 +74,12 @@ export const ACTIONS: Record<string, string> = {
   delete_agent: "Agent supprimé",
   save_team: "Équipe enregistrée",
   delete_team: "Équipe supprimée",
+  submit_code_map: "Carte du code déposée",
+  create_takeover_stories: "Règles de reprise écrites",
+  keep_rule: "Règle validée",
+  unkeep_rule: "Validation de la règle annulée",
+  edit_rule: "Règle corrigée",
+  bug_rule: "Règle notée comme bug",
 };
 const ORIGINS: Record<string, string> = {
   ui: "Interface",

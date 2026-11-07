@@ -28,6 +28,29 @@ const editBody = z
   .object({ title: title.optional(), descriptionMd: descriptionMd.optional() })
   .refine((body) => Object.keys(body).length > 0);
 
+/** The `depends_on` positions of a list of stories: at least 1, each once; the issue names the faulty field (decision 017 C). */
+export function checkDependsOn(
+  list: { depends_on?: number[] }[],
+  ctx: z.RefinementCtx,
+) {
+  list.forEach((story, index) => {
+    const seen = new Set<number>();
+    story.depends_on?.forEach((position, at) => {
+      const problem =
+        position < 1
+          ? `position ${position} must be at least 1`
+          : seen.has(position) && `position ${position} is repeated`;
+      seen.add(position);
+      if (problem)
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "depends_on", at],
+          message: problem,
+        });
+    });
+  });
+}
+
 /** A zod schema as a route validator: a body that does not fit is a 400, before any work and any history entry. */
 export const body = <T extends z.ZodType>(schema: T) =>
   validator("json", (value, c) => {
@@ -113,6 +136,8 @@ const CONFLICTS = [
   "wrong_status",
   "no_divergence",
   "not_template",
+  "not_takeover",
+  "takeover_story",
 ];
 
 /** A refusal of `act` as an answer; any other error is not ours. */

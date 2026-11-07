@@ -130,6 +130,8 @@ export type Options = {
   /** The answer of POST /api/projects/5/prepare (default: a repo that has neither the skill nor the agent). */
   prepare?: Answer;
   apply?: Answer;
+  /** The answer of GET /api/projects/5/rules (slice R2, decision 047; default: no rule). */
+  rules?: unknown[];
 };
 
 /** The fake server of the Conception tab; every request is recorded in `calls`. */
@@ -189,6 +191,8 @@ export function stubConception(options: Options = {}) {
             },
           },
         );
+      if (url.pathname === "/api/projects/5/rules" && method === "GET")
+        return Response.json({ rules: options.rules ?? [] });
       if (url.pathname === "/api/projects/5/prepare" && method === "POST")
         return reply(
           options.prepare ?? {

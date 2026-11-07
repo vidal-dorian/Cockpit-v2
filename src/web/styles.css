@@ -136,6 +136,26 @@ body {
   }
 }
 
+/* Code (decisions 047 F and 045 C): Shiki's `css-variables` theme paints each kind of word with one of these. A muted palette, an exception to 045 C
+   limited to code blocks: two soft hues (a lilac for keywords, a slate blue for strings) that are none of the four « temps » (yellow, red, blue-violet, green),
+   the rest in tints of ink. Every value keeps a contrast of 5:1 or more on the sunken and raised surfaces. */
+:root {
+  --shiki-foreground: var(--color-foreground);
+  --shiki-background: var(--color-sunken);
+  --shiki-token-keyword: #d6a9d3;
+  --shiki-token-string: #8dbac9;
+  --shiki-token-string-expression: #8dbac9;
+  --shiki-token-link: #8dbac9;
+  --shiki-token-function: #cfd5e3;
+  --shiki-token-constant: #d9c5b8;
+  --shiki-token-parameter: var(--color-muted-foreground);
+  --shiki-token-punctuation: #8f97a8;
+  --shiki-token-comment: #8a92a3;
+  --shiki-token-inserted: #8dbac9;
+  --shiki-token-deleted: #8a92a3;
+  --shiki-token-changed: #d9c5b8;
+}
+
 /* React Flow (decision 031 B), themed with the tokens above. */
 .react-flow {
   --xy-background-color: var(--color-sunken);

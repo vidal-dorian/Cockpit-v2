@@ -198,6 +198,11 @@ export function StoryPage() {
                         </span>
                       )}
                     </div>
+                    {criterion.summary && (
+                      <p className="mt-1.5 font-semibold">
+                        {criterion.summary}
+                      </p>
+                    )}
                     <p className="mt-1.5 leading-relaxed">
                       <span className={label}>Étant donné</span>{" "}
                       {criterion.given}
@@ -208,6 +213,21 @@ export function StoryPage() {
                     <p className="leading-relaxed">
                       <span className={label}>Alors</span> {criterion.then}
                     </p>
+                    {criterion.takeoverState && (
+                      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2">
+                        <span className={badge}>
+                          {criterion.takeoverState === "kept"
+                            ? "validée"
+                            : "à relire"}
+                        </span>
+                        <Link
+                          to={`/projets/${found.project.id}/conception/regles?regle=${criterion.id}`}
+                          className={`font-semibold underline ${focusRing}`}
+                        >
+                          Juger dans l'écran de reprise
+                        </Link>
+                      </p>
+                    )}
                     {criterion.result && criterion.evidence && (
                       <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-muted-foreground">
                         {criterion.evidence}
@@ -290,6 +310,9 @@ export function StoryPage() {
               project={found.project}
               archived={found.project.archived}
               statusRef={statusRef}
+              toDecide={found.story.criteria.flatMap((c) =>
+                c.takeoverState === "pending" ? [c.summary ?? ""] : [],
+              )}
             >
               {found.story.status === "in_review" && github}
             </StoryDecisions>

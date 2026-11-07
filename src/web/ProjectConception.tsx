@@ -6,13 +6,17 @@ import {
   useCallback,
   useState,
 } from "react";
+import { NavLink, useSearchParams } from "react-router";
 import { AnalyseWindow } from "./AnalyseWindow.tsx";
 import { ConceptionObject } from "./ConceptionObject.tsx";
 import { fetchCodeMap, linkLabel } from "./conception.ts";
+import { Reprise } from "./Reprise.tsx";
+import { useRules } from "./rules.ts";
 import {
   alertBox,
   button,
   card,
+  chipLink,
   ghostButton,
   listCard,
   primaryButton,
@@ -25,24 +29,31 @@ const ConceptionGraph = lazy(() => import("./ConceptionGraph.tsx"));
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
-/** Decision 043 I, J, K, L: the tab « Conception », one diagram (or list) per module of the map. */
+/** Decision 043 I, J, K, L: the tab « Conception », one diagram (or list) per module of the map; decision 047 I: with the chip « Règles », the takeover screen. */
 export function ProjectConception({
   projectId,
   fullName,
   archived,
+  screen = "map",
 }: {
   projectId: string;
   fullName: string;
   archived: boolean;
+  screen?: "map" | "rules";
 }) {
   const map = useQuery({
     queryKey: ["code-map", projectId],
     queryFn: () => fetchCodeMap(projectId),
   });
+  const rules = useRules(projectId);
+  // Decision 047 J: a rule leads here with `?objet=<name>`, which opens the panel of that object.
+  const wanted = useSearchParams()[0].get("objet");
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<"graph" | "list">("graph");
   // The right panel: an object of the module on screen, or the window of the analysis.
-  const [side, setSide] = useState<{ object: string } | "analyse" | null>(null);
+  const [side, setSide] = useState<{ object: string } | "analyse" | null>(
+    wanted ? { object: wanted } : null,
+  );
   const openObject = useCallback((object: string) => setSide({ object }), []);
   const closeObject = (name: string) => {
     setSide(null);
@@ -54,7 +65,10 @@ export function ProjectConception({
     }
   };
   const modules = map.data ?? [];
-  const module = modules.find((m) => m.path === selected) ?? modules[0];
+  const module =
+    modules.find((m) => m.path === selected) ??
+    modules.find((m) => m.data.objects.some((o) => o.name === wanted)) ??
+    modules[0];
   const object =
     side && side !== "analyse"
       ? module?.data.objects.find((o) => o.name === side.object)
@@ -86,8 +100,34 @@ export function ProjectConception({
     </button>
   );
 
+  const chips = (
+    <nav aria-label="Vues de la conception" className="mb-4 flex gap-2">
+      <NavLink to={`/projets/${projectId}/conception`} end className={chipLink}>
+        Modèle
+      </NavLink>
+      <NavLink
+        to={`/projets/${projectId}/conception/regles`}
+        className={chipLink}
+      >
+        {rules.data ? `Règles · ${rules.data.length}` : "Règles"}
+      </NavLink>
+    </nav>
+  );
+  if (screen === "rules")
+    return (
+      <section className="mx-[26px] mt-6" aria-label="Conception">
+        {chips}
+        <Reprise
+          projectId={projectId}
+          fullName={fullName}
+          archived={archived}
+        />
+      </section>
+    );
+
   return (
     <section className="mx-[26px] mt-6" aria-label="Conception">
+      {chips}
       {map.isPending && <p className="text-muted-foreground">Chargement…</p>}
       {map.isError && (
         <div role="alert" className={alertBox}>

@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   notLike,
   or,
@@ -122,6 +123,15 @@ export class WrongStatus extends Refused {
   }
 }
 
+/** A takeover story with rules still to decide cannot be validated (decision 047 K); carries them for the answer (the history only gets the code). */
+export class RulesPending extends Refused {
+  pending: { id: number; summary: string }[];
+  constructor(pending: { id: number; summary: string }[]) {
+    super("rules_pending");
+    this.pending = pending;
+  }
+}
+
 /** One decision on a story, in one `act` (decision 018 F): the project is checked, then the story is re-read FOR UPDATE and only then its status, so the status checked is the one changed. `entry` gets the ids; `change` returns the story as written. */
 export function changeStory(
   db: Db,
@@ -184,6 +194,18 @@ export async function rewriteStory(
   },
   set: Partial<Pick<Story, "status" | "rewriteComment">> = {},
 ) {
+  // The criteria are replaced: the sources and the state of a rule would go with them (decision 047).
+  const [rule] = await tx
+    .select({ id: acceptanceCriteria.id })
+    .from(acceptanceCriteria)
+    .where(
+      and(
+        eq(acceptanceCriteria.storyId, id),
+        isNotNull(acceptanceCriteria.takeoverState),
+      ),
+    )
+    .limit(1);
+  if (rule) throw new Refused("takeover_story");
   await tx.delete(acceptanceCriteria).where(eq(acceptanceCriteria.storyId, id));
   await tx.insert(acceptanceCriteria).values(
     fields.criteria.map((k, index) => ({
@@ -237,6 +259,7 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
   iWant: story.iWant,
   soThat: story.soThat,
   notesMd: story.notesMd,
+  kind: story.kind,
   status: story.status,
   branch: story.branch,
   prNumber: story.prNumber,
@@ -250,6 +273,8 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
     when: k.whenText,
     // biome-ignore lint/suspicious/noThenProperty: "then" is the Given/When/Then field of the API (decision 017)
     then: k.thenText,
+    summary: k.summary,
+    takeoverState: k.takeoverState,
     result: k.result,
     evidence: k.evidence,
     resultRunId: k.resultRunId,
@@ -297,6 +322,8 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       await syncIssue(db, readGitHub, user.userId, story.id);
       return c.json({ story: await reread(story.id, found.project.fullName) });
     } catch (error) {
+      if (error instanceof RulesPending)
+        return c.json({ error: error.message, pending: error.pending }, 409);
       return refusal(c, error);
     }
   };
@@ -433,17 +460,44 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       });
     })
     .post("/api/stories/:id/validate", (c) =>
-      decide(c, "validate_story", ["to_validate", "to_rewrite"], (tx, story) =>
-        updateStory(tx, story.id, { status: "ready", rewriteComment: null }),
+      decide(
+        c,
+        "validate_story",
+        ["to_validate", "to_rewrite"],
+        async (tx, story) => {
+          const pending = await tx
+            .select({
+              id: acceptanceCriteria.id,
+              summary: acceptanceCriteria.summary,
+            })
+            .from(acceptanceCriteria)
+            .where(
+              and(
+                eq(acceptanceCriteria.storyId, story.id),
+                eq(acceptanceCriteria.takeoverState, "pending"),
+              ),
+            )
+            .orderBy(asc(acceptanceCriteria.position));
+          if (pending.length > 0)
+            throw new RulesPending(
+              pending.map((p) => ({ id: p.id, summary: p.summary ?? "" })),
+            );
+          return updateStory(tx, story.id, {
+            status: "ready",
+            rewriteComment: null,
+          });
+        },
       ),
     )
     .post("/api/stories/:id/send-back", body(sendBackBody), (c) =>
-      decide(c, "send_back_story", ["to_validate"], (tx, story) =>
-        updateStory(tx, story.id, {
+      decide(c, "send_back_story", ["to_validate"], async (tx, story) => {
+        // Claude cannot rewrite a takeover story (rewriteStory refuses it): sent back, it would be stuck.
+        if (story.kind === "takeover") throw new Refused("takeover_story");
+        return updateStory(tx, story.id, {
           status: "to_rewrite",
           rewriteComment: c.req.valid("json").comment,
-        }),
-      ),
+        });
+      }),
     )
     .patch("/api/stories/:id", body(editBody), (c) =>
       decide(
