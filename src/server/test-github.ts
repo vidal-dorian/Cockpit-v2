@@ -463,6 +463,8 @@ export function stubGitHub(initial: {
   // Slice 7.6 (decision 038 B): the check runs of a commit (`owner/repo@sha`) and the reviews of a PR (`owner/repo#number`), as seeded.
   const checkRuns = new Map<string, FakeCheckRun[]>();
   const reviews = new Map<string, FakeReview[]>();
+  // Slice R4 (decision 050 C): the file paths of a PR (`owner/repo#number`), served by pages of 100 (`per_page`, `page`).
+  const pullFiles = new Map<string, string[]>();
   const unexpectedFetch = failOnUnexpectedFetch();
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -1042,6 +1044,32 @@ export function stubGitHub(initial: {
           })),
         );
       }
+      // Slice R4 (decision 050 C): `GET .../pulls/{n}/files`, 100 per page at most, `failOn` applies; 404 when the PR is not seeded.
+      const filesRoute =
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)\/files$/.exec(
+          route,
+        );
+      if (filesRoute) {
+        const failed = options.failOn?.({ method, path: url.pathname });
+        if (failed)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: failed === true ? 500 : failed },
+          );
+        const key = `${filesRoute[1]}#${filesRoute[2]}`;
+        if (!pulls.has(key))
+          return Response.json({ message: "Not Found" }, { status: 404 });
+        const size = Math.min(
+          Number(url.searchParams.get("per_page") ?? 30),
+          100,
+        );
+        const page = Number(url.searchParams.get("page") ?? 1);
+        return Response.json(
+          (pullFiles.get(key) ?? [])
+            .slice((page - 1) * size, page * size)
+            .map((filename) => ({ filename, status: "modified" })),
+        );
+      }
       const issueRoute =
         /^(GET|POST|PATCH|DELETE) https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(?:(labels)|issues(?:\/(\d+)(?:\/(labels)(?:\/(.+))?)?)?)$/.exec(
           route,
@@ -1224,6 +1252,10 @@ export function stubGitHub(initial: {
     /** Slice 7.6: the reviews `GET /repos/{o}/{r}/pulls/{n}/reviews` answers, oldest first (`{ id, user: { login }, state, submitted_at }`); 404 when the PR is not seeded. */
     setReviews(fullName: string, number: number, list: FakeReview[]) {
       reviews.set(`${fullName}#${number}`, list);
+    },
+    /** Slice R4: the paths `GET /repos/{o}/{r}/pulls/{n}/files` answers for a PR seeded by `addPull`, 100 per page. */
+    setPullFiles(fullName: string, number: number, paths: string[]) {
+      pullFiles.set(`${fullName}#${number}`, paths);
     },
     /** The live Git state of a repo named in `gitRepos` (decision 026), see the stub's comment. */
     git(fullName: string) {
