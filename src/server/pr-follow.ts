@@ -171,6 +171,7 @@ export async function followPullRequest(
     ) {
       const [last] = await tx
         .select({
+          runId: runs.id,
           userId: runs.userId,
           on: users.autoRelaunch,
           blockedAt: users.blockedAt,
@@ -180,39 +181,34 @@ export async function followPullRequest(
         .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
-      // A story this night launched (not one launched by hand, nor a night not started): its one retry (044 F').
-      const launchOf = tx
-        .select({ one: sql`1` })
-        .from(cloudLaunches)
-        .where(eq(cloudLaunches.nightItemId, nightItems.id));
-      const [item] = await tx
-        .select({ id: nightItems.id, night: nights })
-        .from(nightItems)
-        .innerJoin(nights, eq(nights.id, nightItems.nightId))
-        .where(
-          and(
-            eq(nightItems.storyId, story.id),
-            inArray(nights.status, ["running", "finished"]),
-            exists(launchOf),
-          ),
-        )
-        .orderBy(desc(nightItems.id))
-        .limit(1);
-      const [retried] = item
+      // The item of the night whose run is the last one of the story (044 F'): a later run, by hand or from an answer, is followed as usual.
+      const launchOf = (extra: ReturnType<typeof eq>) =>
+        tx
+          .select({ one: sql`1` })
+          .from(cloudLaunches)
+          .where(and(eq(cloudLaunches.nightItemId, nightItems.id), extra));
+      const [item] = last
         ? await tx
-            .select({ id: cloudLaunches.id })
-            .from(cloudLaunches)
+            .select({
+              id: nightItems.id,
+              night: nights,
+              relaunched: sql<boolean>`${exists(launchOf(eq(cloudLaunches.relaunch, true)))}`,
+            })
+            .from(nightItems)
+            .innerJoin(nights, eq(nights.id, nightItems.nightId))
             .where(
               and(
-                eq(cloudLaunches.nightItemId, item.id),
-                eq(cloudLaunches.relaunch, true),
+                eq(nightItems.storyId, story.id),
+                inArray(nights.status, ["running", "finished"]),
+                exists(launchOf(eq(cloudLaunches.runId, last.runId))),
               ),
             )
+            .orderBy(desc(nightItems.id))
             .limit(1)
         : [];
       // A blocked owner is never launched for, as in the queue and the routines.
       if (last && !last.blockedAt) {
-        if (item && retried)
+        if (item?.relaunched)
           await tx
             .update(nightItems)
             .set({ outcome: "ci_failed" })

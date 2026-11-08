@@ -120,6 +120,12 @@ export async function advance(
       .innerJoin(userStories, eq(userStories.id, nightItems.storyId))
       .innerJoin(tickets, eq(tickets.id, userStories.ticketId));
   try {
+    // A blocked owner is never launched for (012 G), whatever calls this.
+    const [owner] = await db
+      .select({ blockedAt: users.blockedAt })
+      .from(users)
+      .where(eq(users.id, userId));
+    if (owner?.blockedAt) return;
     for (;;) {
       if (await slotBusy(db, userId, at)) return;
       // The CI retry of a story goes before the next story (044 F', D'), also once the night is finished (the CI answers late).
@@ -253,20 +259,7 @@ export async function nightAfterRun(
       .innerJoin(nightItems, eq(nightItems.id, cloudLaunches.nightItemId))
       .innerJoin(nights, eq(nights.id, nightItems.nightId))
       .where(eq(cloudLaunches.runId, runId));
-    if (!ended) {
-      // Not a night run (a queue run, say): a retry may have been waiting for its slot.
-      const [run] = await db
-        .select({ userId: runs.userId })
-        .from(runs)
-        .where(eq(runs.id, runId));
-      if (run)
-        for (const night of await db
-          .select()
-          .from(nights)
-          .where(and(eq(nights.userId, run.userId), retryWaiting)))
-          await advance(db, deps, night, at);
-      return;
-    }
+    if (!ended) return;
     await db
       .update(nightItems)
       .set({

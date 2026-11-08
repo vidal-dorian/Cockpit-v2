@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { nightAfterRun } from "./night.ts";
 import { send } from "./test-decisions.ts";
+import { TEST_KEY } from "./test-instance.ts";
 import {
   at,
   finishLaunched,
@@ -17,6 +19,7 @@ import {
   refreshCi,
   relaunches,
   START,
+  setAutoRelaunch,
   setHours,
   setStory,
 } from "./test-launcher.ts";
@@ -87,6 +90,8 @@ describe("review: the CI retry of a finished night", () => {
     expect(ctx.calls).toHaveLength(2);
 
     await finishLaunched(ctx, "succeeded");
+    expect(ctx.calls).toHaveLength(2);
+    await at(ctx, minutesAfter(START, 6));
 
     expect(ctx.calls).toHaveLength(3);
     expect((await launches(ctx)).map((l) => l.story_id)).toEqual([
@@ -114,6 +119,58 @@ describe("review: the CI retry of a finished night", () => {
     expect((await nightItems(ctx)).map((i) => i.outcome)).toEqual([
       "ci_failed",
     ]);
+  });
+});
+
+describe("review: a night is not a later run's", () => {
+  it("given a night item left ci_failed, when a run by hand of the story has its CI fail with the auto relaunch on, then the 059 relaunch fires and the item is untouched", async () => {
+    const ctx = await ready();
+    await planned(ctx, 1);
+    await at(ctx, START);
+    await finishLaunched(ctx, "succeeded");
+    const pr = 100 + ctx.storyId;
+    await setStory(ctx, "pr_ci_state = 'pending'");
+    await refreshCi(ctx, pr, [["build", "failure"]]);
+    await finishLaunched(ctx, "succeeded");
+    await setStory(ctx, "pr_ci_state = 'pending'");
+    await refreshCi(ctx, pr, [["build", "failure"]]);
+    expect((await nightItems(ctx)).map((i) => i.outcome)).toEqual([
+      "ci_failed",
+    ]);
+    const branch = (await launches(ctx))[0]?.branch;
+    expect((await launch(ctx, { branch })).status).toBe(201);
+    await finishLaunched(ctx, "succeeded");
+    expect((await setAutoRelaunch(ctx)).status).toBe(200);
+    await setStory(ctx, "pr_ci_state = 'pending'");
+    const fired = ctx.calls.length;
+
+    await refreshCi(ctx, pr, [["build", "failure"]]);
+
+    expect(ctx.calls).toHaveLength(fired + 1);
+    expect(await relaunches(ctx)).toHaveLength(2);
+    expect((await nightItems(ctx)).map((i) => i.outcome)).toEqual([
+      "ci_failed",
+    ]);
+  });
+
+  it("given a user blocked during a night run, when the run ends, then nothing more is fired", async () => {
+    const ctx = await ready();
+    await planned(ctx, 2);
+    await at(ctx, START);
+    const runId = await finishLaunched(ctx, null);
+    await ctx.db.execute(sql`update users set blocked_at = now()`);
+    await ctx.db.execute(
+      sql`update runs set status = 'succeeded', finished_at = now()`,
+    );
+
+    await nightAfterRun(
+      ctx.db,
+      { encryptionKey: TEST_KEY, fireRoutine: ctx.fireRoutine },
+      runId,
+      minutesAfter(START, 5),
+    );
+
+    expect(ctx.calls).toHaveLength(1);
   });
 });
 

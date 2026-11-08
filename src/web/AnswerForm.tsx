@@ -3,7 +3,6 @@ import { useState } from "react";
 import { client } from "./api.ts";
 import { alertBox, field, focusRing, kbd, panelPrimaryButton } from "./ui.ts";
 
-/** The answer block of a pending question (decision 036 G): suggested answers, a free text, then `queryKey` is read again. */
 // Why the story of a paused run could not be relaunched after its answer was saved (decision 044 E).
 const RELAUNCH_REFUSALS: Record<string, string> = {
   launcher_not_connected: "le lanceur n'est pas connecté",
@@ -13,6 +12,7 @@ const RELAUNCH_REFUSALS: Record<string, string> = {
   fire_failed: "le lancement a échoué",
 };
 
+/** The answer block of a pending question (decision 036 G): suggested answers, a free text, then `queryKey` is read again. */
 export function AnswerForm({
   id,
   suggestedAnswers,
@@ -29,7 +29,7 @@ export function AnswerForm({
 }) {
   const queryClient = useQueryClient();
   const [typed, setTyped] = useState("");
-  const send = useMutation({
+  const send = useMutation<void, Error & { saved?: string }, string>({
     mutationFn: async (answer: string) => {
       const res = await client.api.questions[":id"].answer.$post({
         param: { id: String(id) },
@@ -40,11 +40,9 @@ export function AnswerForm({
           error?: string;
           answerSaved?: boolean;
         } | null;
-        throw new Error(
-          failure?.answerSaved
-            ? `saved:${failure.error}`
-            : `HTTP ${res.status}`,
-        );
+        throw Object.assign(new Error(`HTTP ${res.status}`), {
+          saved: failure?.answerSaved ? failure.error : undefined,
+        });
       }
     },
     onSuccess: () => {
@@ -112,8 +110,8 @@ export function AnswerForm({
       </form>
       {send.isError && (
         <p role="alert" className={`mt-2 ${alertBox}`}>
-          {send.error.message.startsWith("saved:")
-            ? `Réponse enregistrée, mais l'US n'a pas pu être relancée : ${RELAUNCH_REFUSALS[send.error.message.slice(6)] ?? "relance refusée"}.`
+          {send.error.saved !== undefined
+            ? `Réponse enregistrée, mais l'US n'a pas pu être relancée : ${RELAUNCH_REFUSALS[send.error.saved] ?? "relance refusée"}.`
             : "La réponse n'a pas été enregistrée."}
         </p>
       )}
