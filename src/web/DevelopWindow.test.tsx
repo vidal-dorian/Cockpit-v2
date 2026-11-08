@@ -266,7 +266,7 @@ describe("criterion 5: a story that already has a branch", () => {
     type(folderField(ui), FOLDER);
 
     expect(ui.getByText("us/42-first")).toBeDefined();
-    expect(ui.queryAllByRole("radio")).toEqual([]);
+    expect(ui.queryAllByRole("radio", { name: /branche/i })).toEqual([]);
     expect(ui.queryByLabelText("Nom de la branche")).toBeNull();
     expect(launch(panel).href).toBe(
       link(FOLDER, "/dev-us 42 --branch us/42-first"),

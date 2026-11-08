@@ -23,7 +23,7 @@ export type FireRoutine = (
   url: string,
   init?: RequestInit,
 ) => Promise<Response>;
-type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
+export type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
 
 const FIRE_TIMEOUT_MS = 10_000;
 const TICK_EVERY_MS = 60_000;
@@ -62,7 +62,7 @@ const isTimeZone = (name: string) => {
   }
 };
 
-const connectBody = z.object({
+export const connectBody = z.object({
   fireUrl: z.string().trim().refine(isFireUrl),
   // Printable ASCII only: it goes into a header, and a NUL cannot be stored.
   token: z
@@ -155,17 +155,17 @@ const presentSchedule = (p: typeof projects.$inferSelect) => ({
       : null,
 });
 
-type Fired =
+export type Fired =
   | { ok: true; sessionId: string | null; sessionUrl: string | null }
   | { ok: false; reconnect: false }
   // The sealed token that was refused: a token saved meanwhile must not be marked.
   | { ok: false; reconnect: true; token: string };
 
-/** Calls `/fire` for a project and never throws. A 401, 403 or 404 (task deleted on claude.ai) is the token to renew (`reconnect`); any other failure is for the next pass to retry. */
-async function fire(
+/** Calls `/fire` of a task (the write-US routine or the launcher) and never throws. A 401, 403 or 404 (task deleted on claude.ai) is the token to renew (`reconnect`); any other failure is for the caller to retry. */
+export async function fire(
   { encryptionKey, fireRoutine }: Fire,
-  routine: typeof writeUsRoutines.$inferSelect,
-  projectId: number,
+  routine: { fireUrl: string; token: string },
+  text: string,
 ): Promise<Fired> {
   try {
     const res = await fireRoutine(routine.fireUrl, {
@@ -176,7 +176,7 @@ async function fire(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ text: `project_id: ${projectId}` }),
+      body: JSON.stringify({ text }),
       // The token must not follow a redirect.
       redirect: "error",
       signal: AbortSignal.timeout(FIRE_TIMEOUT_MS),
@@ -324,7 +324,7 @@ export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
           { userId: routine.userId, actor: "system", origin: "system" },
           project.id,
           now,
-          await fire(deps, routine, project.id),
+          await fire(deps, routine, `project_id: ${project.id}`),
         );
       } catch (error) {
         console.error(`Routine of project ${project.id} failed:`, error);
@@ -343,16 +343,27 @@ export function scheduleRoutines(db: Db, deps: Fire): NodeJS.Timeout {
   ).unref();
 }
 
-type Env = { Variables: { userId: number } };
+export type Env = { Variables: { userId: number } };
 
-/** The routine of the user (decision 022 C) and the schedule of their projects (D), read and written; and the button « Écrire les US maintenant ». */
-export function routineRoutes(db: Db, deps: Fire, now: () => number) {
-  const signedIn = createMiddleware<Env>(async (c, next) => {
+export const signedIn = (db: Db) =>
+  createMiddleware<Env>(async (c, next) => {
     const user = await currentUser(db, c);
     if (!user) return c.json(unauthorized, 401);
     c.set("userId", user.userId);
     await next();
   });
+
+export const entryOf = (userId: number, action: string): Entry => ({
+  userId,
+  actor: "human",
+  origin: "ui",
+  action,
+  args: {},
+});
+
+/** The routine of the user (decision 022 C) and the schedule of their projects (D), read and written; and the button « Écrire les US maintenant ». */
+export function routineRoutes(db: Db, deps: Fire, now: () => number) {
+  const signed = signedIn(db);
   const routineOf = async (userId: number) =>
     (
       await db
@@ -360,14 +371,6 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
         .from(writeUsRoutines)
         .where(eq(writeUsRoutines.userId, userId))
     )[0];
-  const entryOf = (userId: number, action: string): Entry => ({
-    userId,
-    actor: "human",
-    origin: "ui",
-    action,
-    args: {},
-  });
-
   /** Writes the one `refused` entry of a refusal of the button (022 F) and gives the code back. */
   const refuse = async <Code extends string>(
     userId: number,
@@ -393,9 +396,9 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
   };
 
   return new Hono<Env>()
-    .use("/api/me/routine", signedIn)
-    .use("/api/projects/:id/routine", signedIn)
-    .use("/api/projects/:id/routine/run", signedIn)
+    .use("/api/me/routine", signed)
+    .use("/api/projects/:id/routine", signed)
+    .use("/api/projects/:id/routine/run", signed)
     .get("/api/me/routine", async (c) =>
       c.json(presentRoutine(await routineOf(c.get("userId")))),
     )
@@ -509,7 +512,7 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
           },
           409,
         );
-      const fired = await fire(deps, routine, project.id);
+      const fired = await fire(deps, routine, `project_id: ${project.id}`);
       await recordFire(
         db,
         { userId, actor: "human", origin: "ui" },

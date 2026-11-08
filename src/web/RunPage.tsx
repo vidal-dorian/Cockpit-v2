@@ -263,7 +263,20 @@ export function RunPage() {
                   <span className="font-mono text-[12px]">
                     {found.run.branch}
                   </span>{" "}
-                  · modèle {found.run.model}
+                  · modèle {found.run.model} · {found.cloud ? "cloud" : "ce PC"}
+                  {found.cloud?.sessionUrl && (
+                    <>
+                      {" "}
+                      <a
+                        href={found.cloud.sessionUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className={`underline ${focusRing}`}
+                      >
+                        Voir la session ↗
+                      </a>
+                    </>
+                  )}
                   {` · ${repoName(found.project.name)}`}
                 </p>
                 {found.run.comment && (

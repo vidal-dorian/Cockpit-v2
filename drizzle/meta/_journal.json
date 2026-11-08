@@ -204,6 +204,13 @@
       "when": 1794132693652,
       "tag": "0028_hard_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794137214884,
+      "tag": "0029_fast_skin",
+      "breakpoints": true
     }
   ]
 }

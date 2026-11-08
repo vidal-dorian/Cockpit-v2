@@ -57,6 +57,13 @@ export const ACTIONS: Record<string, string> = {
   disconnect_routine: "Tâche d'écriture des US retirée",
   schedule_routine: "Planning d'écriture des US modifié",
   fire_write_us: "Écriture des US lancée",
+  connect_launcher: "Lanceur relié",
+  disconnect_launcher: "Lanceur retiré",
+  // shortcut: one label for both directions (the entry's args are not read here), split when the journal shows them.
+  set_launcher_project: "Projet ajouté ou retiré du lanceur",
+  launch_story: "US lancée dans le cloud",
+  get_launch: "Lancement lu par Claude",
+  report_launch: "Repo absent de la tâche",
   change_public_url: "Adresse publique modifiée",
   receive_webhook: "Webhook reçu",
   process_webhook: "Webhook non traité",

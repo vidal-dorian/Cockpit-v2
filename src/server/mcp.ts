@@ -31,6 +31,7 @@ import {
 } from "./findings.ts";
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
+import { BRANCH, getLaunch, reportLaunch } from "./launcher.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
 import {
@@ -115,9 +116,6 @@ async function ownProject(call: Call, id: number) {
   call.entry.projectId = project.id;
   return project;
 }
-
-// The safe subset of Git's branch names (decision 033 B); `..` is refused next to it.
-const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
 
 const id = z.number().int().min(1).max(2_147_483_647);
 
@@ -758,6 +756,9 @@ const tools = {
         .refine(noNul)
         .optional()
         .describe("An optional note"),
+      launch_id: id
+        .optional()
+        .describe("The launch_id of get_launch, when /dev-us got --launch"),
     }),
     async (call, args) => {
       const found = await memberStory(call.db, call.userId, args.story_id);
@@ -788,6 +789,21 @@ const tools = {
         })),
       };
     },
+  ),
+
+  get_launch: tool(
+    "Read a launch Cockpit started in the cloud: the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent). Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
+    z.object({ launch_id: id.describe("The launch_id of the fired text") }),
+    (call, args) => getLaunch(call.db, call.userId, call.entry, args),
+  ),
+
+  report_launch: tool(
+    "Report that a launch cannot start: reason repository_not_in_task, when the repository of the project is not cloned in this session. Cockpit then unticks the project and tells the user. Use it instead of /dev-us, then stop. Refused when a run is already attached to the launch (launch_started) or the launch is not yours.",
+    z.object({
+      launch_id: id.describe("The launch_id of the fired text"),
+      reason: z.enum(["repository_not_in_task"]),
+    }),
+    (call, args) => reportLaunch(call.db, call.userId, call.entry, args),
   ),
 
   report_step: tool(
@@ -938,6 +954,10 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
     "this story already has an active run. Use its run_id (get_user_story gives active_run_id), or finish it with finish_run.",
   branch_mismatch:
     "another branch is already recorded on this story. Use the branch given by get_user_story (branch).",
+  launch_started:
+    "a run is already attached to this launch, so it started. Do not report it; carry on with the run.",
+  launch_mismatch:
+    "this launch_id is not a launch of this story. Use the launch_id of get_launch, and the story_id it gave.",
   run_finished:
     "this run is finished. Start a new one with start_run if the story is ready.",
   step_open:
