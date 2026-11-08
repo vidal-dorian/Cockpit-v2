@@ -746,9 +746,10 @@ export function ProjectTeam({
     setDone(null);
     try {
       // Read ahead (below): the draft changes at once when the answer is already there.
-      const { teams } =
-        queryClient.getQueryData<StarterTeams>(STARTER_KEY) ??
+      const answer =
+        queryClient.getQueryData(STARTER_KEY) ??
         (await queryClient.fetchQuery(starterQuery));
+      const { teams } = answer as StarterTeams;
       const chosen = teams.find((t) => t.id === id);
       const read = chosen && readTeam(chosen.team);
       if (!chosen || !read) throw new Error("starter team");
