@@ -1,0 +1,38 @@
+# 056 — Importer les issues GitHub
+
+- **Statut** : proposée (à valider à la relecture de la PR)
+- **Date** : 2026-11-08
+- **Décidé par** : Dorian, avec Claude
+- **Dépend de** : [014 — Les tickets](014-tickets.md), [017 — Les user stories](017-user-stories.md), [020 — La publication d'une US en issue GitHub](020-issues-github.md), [025 — Une issue modifiée sur GitHub](025-issue-modifiee-sur-github.md), [055 — Les tickets complets](055-tickets-complets.md), [010 — Historique](010-historique.md) (D)
+- **Tranche** : 11.3 du [découpage](../decoupage.md)
+- **Écran** : [S27](../ecrans/S27_ImporterIssues.png)
+
+## Contexte
+
+Le brief (§6.2) veut importer les issues déjà ouvertes d'un repo. Une issue déjà écrite comme une user story devient un ticket avec son US validée, une autre issue ouverte devient un ticket qui attend ses US. L'import n'écrit rien sur GitHub et peut se relancer sans doublon. Le 2026-11-08, Dorian a choisi :
+- **une issue est « écrite comme une US »** quand elle a un récit (« En tant que … je veux … afin de … », ou en anglais) et au moins un critère Étant donné / Quand / Alors (ou Given / When / Then). Cockpit le lit seul, sans Claude ni crédits ;
+- **l'issue d'une US importée devient l'issue de cette US** : à sa prochaine publication, Cockpit réécrit son corps avec le gabarit de la 020 et pose le label de statut, sans créer de seconde issue. Une issue importée en ticket reste telle quelle : le ticket garde un lien vers elle, et les US que Claude en tirera auront leurs propres issues.
+
+## Les choix
+
+| # | Question | Décision |
+|---|---|---|
+| A | Lire les issues ? | `GET /api/projects/:id/issues`, réservé aux membres. Cockpit lit les issues du repo (ouvertes et fermées) avec le jeton de l'installation, 100 par page, **10 pages au plus**, sans les pull requests. Il rend, pour chacune : `number`, `title`, `state` (`open`, `closed`), `kind` (`story` si elle est écrite comme une US, sinon `ticket`) et `inCockpit`. `inCockpit` vaut `{ storyId }` quand une US du projet a cette issue (020), `{ ticketId }` quand un ticket du projet en vient (C), sinon `null`. GitHub injoignable : 502 `github_unavailable`. La lecture ne laisse pas d'entrée |
+| B | Reconnaître une US ? | Une fonction pure, testée seule, lit le corps de l'issue. **Le récit** : une ligne (ou un paragraphe) « En tant que *A*, je veux *B* afin de *C* » ou « As a(n) *A*, I want *B* so that *C* ». La casse ne compte pas, et les virgules, le gras et une puce sont tolérés ; « afin de » ou « so that » peut être sur la ligne suivante. **Les critères** : chaque élément de liste ou ligne (case à cocher tolérée) qui contient « Étant donné … quand … alors … » ou « Given … when … then … ». Les trois mots peuvent aussi être sur trois lignes qui se suivent. Le résultat doit passer les mêmes limites que `create_user_stories` (longueur du récit, **1 à 20 critères**) ; sinon, l'issue est un `ticket`. Le gabarit de Cockpit (020 B) est reconnu |
+| C | Importer ? | `POST /api/projects/:id/issues/import` avec `{ numbers: [...] }`, **200 numéros au plus**, sur un projet actif (409 `project_archived` sinon). **Cockpit relit ces issues sur GitHub** : il ne croit pas ce que la page envoie. Dans une seule transaction, il passe celles qui sont fermées ou déjà dans Cockpit, puis, pour chaque autre issue, il crée un **ticket** : le titre de l'issue (coupé à 200 caractères), la description en Markdown (le corps, coupé à 50 000 caractères avec « (tronqué : la suite est sur GitHub) »), priorité normale, sans étiquette, et `github_issue_number`. Si l'issue est écrite comme une US, il crée aussi **une US au statut `ready`** (validée) avec son récit et ses critères, `issue_number` égal au numéro de l'issue, et le ticket est marqué « US écrites » (`stories_written_at`). La réponse donne `{ tickets, stories, skipped }`. L'historique garde une entrée `import_issues` avec les seuls comptes `{ tickets, stories, skipped }` (010 D) |
+| D | Rien n'est écrit sur GitHub ? | L'import ne fait **aucun appel en écriture** à GitHub, ni ne lance la publication d'une US. L'US importée garde `issue_body_hash` vide : sa **prochaine publication** (020, au prochain changement de l'US) réécrit l'issue avec le gabarit et pose le label, sans en créer une autre. Une modification de cette issue sur GitHub avant cette première publication n'est pas signalée comme une divergence (025) : il n'y a pas encore de rendu de Cockpit à comparer |
+| E | Sans doublon ? | Une colonne `tickets.github_issue_number` (entier, nulle par défaut) avec un **index unique** `(project_id, github_issue_number)`. Une issue déjà liée à une US (`issue_number`) ou à un ticket du projet n'est jamais réimportée. Deux imports en même temps ne créent pas de doublon : l'index refuse le second, qui passe l'issue dans `skipped` |
+| F | L'écran (S27) ? | `/projets/:id/tickets/importer`, ouvert par le lien **« Importer les issues »** de l'onglet Tickets (S14). Fil d'Ariane : Projets › projet › Tickets. Phrase d'état : « 23 issues ouvertes sur acme/gestion-projet. », puis « Rien n'est écrit sur GitHub. Tu peux relancer l'import sans doublon. ». Puces : **« À importer · N »** (par défaut), **« Déjà dans Cockpit · N »** et **« Fermées »**, et **« Tout cocher »** / « Tout décocher ». Une ligne : une case (cochée par défaut sous « À importer »), « #58 · Exporter les tâches en PDF », et en dessous « écrite comme une US · deviendra une US validée » ou « deviendra un ticket « Nouveau » ». Les lignes déjà dans Cockpit (« déjà dans Cockpit (US 43) » ou « (ticket 12) ») et les fermées (« fermée ») sont grisées, sans case. En bas : le bouton **« Importer N issues »** et « 2 deviendront des US validées, 16 des tickets que Claude transformera en US. ». Après l'import : « 18 issues importées. » avec un lien vers l'onglet Tickets, et la liste relue |
+| G | Le ticket importé ? | Sa page et son panneau (055) disent « Importé de l'issue #57 ↗ », avec un lien vers l'issue. Il suit ensuite la boucle normale : sans US, Claude les écrit (022) |
+| H | Le texte venu de GitHub ? | Le corps d'une issue est du texte d'un tiers : il est affiché par le rendu Markdown sûr de la 014 H, et un titre reste du texte brut |
+
+## Ce qui est repoussé
+
+- **Importer les commentaires** d'une issue, ses labels ou ses personnes assignées.
+- **Plus de 1 000 issues** (10 pages) : les plus anciennes ne sont pas listées.
+- **Fermer l'issue d'origine** d'un ticket quand ses US sont écrites (une option écartée par Dorian).
+
+## Limites connues
+
+- **La reconnaissance d'une US est stricte** : une issue presque au bon format devient un ticket, et Claude en écrira les US.
+- **La première publication d'une US importée remplace le corps de l'issue** par le gabarit : ce qui était écrit sur GitHub reste dans la description du ticket.
