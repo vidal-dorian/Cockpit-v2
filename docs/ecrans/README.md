@@ -48,7 +48,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 | | |
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 | 026 | |
-| [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8, 14.6 (existent) | 022, 044, 005 | |
+| [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | la section « la nuit » (044 N' : la nuit se compose sur `/nuit`) |
 | [S20](S20_NouveauDepuisModele.png) | Nouveau projet depuis un repo modèle | 12.5 | | |
 | [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3 | 019 | |
 
@@ -59,7 +59,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S21](S21_Ticket.png) | Un ticket, ses US, ses pièces jointes | 3.1, 11.4 (existent) | 014, 061 | |
 | [S22](S22_US_AValider.png) | Une US à valider, la décision à droite | 4.4 (existe) | 018 | |
 | [S23](S23_US_Renvoyer.png) | Renvoyer une US à Claude, avec un commentaire obligatoire | 4.4 (existe) | 018 | |
-| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1, 14.6 (existent) | 034, 044, 054 | |
+| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1 (existent), 14.6 | 034, 044, 054 | le choix « Cette nuit » (044 N' : la nuit se compose sur `/nuit`) |
 | [S25](S25_US_EnRevue.png) | Une US en revue : la PR, la CI, le verdict | 7.6, 7.7 (existent) | 038, 039 | |
 | [S26](S26_IssueModifiee.png) | Issue modifiée sur GitHub : choisir la version | 5.2 (existe) | 025 | |
 | [S27](S27_ImporterIssues.png) | Importer les issues GitHub | 11.3 (existe) | 020, 057 | |
