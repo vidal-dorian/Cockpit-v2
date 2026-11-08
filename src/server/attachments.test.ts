@@ -154,10 +154,15 @@ describe("058 B: the accepted types", () => {
   it("given a body that is not a form with a file, when it is posted, then 400 Bad request", async () => {
     const { app, cookie, ticketId } = await ctxOf();
 
+    const body = JSON.stringify({ file: "x" });
     const res = await app.request(`/api/tickets/${ticketId}/attachments`, {
       method: "POST",
-      headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ file: "x" }),
+      headers: {
+        cookie,
+        "content-type": "application/json",
+        "content-length": String(Buffer.byteLength(body)),
+      },
+      body,
     });
 
     expect(res.status).toBe(400);

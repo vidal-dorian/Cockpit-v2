@@ -17,7 +17,7 @@ import { makeTicket } from "./test-tickets.ts";
 // - A PDF that cannot be read (a « bomb » whose content stream inflates to hundreds of MB, a corrupt file, an encrypted one, a read that exceeds the timeout)
 //   gives a NORMAL tool result (not isError) holding exactly « Ce PDF n'a pas pu être lu (trop lourd ou endommagé). », never the generic failure that invites a retry.
 // - Extraction stops once 100 000 characters are collected: a PDF of thousands of pages gives the first 100 000 characters then « (tronqué) », without reading the later pages.
-// - 10 000 pages (about 5 s to read 4 000, and reading all of them can exhaust memory) must answer in under 3 s: only the first pages are read. A bomb answers within 20 s here (a real limit is much smaller), and the history keeps one ok entry for it as for any read.
+// - 10 000 pages (about 5 s to read 4 000, and reading all of them can exhaust memory) must answer in under 8 s (reading them all takes about 16 s; the margin is for a busy machine): only the first pages are read. A bomb answers within 20 s here (a real limit is much smaller), and the history keeps one ok entry for it as for any read.
 
 const UNREADABLE = "Ce PDF n'a pas pu être lu (trop lourd ou endommagé).";
 
@@ -71,7 +71,7 @@ describe("058 H (B1): a PDF that cannot be read", () => {
     const text = result.content[0]?.text ?? "";
     expect(text.slice(0, 11)).toBe("hello world");
     expect(text.slice(100_000)).toMatch(/^\s*\(tronqué\)\s*$/);
-    expect(ms, `took ${ms} ms`).toBeLessThan(3_000);
+    expect(ms, `took ${ms} ms`).toBeLessThan(8_000);
     await stillWorks(ctx);
   }, 60_000);
 

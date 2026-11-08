@@ -62,18 +62,33 @@ export const formOf = ({ name, bytes, type }: Upload) => {
   return form;
 };
 
+/** What a browser sends for a form: the serialised bytes, the content type with its boundary and the Content-Length (app.request() sets none by itself). */
+export async function multipart(form: FormData) {
+  const response = new Response(form);
+  const body = Buffer.from(await response.arrayBuffer());
+  return {
+    body,
+    headers: {
+      "content-type": response.headers.get("content-type") ?? "",
+      "content-length": String(body.length),
+    },
+  };
+}
+
 /** POST /api/tickets/:id/attachments, a multipart form with the field `file`. */
-export const upload = (
+export async function upload(
   app: App,
   cookie: string | undefined,
   ticketId: number | string,
   file: Upload,
-) =>
-  app.request(`/api/tickets/${ticketId}/attachments`, {
+) {
+  const { body, headers } = await multipart(formOf(file));
+  return app.request(`/api/tickets/${ticketId}/attachments`, {
     method: "POST",
-    headers: cookie ? { cookie } : {},
-    body: formOf(file),
+    headers: { ...headers, ...(cookie ? { cookie } : {}) },
+    body,
   });
+}
 
 export type ApiAttachment = {
   id: number;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIB, PNG } from "./test-attachments.ts";
+import { MIB, multipart, PNG } from "./test-attachments.ts";
 import { withProject } from "./test-mcp.ts";
 import { makeTicket } from "./test-tickets.ts";
 
@@ -101,9 +101,11 @@ describe("058 C (B2): the upload body", () => {
     const form = new FormData();
     form.set("file", new File([new Uint8Array(PNG)], "a.png"));
 
+    const { body, headers } = await multipart(form);
     const res = await app.request(`/api/tickets/${ticketId}/attachments`, {
       method: "POST",
-      body: form,
+      headers,
+      body,
     });
 
     expect(res.status).toBe(401);
