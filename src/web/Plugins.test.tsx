@@ -229,7 +229,7 @@ describe("decision 066 E: the shared agents and skills", () => {
         kind: "agent",
         name: "qa",
         before: null,
-        after: expect.stringContaining("description: Tests"),
+        after: expect.stringContaining('description: "Tests"'),
       },
     });
   });
