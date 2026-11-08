@@ -605,6 +605,7 @@ describe("criterion 2: tools/list", () => {
       "create_takeover_stories",
       "create_ticket",
       "create_user_stories",
+      "finish_launch",
       "finish_run",
       "get_answer",
       "get_launch",

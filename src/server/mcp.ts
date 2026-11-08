@@ -31,7 +31,12 @@ import {
 } from "./findings.ts";
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
-import { branchName, getLaunch, reportLaunch } from "./launcher.ts";
+import {
+  branchName,
+  finishLaunch,
+  getLaunch,
+  reportLaunch,
+} from "./launcher.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
 import {
@@ -790,7 +795,7 @@ const tools = {
   ),
 
   get_launch: tool(
-    "Read a launch Cockpit started in the cloud: the instructions to follow, the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent). Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
+    "Read a launch Cockpit started in the cloud: its kind (story or routine) and the instructions to follow. A story launch gives the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent); a routine launch gives its projects (id, full_name, default_branch). Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
     z.object({ launch_id: id.describe("The launch_id of the fired text") }),
     (call, args) => getLaunch(call.db, call.userId, call.entry, args),
   ),
@@ -802,6 +807,16 @@ const tools = {
       reason: z.enum(["repository_not_in_task"]),
     }),
     (call, args) => reportLaunch(call.db, call.userId, call.entry, args),
+  ),
+
+  finish_launch: tool(
+    "Say how a routine launch ended: outcome succeeded or failed, and a summary of what was done (2,000 characters at most). Call it last, once, when get_launch gave kind routine. Refused when the launch is not yours, is a story launch (finish it with finish_run) or is already finished.",
+    z.object({
+      launch_id: id.describe("The launch_id of the fired text"),
+      outcome: z.enum(["succeeded", "failed"]),
+      summary: z.string().max(2000).refine(noNul),
+    }),
+    (call, args) => finishLaunch(call.db, call.userId, call.entry, args),
   ),
 
   report_step: tool(
@@ -956,6 +971,10 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
     "a run is already attached to this launch, so it started. Do not report it; carry on with the run.",
   launch_mismatch:
     "this launch_id is not a launch of this story. Use the launch_id of get_launch, and the story_id it gave.",
+  not_a_routine:
+    "this launch is a story launch, not a routine. A story ends with finish_run.",
+  launch_finished:
+    "this launch is already finished (by you, or given up after two hours without news). Do not call finish_launch again.",
   run_finished:
     "this run is finished. Start a new one with start_run if the story is ready.",
   step_open:

@@ -1,6 +1,8 @@
+import type { SQL } from "drizzle-orm";
 import { expect } from "vitest";
 import { createApp } from "./app.ts";
 import { openTestDatabase } from "./db/test-db.ts";
+import { runDueRoutines } from "./routines.ts";
 import { send } from "./test-decisions.ts";
 import { stubGitHub } from "./test-github.ts";
 import {
@@ -43,17 +45,18 @@ export async function setup(handler: Handler = answerOk) {
   await configureTestInstance(db, TEST_KEY);
   const clock = { now: NOW.getTime() };
   const calls: FireCall[] = [];
+  const fireRoutine = async (url: string, init: RequestInit = {}) => {
+    let body: unknown = init.body;
+    try {
+      body = JSON.parse(String(init.body));
+    } catch {}
+    const call = { url, init, body };
+    calls.push(call);
+    return handler(call);
+  };
   const app = createApp(db, "1.2.3", {
     ...testAppOptions,
-    fireRoutine: async (url: string, init: RequestInit = {}) => {
-      let body: unknown = init.body;
-      try {
-        body = JSON.parse(String(init.body));
-      } catch {}
-      const call = { url, init, body };
-      calls.push(call);
-      return handler(call);
-    },
+    fireRoutine,
     now: () => clock.now,
   });
   const alice = await userWithToken(app, db, 1000);
@@ -63,7 +66,17 @@ export async function setup(handler: Handler = answerOk) {
   });
   const ticketId = await seedTicket(db, projectId, "Le ticket");
   const storyId = await seedStory(db, ticketId, { status: "ready" });
-  return { db, app, calls, clock, alice, projectId, ticketId, storyId };
+  return {
+    db,
+    app,
+    calls,
+    clock,
+    fireRoutine,
+    alice,
+    projectId,
+    ticketId,
+    storyId,
+  };
 }
 export type Ctx = Awaited<ReturnType<typeof setup>>;
 
@@ -106,3 +119,46 @@ export async function ready(handler?: Handler) {
   expect((await tick(ctx)).status, "ticking the project").toBe(200);
   return ctx;
 }
+
+// Slice 14.2 (decision 056): routines. A daily routine at 12:00 UTC is due 2 h after NOW (a Sunday).
+export const DUE = new Date("2026-11-08T12:00:30Z");
+export const routineBody = (ctx: Ctx, over: Record<string, unknown> = {}) => ({
+  name: "Nettoyage",
+  instruction: "Ranger les imports",
+  agents: ["bug-hunter"],
+  projectIds: [ctx.projectId],
+  frequency: "daily",
+  hour: 12,
+  timeZone: "UTC",
+  ...over,
+});
+export const createRoutine = (ctx: Ctx, over: Record<string, unknown> = {}) =>
+  send(
+    ctx.app,
+    ctx.alice.cookie,
+    "POST",
+    "/api/routines",
+    routineBody(ctx, over),
+  );
+export const routineCall = (
+  ctx: Ctx,
+  method: string,
+  id: number,
+  suffix = "",
+  cookie = ctx.alice.cookie,
+) => send(ctx.app, cookie, method, `/api/routines/${id}${suffix}`);
+/** A routine created through the route, each step checked. */
+export async function routineOf(ctx: Ctx, over: Record<string, unknown> = {}) {
+  const res = await createRoutine(ctx, over);
+  expect(res.status, "creating the routine").toBe(201);
+  return ((await res.json()) as { id: number }).id;
+}
+/** One pass of the minute (decision 022 E, extended by 056 B) at `at`. */
+export const pass = (ctx: Ctx, at: Date) =>
+  runDueRoutines(
+    ctx.db,
+    { encryptionKey: TEST_KEY, fireRoutine: ctx.fireRoutine },
+    at,
+  );
+export const sqlRows = async <T>(ctx: Ctx, query: SQL) =>
+  ((await ctx.db.execute(query)) as unknown as { rows: T[] }).rows;

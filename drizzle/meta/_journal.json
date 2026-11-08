@@ -218,6 +218,13 @@
       "when": 1794140871957,
       "tag": "0030_uneven_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794142797306,
+      "tag": "0031_absent_sunspot",
+      "breakpoints": true
     }
   ]
 }

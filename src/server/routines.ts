@@ -1,14 +1,26 @@
-import { and, eq, getTableColumns, inArray, isNull, lte } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+} from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
-import { act, type Entry, Refused } from "./action.ts";
+import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
-  type cloudLaunchers,
+  cloudLaunchers,
+  cloudLaunches,
   history,
+  projectMembers,
   projects,
+  routines,
   tickets,
   userStories,
   users,
@@ -72,15 +84,16 @@ export const connectBody = z.object({
     .max(4096)
     .regex(/^[\x21-\x7E]+$/),
 });
-const timeZone = z.string().max(100).refine(isTimeZone);
-const hour = z.number().int().min(0).max(23);
+export const timeZone = z.string().max(100).refine(isTimeZone);
+export const hour = z.number().int().min(0).max(23);
+export const weekday = z.number().int().min(1).max(7);
 const scheduleBody = z.discriminatedUnion("frequency", [
   z.object({ frequency: z.enum(["off", "on_demand"]), timeZone }),
   z.object({ frequency: z.literal("daily"), hour, timeZone }),
   z.object({
     frequency: z.literal("weekly"),
     hour,
-    weekday: z.number().int().min(1).max(7),
+    weekday,
     timeZone,
   }),
 ]);
@@ -130,6 +143,15 @@ export function nextOccurrence(after: Date, schedule: Schedule) {
   }
   throw new Error("no next occurrence");
 }
+
+/** The schedule of a routine, as `nextOccurrence` reads it. */
+export const scheduleOf = (
+  r: Pick<Routine, "hour" | "weekday" | "timeZone">,
+) => ({
+  routineHour: r.hour,
+  routineWeekday: r.weekday,
+  routineTimeZone: r.timeZone,
+});
 
 const presentRoutine = (
   row: typeof writeUsRoutines.$inferSelect | undefined,
@@ -283,6 +305,7 @@ async function hasWork(db: Db, projectId: number) {
  * Never throws.
  */
 export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
+  await runDueCustomRoutines(db, deps, now);
   try {
     // A blocked scheduling user (012 G) is skipped, without an entry.
     const due = await db
@@ -329,6 +352,120 @@ export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
         );
       } catch (error) {
         console.error(`Routine of project ${project.id} failed:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Routine pass failed:", error);
+  }
+}
+
+const GIVE_UP_MS = 2 * 3_600_000;
+
+/** Decision 056 B: one passage at a time per user; a passage without news after two hours no longer counts. */
+const busy = async (db: Db, userId: number, at: Date) =>
+  (
+    await db
+      .select({ id: cloudLaunches.id })
+      .from(cloudLaunches)
+      .where(
+        and(
+          eq(cloudLaunches.userId, userId),
+          isNotNull(cloudLaunches.routineId),
+          isNull(cloudLaunches.finishedAt),
+          gt(cloudLaunches.createdAt, new Date(at.getTime() - GIVE_UP_MS)),
+        ),
+      )
+  ).length > 0;
+
+export type Routine = typeof routines.$inferSelect;
+
+/** The launch of a routine (decision 056 B), by the pass or by « Lancer maintenant ». */
+export const runCustomRoutine = (
+  db: Db,
+  deps: Fire,
+  routine: Routine,
+  by: Pick<Entry, "actor" | "origin">,
+  at: Date,
+) =>
+  launchCloud(
+    db,
+    deps,
+    {
+      ...by,
+      userId: routine.userId,
+      action: "fire_routine",
+      args: { routineId: routine.id },
+    },
+    at,
+    routine.projectIds,
+    async (tx) => {
+      // The user's row is the lock that makes « one passage at a time » hold for two simultaneous launches.
+      await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, routine.userId))
+        .for("update");
+      if (await busy(tx, routine.userId, at))
+        throw new Refused("routine_running");
+      return { routineId: routine.id };
+    },
+  );
+
+/** The passage of the minute for the routines of users (decision 056 B). Never throws. */
+async function runDueCustomRoutines(db: Db, deps: Fire, now: Date) {
+  try {
+    await db
+      .update(cloudLaunches)
+      .set({ outcome: "failed", finishedAt: now })
+      .where(
+        and(
+          isNotNull(cloudLaunches.routineId),
+          isNull(cloudLaunches.finishedAt),
+          lte(cloudLaunches.createdAt, new Date(now.getTime() - GIVE_UP_MS)),
+        ),
+      );
+    const due = await db
+      .select(getTableColumns(routines))
+      .from(routines)
+      .innerJoin(users, eq(users.id, routines.userId))
+      .where(
+        and(
+          isNull(users.blockedAt),
+          isNull(routines.pausedAt),
+          lte(routines.nextRunAt, now),
+        ),
+      )
+      .orderBy(routines.id);
+    for (const routine of due) {
+      try {
+        const [claimed] = await db
+          .update(routines)
+          .set({ nextRunAt: nextOccurrence(now, scheduleOf(routine)) })
+          .where(
+            and(
+              eq(routines.id, routine.id),
+              isNull(routines.pausedAt),
+              // Due rows have a next run (`lte` above): the type does not know it.
+              eq(routines.nextRunAt, routine.nextRunAt as Date),
+            ),
+          )
+          .returning({ id: routines.id });
+        if (!claimed) continue;
+        const launched = await runCustomRoutine(
+          db,
+          deps,
+          routine,
+          { actor: "system", origin: "system" },
+          now,
+        );
+        // Another passage began since: it waits for the next minute (056 B).
+        if ("error" in launched && launched.error === "routine_running")
+          await db
+            .update(routines)
+            .set({ nextRunAt: routine.nextRunAt })
+            .where(eq(routines.id, routine.id));
+      } catch (error) {
+        console.error(`Routine ${routine.id} failed:`, error);
       }
     }
   } catch (error) {
@@ -415,6 +552,108 @@ export async function refuseEntry<Code extends string>(
     if (!(error instanceof Refused)) throw error;
   }
   return code;
+}
+
+/** The launcher of the user when it can launch in these projects: connected, not to reconnect, every project ticked (decisions 054 D, 056 B). */
+async function readyLauncher(tx: Db, userId: number, projectIds: number[]) {
+  const launcher = await taskOf(tx, cloudLaunchers, userId);
+  if (!launcher) throw new Refused("launcher_not_connected");
+  if (launcher.needsReconnect) throw new Refused("launcher_needs_reconnect");
+  const ticked = await tx
+    .select({ id: projectMembers.projectId })
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.userId, userId),
+        inArray(projectMembers.projectId, projectIds),
+        eq(projectMembers.inLauncher, true),
+      ),
+    );
+  if (ticked.length < projectIds.length)
+    throw new Refused("project_not_in_launcher");
+  return launcher;
+}
+
+/**
+ * The launch of a story (054 E) or of a routine (056 B): `reserve` checks and returns the row, which is written before `/fire` (it has no idempotence key: a second click meets
+ * a refusal), then `/fire` is called outside the transaction and its result and the entry are recorded. Not `act`, whose `ok` entry comes before the call.
+ * The text sent is `launch_id` only; the entry's `args` get the launch and session ids besides those of `entry`.
+ */
+export async function launchCloud(
+  db: Db,
+  deps: Fire,
+  entry: Entry & { userId: number },
+  at: Date,
+  projectIds: number[],
+  reserve: (
+    tx: Tx,
+  ) => Promise<Omit<typeof cloudLaunches.$inferInsert, "userId" | "createdAt">>,
+) {
+  let reserved: {
+    launchId: number;
+    launcher: { fireUrl: string; token: string };
+  };
+  try {
+    reserved = await db.transaction(async (tx) => {
+      for (const id of projectIds) await assertActive(tx, id);
+      const launcher = await readyLauncher(tx, entry.userId, projectIds);
+      const [launch] = await tx
+        .insert(cloudLaunches)
+        .values({
+          userId: entry.userId,
+          createdAt: at,
+          ...(await reserve(tx)),
+        })
+        .returning({ id: cloudLaunches.id });
+      if (!launch) throw new Error("launch not created");
+      return { launchId: launch.id, launcher };
+    });
+  } catch (error) {
+    if (!(error instanceof Refused)) throw error;
+    return {
+      error: await refuseEntry(db, entry, error.message),
+      status: 409 as const,
+    };
+  }
+  const { launchId, launcher } = reserved;
+  const fired = await fire(deps, launcher, `launch_id: ${launchId}`);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(cloudLaunches)
+      .set(
+        fired.ok
+          ? {
+              result: "ok",
+              sessionId: fired.sessionId,
+              sessionUrl: fired.sessionUrl,
+            }
+          : { result: "error", outcome: "failed", finishedAt: at },
+      )
+      .where(eq(cloudLaunches.id, launchId));
+    if (!fired.ok && fired.reconnect)
+      await tx
+        .update(cloudLaunchers)
+        .set({ needsReconnect: true })
+        .where(
+          and(
+            eq(cloudLaunchers.userId, entry.userId),
+            eq(cloudLaunchers.token, fired.token),
+          ),
+        );
+    await tx.insert(history).values({
+      ...entry,
+      args: {
+        ...entry.args,
+        launchId,
+        sessionId: fired.ok ? fired.sessionId : null,
+      },
+      result: fired.ok ? "ok" : "error",
+      detail: fired.ok ? null : { reason: "error" },
+    });
+  });
+  return fired.ok
+    ? { launchId, sessionUrl: fired.sessionUrl }
+    : { error: "fire_failed", status: 502 as const };
 }
 
 export const entryOf = (userId: number, action: string): Entry => ({

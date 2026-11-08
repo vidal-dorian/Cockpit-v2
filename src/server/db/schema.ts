@@ -381,32 +381,66 @@ export const runs = pgTable(
   ],
 );
 
-/** One session asked of the launcher (decision 054 E): reserved before `/fire` is called, `result` null until it answers. */
-export const cloudLaunches = pgTable("cloud_launches", {
+/** A routine of a user (decision 056 A): what Claude does, in which projects, and when Cockpit launches it. Launched through the launcher, one `cloudLaunches` row per passage. */
+export const routines = pgTable("routines", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: integer("user_id")
     .notNull()
     .references(() => users.id),
-  projectId: integer("project_id")
-    .notNull()
-    .references(() => projects.id),
-  storyId: integer("story_id")
-    .notNull()
-    .references(() => userStories.id),
-  branch: text("branch").notNull(),
-  team: text("team"),
-  comment: text("comment"),
-  result: text("result", { enum: ["ok", "error"] }),
-  sessionId: text("session_id"),
-  // Only a https://claude.ai address: the page makes it a link.
-  sessionUrl: text("session_url"),
-  // What Claude reported (`report_launch`).
-  reason: text("reason"),
-  runId: integer("run_id").references(() => runs.id),
+  name: text("name").notNull(),
+  // Written by the user and read by Claude in `get_launch`; never in `/fire` nor in the history.
+  instruction: text("instruction").notNull(),
+  agents: jsonb("agents").$type<string[]>().notNull(),
+  projectIds: jsonb("project_ids").$type<number[]>().notNull(),
+  frequency: text("frequency", {
+    enum: ["on_demand", "daily", "weekly"],
+  }).notNull(),
+  hour: integer("hour"),
+  weekday: integer("weekday"),
+  timeZone: text("time_zone").notNull(),
+  nextRunAt: timestamp("next_run_at", { withTimezone: true, mode: "date" }),
+  pausedAt: timestamp("paused_at", { withTimezone: true, mode: "date" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
 });
+
+/** One session asked of the launcher (decision 054 E): reserved before `/fire` is called, `result` null until it answers. A launch is of a story or of a routine (056 B). */
+export const cloudLaunches = pgTable(
+  "cloud_launches",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    projectId: integer("project_id").references(() => projects.id),
+    storyId: integer("story_id").references(() => userStories.id),
+    branch: text("branch"),
+    routineId: integer("routine_id").references(() => routines.id),
+    team: text("team"),
+    comment: text("comment"),
+    result: text("result", { enum: ["ok", "error"] }),
+    sessionId: text("session_id"),
+    // Only a https://claude.ai address: the page makes it a link.
+    sessionUrl: text("session_url"),
+    // What Claude reported (`report_launch`).
+    reason: text("reason"),
+    runId: integer("run_id").references(() => runs.id),
+    // The end of a routine passage: `finish_launch`, `report_launch`, a failed `/fire`, or given up after two hours (decision 056 D).
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+    outcome: text("outcome", { enum: ["succeeded", "failed"] }),
+    summary: text("summary"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "cloud_launches_story_xor_routine",
+      sql`(${t.storyId} is null) <> (${t.routineId} is null)`,
+    ),
+  ],
+);
 
 /** A question Claude asks during a run (decision 036 A); one unanswered question per run at most. */
 export const questions = pgTable(
