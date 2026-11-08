@@ -61,7 +61,7 @@ async function fetchTeams(id: string) {
   };
 }
 
-// What the user reads for a refused or failed launch (decision 053 H); the codes of the server are not meant to be read.
+// What the user reads for a refused or failed launch (decision 054 H); the codes of the server are not meant to be read.
 const LAUNCH_ERRORS: Record<string, string> = {
   launch_pending:
     "Un lancement de cette US est déjà en cours : attends quelques minutes avant de réessayer.",

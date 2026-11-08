@@ -15,7 +15,7 @@ import {
   userWithToken,
 } from "./test-mcp.ts";
 
-// Shared by the tests of slice 14.1 (decision 053): Alice with a project and a ready story, a fake clock and a fake `/fire`.
+// Shared by the tests of slice 14.1 (decision 054): Alice with a project and a ready story, a fake clock and a fake `/fire`.
 
 export const NOW = new Date("2026-11-08T10:00:00Z");
 export const FIRE_URL =

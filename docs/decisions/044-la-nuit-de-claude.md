@@ -4,7 +4,7 @@
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [022 — Programmer l'écriture des US](022-routine-ecriture-us.md) (une tâche cloud lancée par `/fire`), [033 — Le run minimal](033-run-minimal.md), [036 — Les questions de Claude](036-questions-de-claude.md), [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md), [038 — Le suivi de la PR](038-suivi-de-la-pr.md), [040 — L'accueil](040-accueil.md)
-- **Modifie** : la 036 D et E (la question d'un run « en pause » reste ouverte à la réponse) ; ses A et B sont modifiées par la [053 (lancer dans le cloud)](053-lancer-dans-le-cloud.md) : la seconde tâche est le lanceur, le texte envoyé est `launch_id`
+- **Modifie** : la 036 D et E (la question d'un run « en pause » reste ouverte à la réponse) ; ses A et B sont modifiées par la [054 (lancer dans le cloud)](054-lancer-dans-le-cloud.md) : la seconde tâche est le lanceur, le texte envoyé est `launch_id`
 - **Tranche** : réalise pour la nuit la file d'attente (14.3) et le lancement dans le cloud (14.1) du [découpage](../decoupage.md), nouvelle tranche 14.6
 - **Répond à** : « Qu'est-ce qu'on pourrait faire pour vraiment rendre l'application trop, trop bien, qu'on veuille l'utiliser à 100 % ? » (2026-11-07). Parmi cinq pistes, Dorian a choisi « La nuit de Claude ». Maquettes : rangée « La nuit de Claude » du [canevas](https://claude.ai/artifact/XAteTYa7tQBcCGq8HpRF7C) (Nuit1 le soir, Nuit2 le matin, Nuit3 le téléphone)
 

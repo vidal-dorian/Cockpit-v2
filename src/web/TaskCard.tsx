@@ -12,7 +12,7 @@ export const failure = (res: { status: number }) =>
 
 type Answer = { ok: boolean; status: number };
 
-/** Save and remove of a task of claude.ai (decisions 022 A and 053 A): the focus goes back to the heading, which the page keeps when the fields or buttons are replaced. */
+/** Save and remove of a task of claude.ai (decisions 022 A and 054 A): the focus goes back to the heading, which the page keeps when the fields or buttons are replaced. */
 export function useTask(
   queryKey: string,
   put: (json: { fireUrl: string; token: string }) => Promise<Answer>,

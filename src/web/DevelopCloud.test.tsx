@@ -10,7 +10,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 
-// Slice 14.1 (decision 053 H): the target « Dans le cloud » of the panel « Développer avec Claude ».
+// Slice 14.1 (decision 054 H): the target « Dans le cloud » of the panel « Développer avec Claude ».
 //
 // Pinned where the decision leaves it open (the developer follows these):
 // - The two targets are radios (role radio) named « Dans le cloud » and « Sur ce PC, avec Claude Desktop » (the name may

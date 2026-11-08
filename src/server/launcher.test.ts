@@ -30,7 +30,7 @@ import {
   userWithToken,
 } from "./test-mcp.ts";
 
-// Slice 14.1 (decision 053 C, D, E, I, J): the launcher of a user, the projects ticked for it, the launch of a story
+// Slice 14.1 (decision 054 C, D, E, I, J): the launcher of a user, the projects ticked for it, the launch of a story
 // and the cloud of a run.
 //
 // Choices fixed here, where the decision leaves them open (the developer may not weaken them):

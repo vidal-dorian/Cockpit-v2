@@ -11,7 +11,7 @@ import {
 } from "./test-launcher.ts";
 import { archiveProject, callTool, dataOf, expectRefused } from "./test-mcp.ts";
 
-// Slice 14.1 (decision 053 D, E, F): the cases the acceptance tests leave out.
+// Slice 14.1 (decision 054 D, E, F): the cases the acceptance tests leave out.
 
 afterEach(() => {
   vi.unstubAllGlobals();

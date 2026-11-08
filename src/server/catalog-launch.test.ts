@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// Slice 14.1 (decision 053 G): /dev-us takes `--launch <id>` and passes it to start_run as `launch_id`.
+// Slice 14.1 (decision 054 G): /dev-us takes `--launch <id>` and passes it to start_run as `launch_id`.
 
 const SKILL = fileURLToPath(
   new URL("../../catalog/skills/dev-us/SKILL.md", import.meta.url),

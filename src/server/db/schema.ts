@@ -127,7 +127,7 @@ export const writeUsRoutines = pgTable("write_us_routines", {
     .defaultNow(),
 });
 
-/** The « Lanceur Cockpit » task of a user (decision 053 C): same shape as `writeUsRoutines`, the token is encrypted and never leaves the server. */
+/** The « Lanceur Cockpit » task of a user (decision 054 C): same shape as `writeUsRoutines`, the token is encrypted and never leaves the server. */
 export const cloudLaunchers = pgTable("cloud_launchers", {
   userId: integer("user_id")
     .primaryKey()
@@ -151,7 +151,7 @@ export const projectMembers = pgTable(
       .notNull()
       .references(() => users.id),
     role: text("role", { enum: ["owner"] }).notNull(),
-    // Ticked by this user once the repo is added to their cloud launcher (decision 053 D).
+    // Ticked by this user once the repo is added to their cloud launcher (decision 054 D).
     inLauncher: boolean("in_launcher").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
@@ -364,7 +364,7 @@ export const runs = pgTable(
   ],
 );
 
-/** One session asked of the launcher (decision 053 E): reserved before `/fire` is called, `result` null until it answers. */
+/** One session asked of the launcher (decision 054 E): reserved before `/fire` is called, `result` null until it answers. */
 export const cloudLaunches = pgTable("cloud_launches", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: integer("user_id")

@@ -19,7 +19,7 @@ import {
   userWithToken,
 } from "./test-mcp.ts";
 
-// Slice 14.1 (decision 053 F, J): get_launch, report_launch and the launch_id of start_run, and the rights of the
+// Slice 14.1 (decision 054 F, J): get_launch, report_launch and the launch_id of start_run, and the rights of the
 // launch (the human launches, Claude only reads and reports).
 //
 // Pinned where the decision leaves room:

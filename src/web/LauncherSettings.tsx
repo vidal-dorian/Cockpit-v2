@@ -10,14 +10,14 @@ import {
   sectionLabel,
 } from "./ui.ts";
 
-/** The launcher of the user (decision 053 C), read by Réglages and by the « Développer avec Claude » panel. */
+/** The launcher of the user (decision 054 C), read by Réglages and by the « Développer avec Claude » panel. */
 export async function fetchLauncher() {
   const res = await client.api.me.launcher.$get();
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
 }
 
-/** Decision 053 A and D: the user creates the « Lanceur Cockpit » task once, pastes its address and token, and ticks the projects whose repo they added to it. */
+/** Decision 054 A and D: the user creates the « Lanceur Cockpit » task once, pastes its address and token, and ticks the projects whose repo they added to it. */
 export function LauncherSettings() {
   const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });

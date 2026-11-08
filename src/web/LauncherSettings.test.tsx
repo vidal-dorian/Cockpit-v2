@@ -11,7 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Slice 14.1 (decision 053 A, D): the tab « Tâches cloud » of Réglages at /reglages/taches-cloud.
+// Slice 14.1 (decision 054 A, D): the tab « Tâches cloud » of Réglages at /reglages/taches-cloud.
 //
 // Pinned choices (the decision leaves them open):
 // - The tab shows the card « Écrire les US automatiquement » (022, unchanged) above a card « Lanceur Cockpit »: each is a

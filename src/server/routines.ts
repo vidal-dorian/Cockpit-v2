@@ -354,7 +354,7 @@ export const signedIn = (db: Db) =>
     await next();
   });
 
-// The write-US routine and the launcher are two tables of the same shape (decisions 022 C and 053 C).
+// The write-US routine and the launcher are two tables of the same shape (decisions 022 C and 054 C).
 // shortcut: the union does not type-check in drizzle, so the launcher table is read as the routine one; same columns, so safe until they differ.
 type Task = typeof writeUsRoutines | typeof cloudLaunchers;
 const asRoutine = (table: Task) => table as typeof writeUsRoutines;

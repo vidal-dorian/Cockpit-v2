@@ -3,7 +3,7 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 14.1 (decision 053 I): the page of a run says « cloud » or « ce PC », and links to the session.
+// Slice 14.1 (decision 054 I): the page of a run says « cloud » or « ce PC », and links to the session.
 // Pinned: GET /api/runs/:id also answers `cloud`: { sessionUrl: string | null } | null; the page shows the word « cloud »
 // and a link « Voir la session » for a cloud run (the link only when sessionUrl is not null), « ce PC » otherwise.
 

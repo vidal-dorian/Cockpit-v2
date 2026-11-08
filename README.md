@@ -137,7 +137,7 @@ Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pa
 
 ## Lancer dans le cloud
 
-Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : la session démarre sans PC allumé. Il faut relier une seconde tâche planifiée, le « Lanceur Cockpit », une seule fois : « Réglages », « Tâches cloud », carte « Lanceur Cockpit » (mêmes étapes que ci-dessus, avec sa propre consigne), puis cocher les projets dont le repo est dans la tâche. Après un changement du catalogue, « Mettre à jour » les repos préparés (`/dev-us --launch`). Décision [053](docs/decisions/053-lancer-dans-le-cloud.md).
+Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : la session démarre sans PC allumé. Il faut relier une seconde tâche planifiée, le « Lanceur Cockpit », une seule fois : « Réglages », « Tâches cloud », carte « Lanceur Cockpit » (mêmes étapes que ci-dessus, avec sa propre consigne), puis cocher les projets dont le repo est dans la tâche. Après un changement du catalogue, « Mettre à jour » les repos préparés (`/dev-us --launch`). Décision [054](docs/decisions/054-lancer-dans-le-cloud.md).
 
 ## Lancer en local
 
