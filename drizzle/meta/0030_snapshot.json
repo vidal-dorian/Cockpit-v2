@@ -1,5 +1,5 @@
 {
-  "id": "ebfea5d1-27a6-468a-ae32-391e67427805",
+  "id": "166f8a1c-039f-4cf3-970e-844a35151df3",
   "prevId": "086dd929-3f04-4ea8-ac25-6152bdfbc87f",
   "version": "7",
   "dialect": "postgresql",
@@ -312,25 +312,19 @@
           "name": "project_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "story_id": {
           "name": "story_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "branch": {
           "name": "branch",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "routine_id": {
-          "name": "routine_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "team": {
           "name": "team",
@@ -371,24 +365,6 @@
         "run_id": {
           "name": "run_id",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "summary": {
-          "name": "summary",
-          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -441,19 +417,6 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "cloud_launches_routine_id_routines_id_fk": {
-          "name": "cloud_launches_routine_id_routines_id_fk",
-          "tableFrom": "cloud_launches",
-          "tableTo": "routines",
-          "columnsFrom": [
-            "routine_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "cloud_launches_run_id_runs_id_fk": {
           "name": "cloud_launches_run_id_runs_id_fk",
           "tableFrom": "cloud_launches",
@@ -471,12 +434,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "cloud_launches_story_xor_routine": {
-          "name": "cloud_launches_story_xor_routine",
-          "value": "(\"cloud_launches\".\"story_id\" is null) <> (\"cloud_launches\".\"routine_id\" is null)"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.code_maps": {
@@ -1674,123 +1632,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.routines": {
-      "name": "routines",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "routines_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "instruction": {
-          "name": "instruction",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "agents": {
-          "name": "agents",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_ids": {
-          "name": "project_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "frequency": {
-          "name": "frequency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "hour": {
-          "name": "hour",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "weekday": {
-          "name": "weekday",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "time_zone": {
-          "name": "time_zone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "next_run_at": {
-          "name": "next_run_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "paused_at": {
-          "name": "paused_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "routines_user_id_users_id_fk": {
-          "name": "routines_user_id_users_id_fk",
-          "tableFrom": "routines",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.run_steps": {
       "name": "run_steps",
       "schema": "",
@@ -2168,6 +2009,20 @@
           "notNull": true,
           "default": "''"
         },
+        "priority": {
+          "name": "priority",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'normal'"
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
         "abandoned_at": {
           "name": "abandoned_at",
           "type": "timestamp with time zone",
@@ -2214,7 +2069,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "tickets_priority_check": {
+          "name": "tickets_priority_check",
+          "value": "\"tickets\".\"priority\" in ('low', 'normal', 'high')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.user_stories": {

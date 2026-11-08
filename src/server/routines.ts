@@ -361,7 +361,7 @@ export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
 
 const GIVE_UP_MS = 2 * 3_600_000;
 
-/** Decision 055 B: one passage at a time per user; a passage without news after two hours no longer counts. */
+/** Decision 056 B: one passage at a time per user; a passage without news after two hours no longer counts. */
 const busy = async (db: Db, userId: number, at: Date) =>
   (
     await db
@@ -379,7 +379,7 @@ const busy = async (db: Db, userId: number, at: Date) =>
 
 export type Routine = typeof routines.$inferSelect;
 
-/** The launch of a routine (decision 055 B), by the pass or by « Lancer maintenant ». */
+/** The launch of a routine (decision 056 B), by the pass or by « Lancer maintenant ». */
 export const runCustomRoutine = (
   db: Db,
   deps: Fire,
@@ -411,7 +411,7 @@ export const runCustomRoutine = (
     },
   );
 
-/** The passage of the minute for the routines of users (decision 055 B). Never throws. */
+/** The passage of the minute for the routines of users (decision 056 B). Never throws. */
 async function runDueCustomRoutines(db: Db, deps: Fire, now: Date) {
   try {
     await db
@@ -458,7 +458,7 @@ async function runDueCustomRoutines(db: Db, deps: Fire, now: Date) {
           { actor: "system", origin: "system" },
           now,
         );
-        // Another passage began since: it waits for the next minute (055 B).
+        // Another passage began since: it waits for the next minute (056 B).
         if ("error" in launched && launched.error === "routine_running")
           await db
             .update(routines)
@@ -554,7 +554,7 @@ export async function refuseEntry<Code extends string>(
   return code;
 }
 
-/** The launcher of the user when it can launch in these projects: connected, not to reconnect, every project ticked (decisions 054 D, 055 B). */
+/** The launcher of the user when it can launch in these projects: connected, not to reconnect, every project ticked (decisions 054 D, 056 B). */
 async function readyLauncher(tx: Db, userId: number, projectIds: number[]) {
   const launcher = await taskOf(tx, cloudLaunchers, userId);
   if (!launcher) throw new Refused("launcher_not_connected");
@@ -575,7 +575,7 @@ async function readyLauncher(tx: Db, userId: number, projectIds: number[]) {
 }
 
 /**
- * The launch of a story (054 E) or of a routine (055 B): `reserve` checks and returns the row, which is written before `/fire` (it has no idempotence key: a second click meets
+ * The launch of a story (054 E) or of a routine (056 B): `reserve` checks and returns the row, which is written before `/fire` (it has no idempotence key: a second click meets
  * a refusal), then `/fire` is called outside the transaction and its result and the entry are recorded. Not `act`, whose `ok` entry comes before the call.
  * The text sent is `launch_id` only; the entry's `args` get the launch and session ids besides those of `entry`.
  */

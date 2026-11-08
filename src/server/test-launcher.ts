@@ -120,7 +120,7 @@ export async function ready(handler?: Handler) {
   return ctx;
 }
 
-// Slice 14.2 (decision 055): routines. A daily routine at 12:00 UTC is due 2 h after NOW (a Sunday).
+// Slice 14.2 (decision 056): routines. A daily routine at 12:00 UTC is due 2 h after NOW (a Sunday).
 export const DUE = new Date("2026-11-08T12:00:30Z");
 export const routineBody = (ctx: Ctx, over: Record<string, unknown> = {}) => ({
   name: "Nettoyage",
@@ -153,7 +153,7 @@ export async function routineOf(ctx: Ctx, over: Record<string, unknown> = {}) {
   expect(res.status, "creating the routine").toBe(201);
   return ((await res.json()) as { id: number }).id;
 }
-/** One pass of the minute (decision 022 E, extended by 055 B) at `at`. */
+/** One pass of the minute (decision 022 E, extended by 056 B) at `at`. */
 export const pass = (ctx: Ctx, at: Date) =>
   runDueRoutines(
     ctx.db,

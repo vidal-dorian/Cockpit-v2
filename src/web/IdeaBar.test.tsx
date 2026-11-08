@@ -45,7 +45,9 @@ describe("slice 9.3: the idea bar", () => {
     expect((await send()).hasAttribute("disabled")).toBe(false);
   });
 
-  it("given an idea typed and a project chosen, when I send it, then it POSTs { title } to that project, clears the field and says Idée notée dans {name}.", async () => {
+  // Decision 055 D changed 045 F: Enter (or the ↑ button) no longer creates the ticket, it opens the panel « Noter une idée »;
+  // « Noter » of the panel creates (IdeaPanel.test.tsx). The project chosen in the bar is the one the panel starts with.
+  it("given an idea typed and a project chosen, when I send it, then nothing is posted and the panel opens on that project with the title", async () => {
     const api = stubShell({ projects });
     renderAt("/");
 
@@ -55,24 +57,30 @@ describe("slice 9.3: the idea bar", () => {
     fireEvent.change(await field(), { target: { value: "ranger le Kanban" } });
     fireEvent.click(await send());
 
-    await waitFor(() =>
-      expect(api.sent).toContainEqual({
-        method: "POST",
-        path: "/api/projects/8/tickets",
-        body: { title: "ranger le Kanban" },
-      }),
+    const panel = within(
+      await screen.findByRole("dialog", { name: "Noter une idée" }),
     );
-    const status = await screen.findByRole("status");
-    expect(status.textContent).toContain("Idée notée dans world.");
-    expect((await field()).value).toBe("");
+    expect(
+      (panel.getByRole("textbox", { name: "Titre" }) as HTMLInputElement).value,
+    ).toBe("ranger le Kanban");
+    expect(
+      (panel.getByRole("combobox", { name: "Projet" }) as HTMLSelectElement)
+        .value,
+    ).toBe("8");
+    expect(api.sent.filter((s) => s.method === "POST")).toEqual([]);
   });
 
-  it("given the server refuses the idea, when I send it, then the sentence of the refusal is shown", async () => {
+  // 055 D: the refusal now comes from « Noter » of the panel.
+  it("given the server refuses the idea, when I send it from the panel, then the sentence of the refusal is shown", async () => {
     stubShell({ projects }, { ticketStatus: 500 });
     renderAt("/");
 
     fireEvent.change(await field(), { target: { value: "x" } });
     fireEvent.click(await send());
+    const panel = within(
+      await screen.findByRole("dialog", { name: "Noter une idée" }),
+    );
+    fireEvent.click(panel.getByRole("button", { name: /^Noter/ }));
 
     expect(
       await screen.findByText("L'opération a échoué, réessaie."),

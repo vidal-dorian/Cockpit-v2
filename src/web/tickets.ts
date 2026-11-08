@@ -1,3 +1,5 @@
+import { client } from "./api.ts";
+
 /** The step labels of a ticket (decision 002); the codes of the server are never shown. */
 export const STEPS: Record<string, string> = {
   abandoned: "Abandonné",
@@ -35,10 +37,10 @@ export const STORY_STATUSES: Record<string, string> = {
 };
 
 /** The French error of a refused create, edit or delete; nothing of what the server said is shown. */
-export async function ticketError(res: Response) {
+export async function ticketError(res: Response, tagsSent = false) {
   if (res.status === 400)
     return new Error(
-      "Le titre doit faire de 1 à 200 caractères et la description 50 000 au plus.",
+      `Le titre doit faire de 1 à 200 caractères et la description 50 000 au plus.${tagsSent ? " Une étiquette n'est pas valide (30 caractères au plus)." : ""}`,
     );
   const body: unknown = await res.json().catch(() => null);
   if ((body as { error?: unknown } | null)?.error === "project_archived")
@@ -82,3 +84,50 @@ export async function decisionError(res: Response) {
 /** « 1 critère », « 2 critères ». */
 export const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
+
+/** The tickets of a project, in the order of the list (priority, then newest first), or null when the server answers 401. */
+export async function fetchTickets(id: string) {
+  const res = await client.api.projects[":id"].tickets.$get({ param: { id } });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).tickets;
+}
+
+/** The priorities of a ticket (decision 055 A), as the select of the idea panel and of the ticket page offers them. */
+export const PRIORITIES = {
+  low: "Priorité : basse",
+  normal: "Priorité : normale",
+  high: "Priorité : haute",
+} as const;
+
+// Decision 055 A: a ticket has 10 tags at most.
+export const MAX_TAGS = 10;
+
+/** A tag as the server keeps it (decision 055 A): trimmed, inner spaces reduced to one, lowercase. */
+export const normalizeTag = (text: string) =>
+  text.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** The tags with the one typed and not yet added (« Noter » and « Enregistrer » do not lose it). */
+// shortcut: an 11th pending tag is dropped silently on save, show « 10 étiquettes au plus. » if people hit it.
+export function withPending(tags: string[], text: string) {
+  const tag = normalizeTag(text);
+  return tag === "" || tags.includes(tag) || tags.length >= MAX_TAGS
+    ? tags
+    : [...tags, tag];
+}
+
+/** How old a ticket is, in the words of the list (« 10 min », « 2 j », « 2 sem. »). */
+export function age(iso: string) {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(iso)) / 60_000),
+  );
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `${minutes} min`;
+  const days = Math.floor(minutes / 1440);
+  if (days < 1) return `${Math.floor(minutes / 60)} h`;
+  if (days < 7) return `${days} j`;
+  return days < 60
+    ? `${Math.floor(days / 7)} sem.`
+    : `${Math.floor(days / 30)} mois`;
+}

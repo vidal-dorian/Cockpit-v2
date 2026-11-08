@@ -15,9 +15,10 @@ import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
-import { fetchTickets, ProjectTickets } from "./ProjectTickets.tsx";
+import { ProjectTickets } from "./ProjectTickets.tsx";
 import { rulesSentence, useRules } from "./rules.ts";
 import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { fetchTickets } from "./tickets.ts";
 import { UpdatesLine } from "./UpdatesLine.tsx";
 import {
   alertBox,
@@ -107,7 +108,7 @@ const plural = (n: number, one: string, many: string) =>
 // The muted second half of the sentence of the tabs other than the Kanban.
 const TAB_REST: Record<ProjectTab, string> = {
   kanban: "",
-  tickets: "Claude écrit les user stories de chaque ticket.",
+  tickets: "",
   conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
   agents: "Chacun lit le repo, puis passe la main au suivant.",
@@ -115,7 +116,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   reglages: "",
 };
 
-// The second line of the Tickets tab, from the schedule of the automatic writing (decision 022 D).
+// The second line of the Tickets tab, from the schedule of the automatic writing (decisions 022 D and 055 F): nothing when it is not scheduled.
 function writingSentence(
   schedule: { frequency: string; hour: number | null } | undefined,
 ) {
@@ -124,7 +125,6 @@ function writingSentence(
     return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
   if (schedule?.frequency === "weekly")
     return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
-  return TAB_REST.tickets;
 }
 
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */

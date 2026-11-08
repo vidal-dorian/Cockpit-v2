@@ -58,7 +58,7 @@ const planning = (r: Routine) =>
     ? "À la demande"
     : `Chaque ${r.frequency === "weekly" ? WEEKDAYS[(r.weekday ?? 1) - 1] : "jour"} à ${r.hour} h`;
 
-/** Decision 055 F: the page « Tâches programmées », the write-US task and the routines of the user, and the panel of the open one. */
+/** Decision 056 F: the page « Tâches programmées », the write-US task and the routines of the user, and the panel of the open one. */
 export function Taches() {
   const routines = useQuery({ queryKey: ["routines"], queryFn: fetchRoutines });
   const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });

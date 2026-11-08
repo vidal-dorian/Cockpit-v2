@@ -33,7 +33,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S00a](S00a_Accueil.png) | L'accueil : phrase d'état, « 1 · Maintenant », « 2 · Ensuite », Claude en ce moment, la question ouverte à droite | 8.1 (existe), refaite en 9.3 | 040, 045 | |
 | [S07](S07_Accueil_Calme.png) | L'accueil quand rien n'attend : plus aucun rouge | 8.1, 9.3 | 040 G | |
 | [S08](S08_Recherche.png) | Recherche globale `Ctrl K` | 15.3 | | |
-| [S09](S09_NoterIdee.png) | Noter une idée en détail : projet, priorité, étiquettes, pièce jointe | 11.2, 11.4 | 014 | |
+| [S09](S09_NoterIdee.png) | Noter une idée en détail : projet, priorité, étiquettes, pièce jointe | 11.2 (sans la pièce jointe), 11.4 | 014, 055 | |
 
 ## 3 · Projets
 
@@ -43,7 +43,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1 | 011, 007 | |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
-| [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1 (existe), 11.2 | 014 | |
+| [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2 (existent, sans « Importer les issues » : 11.3) | 014, 055 | |
 | [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | permission `workflows` (012) |
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 | | |
@@ -72,7 +72,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | |
 | [S30](S30_Run_Fini.png) | Un run fini : le verdict, les critères, le coût | 7.7 (existe), 14.5 | 035, 039 | le coût (14.5) |
 | [S31](S31_Run_Fermer.png) | Fermer un run muet | 7.5 (existe) | 037 | |
-| [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 055 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
+| [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 056 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
 | [S33](S33_CoutBudget.png) | Coût et plafonds | 14.5 | | tout (14.5) |
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 | 044 | |
 | [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 | 044 | |

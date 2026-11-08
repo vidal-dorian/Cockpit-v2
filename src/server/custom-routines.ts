@@ -33,7 +33,7 @@ const common = {
     .max(100),
   timeZone,
 };
-// Decision 055 A: the rules of the planning of decision 022 D, for a routine of its own.
+// Decision 056 A: the rules of the planning of decision 022 D, for a routine of its own.
 const routineBody = z.discriminatedUnion("frequency", [
   z.object({ ...common, frequency: z.literal("on_demand") }),
   z.object({ ...common, frequency: z.literal("daily"), hour }),
@@ -53,7 +53,7 @@ function refused(c: Context, error: unknown) {
     : c.json({ error: error.message }, 409);
 }
 
-/** The routines of the user (decision 055 G), only theirs: another user's routine is not found. */
+/** The routines of the user (decision 056 G), only theirs: another user's routine is not found. */
 export function customRoutineRoutes(db: Db, deps: Fire, now: () => number) {
   // Before the body is read: another user's routine is not found whatever is sent.
   const owned = createMiddleware<Vars>(async (c, next) => {

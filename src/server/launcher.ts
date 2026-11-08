@@ -49,7 +49,7 @@ const launchBody = z.object({
   comment: z.string().max(10_000).refine(noNul).optional(),
 });
 
-/** `get_launch` (decision 054 F, 055 C): the launch of the caller, with what Claude needs to start `/dev-us` or to run the routine. Nobody else's. */
+/** `get_launch` (decision 054 F, 056 C): the launch of the caller, with what Claude needs to start `/dev-us` or to run the routine. Nobody else's. */
 export function getLaunch(
   db: Db,
   userId: number,
@@ -160,7 +160,7 @@ export function reportLaunch(
   });
 }
 
-/** `finish_launch` (decision 055 D): Claude says how a routine passage ended, once. A story ends with `finish_run`. */
+/** `finish_launch` (decision 056 D): Claude says how a routine passage ended, once. A story ends with `finish_run`. */
 export function finishLaunch(
   db: Db,
   userId: number,

@@ -20,7 +20,7 @@ import {
   userWithToken,
 } from "./test-mcp.ts";
 
-// Slice 14.2 (decision 055 C, D, E, H): what Claude reads of a routine launch, how it finishes it, what it cannot do.
+// Slice 14.2 (decision 056 C, D, E, H): what Claude reads of a routine launch, how it finishes it, what it cannot do.
 //
 // Pinned where the decision leaves room:
 // - get_launch of a routine answers { launch_id, kind: "routine", projects: [{ id, full_name, default_branch }], instructions };

@@ -17,7 +17,7 @@ import {
 } from "./test-launcher.ts";
 import { rows, seedProject, userWithToken } from "./test-mcp.ts";
 
-// Slice 14.2 (decision 055 A, B, G, H): the routines of a user, the pass that fires them, « Lancer maintenant ».
+// Slice 14.2 (decision 056 A, B, G, H): the routines of a user, the pass that fires them, « Lancer maintenant ».
 //
 // Pinned where the decision leaves room:
 // - The pass is the existing `runDueRoutines(db, { encryptionKey, fireRoutine }, now)` (022 E), extended to the routines.

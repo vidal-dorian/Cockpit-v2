@@ -11,7 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Slice 14.2 (decision 055 F, G): the page « Tâches programmées » at /claude/taches.
+// Slice 14.2 (decision 056 F, G): the page « Tâches programmées » at /claude/taches.
 //
 // Pinned choices (the decision leaves them open):
 // - The sidebar has a link « Claude » to /claude/taches. The page reads GET /api/routines ({ routines: [{ id, name, instruction,

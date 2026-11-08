@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ne, or, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
@@ -12,6 +13,7 @@ import {
   questions,
   runs,
   storyDependencies,
+  TICKET_PRIORITIES,
   tickets,
   userStories,
 } from "./db/schema.ts";
@@ -31,9 +33,29 @@ export const descriptionMd = z.string().max(50_000).refine(noNul);
 // Limits of decision 017 B, shared by the stories Claude writes (MCP) and the ones the user edits (REST): the texts are trimmed.
 export const narrative = z.string().trim().min(1).max(1_000).refine(noNul);
 export const criterionText = z.string().trim().min(1).max(2_000).refine(noNul);
-const createBody = z.object({ title, descriptionMd: descriptionMd.optional() });
+// Decision 055 A: a tag is trimmed, its inner spaces reduced to one and lowercased before the length check; duplicates collapse (first kept), then at most 10.
+const tag = z
+  .string()
+  .transform((text) => text.trim().replace(/\s+/g, " ").toLowerCase())
+  .pipe(z.string().min(1).max(30).refine(noNul));
+const tags = z
+  .array(tag)
+  .transform((list) => [...new Set(list)])
+  .pipe(z.array(z.string()).max(10));
+const priority = z.enum(TICKET_PRIORITIES);
+const createBody = z.object({
+  title,
+  descriptionMd: descriptionMd.optional(),
+  priority: priority.optional(),
+  tags: tags.optional(),
+});
 const editBody = z
-  .object({ title: title.optional(), descriptionMd: descriptionMd.optional() })
+  .object({
+    title: title.optional(),
+    descriptionMd: descriptionMd.optional(),
+    priority: priority.optional(),
+    tags: tags.optional(),
+  })
   .refine((body) => Object.keys(body).length > 0);
 
 /** The `depends_on` positions of a list of stories: at least 1, each once; the issue names the faulty field (decision 017 C). */
@@ -92,6 +114,8 @@ const present = (t: typeof tickets.$inferSelect, statuses: StoryStatus[]) => ({
   projectId: t.projectId,
   title: t.title,
   descriptionMd: t.descriptionMd,
+  priority: t.priority,
+  tags: t.tags,
   step: ticketStep(t, statuses),
   storiesWrittenAt: t.storiesWrittenAt,
   abandonedAt: t.abandonedAt,
@@ -122,7 +146,12 @@ export function createTicket(
   db: Db,
   entry: Entry,
   projectId: number,
-  fields: { title: string; descriptionMd?: string },
+  fields: {
+    title: string;
+    descriptionMd?: string;
+    priority?: string;
+    tags?: string[];
+  },
 ) {
   return act(db, entry, async (tx) => {
     await assertActive(tx, projectId);
@@ -185,7 +214,10 @@ export function ticketRoutes(
         .select()
         .from(tickets)
         .where(eq(tickets.projectId, project.id))
-        .orderBy(desc(tickets.id));
+        .orderBy(
+          sql`case ${tickets.priority} when 'high' then 0 when 'normal' then 1 else 2 end`,
+          desc(tickets.id),
+        );
       const statuses = await storyStatuses(
         db,
         rows.map((t) => t.id),
@@ -194,6 +226,94 @@ export function ticketRoutes(
         tickets: rows.map((t) => present(t, statuses.get(t.id) ?? [])),
       });
     })
+    .get(
+      "/api/projects/:id/search",
+      validator("query", (value, c) => {
+        const parsed = z.string().min(1).max(100).safeParse(value.q);
+        if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+        return { q: parsed.data };
+      }),
+      async (c) => {
+        const user = await currentUser(db, c);
+        if (!user) return c.json(unauthorized, 401);
+        const project = await memberProject(
+          db,
+          user.userId,
+          Number(c.req.param("id")),
+        );
+        if (!project) return c.json(notFound, 404);
+        // Decision 055 C: a case-insensitive substring; strpos binds the text, so `%` and `_` stay literal.
+        const has = (...columns: AnyPgColumn[]) =>
+          or(
+            ...columns.map(
+              (column) =>
+                sql`strpos(lower(${column}), lower(${c.req.valid("query").q})) > 0`,
+            ),
+          );
+        const found = await db
+          .select({ id: tickets.id, title: tickets.title, ticket: tickets })
+          .from(tickets)
+          .where(
+            and(
+              eq(tickets.projectId, project.id),
+              has(tickets.title, tickets.descriptionMd),
+            ),
+          )
+          .orderBy(desc(tickets.id))
+          .limit(50);
+        const statuses = await storyStatuses(
+          db,
+          found.map((t) => t.id),
+        );
+        const stories = await db
+          .select({
+            id: userStories.id,
+            ticketId: userStories.ticketId,
+            title: userStories.iWant,
+            status: userStories.status,
+          })
+          .from(userStories)
+          .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+          .where(
+            and(
+              eq(tickets.projectId, project.id),
+              or(
+                has(
+                  userStories.asA,
+                  userStories.iWant,
+                  userStories.soThat,
+                  userStories.notesMd,
+                ),
+                exists(
+                  db
+                    .select({ one: sql`1` })
+                    .from(acceptanceCriteria)
+                    .where(
+                      and(
+                        eq(acceptanceCriteria.storyId, userStories.id),
+                        has(
+                          acceptanceCriteria.givenText,
+                          acceptanceCriteria.whenText,
+                          acceptanceCriteria.thenText,
+                        ),
+                      ),
+                    ),
+                ),
+              ),
+            ),
+          )
+          .orderBy(desc(userStories.id))
+          .limit(50);
+        return c.json({
+          tickets: found.map((t) => ({
+            id: t.id,
+            title: t.title,
+            step: ticketStep(t.ticket, statuses.get(t.id) ?? []),
+          })),
+          stories,
+        });
+      },
+    )
     .get("/api/projects/:id/stories", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
