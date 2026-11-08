@@ -17,6 +17,7 @@
   - la [027](027-preparer-pour-claude.md), choix F : le plan est une liste de fichiers avec un aperçu ;
   - la [031](031-equipe-en-graphe.md), choix F : un commutateur Graphe / Liste remplace la liste sous le graphe.
 - **Modifiée par** : [053](053-journal-filtrable.md) : l'onglet Historique d'un projet (H) existe depuis la tranche 11.1
+- **Modifiée par** : [054](054-tickets-complets.md) : dans F, Entrée dans la barre « Noter une idée » ne crée plus le ticket, elle agrandit la barre en un panneau (tranche 11.2)
 - **Modifiée par** : [046](046-logo-la-boucle.md) : le logo, repoussé ici, est tranché
 - **Écrans** : [`docs/ecrans/`](../ecrans/README.md) (63 écrans, PNG et HTML), validés par Dorian le 2026-11-07
 - **Tranche** : 9.3 du [découpage](../decoupage.md) pour la coque commune, puis la tranche de chaque écran
