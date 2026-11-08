@@ -30,10 +30,12 @@ import { redClasses, stubJournal } from "./test-journal.tsx";
 //   (a secondary button: classes of `button` in ui.ts, bg-raised and border-border-strong, no bg-primary, nothing red). The section is absent when branches is empty.
 // - The button opens the confirmation in the line: « Supprimer la branche us/40-x ? Rien ne sera perdu : elle est déjà mergée. » with the buttons « Oui, supprimer » and « Annuler » (nothing is sent before « Oui, supprimer »).
 //   « Oui, supprimer » sends POST /api/stories/40/branch/delete (no body); 204 makes the line disappear (the section too when it was the last one).
+// Review additions: the changelog answers `repo` ("octocat/hello"), the PR links are built from it (so never `undefined` while GET /api/projects is pending); a group of kind "older" is
+//   « Versions plus anciennes »; the chips are in <nav aria-label="Vues de l'historique">; no « Supprimer la branche » on an archived project (the line stays); two release groups with the same name both render.
 // - A refusal 409 { error } or 502 stays in the line, in a role="alert" element, with these sentences:
 //   pr_not_merged « La PR de cette US n'est pas mergée. », branch_gone « La branche n'existe plus sur GitHub. », branch_protected « Cette branche est protégée : elle ne peut pas être supprimée d'ici. »,
 //   branch_has_new_commits « La branche a des commits que la PR mergée n'a pas : rien n'est supprimé. », branch_has_open_pr « Une PR ouverte part de cette branche. »,
-//   project_archived « Ce projet est archivé. », 502 github_unavailable « GitHub ne répond pas : rien n'a été supprimé. ».
+//   project_archived « Ce projet est archivé. », 502 github_unavailable « GitHub ne répond pas : vérifie sur GitHub si la branche a été supprimée. » (review: the request may have reached GitHub).
 
 afterEach(() => {
   cleanup();
@@ -54,7 +56,7 @@ type Group = {
   entries: Entry[];
 };
 type Branch = { storyId: number; branch: string; prNumber: number };
-type Changelog = { groups: Group[]; branches: Branch[] };
+type Changelog = { repo: string; groups: Group[]; branches: Branch[] };
 
 const line = (
   number: number,
@@ -63,6 +65,7 @@ const line = (
 ): Entry => ({ number, title, fix: false, storyId: null, ...over });
 
 const SHIPPED: Changelog = {
+  repo: "octocat/hello",
   groups: [
     {
       kind: "unreleased",
@@ -87,6 +90,7 @@ const SHIPPED: Changelog = {
 function stubDelivered(
   answer: () => Response | Changelog = () => SHIPPED,
   deleteAnswer: () => Response = () => new Response(null, { status: 204 }),
+  options: { archived?: boolean; projectsGate?: Promise<void> } = {},
 ) {
   const journal = stubJournal();
   const base = globalThis.fetch;
@@ -102,6 +106,16 @@ function stubDelivered(
             ? input.href
             : input.url;
       const url = new URL(raw, "http://localhost");
+      if (url.pathname === "/api/projects" && options.projectsGate) {
+        await options.projectsGate;
+      }
+      if (url.pathname === "/api/projects" && options.archived) {
+        const res = await base(input, init);
+        const body = (await res.json()) as { projects: { id: number }[] };
+        return Response.json({
+          projects: body.projects.map((p) => ({ ...p, archived: true })),
+        });
+      }
       if (url.pathname === "/api/projects/5/changelog") {
         const found = answer();
         if (found instanceof Response) return found;
@@ -245,6 +259,7 @@ describe("F: the state sentence and the groups", () => {
     const day = (ago: number) =>
       new Date(Date.now() - ago * 86_400_000).toISOString().slice(0, 10);
     stubDelivered(() => ({
+      repo: "octocat/hello",
       groups: [
         { kind: "day", name: null, date: day(0), entries: [line(3, "c")] },
         { kind: "day", name: null, date: day(1), entries: [line(2, "b")] },
@@ -289,7 +304,7 @@ describe("F: the state sentence and the groups", () => {
   });
 
   it("given no merged PR, when it loads, then « Rien de livré pour l'instant. » and no section of branches", async () => {
-    stubDelivered(() => ({ groups: [], branches: [] }));
+    stubDelivered(() => ({ repo: "octocat/hello", groups: [], branches: [] }));
     await delivered();
 
     expect(
@@ -385,7 +400,8 @@ describe("F: the branches to clean", () => {
     [
       502,
       "github_unavailable",
-      "GitHub ne répond pas : rien n'a été supprimé.",
+      // Review: the request may have reached GitHub before it failed.
+      "GitHub ne répond pas : vérifie sur GitHub si la branche a été supprimée.",
     ],
   ])(
     "given the server refusing with %s %s, when the deletion is confirmed, then the line stays and says « %s »",
@@ -433,5 +449,107 @@ describe("G: no red on the changelog", () => {
     );
 
     expect(redClasses(main())).toEqual([]);
+  });
+});
+
+describe("review: more cases of the changelog page", () => {
+  it("given the chips, when /historique and /historique/livre load, then both are in a navigation « Vues de l'historique »", async () => {
+    stubDelivered();
+    for (const path of [
+      "/projets/5/historique",
+      "/projets/5/historique/livre",
+    ]) {
+      renderAt(path);
+      await screen.findByRole("main");
+      const nav = await within(main()).findByRole("navigation", {
+        name: "Vues de l'historique",
+      });
+      expect(
+        within(nav)
+          .getAllByRole("link")
+          .map((l) => l.textContent),
+      ).toEqual(["Journal", "Ce qui a été livré"]);
+      cleanup();
+    }
+  });
+
+  it("given an archived project, when the changelog loads, then the branch is listed without the button « Supprimer la branche »", async () => {
+    stubDelivered(() => SHIPPED, undefined, { archived: true });
+    await delivered();
+
+    const row = await branchLine();
+    expect(row.textContent).toContain("PR #51 mergée · plus utilisée");
+    expect(within(row).queryByRole("button")).toBeNull();
+  });
+
+  it("given the projects still loading, when the lines show, then the PR links come from the repo of the changelog and none contains undefined", async () => {
+    let open!: () => void;
+    const projectsGate = new Promise<void>((r) => {
+      open = r;
+    });
+    stubDelivered(() => SHIPPED, undefined, { projectsGate });
+    renderAt("/projets/5/historique/livre");
+    await screen.findByRole("main", {}, { timeout: 1500 });
+
+    const feature = await lineOf("Supprime les branches mergées");
+    try {
+      expect(
+        within(feature)
+          .getByRole("link", { name: "PR #51" })
+          .getAttribute("href"),
+      ).toBe("https://github.com/octocat/hello/pull/51");
+      for (const a of main().querySelectorAll("a"))
+        expect(a.getAttribute("href")).not.toContain("undefined");
+    } finally {
+      open();
+    }
+  });
+
+  it("given a group of kind older, when it loads, then its heading is « Versions plus anciennes », after the releases", async () => {
+    stubDelivered(() => ({
+      ...SHIPPED,
+      groups: [
+        ...SHIPPED.groups,
+        {
+          kind: "older",
+          name: null,
+          date: null,
+          entries: [line(1, "Très ancien")],
+        },
+      ],
+    }));
+    await delivered();
+
+    await heading("Versions plus anciennes");
+    expect(
+      [...main().querySelectorAll("h2")].map((h) => h.textContent).slice(0, 3),
+    ).toEqual([
+      "Pas encore publiée",
+      "Version 1.9.0 · 6 novembre",
+      "Versions plus anciennes",
+    ]);
+  });
+
+  it("given two releases with the same name, when it loads, then both groups render and React complains of no duplicate key", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const same = (n: number): Group => ({
+      kind: "release",
+      name: "1.9.0",
+      date: "2026-11-06T12:00:00Z",
+      entries: [line(n, `Titre ${n}`)],
+    });
+    stubDelivered(() => ({
+      repo: "octocat/hello",
+      groups: [same(2), same(1)],
+      branches: [],
+    }));
+    await delivered();
+
+    await within(main()).findByText("Titre 1");
+    expect(
+      [...main().querySelectorAll("h2")].map((h) => h.textContent),
+    ).toEqual(["Version 1.9.0 · 6 novembre", "Version 1.9.0 · 6 novembre"]);
+    expect(error.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    error.mockRestore();
   });
 });

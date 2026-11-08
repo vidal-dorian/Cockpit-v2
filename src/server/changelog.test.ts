@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   bobsStory,
@@ -310,5 +311,94 @@ describe("D: the branches to clean", () => {
 
     expect(calls(ctx, "GET", /\/branches$/)).toHaveLength(10);
     expect(found.branches).toEqual([]);
+  });
+});
+
+describe("review: more cases of the changelog", () => {
+  it("given a project, when it is read, then the answer names its repo (the page builds its PR links from it)", async () => {
+    const ctx = await changelogCtx();
+    expect((await read(ctx)).repo).toBe("user1000/app");
+  });
+
+  it.each([
+    ["Docs: Explain it", "Explain it", false],
+    ["docs(api)!: Explain it", "Explain it", false],
+    ["FEAT(ui): Shout", "Shout", false],
+    ["Fix: crash", "crash", true],
+    ["WIP: not done", "WIP: not done", false],
+    ["Note: read this", "Note: read this", false],
+    ["v2: the next one", "v2: the next one", false],
+    // Nothing after the prefix: the title stays, and it is not announced as a fix.
+    ["fix:", "fix:", false],
+  ])(
+    "given the title « %s », when it is read, then only a conventional type (feat, fix, chore, docs, refactor, perf, test, build, ci, style, revert; any case) is stripped: « %s », fix %s",
+    async (title, shown, fix) => {
+      const ctx = await changelogCtx();
+      merged(ctx, 7, title, "2026-11-05T10:00:00Z");
+
+      const { groups } = await read(ctx);
+
+      expect(groups[0]?.entries).toEqual([
+        { number: 7, title: shown, fix, storyId: null },
+      ]);
+    },
+  );
+
+  it("given 100 releases (GitHub may have more), when a PR was merged before the oldest one read, then it is not put under that release but in a last group { kind: older }, and a PR just before the oldest release is under it", async () => {
+    const ctx = await changelogCtx();
+    for (let i = 99; i >= 0; i--)
+      release(ctx, {
+        tag: `v${i}`,
+        publishedAt: new Date(Date.UTC(2026, 6, 1 + i, 12)).toISOString(),
+      });
+    merged(ctx, 1, "feat: ancient", "2026-06-15T10:00:00Z");
+    merged(ctx, 2, "feat: first read", "2026-07-01T05:00:00Z");
+    merged(ctx, 3, "feat: unreleased", "2026-11-01T10:00:00Z");
+
+    const { groups } = await read(ctx);
+
+    expect(groups.map((g) => g.kind)).toEqual([
+      "unreleased",
+      "release",
+      "older",
+    ]);
+    expect(groups.map(numbers)).toEqual([[3], [2], [1]]);
+    expect(groups[2]).toMatchObject({ name: null, date: null });
+  });
+
+  it("given 99 releases (all of them are known), when a PR was merged before the oldest, then it is under the oldest release", async () => {
+    const ctx = await changelogCtx();
+    for (let i = 98; i >= 0; i--)
+      release(ctx, {
+        tag: `v${i}`,
+        publishedAt: new Date(Date.UTC(2026, 6, 1 + i, 12)).toISOString(),
+      });
+    merged(ctx, 1, "feat: ancient", "2026-06-15T10:00:00Z");
+
+    expect((await read(ctx)).groups.map((g) => g.kind)).toEqual(["release"]);
+  });
+
+  it("given a story of ANOTHER project with the same PR number, when it is read, then the line carries no storyId", async () => {
+    const ctx = await changelogCtx();
+    const { storyId } = await bobsStory(ctx);
+    await ctx.db.execute(
+      sql`update user_stories set pr_number = 51 where id = ${storyId}`,
+    );
+    merged(ctx, 51, "feat: a", "2026-11-05T10:00:00Z");
+
+    expect((await read(ctx)).groups[0]?.entries[0]?.storyId).toBeNull();
+  });
+
+  it("given a failing /branches, when it is read, then 502 github_unavailable", async () => {
+    const ctx = await changelogCtx();
+    await story(ctx, { pr: 51, branch: "us/40-x" });
+    merged(ctx, 51, "feat: a", "2026-11-05T10:00:00Z");
+    branch(ctx, "us/40-x", 51);
+    ctx.fetchMock.update({ failOn: ({ path }) => path.endsWith("/branches") });
+
+    const res = await changelog(ctx);
+
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "github_unavailable" });
   });
 });

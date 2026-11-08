@@ -15,6 +15,7 @@ import { archiveProject, rows } from "./test-mcp.ts";
 // Slice 11.5 (decision 062 E): POST /api/stories/:id/branch/delete. The contract is pinned in test-changelog.ts.
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -187,4 +188,68 @@ describe("E: the deletion", () => {
     });
     expect(JSON.stringify(await rows(ctx.db))).not.toContain(B);
   });
+});
+
+describe("review: GitHub is called outside any transaction, and a failing DELETE is an error", () => {
+  it("given a delete waiting on GitHub, when the project is archived meanwhile, then the archiving is not blocked (no database transaction is held during the calls to GitHub), and the delete still ends", async () => {
+    const { ctx, id } = await ready();
+    let open!: () => void;
+    const gate = new Promise<void>((r) => {
+      open = r;
+    });
+    let reached!: () => void;
+    const arrived = new Promise<void>((r) => {
+      reached = r;
+    });
+    const base = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const method = (
+          init?.method ?? (input instanceof Request ? input.method : "GET")
+        ).toUpperCase();
+        if (method === "DELETE") {
+          reached();
+          await gate;
+        }
+        return base(input, init);
+      }),
+    );
+
+    const pending = deleteBranch(ctx, id);
+    await arrived;
+    const archiving = archiveProject(ctx.db, ctx.projectId).then(() => "done");
+    const first = await Promise.race([
+      archiving,
+      new Promise((r) => setTimeout(() => r("blocked"), 500)),
+    ]);
+    open();
+    await pending;
+    await archiving;
+
+    expect(first).toBe("done");
+  });
+
+  it.each([422, 500])(
+    "given GitHub answering %s to the DELETE, when the delete is asked, then 502 github_unavailable, the branch is still there and an error entry delete_branch is left",
+    async (status) => {
+      const { ctx, id } = await ready();
+      ctx.fetchMock.update({
+        failOn: ({ method }) => method === "DELETE" && status,
+      });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = await deleteBranch(ctx, id);
+
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({ error: "github_unavailable" });
+      expect(gitOf(ctx).branch(B)).not.toBeUndefined();
+      const entries = (await rows(ctx.db)).filter(
+        (r) => r.action === "delete_branch",
+      );
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({ result: "error", story_id: id });
+      expect(JSON.stringify(await rows(ctx.db))).not.toContain(B);
+    },
+  );
 });

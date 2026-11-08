@@ -37,6 +37,12 @@ const ACTIONS: [string, string, string, RegExp][] = [
   ["update_user_story", "claude", "mcp", /\S/],
   ["set_auto_relaunch", "human", "ui", /relance/i],
   ["set_budgets", "human", "ui", /plafond/i],
+  // Review of 11.5: the actions of 11.3, 11.4 and 11.5 had no French label.
+  ["delete_branch", "human", "ui", /^Branche supprimée$/],
+  ["import_issues", "human", "ui", /^Issues importées$/],
+  ["add_attachment", "human", "ui", /^Pièce jointe ajoutée$/],
+  ["delete_attachment", "human", "ui", /^Pièce jointe retirée$/],
+  ["get_attachment", "claude", "mcp", /^Pièce jointe lue$/],
 ];
 
 describe("criterion 13: the Journal and the decisions", () => {

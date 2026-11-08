@@ -12,12 +12,15 @@ import {
 //
 // Pinned contract (the decision leaves it open):
 // - GET /api/projects/:id/changelog -> 200
-//   { groups: [{ kind: "unreleased" | "release" | "day", name: string | null, date: string | null,
+//   { repo: "owner/name" (review: the page builds its PR links from it),
+//     groups: [{ kind: "unreleased" | "release" | "older" | "day", name: string | null, date: string | null,
 //                entries: [{ number, title, fix, storyId }] }],
 //     branches: [{ storyId, branch, prNumber }] }
 //   `groups`: "Pas encore publiée" first (kind "unreleased", name null, date null), then the releases that have at least one PR, newest first
 //   (kind "release", name = the name of the release or its tag when it has none, date = its published_at, an instant); a repo with no published
 //   release has one group per merge day instead, newest first (kind "day", name null, date "YYYY-MM-DD", the UTC day of the merge).
+//   `older` (review): when GitHub returned 100 releases (the oldest ones may be missing), the PRs merged before the oldest release read go in a last group
+//   { kind: "older", name: null, date: null } instead of under that release.
 //   `entries` newest merge first; `title` without its conventional prefix; `fix` true when the conventional type is `fix`; `storyId` the id of
 //   the story of the project whose pr_number is the PR, else null.
 //   `branches` (decision 062 D): the done stories with a merged PR whose branch is still on GitHub, as { storyId, branch, prNumber }, in the order of the stories' ids.
@@ -105,6 +108,7 @@ export type Group = {
   }[];
 };
 export type Changelog = {
+  repo: string;
   groups: Group[];
   branches: { storyId: number; branch: string; prNumber: number }[];
 };
