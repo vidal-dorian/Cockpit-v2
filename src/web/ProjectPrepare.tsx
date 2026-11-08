@@ -22,6 +22,8 @@ const REFUSALS: Record<string, string> = {
   project_archived: "Ce projet est archivé : plus rien ne s'y écrit.",
   not_prepared:
     "Ce repo n'est pas encore préparé pour Claude : commence par « Préparer pour Claude ».",
+  no_ecosystem:
+    "Aucun écosystème trouvé (package.json, composer.json, go.mod...) : il n'y a rien à mettre à jour automatiquement.",
   repo_changed: "Le repo a changé entre-temps : regarde de nouveau",
   pull_request_forbidden:
     "La branche par défaut est protégée et l'App n'a pas le droit d'ouvrir une pull request : donne-lui « Pull requests » en écriture dans ses réglages, puis recommence.",

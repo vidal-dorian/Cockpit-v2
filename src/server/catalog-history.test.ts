@@ -42,6 +42,8 @@ const CATALOG: Record<string, string> = {
     "agents/security-reviewer.md",
   ),
   ".claude/agents/architect.md": fromCatalog("agents/architect.md"),
+  // Slice R6 (decision 052 K): the thirteenth file with CLAUDE.md, the twelfth without.
+  ".claude/agents/upgrade-advisor.md": fromCatalog("agents/upgrade-advisor.md"),
 };
 const PATHS = Object.keys(CATALOG).sort();
 const ANALYSER = [
@@ -50,6 +52,7 @@ const ANALYSER = [
   ".claude/agents/bug-hunter.md",
   ".claude/agents/security-reviewer.md",
   ".claude/agents/architect.md",
+  ".claude/agents/upgrade-advisor.md",
   ".claude/skills/analyser/SKILL.md",
 ];
 

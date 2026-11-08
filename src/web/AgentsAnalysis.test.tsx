@@ -163,6 +163,35 @@ describe("decision 051 L: the section « Agents d'analyse »", () => {
     expect(repoSection().contains(section)).toBe(false);
   });
 
+  // Slice R6 (decision 052 K): upgrade-advisor is an agent of the analysis too, editable like the others (decision 051 L), last in the fixed order.
+  it("given the five agents of the analysis and upgrade-advisor, when the tab opens, then upgrade-advisor is in the section « Agents d'analyse », after architect, with its model", async () => {
+    stubApi([
+      ...REPO_AGENTS,
+      { name: "upgrade-advisor", text: text("upgrade-advisor", "sonnet") },
+    ]);
+    renderAgents();
+
+    const section = await analysis();
+
+    expect(
+      within(section)
+        .getAllByRole("button", { name: /^Ouvrir / })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      "Ouvrir cartographer",
+      "Ouvrir bug-hunter",
+      "Ouvrir security-reviewer",
+      "Ouvrir architect",
+      "Ouvrir upgrade-advisor",
+    ]);
+    expect(rowOf(section, "upgrade-advisor").textContent).toContain("sonnet");
+    expect(
+      within(repoSection()).queryByRole("button", {
+        name: "Ouvrir upgrade-advisor",
+      }),
+    ).toBeNull();
+  });
+
   it("given the agents of the analysis, when the section is read, then each row says its model, « Celui de la session » when it has none", async () => {
     stubApi(REPO_AGENTS);
     renderAgents();

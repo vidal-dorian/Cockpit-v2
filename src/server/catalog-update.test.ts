@@ -68,6 +68,8 @@ const CATALOG: Record<string, string> = {
     "agents/security-reviewer.md",
   ),
   ".claude/agents/architect.md": fromCatalog("agents/architect.md"),
+  // Slice R6 (decision 052 K): the thirteenth file with CLAUDE.md, the twelfth without.
+  ".claude/agents/upgrade-advisor.md": fromCatalog("agents/upgrade-advisor.md"),
 };
 const PATHS = Object.keys(CATALOG).sort();
 const DEV = ".claude/agents/developer.md";
@@ -177,6 +179,9 @@ describe("decision 049 E: the health line of the catalogue", () => {
       "agents",
       "catalog",
       "webhook",
+      // Decision 052 (slice R6): github_alerts and updates close the list, after the webhook line (see health-alerts.test.ts).
+      "github_alerts",
+      "updates",
     ]);
     const line = lines.find((l) => l.key === "catalog") as HealthLine;
     expect(line).toMatchObject({ ok: true, detail: "ok" });

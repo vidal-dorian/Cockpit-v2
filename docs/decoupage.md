@@ -58,6 +58,7 @@
 - **Fait** : tranche C1 (la mise à jour du catalogue, [décision 049](decisions/049-mise-a-jour-du-catalogue.md)).
 - **Fait** : tranche R4 (figer l'existant, [décision 050](decisions/050-figer-l-existant.md)).
 - **Fait** : tranche R5 (les constats de Claude, [décision 051](decisions/051-constats-de-claude.md)).
+- **Fait** : tranche R6 (les constats de GitHub et les versions, [décision 052](decisions/052-constats-de-github-et-versions.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -296,11 +297,11 @@ Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée 
 
 | Sujet | Où |
 |---|---|
-| Permissions de l'App ajoutées après le MVP : modification manuelle de l'App et approbation de chaque utilisateur (12.4, R6) | [012](decisions/012-configuration-automatique.md) |
+| Permissions de l'App ajoutées après le MVP (12.4, R6). Tranché par la 052 en R6 : Cockpit guide (ligne « Alertes GitHub » du bilan et ligne grise de l'écran des constats), la modification de l'App et l'approbation restent manuelles | [012](decisions/012-configuration-automatique.md), [052](decisions/052-constats-de-github-et-versions.md) |
 | Plusieurs instances : quatre choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
 | Hébergeur ; facturation par personne ou par organisation (13.2, 13.3) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
-| Reprise : doublons entre analyses (R5, reste ouvert). Tranché par la 051 en R5 : modèle de chaque agent d'analyse (modifiable dans l'onglet Agents). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris). Tranché par la 050 en R4 : contrôle du mode « figer » (le reviewer et Cockpit, sur les fichiers de la PR) | [007](decisions/007-reprise-app-existante.md), points ouverts 2 (tranché), 4 (tranché) et 5 ; [047](decisions/047-ecran-de-reprise.md), [050](decisions/050-figer-l-existant.md), [051](decisions/051-constats-de-claude.md) |
+| Reprise : doublons entre analyses de Claude (R5, reste ouvert ; ceux des alertes GitHub sont évités par le numéro d'alerte, 052 E). Tranché par la 051 en R5 : modèle de chaque agent d'analyse (modifiable dans l'onglet Agents). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris). Tranché par la 050 en R4 : contrôle du mode « figer » (le reviewer et Cockpit, sur les fichiers de la PR) | [007](decisions/007-reprise-app-existante.md), points ouverts 2 (tranché), 4 (tranché) et 5 ; [047](decisions/047-ecran-de-reprise.md), [050](decisions/050-figer-l-existant.md), [051](decisions/051-constats-de-claude.md) |
 | Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
 | Version téléphone (phase 15) | [003](decisions/003-interface.md), point ouvert 4 |
 

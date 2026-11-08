@@ -85,7 +85,7 @@ describe("decision 043 L: opening the window", () => {
     );
   });
 
-  it("given the window, when it is shown, then it has five checkboxes, « Carte » checked and the others not (decisions 047 L and 051 J)", async () => {
+  it("given the window, when it is shown, then it has six checkboxes, « Carte » checked and the others not (decisions 047 L, 051 J and 052 K)", async () => {
     const { panel } = await openWindow("Analyser avec Claude");
 
     const boxes = within(panel).getAllByRole("checkbox") as HTMLInputElement[];
@@ -95,6 +95,7 @@ describe("decision 043 L: opening the window", () => {
       ["Bugs", false],
       ["Sécurité", false],
       ["Architecture et stack", false],
+      ["Versions", false],
     ]);
   });
 });

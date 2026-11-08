@@ -54,10 +54,15 @@
   ".claude/agents/architect.md": [
     "8abc8e39f8691fba6f45f217357adfeac7c75d9fea1a8d059bff9d98cc85b515"
   ],
+  ".claude/agents/upgrade-advisor.md": [
+    "80dff62be87c6a20545958d4a40223cdbc6776f9e41c20b11e2cb3a87067cba8",
+    "562001df26d39027133cf6b6ce77a5786820bc7f48f997925d7119ba1e7ee99b"
+  ],
   ".claude/skills/analyser/SKILL.md": [
     "f811143c278925161c438b2f85089ff6f00af7310fe53ea7e51ff767ea7ed9df",
     "96e6eb2ea396c23ad01a0dbfdb02adce9620a01deae81a77c9657fa09591a454",
     "cce8d2c40c199cdd050faf5bcbea10ba6bd04daf44ff366b393d9206a883a859",
-    "a30293994c2ecf49576f9bf51209a353a68be1e7af9284344f2cfe9465b14805"
+    "a30293994c2ecf49576f9bf51209a353a68be1e7af9284344f2cfe9465b14805",
+    "f5c378849cb2639d4fa5fd85f115b13f3a797a7d623faaefdc3eebca418a553d"
   ]
 }

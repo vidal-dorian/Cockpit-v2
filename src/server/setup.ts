@@ -50,6 +50,10 @@ function manifest(publicUrl: string) {
       checks: "read",
       statuses: "read",
       actions: "read",
+      // Decision 052 A: the alerts of GitHub.
+      dependabot_alerts: "read",
+      security_events: "read",
+      secret_scanning_alerts: "read",
     },
     // The installation events are always sent to an App and cannot be listed here.
     default_events: [
@@ -59,6 +63,9 @@ function manifest(publicUrl: string) {
       "check_suite",
       "status",
       "workflow_run",
+      "dependabot_alert",
+      "code_scanning_alert",
+      "secret_scanning_alert",
     ],
   };
 }

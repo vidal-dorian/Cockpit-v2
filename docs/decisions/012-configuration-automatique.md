@@ -7,6 +7,7 @@
 - **Revient sur** : la configuration par variables d'environnement de la 009 (G) et de la 011 (H), la liste de comptes autorisés en configuration (009 A), et la permission unique de la 011 (I). Dorian l'a demandé : « je ne veux pas avoir à renseigner des valeurs dans le .env, c'est super dur à maintenir »
 - **Rouverte (choix G, 1.6)** : la liste de comptes autorisés devient une inscription ouverte et une liste de comptes bloqués. Dorian l'a demandé : « je ne veux pas avoir à accepter ou non des gens … je veux que chaque personne puisse créer son compte cockpit depuis son compte github »
 - **Modifiée par** : [023 — Réglages en onglets, adresse publique en https](023-reglages-adresse-https.md) : le choix C (détection de l'adresse) lit `CF-Visitor` d'abord et exige `https://`, et l'administrateur peut changer l'adresse dans Réglages (retiré par la 028, plus bas) ; [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md) : le choix D donne Pull requests en écriture
+- **Modifiée par 052** : le manifeste du choix D demande trois permissions de lecture de plus (`dependabot_alerts`, `security_events`, `secret_scanning_alerts`) et les événements `dependabot_alert`, `code_scanning_alert` et `secret_scanning_alert` — voir la [052](052-constats-de-github-et-versions.md), choix A
 - **Modifiée par 038** : l'App s'abonne aussi à `pull_request_review` (choix D) — voir la [038](038-suivi-de-la-pr.md), choix C
 - **Modifiée par 028** : l'assistant ne demande plus de confirmer l'adresse, il la détecte lui-même (choix C) — voir la [028](028-creme-sombre-onglets-journal.md), choix J
 
@@ -18,6 +19,7 @@ Après la 011, déployer Cockpit demande neuf valeurs dans `/etc/cockpit/cockpit
 
 - **Créer une GitHub App à partir d'un manifeste** ([docs GitHub](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest)) : Cockpit envoie la description complète de l'App, la personne clique « Create GitHub App » sur GitHub, et Cockpit reçoit en retour l'identifiant, le slug, la clé privée, l'identifiant et le secret OAuth, et le secret des webhooks. L'échange doit avoir lieu dans l'heure.
 - **Aucune API ne modifie les permissions d'une App existante.** Quand l'App en demande davantage, chaque compte qui l'a installée doit approuver sur GitHub ; d'ici là, l'App garde ses anciennes permissions ([docs GitHub](https://docs.github.com/en/apps/using-github-apps/approving-updated-permissions-for-a-github-app)).
+  *Tranché par la [052](052-constats-de-github-et-versions.md) A et B pour les alertes de GitHub : le manifeste demande `dependabot_alerts`, `security_events` et `secret_scanning_alerts` en lecture et trois événements ; pour une App existante, Cockpit guide (ligne « Alertes GitHub » du bilan, ligne grise sur l'écran des constats), il ne modifie rien.*
 
 ## Les choix
 

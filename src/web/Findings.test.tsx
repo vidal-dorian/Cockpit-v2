@@ -27,7 +27,7 @@ import { renderAt } from "./test-tickets.tsx";
 //   /projets/5/conception/constats, aria-current="page" on that screen), N being the number of findings to decide.
 // - The state sentence is the h1: « 9 constats sur hello, dont 2 failles. » then « Triés par gravité. Une faille devient un ticket en un clic. » (« 1 constat sur hello, dont 1 faille. »
 //   for one; no « , dont … » when no finding is a faille, i.e. of kind security). `hello` is the name of the repo (octocat/hello).
-// - Filters: buttons « Tous », « Bugs », « Failles », « Architecture », « Stack » and « Rejetés » in a group named « Filtrer les constats », the selected one has aria-pressed="true",
+// - Filters (decision 052 H, slice R6: « Versions » joins them between « Failles » and « Architecture »): buttons « Tous », « Bugs », « Failles », « Versions », « Architecture », « Stack » and « Rejetés » in a group named « Filtrer les constats », the selected one has aria-pressed="true",
 //   the others "false". « Tous » is selected at first. « Rejetés » shows the dismissed findings (and no « À corriger d'abord »).
 // - A <section> holds the label « 1 · À corriger d'abord » and the first finding to decide: a card with its title, a line « <type> <gravité> » (« faille critique », « bug moyenne »...,
 //   the type being bug, faille (security), architecture or stack) and the first cited place `<path>:<start line>`, and the button « En faire un ticket ». Another <section> holds the label
@@ -250,7 +250,8 @@ describe("decision 051 D: the state sentence and the filters", () => {
     expect(shown("Constat numéro 4")).toBe(false);
   });
 
-  it("given the screen, when it opens, then the six filters are there, « Tous » is selected and the others are not", async () => {
+  // Changed by decision 052 H (slice R6): « Versions » is the seventh filter, between « Failles » and « Architecture » (screen S44).
+  it("given the screen, when it opens, then the seven filters are there, « Tous » is selected and the others are not", async () => {
     await open(nine());
 
     const group = screen.getByRole("group", { name: GROUP });
@@ -259,12 +260,14 @@ describe("decision 051 D: the state sentence and the filters", () => {
       "Tous",
       "Bugs",
       "Failles",
+      "Versions",
       "Architecture",
       "Stack",
       "Rejetés",
     ]);
     expect(buttons.map((b) => b.getAttribute("aria-pressed"))).toEqual([
       "true",
+      "false",
       "false",
       "false",
       "false",

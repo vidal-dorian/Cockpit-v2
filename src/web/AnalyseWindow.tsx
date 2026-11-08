@@ -20,7 +20,7 @@ import {
   panelPrimaryButton,
 } from "./ui.ts";
 
-// The six files of /analyser (decisions 043 M, 047 M and 051 K), as the catalog names them.
+// The seven files of /analyser (decisions 043 M, 047 M, 051 K and 052 K), as the catalog names them.
 const ANALYSER_FILES = [
   ".claude/skills/analyser/SKILL.md",
   ".claude/agents/cartographer.md",
@@ -28,16 +28,18 @@ const ANALYSER_FILES = [
   ".claude/agents/bug-hunter.md",
   ".claude/agents/security-reviewer.md",
   ".claude/agents/architect.md",
+  ".claude/agents/upgrade-advisor.md",
 ];
 
 const storageKey = (projectId: string) => `cockpit.clone.${projectId}`;
 
-/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the six files, their addition with the write of decision 026. */
+/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the seven files, their addition with the write of decision 026. */
 export function AnalyseWindow({
   projectId,
   fullName,
   archived,
   initialRules = false,
+  initialVersions = false,
   onClose,
 }: {
   projectId: string;
@@ -45,6 +47,8 @@ export function AnalyseWindow({
   archived: boolean;
   /** « Règles » checked when the window opens (decision 048 J). */
   initialRules?: boolean;
+  /** « Versions » checked when the window opens (decision 052 J). */
+  initialVersions?: boolean;
   onClose: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -60,6 +64,7 @@ export function AnalyseWindow({
   const [bugs, setBugs] = useState(false);
   const [security, setSecurity] = useState(false);
   const [architecture, setArchitecture] = useState(false);
+  const [versions, setVersions] = useState(initialVersions);
   const [rules, setRules] = useState(initialRules);
   const [features, setFeatures] = useState("");
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
@@ -120,6 +125,7 @@ export function AnalyseWindow({
     bugs && "bugs",
     security && "securite",
     architecture && "architecture",
+    versions && "versions",
     rules && "regles",
   ].filter(Boolean);
   const prompt = `/analyser ${cases.join(" ")}${rules ? ` ${features.trim()}` : ""}`;
@@ -243,6 +249,14 @@ export function AnalyseWindow({
           />
           Architecture et stack
         </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={versions}
+            onChange={(e) => setVersions(e.target.checked)}
+          />
+          Versions
+        </label>
       </fieldset>
       {rules && (
         <label className="block font-semibold">
@@ -288,7 +302,7 @@ export function AnalyseWindow({
               disabled={archived || commit.isPending}
               onClick={() => {
                 setProblem(null);
-                // The plan as received (base commit and signature), reduced to the six files.
+                // The plan as received (base commit and signature), reduced to the seven files.
                 commit.mutate({ ...plan, files });
               }}
             >

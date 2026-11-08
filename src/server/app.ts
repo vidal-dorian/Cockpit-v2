@@ -6,8 +6,10 @@ import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
 import type { Db } from "./db/db.ts";
+import { dependabotRoutes } from "./dependabot.ts";
 import { findingRoutes } from "./findings.ts";
 import { githubReader } from "./github.ts";
+import { alertRoutes } from "./github-alerts.ts";
 import { historyRoutes } from "./history.ts";
 import { homeRoutes } from "./home.ts";
 import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
@@ -22,6 +24,7 @@ import { storyRoutes } from "./stories.ts";
 import { takeoverRoutes } from "./takeover.ts";
 import { ticketRoutes } from "./tickets.ts";
 import { tokenRoutes } from "./tokens.ts";
+import { type FetchEndOfLife, versionRoutes } from "./versions.ts";
 import { webhookRoutes } from "./webhooks.ts";
 
 export type AppOptions = {
@@ -37,6 +40,8 @@ export type AppOptions = {
   fetchClientMetadata?: (url: string, init?: RequestInit) => Promise<Response>;
   /** The call to a Claude Code routine's `/fire` address (decision 022 E); the global fetch when absent. Cockpit adds the abort signal itself. */
   fireRoutine?: FireRoutine;
+  /** How endoflife.date is read (decision 052 I); the global fetch when absent. Cockpit adds the abort signal itself. */
+  fetchEndOfLife?: FetchEndOfLife;
   /** The clock in milliseconds, for the life of authorization codes, of the CIMD cache and the next run of a schedule; Date.now when absent. */
   now?: () => number;
 };
@@ -56,6 +61,7 @@ export function createApp(
     issueSyncBudgetMs = 20_000,
     fetchClientMetadata = (url, init) => fetch(url, init),
     fireRoutine = (url, init) => fetch(url, init),
+    fetchEndOfLife = (url, init) => fetch(url, init),
     now = Date.now,
   }: AppOptions,
 ) {
@@ -90,6 +96,9 @@ export function createApp(
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))
       .route("/", findingRoutes(db))
+      .route("/", alertRoutes(db, readGitHub))
+      .route("/", dependabotRoutes(db, readGitHub))
+      .route("/", versionRoutes(db, fetchEndOfLife, now))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))

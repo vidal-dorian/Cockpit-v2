@@ -15,11 +15,23 @@ type HealthDetail =
   | "outdated"
   | "wrong_url"
   | "last_delivery_failed"
+  | "app_missing_permissions"
+  | "installation_not_approved"
   | "unknown";
 export type HealthLine = {
-  key: "claude_md" | "ci" | "mcp" | "agents" | "catalog" | "webhook";
+  key:
+    | "claude_md"
+    | "ci"
+    | "mcp"
+    | "agents"
+    | "catalog"
+    | "webhook"
+    | "github_alerts"
+    | "updates";
   ok: boolean;
   detail: HealthDetail;
+  /** The `github_alerts` line only (decision 052 B): where to give the permissions. */
+  url?: string;
   /** The catalog line only (decision 049 E): the state of each file of the catalogue. */
   files?: { path: string; state: CatalogState }[];
 };
@@ -126,3 +138,87 @@ export function webhookLine(
       : "last_delivery_failed",
   );
 }
+
+/** The permissions of decision 052 A, by tool of the alerts. */
+export const ALERT_PERMISSIONS = {
+  dependabot: "dependabot_alerts",
+  code_scanning: "security_events",
+  secret_scanning: "secret_scanning_alerts",
+} as const;
+const ALERT_EVENTS = [
+  "dependabot_alert",
+  "code_scanning_alert",
+  "secret_scanning_alert",
+];
+const grants = (permissions: Record<string, string>, name: string) =>
+  permissions[name] === "read" || permissions[name] === "write";
+/** Whether the permissions hold the three of the alerts. */
+const hasAlertPermissions = (permissions: Record<string, string>) =>
+  Object.values(ALERT_PERMISSIONS).every((name) => grants(permissions, name));
+
+/** What is missing to read the alerts (decision 052 B): the App is blamed first, then the installation that has not approved yet. Null when the installation has the three. */
+export function alertsAccess(
+  access: {
+    app: Record<string, string>;
+    /** The webhook events the App listens to. */
+    appEvents: string[];
+    installation: Record<string, string>;
+    installationUrl: string;
+  },
+  appSettingsUrl: string,
+) {
+  if (
+    !hasAlertPermissions(access.app) ||
+    !ALERT_EVENTS.every((event) => access.appEvents.includes(event))
+  )
+    return {
+      detail: "app_missing_permissions" as const,
+      url: `${appSettingsUrl}/permissions`,
+    };
+  if (!hasAlertPermissions(access.installation))
+    return {
+      detail: "installation_not_approved" as const,
+      url: access.installationUrl,
+    };
+  return null;
+}
+
+/** The tools whose permission the installation has (decision 052 C). */
+export const toolGranted = (
+  installation: Record<string, string>,
+  tool: keyof typeof ALERT_PERMISSIONS,
+) => grants(installation, ALERT_PERMISSIONS[tool]);
+
+/** The sixth line (decision 052 B); null when GitHub could not be asked. */
+export function alertsLine(
+  access: Parameters<typeof alertsAccess>[0] | null,
+  appSettingsUrl: string,
+): HealthLine {
+  if (!access) return line("github_alerts", "unknown");
+  const missing = alertsAccess(access, appSettingsUrl);
+  return missing
+    ? { ...line("github_alerts", missing.detail), url: missing.url }
+    : line("github_alerts", "ok");
+}
+
+const RENOVATE_ROOT = [
+  "renovate.json",
+  "renovate.json5",
+  ".renovaterc",
+  ".renovaterc.json",
+];
+/** The seventh line (decision 052 L): Dependabot or Renovate is configured. */
+export const updatesLine = (files: RepoFiles): HealthLine =>
+  line(
+    "updates",
+    files.githubFiles.some((n) =>
+      [
+        "dependabot.yml",
+        "dependabot.yaml",
+        "renovate.json",
+        "renovate.json5",
+      ].includes(n),
+    ) || files.rootFiles.some((n) => RENOVATE_ROOT.includes(n))
+      ? "ok"
+      : "missing",
+  );

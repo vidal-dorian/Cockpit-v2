@@ -109,7 +109,8 @@ describe("the webhook line of the health check (decision 024 F)", () => {
   it("given a repo, when the health is requested, then the webhook line is the fifth, after claude_md, ci, mcp and agents", async () => {
     const { a, lines } = await setupHealth();
 
-    expect((await lines(a)).map((line) => line.key)).toEqual([
+    // Decision 052 (slice R6): github_alerts and updates come after the webhook line; its place among the first five is unchanged.
+    expect((await lines(a)).map((line) => line.key).slice(0, 5)).toEqual([
       "claude_md",
       "ci",
       "mcp",
@@ -209,12 +210,17 @@ describe("the webhook line of the health check (decision 024 F)", () => {
 
       const answer = await lines(a);
 
-      expect(answer).toEqual([
+      // Decision 052 (slice R6): the webhook line is no longer last, and the two new lines are computed too; the five of before are compared by key.
+      expect(answer.slice(0, 5)).toEqual([
         { key: "claude_md", ok: false, detail: "missing" },
         { key: "ci", ok: false, detail: "missing" },
         { key: "mcp", ok: true, detail: "ok" },
         { key: "agents", ok: false, detail: "missing" },
         { key: "webhook", ok: false, detail: "unknown" },
+      ]);
+      expect(answer.map((l) => l.key).slice(5)).toEqual([
+        "github_alerts",
+        "updates",
       ]);
     },
   );
@@ -265,14 +271,15 @@ describe("the two webhook reads are kept one minute (decision 024 F)", () => {
   });
 
   it("given a repo whose HEAD did not change (GitHub answers 304 on the root), when the webhook breaks and a minute passes, then the line is red wrong_url: it is not part of the per-commit cache", async () => {
-    const { a, fetchMock, lines, clock } = await setupHealth();
-    expect((await lines(a)).at(-1)).toEqual(SYNCED);
+    const { a, fetchMock, lines, webhookLine, clock } = await setupHealth();
+    // Found by key: the webhook line is no longer the last one (decision 052, slice R6).
+    expect(await webhookLine(a)).toEqual(SYNCED);
     fetchMock.webhook.url = "https://elsewhere.example.org/api/webhooks/github";
     clock.now += MINUTE + 1000;
 
     const second = await lines(a);
 
-    expect(second.at(-1)).toEqual({
+    expect(second.find((l) => l.key === "webhook")).toEqual({
       key: "webhook",
       ok: false,
       detail: "wrong_url",

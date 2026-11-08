@@ -106,7 +106,8 @@ describe("decision 051 K: the agents of the findings", () => {
 });
 
 describe("decision 051 K: « Préparer pour Claude » and « Mettre à jour » carry them", () => {
-  it("given a repo with nothing of the catalogue, when the plan is read, then it has 12 files and the three agents are create with the text of the catalogue", async () => {
+  // Counts changed by decision 052 K (slice R6): upgrade-advisor makes 13 files in the plan, 12 states, 12 history keys.
+  it("given a repo with nothing of the catalogue, when the plan is read, then it has 13 files and the three agents are create with the text of the catalogue", async () => {
     const ctx = await withProject({
       gitRepos: { [REPO]: { files: { "README.md": "# app\n" } } },
     });
@@ -122,7 +123,7 @@ describe("decision 051 K: « Préparer pour Claude » and « Mettre à jour » c
       plan: { files: { path: string; status: string; content: string }[] };
     };
 
-    expect(plan.files).toHaveLength(12);
+    expect(plan.files).toHaveLength(13);
     for (const { name } of AGENTS)
       expect(
         plan.files.find((f) => f.path === `.claude/agents/${name}.md`),
@@ -133,25 +134,25 @@ describe("decision 051 K: « Préparer pour Claude » and « Mettre à jour » c
       });
   });
 
-  it("given a prepared repo that lacks the three agents, when the states are computed, then 11 files are listed and the three are absent", () => {
+  it("given a prepared repo that lacks the three agents, when the states are computed, then 12 files are listed and the three are absent", () => {
     const files: Record<string, string> = {
       ".claude/skills/dev-us/SKILL.md": read("catalog/skills/dev-us/SKILL.md"),
     };
 
     const result = catalogStates({ files });
 
-    expect(result).toHaveLength(11);
+    expect(result).toHaveLength(12);
     for (const path of NEW_PATHS)
       expect(result?.find((f) => f.path === path)?.state).toBe("absent");
   });
 
-  it("given the catalogue, when history.json is read, then it has 11 keys, the three agents included, each holding the SHA-256 of the current text", () => {
+  it("given the catalogue, when history.json is read, then it has 12 keys, the three agents included, each holding the SHA-256 of the current text", () => {
     const history = JSON.parse(read("catalog/history.json")) as Record<
       string,
       string[]
     >;
 
-    expect(Object.keys(history)).toHaveLength(11);
+    expect(Object.keys(history)).toHaveLength(12);
     for (const { name } of AGENTS)
       expect(history[`.claude/agents/${name}.md`]).toContain(
         sha256(read(`catalog/agents/${name}.md`)),

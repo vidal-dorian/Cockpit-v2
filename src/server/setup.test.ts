@@ -313,6 +313,7 @@ describe("POST /api/setup/start", () => {
         default_events: string[];
       };
     };
+    // Changed by decision 052 A (slice R6): the manifest also asks for the three alert permissions in read and the three alert events.
     expect(manifest.default_permissions).toEqual({
       metadata: "read",
       contents: "write",
@@ -321,6 +322,9 @@ describe("POST /api/setup/start", () => {
       checks: "read",
       statuses: "read",
       actions: "read",
+      dependabot_alerts: "read",
+      security_events: "read",
+      secret_scanning_alerts: "read",
     });
     expect(manifest.default_events).toEqual(
       expect.arrayContaining([
@@ -329,6 +333,9 @@ describe("POST /api/setup/start", () => {
         "check_suite",
         "status",
         "workflow_run",
+        "dependabot_alert",
+        "code_scanning_alert",
+        "secret_scanning_alert",
       ]),
     );
     expect(manifest.name.length).toBeGreaterThan(0);

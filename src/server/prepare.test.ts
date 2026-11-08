@@ -78,6 +78,8 @@ const CATALOG: Record<string, string> = {
     "agents/security-reviewer.md",
   ),
   ".claude/agents/architect.md": fromCatalog("agents/architect.md"),
+  // Slice R6 (decision 052 K): the thirteenth file with CLAUDE.md, the twelfth without.
+  ".claude/agents/upgrade-advisor.md": fromCatalog("agents/upgrade-advisor.md"),
 };
 const ALL = Object.keys(CATALOG).sort();
 const WITHOUT_CLAUDE_MD = ALL.filter((p) => p !== "CLAUDE.md");
@@ -233,6 +235,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare", () => {
       ".claude/agents/bug-hunter.md": "create",
       ".claude/agents/security-reviewer.md": "create",
       ".claude/agents/architect.md": "create",
+      ".claude/agents/upgrade-advisor.md": "create",
     });
     const developer = plan.files.find(
       (f) => f.path === ".claude/agents/developer.md",
@@ -385,6 +388,7 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
       ".claude/agents/rules-analyst.md",
       ".claude/agents/security-reviewer.md",
       ".claude/agents/test-writer.md",
+      ".claude/agents/upgrade-advisor.md",
       ".claude/skills/analyser/SKILL.md",
       ".claude/skills/dev-us/SKILL.md",
     ]);
@@ -406,6 +410,8 @@ describe("decision 027 D: POST /api/projects/:id/prepare/apply", () => {
       ".claude/agents/security-reviewer.md":
         CATALOG[".claude/agents/security-reviewer.md"],
       ".claude/agents/architect.md": CATALOG[".claude/agents/architect.md"],
+      ".claude/agents/upgrade-advisor.md":
+        CATALOG[".claude/agents/upgrade-advisor.md"],
       ".claude/skills/analyser/SKILL.md":
         CATALOG[".claude/skills/analyser/SKILL.md"],
     });
@@ -814,6 +820,7 @@ describe("POST /api/projects/:id/prepare/apply holds no database connection duri
 });
 
 describe("decision 027 E: the history of preparing a repo", () => {
+  // Decision 052 K (slice R6): upgrade-advisor makes the thirteenth file, so a full preparation counts 13 (it counted 12).
   it("given a plan applied, when it is done, then one ok prepare_repo entry of the human, from the UI, on the project, with the number of files created and the commit", async () => {
     const ctx = await ready();
     const plan = await planOf(ctx);
@@ -830,7 +837,7 @@ describe("decision 027 E: the history of preparing a repo", () => {
       actor: "human",
       origin: "ui",
       action: "prepare_repo",
-      args: { created: 12 },
+      args: { created: 13 },
       result: "ok",
       detail: null,
       github_effects: { commitSha, pullRequest: null },
@@ -848,7 +855,7 @@ describe("decision 027 E: the history of preparing a repo", () => {
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({
       result: "ok",
-      args: { created: 12 },
+      args: { created: 13 },
       github_effects: { commitSha, pullRequest: 1 },
     });
   });

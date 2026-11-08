@@ -81,6 +81,7 @@ Le skill impose un gabarit au texte, selon le type :
 ### Ce qui vient de GitHub
 
 - Les **alertes Dependabot** (`security` ou `upgrade`), **code scanning** (`security`) et **secret scanning** (`security`) deviennent des constats `source = github`, lus au clic sur « Actualiser », puis par webhook une fois la tranche 5.1 faite. Une alerte réimportée ne crée pas de doublon (numéro d'alerte unique par projet). Une alerte de secret ne garde que son emplacement et le type de secret, **jamais la valeur** (principe 5 du brief).
+  *Tranché par la [052](052-constats-de-github-et-versions.md) : lues au clic sur « Actualiser » (10 pages de 100 au plus par outil) puis par webhook ; la route des webhooks retire `alert.secret` avant d'enregistrer la livraison.*
 - La **fin de vie** des runtimes de la carte est lue sur endoflife.date à l'affichage. Un runtime en fin de vie, ou qui le sera dans les six mois, est signalé sur la carte et dans la liste des versions.
 - Le **bilan de santé** (2.2) gagne une ligne : « Mises à jour automatiques configurées » (Dependabot ou Renovate). Sa correction propose un `.github/dependabot.yml` : c'est de la configuration, Cockpit peut donc l'écrire, diff montré avant (principe 3, mécanisme de 6.1).
 
@@ -285,6 +286,7 @@ Les citations des objets de la carte restent dans son `data` : elles sont rempla
 
 - **Prérequis** : l'app reprise doit pouvoir lancer des tests en CI. Sinon, le bilan de santé (2.2) le signale, et la CI de départ (brief §6.10) devient le premier pas.
 - **GitHub App** : R6 demande trois permissions en lecture de plus (*Dependabot alerts*, *Code scanning alerts*, *Secret scanning alerts*) et leurs webhooks. C'est le cas du point ouvert de la [012](012-configuration-automatique.md) : modification de l'App existante, puis approbation par chaque utilisateur.
+  *Tranché par la [052](052-constats-de-github-et-versions.md) A et B : Cockpit guide, il ne modifie pas l'App.*
 - **Tests** : la vérification des citations, l'import des alertes et endoflife.date passent par de faux services (principe 9 du brief).
 - **Documentation métier** : les règles validées d'un projet, regroupées par fonctionnalité, en forment une, chaque règle avec son test. L'export Markdown de l'écran « Conception » la rend lisible hors de Cockpit. Aucune table de plus n'est nécessaire.
 

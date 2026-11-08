@@ -14,6 +14,7 @@ import {
   webhookDeliveries,
 } from "./db/schema.ts";
 import { githubReader } from "./github.ts";
+import { isAlertEvent, receiveAlert } from "./github-alerts.ts";
 import { type ReadInstance, WEBHOOK_PATH } from "./instance.ts";
 import { renderStory } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
@@ -218,6 +219,8 @@ export async function processDeliveries(db: Db, deps: Deps) {
           await handleIssueEdited(db, deps, delivery);
         else if (PULL_EVENTS.includes(delivery.event))
           await handlePullRequest(db, readGitHub, delivery);
+        else if (isAlertEvent(delivery.event))
+          await receiveAlert(db, readGitHub, delivery);
         await db
           .update(webhookDeliveries)
           .set({ processedAt: sql`now()` })
@@ -290,6 +293,13 @@ export function webhookRoutes(db: Db, readInstance: ReadInstance) {
         return c.json({ error: "Bad request" }, 400);
 
       const payload = body as Record<string, unknown>;
+      // Decision 052 D: the value of a secret is never written, the delivery included.
+      if (
+        event === "secret_scanning_alert" &&
+        typeof payload.alert === "object" &&
+        payload.alert !== null
+      )
+        delete (payload.alert as Record<string, unknown>).secret;
       const action = typeof payload.action === "string" ? payload.action : null;
       const repoId = idIn(payload.repository);
       await db.transaction(async (tx) => {

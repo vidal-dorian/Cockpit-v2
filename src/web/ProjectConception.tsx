@@ -25,6 +25,7 @@ import {
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
+import { eolWords, useVersions } from "./versions.ts";
 
 const ConceptionGraph = lazy(() => import("./ConceptionGraph.tsx"));
 
@@ -49,6 +50,7 @@ export function ProjectConception({
   });
   const rules = useRules(projectId);
   const findings = useFindings(projectId);
+  const versions = useVersions(projectId, (map.data?.length ?? 0) > 0);
   // Decision 047 J: a rule leads here with `?objet=<name>`, which opens the panel of that object.
   const wanted = useSearchParams()[0].get("objet");
   const [selected, setSelected] = useState<string | null>(null);
@@ -309,7 +311,19 @@ export function ProjectConception({
               </p>
               <p className="font-mono">
                 {module.data.runtimes
-                  .map((r) => `${r.name} ${r.version}`)
+                  .flatMap((r) => {
+                    // Decision 052 J: the end of life in words, as its own item of the line.
+                    const known = versions.data?.find(
+                      (v) =>
+                        v.module.path === module.path &&
+                        v.name === r.name &&
+                        v.version === r.version,
+                    );
+                    const eol = known && eolWords(known);
+                    return eol
+                      ? [`${r.name} ${r.version}`, eol]
+                      : `${r.name} ${r.version}`;
+                  })
                   .join(" · ")}
               </p>
               <span className="ml-auto">{analyse}</span>

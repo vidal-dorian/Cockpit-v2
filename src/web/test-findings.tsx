@@ -11,10 +11,14 @@ import { SHA_API, stubConception } from "./test-conception.tsx";
 //   POST /api/findings/:id/dismiss { reason? } -> { finding } (dismissed);  POST /api/findings/:id/later -> { finding } (later).
 // - GET  /api/projects/5/code?sha=&path=&start=&end= -> { firstLine, lines }: the lines of the cited range and 3 around, each `<path>:<n>`.
 
+// Slice R6 (decision 052 H; src/server/findings-github-routes.test.ts): a finding also carries githubAlertType, githubAlertNumber, githubClosedAt (ISO date or null) and githubUrl, null for a
+// finding of Claude; commitSha is null for a Dependabot one; kind may be `upgrade`. POST /api/projects/5/findings/refresh answers what src/server/test-github-alerts.ts pins:
+// { tools: { dependabot, code_scanning, secret_scanning }, created, updated, closed, access: null | { detail, url } }; `onRefresh` lets a test change the list the way a read of GitHub would.
+
 export type FakeFinding = {
   id: number;
-  kind: "bug" | "security" | "architecture" | "stack";
-  source: "claude";
+  kind: "bug" | "security" | "architecture" | "stack" | "upgrade";
+  source: "claude" | "github";
   title: string;
   bodyMd: string;
   severity: "critical" | "high" | "medium" | "low";
@@ -22,8 +26,12 @@ export type FakeFinding = {
   status: "open" | "ticketed" | "dismissed" | "later";
   ticketId: number | null;
   dismissReason: string | null;
-  commitSha: string;
+  commitSha: string | null;
   createdAt: string;
+  githubAlertType: "dependabot" | "code_scanning" | "secret_scanning" | null;
+  githubAlertNumber: number | null;
+  githubClosedAt: string | null;
+  githubUrl: string | null;
   sources: {
     path: string;
     startLine: number;
@@ -51,10 +59,46 @@ export const finding = (
   dismissReason: null,
   commitSha: SHA_API,
   createdAt: `2026-11-0${Math.min(id, 9)}T10:00:00.000Z`,
+  githubAlertType: null,
+  githubAlertNumber: null,
+  githubClosedAt: null,
+  githubUrl: null,
   sources: [{ path: HASHER, startLine: 22, endLine: 30, commitSha: SHA_API }],
   unprotected: false,
   ...over,
 });
+
+/** A finding of GitHub of the given tool: security, source github, no source line and no commit, the link of its alert. */
+export const alert = (
+  id: number,
+  tool: NonNullable<FakeFinding["githubAlertType"]>,
+  over: Partial<FakeFinding> = {},
+): FakeFinding =>
+  finding(id, {
+    kind: "security",
+    source: "github",
+    commitSha: null,
+    sources: [],
+    githubAlertType: tool,
+    githubAlertNumber: id,
+    githubUrl: `https://github.com/octocat/hello/security/${tool.replace("_", "-")}/${id}`,
+    ...over,
+  });
+
+export type Refreshed = {
+  tools: Record<"dependabot" | "code_scanning" | "secret_scanning", string>;
+  created: number;
+  updated: number;
+  closed: number;
+  access: null | { detail: string; url: string };
+};
+export const REFRESHED: Refreshed = {
+  tools: { dependabot: "ok", code_scanning: "ok", secret_scanning: "ok" },
+  created: 0,
+  updated: 0,
+  closed: 0,
+  access: null,
+};
 
 export type Sent = {
   method: string;
@@ -66,7 +110,12 @@ export type Sent = {
 /** The fake server of the findings screen on top of the one of the Conception tab. `failNext` makes the next decision answer something else. */
 export function stubFindings(
   initial: FakeFinding[],
-  options: Parameters<typeof stubConception>[0] = {},
+  options: Parameters<typeof stubConception>[0] & {
+    /** The answer of POST /api/projects/5/findings/refresh (default: 200 REFRESHED). */
+    refresh?: { status: number; body: unknown };
+    /** Runs when the refresh is served, to change the list as a read of GitHub would. */
+    onRefresh?: (list: FakeFinding[]) => void;
+  } = {},
 ) {
   const list = initial.map((f) => ({ ...f }));
   const api = stubConception({ ...options });
@@ -94,6 +143,14 @@ export function stubFindings(
         return Response.json({
           findings: list.filter((f) => !status || f.status === status),
         });
+      }
+      if (
+        url.pathname === "/api/projects/5/findings/refresh" &&
+        method === "POST"
+      ) {
+        const answer = options.refresh ?? { status: 200, body: REFRESHED };
+        if (answer.status === 200) options.onRefresh?.(list);
+        return Response.json(answer.body, { status: answer.status });
       }
       if (url.pathname === "/api/projects/5/code" && method === "GET") {
         const path = url.searchParams.get("path") ?? "";
@@ -147,6 +204,12 @@ export function stubFindings(
       calls
         .filter((c) => c.method !== "GET" && c.path.startsWith("/api/findings"))
         .map((c) => `${c.method} ${c.path}`),
+    /** The refreshes sent to the server. */
+    refreshes: () =>
+      calls.filter(
+        (c) =>
+          c.method === "POST" && c.path === "/api/projects/5/findings/refresh",
+      ),
     codeReads: () =>
       calls.filter(
         (c) => c.method === "GET" && c.path === "/api/projects/5/code",

@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
@@ -24,6 +35,7 @@ import {
   userStories,
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
+import { alertUrl } from "./github-alerts.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
 import { assertActive, noNul, refusal } from "./tickets.ts";
 
@@ -232,16 +244,29 @@ export function findingRoutes(db: Db) {
       ).map((r) => r.path),
     );
 
-  const present = async (projectId: number, status?: string) => {
+  // Decision 052 F: a finding closed on GitHub is no longer to decide, so « open » and « later » leave it out and « dismissed » takes it in (a ticket keeps its own status).
+  const withStatus = (status?: (typeof FINDING_STATUSES)[number]) =>
+    status === "open" || status === "later"
+      ? and(eq(findings.status, status), isNull(findings.githubClosedAt))
+      : status === "dismissed"
+        ? or(
+            eq(findings.status, "dismissed"),
+            and(
+              isNotNull(findings.githubClosedAt),
+              ne(findings.status, "ticketed"),
+            ),
+          )
+        : status && eq(findings.status, status);
+
+  const present = async (
+    project: Pick<typeof projects.$inferSelect, "id" | "fullName">,
+    status?: (typeof FINDING_STATUSES)[number],
+  ) => {
+    const projectId = project.id;
     const rows = await db
       .select()
       .from(findings)
-      .where(
-        and(
-          eq(findings.projectId, projectId),
-          status ? eq(findings.status, status as "open") : undefined,
-        ),
-      )
+      .where(and(eq(findings.projectId, projectId), withStatus(status)))
       .orderBy(
         sql`case ${findings.severity} when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end`,
         desc(findings.createdAt),
@@ -266,6 +291,13 @@ export function findingRoutes(db: Db) {
         ticketId: f.ticketId,
         dismissReason: f.dismissReason,
         commitSha: f.commitSha,
+        githubAlertType: f.githubAlertType,
+        githubAlertNumber: f.githubAlertNumber,
+        githubClosedAt: f.githubClosedAt?.toISOString() ?? null,
+        githubUrl:
+          f.githubAlertType && f.githubAlertNumber !== null
+            ? alertUrl(project.fullName, f.githubAlertType, f.githubAlertNumber)
+            : null,
         createdAt: f.createdAt.toISOString(),
         sources: own.map((s) => ({
           path: s.path,
@@ -319,7 +351,11 @@ export function findingRoutes(db: Db) {
             .where(eq(findings.id, id))
             .for("update");
           if (!locked) throw new Refused("not_found");
-          if (locked.status === "ticketed" || locked.status === "dismissed")
+          if (
+            locked.status === "ticketed" ||
+            locked.status === "dismissed" ||
+            locked.githubClosedAt
+          )
             throw new Refused("not_open");
           return change(tx, locked, project, entry);
         }),
@@ -357,7 +393,7 @@ export function findingRoutes(db: Db) {
         .optional()
         .safeParse(c.req.query("status"));
       if (!status.success) return c.json({ error: "Bad request" }, 400);
-      return c.json({ findings: await present(project.id, status.data) });
+      return c.json({ findings: await present(project, status.data) });
     })
     .post("/api/findings/:id/ticket", (c) =>
       decide(c, "ticket_finding", async (tx, finding, project, entry) => {
