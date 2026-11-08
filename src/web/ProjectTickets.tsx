@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchStories } from "./ProjectKanban.tsx";
@@ -28,6 +28,7 @@ function storiesDetail(stories: Stories) {
     [count("to_validate"), "à valider", "à valider"],
     [count("ready"), "prête", "prêtes"],
     [count("in_progress"), "en cours", "en cours"],
+    [count("in_review"), "en revue", "en revue"],
   ].flatMap(([n, one, many]) => (n ? [`${n} ${n === 1 ? one : many}`] : []));
   return [`${stories.length} US`, parts.join(", ")].filter(Boolean).join(" · ");
 }
@@ -102,23 +103,30 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
   const [view, setView] = useState<"open" | "new" | null>("open");
   const [tag, setTag] = useState("");
   const [search, setSearch] = useState("");
+  // The box keeps what is typed; the request follows 300 ms after the last keystroke, trimmed.
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [selected, setSelected] = useState<number>();
   const found = useQuery({
-    queryKey: ["search", projectId, search],
+    queryKey: ["search", projectId, q],
     queryFn: async () => {
       const res = await client.api.projects[":id"].search.$get({
         param: { id: projectId },
-        query: { q: search },
+        query: { q },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     },
-    enabled: search.trim() !== "",
+    enabled: q !== "",
+    placeholderData: keepPreviousData,
   });
 
   const all = tickets.data ?? [];
   const tags = [...new Set(all.flatMap((t) => t.tags ?? []))].sort();
-  const searching = search.trim() !== "";
+  const searching = q !== "" && search.trim() !== "";
   // The tickets listed, in order: the results of a search, or the list under its chip and tag.
   const shown = searching
     ? (found.data?.tickets ?? []).flatMap(

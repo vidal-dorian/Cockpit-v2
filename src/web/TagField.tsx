@@ -1,27 +1,29 @@
 import { useId, useState } from "react";
-import { normalizeTag } from "./tickets.ts";
+import { MAX_TAGS, normalizeTag } from "./tickets.ts";
 import { badge, focusRing } from "./ui.ts";
 
-// Decision 054 A: at most 10 tags of 30 characters.
-const MAX_TAGS = 10;
-
-/** The tags of a ticket as chips and the field that adds one (« + étiquette », Enter); `suggestions` are the tags already used in the project. */
+/** The tags of a ticket as chips and the field that adds one (« + étiquette », Enter); `text` is what is typed there, kept by the caller so that it can add it on save; `suggestions` are the tags already used in the project. */
 export function TagField({
   tags,
   onChange,
+  text,
+  onText,
   suggestions = [],
 }: {
   tags: string[];
   onChange: (tags: string[]) => void;
+  text: string;
+  onText: (text: string) => void;
   suggestions?: string[];
 }) {
-  const [text, setText] = useState("");
+  const [full, setFull] = useState(false);
   const listId = useId();
   const add = () => {
     const tag = normalizeTag(text);
-    if (tag !== "" && !tags.includes(tag) && tags.length < MAX_TAGS)
-      onChange([...tags, tag]);
-    setText("");
+    if (tag !== "" && !tags.includes(tag) && tags.length >= MAX_TAGS)
+      return setFull(true);
+    if (tag !== "" && !tags.includes(tag)) onChange([...tags, tag]);
+    onText("");
   };
 
   return (
@@ -39,15 +41,16 @@ export function TagField({
           </button>
         </span>
       ))}
-      {/* biome-ignore lint/a11y/useSemanticElements: an input with a list reads as a combobox; this one is a text field whose list only suggests */}
       <input
         aria-label="Étiquette"
-        role="textbox"
         placeholder="+ étiquette"
         value={text}
         maxLength={30}
         list={listId}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setFull(false);
+          onText(event.target.value);
+        }}
         onKeyDown={(event) => {
           if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
           // Not the Enter of the form or of the panel: it only adds the tag.
@@ -56,6 +59,11 @@ export function TagField({
         }}
         className={`w-28 bg-transparent text-[13px] placeholder:text-dim ${focusRing}`}
       />
+      {full && (
+        <span className="basis-full text-[12.5px] text-muted-foreground">
+          {MAX_TAGS} étiquettes au plus.
+        </span>
+      )}
       <datalist id={listId}>
         {suggestions.map((tag) => (
           <option key={tag} value={tag} />

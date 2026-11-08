@@ -339,11 +339,23 @@ export function IdeaBar() {
   const [done, setDone] = useState<string>();
   // Enter opens the panel of decision 054 D instead of creating the ticket.
   const [open, setOpen] = useState(false);
+  // What the panel holds besides the title (the bar's own): it survives « Annuler » and goes with a successful « Noter ».
+  const [draft, setDraft] = useState<Partial<Omit<Idea, "title">>>({});
   const input = useRef<HTMLInputElement>(null);
+
+  // The panel replaces the bar: when it closes, the keyboard goes back to the bar.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open) wasOpen.current = true;
+    else if (wasOpen.current) {
+      wasOpen.current = false;
+      input.current?.focus();
+    }
+  }, [open]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "n") return;
+      if (open || event.key.toLowerCase() !== "n") return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.isContentEditable || target.closest("input, textarea, select"))
@@ -353,7 +365,7 @@ export function IdeaBar() {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [open]);
 
   const exists = (id?: string) => projects.some((p) => String(p.id) === id);
   // A choice holds for the page it was made on: another project page brings its own project back.
@@ -378,10 +390,11 @@ export function IdeaBar() {
           ...rest,
         },
       });
-      if (!res.ok) throw await ticketError(res);
+      if (!res.ok) throw await ticketError(res, rest.tags.length > 0);
     },
     onSuccess: (_, sent) => {
       setTitle("");
+      setDraft({});
       setOpen(false);
       setDone(
         `Idée notée dans ${repoName(projects.find((p) => String(p.id) === sent.projectId)?.name ?? "")}.`,
@@ -414,20 +427,30 @@ export function IdeaBar() {
             id: p.id,
             label: repoName(p.name),
           }))}
-          projectId={projectId}
-          title={title}
+          idea={{
+            descriptionMd: "",
+            priority: "normal",
+            tags: [],
+            ...draft,
+            projectId: draft.projectId ?? projectId,
+            title,
+          }}
           pending={send.isPending}
+          onChange={({ title: edited, ...rest }) => {
+            if (edited !== undefined) setTitle(edited);
+            setDraft({ ...draft, ...rest });
+          }}
           onSubmit={(idea) => send.mutate(idea)}
-          onCancel={(edited) => {
-            setTitle(edited);
+          onCancel={() => {
             setOpen(false);
             send.reset();
-            input.current?.focus();
           }}
         />
       )}
       <form
         aria-label="Noter une idée"
+        // The panel replaces the bar while it is open (S09).
+        inert={open}
         onSubmit={(event) => {
           event.preventDefault();
           if (title.trim() !== "") setOpen(true);

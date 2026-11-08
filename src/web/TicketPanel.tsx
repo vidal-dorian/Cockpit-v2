@@ -52,10 +52,19 @@ export function TicketPanel({
     },
     onSuccess: async () => {
       onClose();
-      await queryClient.invalidateQueries({
-        queryKey: ["tickets", String(ticket.projectId)],
-      });
+      await Promise.all(
+        [
+          ["tickets", String(ticket.projectId)],
+          ["ticket", String(ticket.id)],
+          ["home"],
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+      );
     },
+    // Refused because Claude wrote stories meanwhile: read them, which hides « Supprimer ».
+    onError: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["stories", String(ticket.projectId)],
+      }),
   });
 
   return (

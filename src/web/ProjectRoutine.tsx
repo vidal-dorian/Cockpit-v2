@@ -82,6 +82,7 @@ export function RunNowButton({
         param: { id: projectId },
       });
       if (!res.ok) throw await failure(res, RUN_REFUSALS);
+      return (await res.json()).sessionUrl;
     },
     onSettled: () =>
       Promise.all([
@@ -106,6 +107,16 @@ export function RunNowButton({
       >
         Écrire les US maintenant
       </button>
+      {run.data && (
+        <a
+          href={run.data}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={`ml-3 underline ${focusRing}`}
+        >
+          Voir la session
+        </a>
+      )}
       {run.error && (
         <p role="alert" className={`mt-3 ${alertBox}`}>
           {run.error.message}

@@ -37,10 +37,10 @@ export const STORY_STATUSES: Record<string, string> = {
 };
 
 /** The French error of a refused create, edit or delete; nothing of what the server said is shown. */
-export async function ticketError(res: Response) {
+export async function ticketError(res: Response, tagsSent = false) {
   if (res.status === 400)
     return new Error(
-      "Le titre doit faire de 1 à 200 caractères et la description 50 000 au plus.",
+      `Le titre doit faire de 1 à 200 caractères et la description 50 000 au plus.${tagsSent ? " Une étiquette n'est pas valide (30 caractères au plus)." : ""}`,
     );
   const body: unknown = await res.json().catch(() => null);
   if ((body as { error?: unknown } | null)?.error === "project_archived")
@@ -100,9 +100,20 @@ export const PRIORITIES = {
   high: "Priorité : haute",
 } as const;
 
+// Decision 054 A: a ticket has 10 tags at most.
+export const MAX_TAGS = 10;
+
 /** A tag as the server keeps it (decision 054 A): trimmed, inner spaces reduced to one, lowercase. */
 export const normalizeTag = (text: string) =>
   text.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** The tags with the one typed and not yet added (« Noter » and « Enregistrer » do not lose it). */
+export function withPending(tags: string[], text: string) {
+  const tag = normalizeTag(text);
+  return tag === "" || tags.includes(tag) || tags.length >= MAX_TAGS
+    ? tags
+    : [...tags, tag];
+}
 
 /** How old a ticket is, in the words of the list (« 10 min », « 2 j », « 2 sem. »). */
 export function age(iso: string) {

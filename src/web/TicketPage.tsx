@@ -11,6 +11,7 @@ import {
   STEPS,
   STORY_STATUSES,
   ticketError,
+  withPending,
 } from "./tickets.ts";
 import {
   alertBox,
@@ -67,10 +68,9 @@ function TicketView({ ticket, stories }: Loaded) {
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
   // « Modifier » of the panel of the Tickets tab leads here with ?modifier=1 (decision 054 G).
+  const [params, setParams] = useSearchParams();
   const [mode, setMode] = useState<"view" | "edit" | "delete" | "abandon">(
-    useSearchParams()[0].get("modifier") === "1" && !ticket.abandonedAt
-      ? "edit"
-      : "view",
+    params.get("modifier") === "1" && !ticket.abandonedAt ? "edit" : "view",
   );
   const [title, setTitle] = useState(ticket.title);
   const [descriptionMd, setDescriptionMd] = useState(ticket.descriptionMd);
@@ -78,6 +78,7 @@ function TicketView({ ticket, stories }: Loaded) {
     ticket.priority as keyof typeof PRIORITIES,
   );
   const [tags, setTags] = useState(ticket.tags ?? []);
+  const [tagText, setTagText] = useState("");
   const id = String(ticket.id);
   const unfinished = stories.filter(
     (s) => s.status !== "done" && s.status !== "abandoned",
@@ -105,11 +106,12 @@ function TicketView({ ticket, stories }: Loaded) {
 
   const save = useMutation({
     mutationFn: async () => {
+      const sentTags = withPending(tags, tagText);
       const res = await client.api.tickets[":id"].$patch({
         param: { id },
-        json: { title, descriptionMd, priority, tags },
+        json: { title, descriptionMd, priority, tags: sentTags },
       });
-      if (!res.ok) throw await ticketError(res);
+      if (!res.ok) throw await ticketError(res, sentTags.length > 0);
     },
     onSuccess: async () => {
       await Promise.all([
@@ -123,6 +125,15 @@ function TicketView({ ticket, stories }: Loaded) {
       ]);
       focusAfter.current = "edit";
       setMode("view");
+      // The form is closed: the address no longer asks for it.
+      if (params.has("modifier"))
+        setParams(
+          (current) => {
+            current.delete("modifier");
+            return current;
+          },
+          { replace: true },
+        );
     },
   });
   const validate = useMutation({
@@ -259,7 +270,12 @@ function TicketView({ ticket, stories }: Loaded) {
                 </option>
               ))}
             </select>
-            <TagField tags={tags} onChange={setTags} />
+            <TagField
+              tags={tags}
+              onChange={setTags}
+              text={tagText}
+              onText={setTagText}
+            />
           </div>
           <div className="mt-3 flex gap-2">
             <button
@@ -307,6 +323,7 @@ function TicketView({ ticket, stories }: Loaded) {
                       setDescriptionMd(ticket.descriptionMd);
                       setPriority(ticket.priority as keyof typeof PRIORITIES);
                       setTags(ticket.tags ?? []);
+                      setTagText("");
                       open("edit");
                     }}
                     className={button}

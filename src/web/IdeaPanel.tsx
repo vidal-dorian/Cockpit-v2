@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { TagField } from "./TagField.tsx";
-import { fetchTickets, PRIORITIES } from "./tickets.ts";
+import { fetchTickets, PRIORITIES, withPending } from "./tickets.ts";
 import { button, field, focusRing, kbd, primaryButton } from "./ui.ts";
 
 export type Idea = {
@@ -12,32 +12,25 @@ export type Idea = {
   tags: string[];
 };
 
-/** The idea bar grown upwards (decision 054 D, S09): title, description, project, priority and tags. « Noter » and Ctrl+Enter send, « Annuler » and Escape give the title back to the bar. */
+/** The idea bar grown upwards (decision 054 D, S09): title, description, project, priority and tags. The draft is the caller's, so that it survives « Annuler » and Escape; both are ignored while the idea is sending. */
 export function IdeaPanel({
   projects,
-  projectId: initialProjectId,
-  title: initialTitle,
+  idea,
   pending,
+  onChange,
   onSubmit,
   onCancel,
 }: {
   projects: { id: number; label: string }[];
-  projectId: string;
-  title: string;
+  idea: Idea;
   pending: boolean;
+  onChange: (change: Partial<Idea>) => void;
   onSubmit: (idea: Idea) => void;
-  /** Closes the panel; the title (maybe edited) goes back to the bar. */
-  onCancel: (title: string) => void;
+  onCancel: () => void;
 }) {
   const heading = useId();
-  const [idea, setIdea] = useState<Idea>({
-    projectId: initialProjectId,
-    title: initialTitle,
-    descriptionMd: "",
-    priority: "normal",
-    tags: [],
-  });
-  const set = (change: Partial<Idea>) => setIdea({ ...idea, ...change });
+  const [tagText, setTagText] = useState("");
+  const set = onChange;
   // The tags already used in the chosen project, offered as suggestions.
   const used = useQuery({
     queryKey: ["tickets", idea.projectId],
@@ -47,14 +40,15 @@ export function IdeaPanel({
     ...new Set((used.data ?? []).flatMap((t) => t.tags ?? [])),
   ];
   const canSend = idea.title.trim() !== "" && !pending;
-  const send = () => canSend && onSubmit(idea);
+  const send = () =>
+    canSend && onSubmit({ ...idea, tags: withPending(idea.tags, tagText) });
 
   return (
     <div
       role="dialog"
       aria-labelledby={heading}
       onKeyDown={(event) => {
-        if (event.key === "Escape") onCancel(idea.title);
+        if (event.key === "Escape" && !pending) onCancel();
         if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
           event.preventDefault();
           send();
@@ -117,6 +111,8 @@ export function IdeaPanel({
         <TagField
           tags={idea.tags}
           onChange={(tags) => set({ tags })}
+          text={tagText}
+          onText={setTagText}
           suggestions={suggestions}
         />
       </div>
@@ -126,7 +122,8 @@ export function IdeaPanel({
         </p>
         <button
           type="button"
-          onClick={() => onCancel(idea.title)}
+          disabled={pending}
+          onClick={onCancel}
           className={button}
         >
           Annuler
