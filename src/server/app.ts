@@ -96,7 +96,7 @@ export function createApp(
       .route("/", authRoutes(db, readInstance, readGitHub))
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
-      .route("/", webhookRoutes(db, readInstance))
+      .route("/", webhookRoutes(db, readInstance, fireDeps))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))
@@ -107,7 +107,7 @@ export function createApp(
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", issueImportRoutes(db, readGitHub))
-      .route("/", storyRoutes(db, readGitHub))
+      .route("/", storyRoutes(db, readGitHub, fireDeps))
       .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))

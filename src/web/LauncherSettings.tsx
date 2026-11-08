@@ -37,8 +37,17 @@ export function LauncherSettings() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
   });
+  const relaunch = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await client.api.me.launcher["auto-relaunch"].$put({
+        json: { enabled },
+      });
+      if (!res.ok) throw failure(res);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
+  });
   const data = launcher.data;
-  const error = task.error ?? tick.error;
+  const error = task.error ?? tick.error ?? relaunch.error;
 
   return (
     <section aria-labelledby="lanceur">
@@ -124,6 +133,21 @@ export function LauncherSettings() {
                     </li>
                   ))}
               </ul>
+            </li>
+            <li className="px-[18px] py-3.5">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={data.autoRelaunch}
+                  disabled={relaunch.isPending}
+                  onChange={(e) => relaunch.mutate(e.target.checked)}
+                />
+                Relancer Claude quand la CI d'une PR échoue
+              </label>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Cockpit relance Claude sur la même branche, 3 fois au plus
+                d'affilée, pour les projets cochés ci-dessus.
+              </p>
             </li>
           </ol>
         )}

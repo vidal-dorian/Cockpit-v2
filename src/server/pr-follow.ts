@@ -1,15 +1,21 @@
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { history, userStories } from "./db/schema.ts";
+import { history, runs, userStories, users } from "./db/schema.ts";
 import { publish } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
 import { APP_FILES_KEPT, isTestPath } from "./pr-files.ts";
+import { reserveStory } from "./queue.ts";
+import { entryOf, type Fire, launchCloud } from "./routines.ts";
 import type { memberStory } from "./stories.ts";
 
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
-type CheckRun = { status: string; conclusion: string | null };
+type CheckRun = {
+  name: string;
+  status: string;
+  conclusion: string | null;
+};
 type Review = { login: string; state: string };
 
 const FAILED = [
@@ -41,10 +47,19 @@ function reviewState(reviews: Review[]) {
 }
 
 const LIVE = ["in_review", "in_progress"];
+export const MAX_RELAUNCHES = 3;
+
+/** The extra prompt of a relaunch (decision 059 C): check names are written by whoever owns the repo and reach Claude, so only plain characters are kept. */
+const relaunchComment = (prNumber: number, runs: CheckRun[]) =>
+  `The CI of pull request #${prNumber} failed: ${runs
+    .filter((r) => r.conclusion && FAILED.includes(r.conclusion))
+    .slice(0, 10)
+    .map((r) => r.name.replace(/[^A-Za-z0-9 ._:/()-]/g, "").slice(0, 100))
+    .join(", ")}. Fix it on this branch, then push.`;
 
 /**
  * Reads the PR of a story on GitHub as the App and brings the story up to date (decision 038 B and D): a merge finishes it, a close without merge frees it, anything else only refreshes the CI and review caches.
- * A failed read throws before anything is written. The sync of the issue and the event come after the commit.
+ * A failed read throws before anything is written. The sync of the issue, the event and the automatic relaunch of a CI gone red (decision 059, only with `fire`) come after the commit.
  */
 export async function followPullRequest(
   db: Db,
@@ -52,6 +67,7 @@ export async function followPullRequest(
   found: Found,
   userId: number,
   origin: "webhook" | "ui",
+  fire?: Fire,
 ) {
   const { story, ticket, project } = found;
   const prNumber = story.prNumber;
@@ -107,6 +123,7 @@ export async function followPullRequest(
     } else {
       set.prCiState = ci;
       set.prReviewState = review;
+      if (ci === "success") set.relaunchCount = 0;
     }
     // A merge keeps the list it reads here; a close without merge has just emptied it.
     if (appPaths && (pull.open || pull.merged)) {
@@ -130,10 +147,63 @@ export async function followPullRequest(
       };
       await tx.insert(history).values({ ...entry, result: "ok" });
     }
-    return { transitioned: action !== null };
+    // The count itself moves in the launch (a refused one costs nothing); the owner of the last run is the one who asked for Claude.
+    let relaunchBy: number | null = null;
+    if (
+      fire &&
+      pull.open &&
+      ci === "failure" &&
+      locked.prCiState !== "failure" &&
+      locked.status === "in_review" &&
+      locked.branch &&
+      locked.relaunchCount < MAX_RELAUNCHES
+    ) {
+      const [last] = await tx
+        .select({ userId: runs.userId, on: users.autoRelaunch })
+        .from(runs)
+        .innerJoin(users, eq(users.id, runs.userId))
+        .where(eq(runs.storyId, story.id))
+        .orderBy(desc(runs.id))
+        .limit(1);
+      if (last?.on) relaunchBy = last.userId;
+    }
+    return { transitioned: action !== null, relaunchBy };
   });
   if (!outcome) return;
   // Also when a relaunch keeps its status: the issue still shows the one it had before the PR.
   if (outcome.transitioned) await syncIssue(db, readGitHub, userId, story.id);
   await publish(db, project.id, [`story:${story.id}`]);
+  // After the commit, never inside it: `/fire` is a network call. A refusal (a run is active, the project is not ticked) writes its entry and nothing else.
+  const branch = story.branch;
+  if (fire && outcome.relaunchBy !== null && branch) {
+    const by = outcome.relaunchBy;
+    const at = new Date();
+    await launchCloud(
+      db,
+      fire,
+      {
+        ...entryOf(by, "launch_story"),
+        userId: by,
+        actor: "system",
+        origin: "system",
+        projectId: project.id,
+        ticketId: ticket.id,
+        storyId: story.id,
+        args: { storyId: story.id },
+      },
+      at,
+      [project.id],
+      async (tx) => {
+        const reserved = await reserveStory(tx, at, story.id, project.id, {
+          branch,
+          comment: relaunchComment(prNumber, pull.checkRuns),
+        });
+        await tx
+          .update(userStories)
+          .set({ relaunchCount: sql`${userStories.relaunchCount} + 1` })
+          .where(eq(userStories.id, story.id));
+        return { ...reserved, relaunch: true };
+      },
+    );
+  }
 }

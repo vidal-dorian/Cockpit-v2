@@ -9,6 +9,7 @@ import {
   projectMembers,
   projects,
   routines,
+  users,
 } from "./db/schema.ts";
 import { memberProject } from "./projects.ts";
 import { reserveStory } from "./queue.ts";
@@ -230,7 +231,12 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
           !projectIds.includes(l.projectId),
       )
       .map((l) => l.projectId);
+    const [user] = await db
+      .select({ autoRelaunch: users.autoRelaunch })
+      .from(users)
+      .where(eq(users.id, userId));
     return {
+      autoRelaunch: user?.autoRelaunch ?? false,
       connected: row !== undefined,
       needsReconnect: row?.needsReconnect ?? false,
       prompt: LAUNCHER_PROMPT,
@@ -241,6 +247,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
 
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/me/launcher", signed)
+    .use("/api/me/launcher/auto-relaunch", signed)
     .use("/api/projects/:id/launcher", signed)
     .use("/api/stories/:id/launch", signed)
     .get("/api/me/launcher", async (c) => {
@@ -264,6 +271,24 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       await removeTask(db, cloudLaunchers, userId, "disconnect_launcher");
       return c.body(null, 204);
     })
+    .put(
+      "/api/me/launcher/auto-relaunch",
+      body(z.object({ enabled: z.boolean() })),
+      async (c) => {
+        const userId = c.get("userId");
+        const { enabled } = c.req.valid("json");
+        await act(
+          db,
+          { ...entryOf(userId, "set_auto_relaunch"), args: { enabled } },
+          (tx) =>
+            tx
+              .update(users)
+              .set({ autoRelaunch: enabled })
+              .where(eq(users.id, userId)),
+        );
+        return c.json({ enabled });
+      },
+    )
     .put(
       "/api/projects/:id/launcher",
       body(z.object({ inLauncher: z.boolean() })),

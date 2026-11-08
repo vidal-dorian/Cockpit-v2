@@ -292,8 +292,10 @@ describe("criterion 9: the projects of the launcher", () => {
     ).toEqual([
       expect.stringContaining("octocat/hello"),
       expect.stringContaining("octocat/world"),
+      // Slice 14.4: the setting of the relaunch shares the card.
+      expect.stringContaining("Relancer Claude"),
     ]);
-    expect(boxes.map((b) => b.checked)).toEqual([false, true]);
+    expect(boxes.map((b) => b.checked)).toEqual([false, true, false]);
     expect(section.textContent).not.toContain("octocat/old");
   });
 
