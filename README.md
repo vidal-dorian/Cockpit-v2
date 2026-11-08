@@ -147,6 +147,8 @@ Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : l
 
 La page « Claude » → « Tâches programmées » (`/claude/taches`) ajoute tes propres routines par le même lanceur : un nom, une consigne (texte libre ou skill), des agents, des projets cochés dans le lanceur et un planning (à la demande, chaque jour, chaque semaine). Tu peux les lancer tout de suite, les mettre en pause ou les supprimer, et le panneau montre le résultat du dernier passage. Claude ne peut ni créer ni modifier une routine. Décision [056](docs/decisions/056-routines.md).
 
+La page « Claude » (`/claude`) montre ce que Claude fait : tes questions en attente, les runs en cours, ceux finis aujourd'hui. Sur une US prête, « Mettre en file » (à côté de « Lancer dans le cloud ») l'ajoute à la file d'attente : Cockpit lance les US une par une, saute celles qui ne sont pas prêtes ou qui attendent une dépendance, et met la file en pause si un lancement échoue (« Reprendre » la relance). Décision [057](docs/decisions/057-file-d-attente.md).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :
