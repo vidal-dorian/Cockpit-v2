@@ -7,6 +7,7 @@ import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
   cloudLaunches,
+  history,
   questions,
   runSteps,
   runs,
@@ -480,9 +481,23 @@ export function runRoutes(
         .where(eq(runSteps.runId, run.id))
         .orderBy(asc(runSteps.id));
       const [launch] = await db
-        .select({ sessionUrl: cloudLaunches.sessionUrl })
+        .select({
+          sessionUrl: cloudLaunches.sessionUrl,
+          costUsd: cloudLaunches.costUsd,
+        })
         .from(cloudLaunches)
         .where(eq(cloudLaunches.runId, run.id));
+      const [stop] = await db
+        .select({ detail: history.detail })
+        .from(history)
+        .where(
+          and(
+            eq(history.runId, run.id),
+            eq(history.action, "request_stop"),
+            eq(history.actor, "system"),
+            eq(history.result, "ok"),
+          ),
+        );
       const asked = await db
         .select({
           id: questions.id,
@@ -523,6 +538,9 @@ export function runRoutes(
           finishedAt: run.finishedAt,
         },
         cloud: launch ? { sessionUrl: launch.sessionUrl } : null,
+        // A local run has no cost (decision 060 B); 0 is a cloud run no point reached yet, which the page cannot tell from none.
+        costUsd: launch && launch.costUsd > 0 ? launch.costUsd : null,
+        stopReason: stop?.detail?.reason === "budget" ? "budget" : null,
         steps,
         questions: asked,
         criteria,

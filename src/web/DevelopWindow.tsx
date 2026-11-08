@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { proposedBranch } from "../server/branch.ts";
 import { parseTeam } from "../server/team.ts";
 import { client } from "./api.ts";
+import { fetchBudgets } from "./Cost.tsx";
 import { fetchLauncher } from "./LauncherSettings.tsx";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
@@ -64,6 +65,8 @@ const LAUNCH_ERRORS: Record<string, string> = {
   project_not_in_launcher:
     "Ce projet n'est plus coché dans le lanceur : coche-le dans Réglages.",
   project_archived: "Ce projet est archivé.",
+  monthly_budget_reached:
+    "Le plafond par mois est atteint : relève-le dans la page Coût pour lancer.",
 };
 
 /** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
@@ -109,6 +112,14 @@ export function DevelopWindow({
     !!launcher.data?.connected &&
     !launcher.data.needsReconnect &&
     launcher.data.projectIds.includes(project.id);
+  const budgets = useQuery({
+    queryKey: ["budgets"],
+    queryFn: fetchBudgets,
+    retry: false,
+  });
+  // Prefilled with the cap per run until the user types.
+  const [typedCap, setTypedCap] = useState<string>();
+  const cap = typedCap ?? `${budgets.data?.runUsd ?? ""}`;
   const [chosen, setChosen] = useState<"cloud" | "pc">();
   const cloud = cloudPossible && chosen !== "pc";
   const queryClient = useQueryClient();
@@ -118,7 +129,12 @@ export function DevelopWindow({
     mutationFn: async () => {
       const res = await client.api.stories[":id"].launch.$post({
         param: { id: String(story.id) },
-        json: { branch, team: team || undefined, comment: extra || undefined },
+        json: {
+          branch,
+          team: team || undefined,
+          comment: extra || undefined,
+          budgetUsd: cap ? Number(cap) : undefined,
+        },
       });
       if (!res.ok) {
         const answer: { error?: string } = await res.json().catch(() => ({}));
@@ -470,6 +486,25 @@ export function DevelopWindow({
           </span>
         )}
       </label>
+      {cloud && (
+        <div>
+          <label className={label}>
+            Plafond
+            <input
+              type="number"
+              min="0"
+              step="any"
+              aria-describedby="cap-hint"
+              className={field}
+              value={cap}
+              onChange={(e) => setTypedCap(e.target.value)}
+            />
+          </label>
+          <p id="cap-hint" className={hint}>
+            En dollars, facultatif : au plafond, Cockpit demande l'arrêt du run.
+          </p>
+        </div>
+      )}
       {pending.map((d) => (
         <p key={d.id} className={hint}>
           ⚠ Dépend de l'US {d.id} ({d.iWant}),{" "}

@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -34,6 +35,10 @@ export const users = pgTable("users", {
   }),
   // Cockpit relaunches Claude when the CI of a PR fails (decision 059 A).
   autoRelaunch: boolean("auto_relaunch").notNull().default(false),
+  // The caps in dollars, all optional (decision 060 C).
+  budgetRunUsd: doublePrecision("budget_run_usd"),
+  budgetNightUsd: doublePrecision("budget_night_usd"),
+  budgetMonthUsd: doublePrecision("budget_month_usd"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -452,6 +457,10 @@ export const cloudLaunches = pgTable(
     fromQueue: boolean("from_queue").notNull().default(false),
     // Launched by the automatic relaunch after a failed CI (decision 059 C).
     relaunch: boolean("relaunch").notNull().default(false),
+    // What Claude Code reported through OpenTelemetry, and the cap that stops the run (decision 060 B, D).
+    costUsd: doublePrecision("cost_usd").notNull().default(0),
+    tokens: bigint("tokens", { mode: "number" }).notNull().default(0),
+    budgetUsd: doublePrecision("budget_usd"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

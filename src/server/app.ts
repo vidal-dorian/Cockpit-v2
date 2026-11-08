@@ -5,6 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
+import { metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
@@ -111,11 +112,13 @@ export function createApp(
       .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))
-      .route("/", claudeRoutes(db))
+      .route("/", claudeRoutes(db, now))
       .route("/", routineRoutes(db, fireDeps, now))
       .route("/", launcherRoutes(db, fireDeps, now))
       .route("/", queueRoutes(db))
       .route("/", customRoutineRoutes(db, fireDeps, now))
+      // Outside /api: Claude Code's exporter has no session and its own 1 MiB limit (decision 060 A).
+      .route("/", metricsRoutes(db))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version, fireDeps))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))

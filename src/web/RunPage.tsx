@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { dollars } from "./Cost.tsx";
 import { RunControls } from "./RunControls.tsx";
 import { RunQuestions } from "./RunQuestions.tsx";
 import { RunAction, RunVerdict } from "./RunVerdict.tsx";
@@ -278,6 +279,13 @@ export function RunPage() {
                     </>
                   )}
                   {` · ${repoName(found.project.name)}`}
+                </p>
+                <p>
+                  {found.costUsd == null
+                    ? "coût inconnu"
+                    : `Coût du run : ${dollars(found.costUsd)}`}
+                  {found.stopReason === "budget" &&
+                    " · Plafond atteint : arrêt demandé"}
                 </p>
                 {found.run.comment && (
                   <p>
