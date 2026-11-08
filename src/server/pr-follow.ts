@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import { history, runs, userStories, users } from "./db/schema.ts";
@@ -148,7 +148,7 @@ export async function followPullRequest(
       await tx.insert(history).values({ ...entry, result: "ok" });
     }
     // The count itself moves in the launch (a refused one costs nothing); the owner of the last run is the one who asked for Claude.
-    let relaunchBy: number | null = null;
+    let relaunch: { by: number; branch: string } | null = null;
     if (
       fire &&
       pull.open &&
@@ -162,27 +162,28 @@ export async function followPullRequest(
         .select({ userId: runs.userId, on: users.autoRelaunch })
         .from(runs)
         .innerJoin(users, eq(users.id, runs.userId))
-        .where(eq(runs.storyId, story.id))
+        // A blocked owner is never launched for, as in the queue and the routines.
+        .where(and(eq(runs.storyId, story.id), isNull(users.blockedAt)))
         .orderBy(desc(runs.id))
         .limit(1);
-      if (last?.on) relaunchBy = last.userId;
+      if (last?.on) relaunch = { by: last.userId, branch: locked.branch };
     }
-    return { transitioned: action !== null, relaunchBy };
+    return { transitioned: action !== null, relaunch };
   });
   if (!outcome) return;
   // Also when a relaunch keeps its status: the issue still shows the one it had before the PR.
   if (outcome.transitioned) await syncIssue(db, readGitHub, userId, story.id);
   await publish(db, project.id, [`story:${story.id}`]);
   // After the commit, never inside it: `/fire` is a network call. A refusal (a run is active, the project is not ticked) writes its entry and nothing else.
-  const branch = story.branch;
-  if (fire && outcome.relaunchBy !== null && branch) {
-    const by = outcome.relaunchBy;
+  if (fire && outcome.relaunch) {
+    const { by, branch } = outcome.relaunch;
     const at = new Date();
     await launchCloud(
       db,
       fire,
       {
         ...entryOf(by, "launch_story"),
+        // Repeated for the type: `launchCloud` needs a user, `Entry` allows none.
         userId: by,
         actor: "system",
         origin: "system",

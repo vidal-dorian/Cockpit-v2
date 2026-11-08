@@ -107,6 +107,15 @@ describe("criterion 3: no relaunch (B)", () => {
       },
     ],
     [
+      "the owner of the last run is blocked",
+      async (ctx: Awaited<ReturnType<typeof ready>>) => {
+        await inReview(ctx);
+        await ctx.db.execute(
+          sql`update users set blocked_at = now() where id = ${ctx.alice.id}`,
+        );
+      },
+    ],
+    [
       "3 relaunches were made already",
       async (ctx: Awaited<ReturnType<typeof ready>>) => {
         await inReview(ctx);

@@ -32,4 +32,6 @@ Le découpage demandait de comparer d'abord avec l'**Auto-fix** natif de Claude 
 
 - Celles de la 054 : `/fire` en préversion, un seul modèle, tous les repos clonés.
 - **Le nom d'un check ne dit pas toujours pourquoi il échoue** : Claude relit les logs lui-même dans la session.
+- **Une CI qui échoue pendant le run de relance** (l'US est alors `in_progress`) n'est pas vue comme un passage à `failure` : l'US revient en revue avec sa CI rouge, sans nouvelle relance. « Actualiser » ne change rien ; c'est à l'humain de relancer.
+- **« Relances épuisées » s'affiche dès la 3e relance lancée**, avant que son run ne démarre.
 - **Une CI qui passe par des statuts** (`status`) et non des check runs n'est pas vue (comme la 038).
