@@ -24,7 +24,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S03](S03_Assistant_GitHubApp.png) | Mise en service, étape 2 : créer la GitHub App, ses permissions | 1.5 (existe) | 012 | |
 | [S04](S04_Bienvenue.png) | Bienvenue : ouvrir des repos, les importer, connecter Claude | 1.6 (existe) | 012 | |
 | [S05](S05_AutoriserClaude.png) | Claude demande l'accès (`/autoriser`) | 4.7 (existe) | 021 | |
-| [S06](S06_MiseEnRoute.png) | Mise en route qui se coche toute seule | 15.4 | | les étapes exactes |
+| [S06](S06_MiseEnRoute.png) | Mise en route qui se coche toute seule | 15.4 | | tranché ([064](../decisions/064-tranches-restantes.md) 15.4) : les sept étapes de l'écran, en haut de l'accueil |
 
 ## 2 · Accueil, recherche, idées
 
@@ -39,16 +39,16 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | les favoris |
+| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | tranché ([064](../decisions/064-tranches-restantes.md)) : les favoris en 15.3 ; les autres filtres sont retirés |
 | [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063 | |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | |
-| [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | permission `workflows` (012) |
+| [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | tranché ([064](../decisions/064-tranches-restantes.md) 12.4) : permission `workflows`, `propose_workflow_change` ; pas de « 2 tests sur 31 » |
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 (existe) | 062 | |
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 | 026 | |
-| [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | la section « la nuit » (044 N' : la nuit se compose sur `/nuit`) |
+| [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | tranché (044 N', [064](../decisions/064-tranches-restantes.md)) : la section « la nuit » est retirée |
 | [S20](S20_NouveauDepuisModele.png) | Nouveau projet depuis un repo modèle | 12.5 | | |
 | [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3 | 019 | |
 
@@ -59,7 +59,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S21](S21_Ticket.png) | Un ticket, ses US, ses pièces jointes | 3.1, 11.4 (existent) | 014, 061 | |
 | [S22](S22_US_AValider.png) | Une US à valider, la décision à droite | 4.4 (existe) | 018 | |
 | [S23](S23_US_Renvoyer.png) | Renvoyer une US à Claude, avec un commentaire obligatoire | 4.4 (existe) | 018 | |
-| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1 (existent), 14.6 | 034, 044, 054 | le choix « Cette nuit » (044 N' : la nuit se compose sur `/nuit`) |
+| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1 (existent), 14.6 | 034, 044, 054 | tranché (044 N', [064](../decisions/064-tranches-restantes.md)) : le choix « Cette nuit » est retiré |
 | [S25](S25_US_EnRevue.png) | Une US en revue : la PR, la CI, le verdict | 7.6, 7.7 (existent) | 038, 039 | |
 | [S26](S26_IssueModifiee.png) | Issue modifiée sur GitHub : choisir la version | 5.2 (existe) | 025 | |
 | [S27](S27_ImporterIssues.png) | Importer les issues GitHub | 11.3 (existe) | 020, 057 | |
@@ -69,14 +69,14 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S28](S28_Claude_Runs.png) | Tous les runs, la file d'attente | 9.3, 14.3 (existent) | 033, 058 | une seule US de la file à la fois par utilisateur, pas par projet (058) |
-| [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | |
+| [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | barres d'étapes et « Pourquoi Claude demande » : tranche 9.5 ([064](../decisions/064-tranches-restantes.md)) |
 | [S30](S30_Run_Fini.png) | Un run fini : le verdict, les critères, le coût | 7.7, 14.5 (existent) | 035, 039, 060 | le coût de 14.5 vient des seuls runs cloud (060) |
 | [S31](S31_Run_Fermer.png) | Fermer un run muet | 7.5 (existe) | 037 | |
 | [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 056 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
 | [S33](S33_CoutBudget.png) | Coût et plafonds | 14.5 (existe) | 060 | le coût des runs locaux est repoussé (060) |
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 (existe) | 044 | |
-| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; la frise « à l'échelle des heures » est repoussée (044 M', N') |
-| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6 (existe) | 044 | bilan et « Relire en série » repoussés (044 N') |
+| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; la frise à l'échelle des heures : tranche 14.7 ([064](../decisions/064-tranches-restantes.md)) |
+| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6 (existe) | 044 | bilan et « Relire en série » : tranche 14.7 ([064](../decisions/064-tranches-restantes.md)) |
 | [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 | 044 | la notification attend la 15.2 (044 M') |
 
 ## 6 · Équipes d'agents et journal
@@ -86,9 +86,9 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S35](S35_Equipes.png) | Les équipes de chaque projet, le catalogue | E4 (existe), 12.2 | 029, 032 | |
 | [S36](S36_EquipeGraphe.png) | Onglet Agents : l'équipe en graphe, les agents du repo | E3 (existe), 11.6 (existe) | 031, 042 B, 063 | |
 | [S37](S37_EditeurAgent.png) | Éditeur d'agent | E2 (existe) | 030 | |
-| [S38](S38_NouvelleEquipe.png) | Nouvelle équipe en canevas plein écran : une boucle sélectionnée | E6 | 042 (modifiée par 045) | **les branches en parallèle** |
+| [S38](S38_NouvelleEquipe.png) | Nouvelle équipe en canevas plein écran : une boucle sélectionnée | E6 | 042 (modifiée par 045) | tranché ([064](../decisions/064-tranches-restantes.md) E6) : parallèle complet, un worktree par branche ; pas d'agent `analyst` |
 | [S38b](S38b_Equipe_Intercaler.png) | Intercaler un agent oublié sur un lien | E6 | 045 | |
-| [S38c](S38c_Equipe_TracerLien.png) | Tracer un lien, mettre deux agents en parallèle | E6 | 045 | **les branches en parallèle, la condition écrite** |
+| [S38c](S38c_Equipe_TracerLien.png) | Tracer un lien, mettre deux agents en parallèle | E6 | 045 | tranché ([064](../decisions/064-tranches-restantes.md) E6) : parallèle, condition écrite en une phrase |
 | [S39](S39_ConfigGlobale.png) | Agents et skills communs à tous les projets | 12.3 | | |
 | [S40](S40_Journal.png) | Le journal filtrable, une entrée ouverte | 1.4, 11.1 (existent) | 010, 028 F, 053 | |
 
@@ -105,13 +105,13 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | |
+| [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | « Accès donnés à Claude » retiré ([064](../decisions/064-tranches-restantes.md) 9.5 B) |
 | [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1, 14.6 (existent) | 022, 044, 054 | |
-| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | le thème clair |
-| [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | **les rôles** |
-| [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | **les prix** ([offres](../offres.md)) |
+| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | tranché ([064](../decisions/064-tranches-restantes.md) 15.2, 15.3) : thème clair proposé par Claude, validé par Dorian |
+| [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | tranché ([064](../decisions/064-tranches-restantes.md) 13.1) : les trois rôles de l'écran ; invitation par login GitHub, pas par e-mail |
+| [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | tranché ([064](../decisions/064-tranches-restantes.md) 13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités ; codes Pro ; paiement plus tard |
 | [S50](S50_Reglages_Donnees.png) | Données : exporter, supprimer son compte | 13.5 | | |
-| [S51](S51_Reglages_Instance.png) | Instance (administrateur) : adresse en lecture seule, branchements, utilisateurs | 1.6 (existe) | 012, 024, 028 I | **l'adresse en lecture seule** : la 028 I ne veut pas d'adresse publique dans Réglages, la carte n'est pas construite (voir la 045) |
+| [S51](S51_Reglages_Instance.png) | Instance (administrateur) : adresse en lecture seule, branchements, utilisateurs | 1.6 (existe) | 012, 024, 028 I | tranché ([064](../decisions/064-tranches-restantes.md)) : la 028 I l'emporte, la carte « adresse » est retirée |
 
 ## 9 · Téléphone et erreurs
 
@@ -120,7 +120,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S52](S52_Tel_Accueil.png) | Accueil sur le téléphone | 15.1 | 003 | |
 | [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 | 036 | |
 | [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 | 018 | |
-| [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 | 014 | dicter, photo |
-| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : seule l'alerte « Serveur injoignable » existe |
+| [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 | 014 | tranché ([064](../decisions/064-tranches-restantes.md) 15.1) : « Photo » oui, « Dicter » retiré |
+| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : tranche 15.2 ([064](../decisions/064-tranches-restantes.md)) |
 
 Sur le téléphone, la barre du bas (Accueil, Idée, Nuit, Projets) est la même sur chaque écran.

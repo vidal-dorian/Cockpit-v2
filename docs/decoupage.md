@@ -71,6 +71,7 @@
 - **Fait** : tranche 14.6 (la nuit de Claude, [décision 044](decisions/044-la-nuit-de-claude.md)) ; la phase 14 est terminée.
 - **Fait** : tranche 11.5 (après le merge : le changelog et les branches à nettoyer, [décision 062](decisions/062-apres-le-merge.md)).
 - **Fait** : tranche 11.6 (les équipes de départ Éco, Standard, Premium et Max, [décision 063](decisions/063-equipes-de-depart.md)) ; la phase 11 est terminée.
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7, puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -206,6 +207,8 @@ L'ordre ci-dessous a été décidé le 2026-11-06, avec Dorian. Chaque phase est
 
 L'ordre des phases 11 à 14 peut changer : rien ne dépend d'elles, la seule dépendance dure est C1 (mise à jour du catalogue) avant R4, qui change `/dev-us`.
 
+**Mise à jour du 2026-11-08** ([064](decisions/064-tranches-restantes.md)) : la suite se fait dans l'ordre **12 → 9.5 et 14.7 → 15 → 13**. La phase 13 dépend de choix hors du code (statut, hébergeur, marque), elle passe en dernier.
+
 ## Phase 9 — Remise au propre
 
 | # | Tranche | Démo |
@@ -213,6 +216,7 @@ L'ordre des phases 11 à 14 peut changer : rien ne dépend d'elles, la seule dé
 | 9.1 | **Ménage de la doc** : `decoupage.md` et `architecture.md` disent la vérité, la décision en double devient la [042](decisions/042-nouvelle-equipe-fenetre.md), les statuts des décisions sont justes | Les docs décrivent le code d'aujourd'hui, et chaque décision implémentée est « validée » (007 et 041 restent à valider) |
 | 9.2 | **Changelog complet** : les tranches 1.5 à 4.8, commitées avant la règle `feat:`, apparaissent dans la prochaine release | La PR de release liste toutes les tranches |
 | 9.3 | **L'interface « Quatre temps »** ([045](decisions/045-interface-quatre-temps.md)) : jetons et polices, la coque (barre latérale, panneau de droite, barre d'idée), et les écrans qui existent déjà refaits comme dans [`docs/ecrans/`](ecrans/README.md) (alignés ensuite sur leurs maquettes, logo mis à part ; ce qui reste est dans la 045, « Ce que la tranche 9.3 a laissé de côté ») | L'accueil, un projet, une US et un run ressemblent à leurs écrans (S00a, S00b, S22, S29), avec les mêmes fonctions qu'avant |
+| 9.5 | **Finitions** ([064](decisions/064-tranches-restantes.md)) : les barres d'étapes d'un run et la carte « Pourquoi Claude demande » (S29) ; la carte du Kanban ouverte dans le panneau de droite | Sur un run, je vois où en est chaque étape ; je clique une carte du Kanban, elle s'ouvre à droite sans quitter le tableau |
 | 9.4 | **Le logo « la boucle »** ([046](decisions/046-logo-la-boucle.md)) : quatre arcs aux couleurs des quatre temps, vortex au survol, favicon | Le logo de la barre du haut et l'onglet du navigateur montrent la boucle, qui tourne au survol |
 
 ## Phase 10 — Reprendre une app existante (la fonctionnalité phare)
@@ -244,21 +248,21 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 
 | # | Tranche | Démo |
 |---|---|---|
-| 12.1 | **Éditer la configuration du repo** : `CLAUDE.md`, règles (`.claude/rules/`), skills et `.mcp.json`, chaque fois avec un diff puis un commit, comme l'éditeur d'agent (030) | Je modifie le `CLAUDE.md` d'un projet depuis Cockpit, je vois le diff, je valide |
-| 12.2 | **Catalogue enrichi** : nouveaux agents prêts à l'emploi (`doc-writer`, `doc-reviewer`, `security-reviewer`, `analyst`) | Dans l'éditeur d'agent, j'ajoute un `doc-writer` du catalogue |
-| 12.3 | **Configuration globale** : les agents et skills communs à tous les projets, dans un repo de plugins personnel | Un agent défini une fois est disponible dans tous mes projets |
-| 12.4 | **CI/CD** : lister les workflows ; proposer une CI de départ adaptée au repo ; Claude propose un changement de workflow et l'humain le committe (permission `workflows` à ajouter à la GitHub App) | Sur un repo sans CI, je vois la CI proposée, je valide, la ligne CI du bilan passe au vert |
-| 12.5 | **Repo modèle** : créer un projet à partir d'un repo modèle déjà prêt pour Claude (brief §6.1), gérer ce repo modèle | Je crée un projet depuis le modèle, le bilan est vert d'emblée |
+| 12.1 | **Éditer la configuration du repo** : `CLAUDE.md`, règles (`.claude/rules/`), skills et `.mcp.json`, chaque fois avec un diff puis un commit, comme l'éditeur d'agent (030) ; dans l'onglet Agents, devenu « Ce que Claude lit » ([064](decisions/064-tranches-restantes.md)) | Je modifie le `CLAUDE.md` d'un projet depuis Cockpit, je vois le diff, je valide |
+| 12.2 | **Catalogue enrichi** : **couvert par la 11.6** ([063](decisions/063-equipes-de-depart.md) C) : `doc-writer` et `doc-reviewer` sont au catalogue, `security-reviewer` y était ; pas d'`analyst` ([064](decisions/064-tranches-restantes.md)) | Dans l'éditeur d'agent, j'ajoute un `doc-writer` du catalogue |
+| 12.3 | **Configuration globale** : les agents et skills communs à tous les projets, dans un repo de plugins personnel, déclaré dans `.claude/settings.json` de chaque projet ([064](decisions/064-tranches-restantes.md)) | Un agent défini une fois est disponible dans tous mes projets |
+| 12.4 | **CI/CD** : lister les workflows ; proposer une CI de départ adaptée au repo ; Claude propose un changement de workflow et l'humain le committe (permission `workflows` à ajouter à la GitHub App) ; outil MCP `propose_workflow_change` ([064](decisions/064-tranches-restantes.md)) | Sur un repo sans CI, je vois la CI proposée, je valide, la ligne CI du bilan passe au vert |
+| 12.5 | **Repo modèle** : créer un projet à partir d'un repo modèle déjà prêt pour Claude (brief §6.1), gérer ce repo modèle ([064](decisions/064-tranches-restantes.md)) | Je crée un projet depuis le modèle, le bilan est vert d'emblée |
 
 ## Phase 13 — Le service payant (au passage chez l'hébergeur)
 
 | # | Tranche | Démo |
 |---|---|---|
-| 13.1 | **Plusieurs utilisateurs** : invitations, partager un projet, l'administrateur voit l'activité des comptes (008, brief §6.19) | J'invite quelqu'un, il voit le projet partagé et rien d'autre |
-| 13.2 | **Offres et quotas** : gratuit (3 repos) et Pro (la reprise), bloqués côté serveur dans l'API et le MCP ; paiement. Idées d'offres et de prix : [`offres.md`](offres.md) | Un compte gratuit se voit refuser le 4e repo, par l'API comme par le MCP |
-| 13.3 | **Hébergeur** : choisir l'hébergeur (en Europe, PostgreSQL géré), y déplacer l'image et la base, faire tenir le serveur sur plusieurs instances (008) | Cockpit répond à son adresse chez l'hébergeur, avec ses données |
-| 13.4 | **Dirigo** : renommer l'app, la passer sur `app.dirigo.dev`, et un site vitrine dans un repo à part ([041](decisions/041-nom-et-site-vitrine.md)) | `dirigo.dev` affiche la vitrine, `app.dirigo.dev` l'application |
-| 13.5 | **RGPD** : une page qui dit ce que Cockpit garde, et la suppression de son compte | Je supprime mon compte, mes données disparaissent |
+| 13.1 | **Plusieurs utilisateurs** : invitations, partager un projet, l'administrateur voit l'activité des comptes (008, brief §6.19) ; trois rôles, invitation par login GitHub ([064](decisions/064-tranches-restantes.md)) | J'invite quelqu'un, il voit le projet partagé et rien d'autre |
+| 13.2 | **Offres et quotas** : gratuit (3 repos) et Pro (la reprise), bloqués côté serveur dans l'API et le MCP ; paiement. Idées d'offres et de prix : [`offres.md`](offres.md) ; Pro à 10 € par mois, repos illimités, codes Pro donnés par l'administrateur, paiement branché plus tard ([064](decisions/064-tranches-restantes.md)) | Un compte gratuit se voit refuser le 4e repo, par l'API comme par le MCP |
+| 13.3 | **Hébergeur** : choisir l'hébergeur (en Europe, PostgreSQL géré), y déplacer l'image et la base, faire tenir le serveur sur plusieurs instances (008). **Attend Dorian** : l'hébergeur est choisi au premier client payant ([064](decisions/064-tranches-restantes.md)) | Cockpit répond à son adresse chez l'hébergeur, avec ses données |
+| 13.4 | **Dirigo** : renommer l'app, la passer sur `app.dirigo.dev`, et un site vitrine dans un repo à part ([041](decisions/041-nom-et-site-vitrine.md)). **Attend Dorian** : marque vérifiée et domaine acheté ([064](decisions/064-tranches-restantes.md)) | `dirigo.dev` affiche la vitrine, `app.dirigo.dev` l'application |
+| 13.5 | **RGPD** : une page qui dit ce que Cockpit garde, l'export et la suppression de son compte (une empreinte garde le compteur Gratuit, [064](decisions/064-tranches-restantes.md)) | Je supprime mon compte, mes données disparaissent |
 
 ## Phase 14 — Cloud et automatisations (brief §6.5, §6.14 à §6.16)
 
@@ -270,15 +274,16 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 14.4 | **Relance automatique** : CI rouge, Claude relancé sur la même branche. À comparer d'abord avec l'Auto-fix natif de Claude Code | Une CI rouge relance le développement sans que je clique |
 | 14.5 | **Coût et budget** : le coût de chaque run (télémétrie OpenTelemetry) et un plafond qui demande l'arrêt du run | La page d'un run affiche son coût ; au plafond, l'arrêt est demandé |
 | 14.6 | **La nuit de Claude** ([044](decisions/044-la-nuit-de-claude.md)) : le soir, je compose le programme ; Claude développe les US une par une dans le cloud ; le matin, l'accueil raconte la nuit | Je lance la nuit avec deux US, PC éteint ; le matin, l'accueil montre la frise, une PR et la question de l'autre US |
+| 14.7 | **Le matin de la nuit** ([064](decisions/064-tranches-restantes.md), 044 N') : le bilan (temps de travail, tests ajoutés, échecs), « Relire en série », la frise à l'échelle des heures (N1, N2) | Le matin, l'accueil montre le bilan de la nuit ; « Relire en série » m'enchaîne les PR à relire |
 
 ## Phase 15 — Téléphone et ergonomie (pas prioritaire)
 
 | # | Tranche | Démo |
 |---|---|---|
-| 15.1 | **Les trois gestes au téléphone** : noter une idée, valider une US et répondre à Claude, vérifiés et corrigés en largeur téléphone | Sur mon téléphone, je fais les trois gestes sans zoom ni défilement latéral |
-| 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17) | Claude pose une question, mon téléphone vibre |
-| 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
-| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
+| 15.1 | **Les trois gestes au téléphone** : noter une idée, valider une US et répondre à Claude, vérifiés et corrigés en largeur téléphone ; « Photo » dans Noter une idée ([064](decisions/064-tranches-restantes.md)) | Sur mon téléphone, je fais les trois gestes sans zoom ni défilement latéral |
+| 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17), le récap de la nuit, le silence la nuit, l'écran « Cockpit ne répond plus » (S56) ([064](decisions/064-tranches-restantes.md)) | Claude pose une question, mon téléphone vibre |
+| 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20), favoris ([064](decisions/064-tranches-restantes.md)) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
+| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18), les sept étapes de S06, en haut de l'accueil ([064](decisions/064-tranches-restantes.md)) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
 
 ## Équipe d'agents (fait)
 
@@ -290,7 +295,7 @@ Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, m
 | E2 | **Éditeur d'agent** ([030](decisions/030-editeur-d-agent.md)) : description, outils, modèle, prompt, aperçu ; ajouter, supprimer ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
 | E3 | **Écran « Équipe »** en graphe ([031](decisions/031-equipe-en-graphe.md)) : cartes déplaçables, liens « puis » et « boucle », liste pour le clavier, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
 | E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
-| E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle attendent leur décision | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
+| E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle, un worktree par branche, et la condition écrite en une phrase ([064](decisions/064-tranches-restantes.md)) | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
 
 Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6.
 
@@ -311,7 +316,7 @@ Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée 
 |---|---|
 | Permissions de l'App ajoutées après le MVP (12.4, R6). Tranché par la 052 en R6 : Cockpit guide (ligne « Alertes GitHub » du bilan et ligne grise de l'écran des constats), la modification de l'App et l'approbation restent manuelles | [012](decisions/012-configuration-automatique.md), [052](decisions/052-constats-de-github-et-versions.md) |
 | Plusieurs instances : quatre choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
-| Hébergeur ; facturation par personne ou par organisation (13.2, 13.3) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
+| Hébergeur (13.3) et prestataire de paiement (13.2) : décidés plus tard. Facturation **par personne**, un projet partagé compte chez son propriétaire, tranché par la [064](decisions/064-tranches-restantes.md) (13.2 D) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
 | Reprise : doublons entre analyses de Claude (R5, reste ouvert ; ceux des alertes GitHub sont évités par le numéro d'alerte, 052 E). Tranché par la 051 en R5 : modèle de chaque agent d'analyse (modifiable dans l'onglet Agents). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris). Tranché par la 050 en R4 : contrôle du mode « figer » (le reviewer et Cockpit, sur les fichiers de la PR) | [007](decisions/007-reprise-app-existante.md), points ouverts 2 (tranché), 4 (tranché) et 5 ; [047](decisions/047-ecran-de-reprise.md), [050](decisions/050-figer-l-existant.md), [051](decisions/051-constats-de-claude.md) |
 | Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
