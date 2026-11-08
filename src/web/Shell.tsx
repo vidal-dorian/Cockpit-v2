@@ -254,7 +254,7 @@ export function Sidebar() {
             </>
           )}
         </NavLink>
-        <NavLink to="/claude/taches" className={navItem}>
+        <NavLink to="/claude" className={navItem}>
           Claude
         </NavLink>
         {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}
@@ -341,7 +341,7 @@ export function IdeaBar() {
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
   const [done, setDone] = useState<string>();
-  // The files a refused upload left out: the ticket exists, its page is where to try again (decision 058 F).
+  // The files a refused upload left out: the ticket exists, its page is where to try again (decision 061 F).
   const [unattached, setUnattached] = useState<{
     id: number;
     names: string[];

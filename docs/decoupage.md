@@ -62,8 +62,11 @@
 - **Fait** : tranche 11.1 (le Journal filtrable et l'historique par projet, [décision 053](decisions/053-journal-filtrable.md)).
 - **Fait** : tranche 14.1 (lancer dans le cloud, [décision 054](decisions/054-lancer-dans-le-cloud.md)).
 - **Fait** : tranche 14.2 (les routines, [décision 056](decisions/056-routines.md)).
+- **Fait** : tranche 14.3 (la file d'attente, [décision 058](decisions/058-file-d-attente.md)).
 - **Fait** : tranche 11.2 (les tickets complets, [décision 055](decisions/055-tickets-complets.md)).
 - **Fait** : tranche 11.3 (importer les issues GitHub, [décision 057](decisions/057-importer-les-issues.md)).
+- **Fait** : tranche 14.4 (la relance automatique, [décision 059](decisions/059-relance-automatique.md)).
+- **Fait** : tranche 14.5 (le coût et le budget, [décision 060](decisions/060-cout-et-budget.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

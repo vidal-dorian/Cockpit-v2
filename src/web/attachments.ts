@@ -1,4 +1,4 @@
-// Attachments of a ticket (decision 058): the size and type words and the calls the ticket page and the idea bar share.
+// Attachments of a ticket (decision 061): the size and type words and the calls the ticket page and the idea bar share.
 
 export type Attachment = {
   id: number;
@@ -8,7 +8,7 @@ export type Attachment = {
 };
 
 const MO = 1024 * 1024;
-// An image is 3.75 MiB at most (decision 058 B: 5 MB once base64-encoded for Claude).
+// An image is 3.75 MiB at most (decision 061 B: 5 MB once base64-encoded for Claude).
 const IMAGE_MAX = 3_932_160;
 
 let lastKey = 0;
@@ -33,7 +33,7 @@ export const iconOf = (mediaType: string) =>
 const IMAGES = ["png", "jpg", "jpeg", "webp", "gif"];
 const OTHERS = ["pdf", "txt", "md", "csv", "json"];
 
-/** The refusals of decision 058 B, worded for the user. */
+/** The refusals of decision 061 B, worded for the user. */
 const SENTENCES: Record<string, string> = {
   unsupported_type:
     "Ce type de fichier n'est pas accepté : images, PDF ou texte.",

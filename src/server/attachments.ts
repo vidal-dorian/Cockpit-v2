@@ -7,9 +7,9 @@ import { attachments, tickets } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 import { assertActive, memberTicket, refusal } from "./tickets.ts";
 
-// Decision 058: files attached to a ticket, kept in PostgreSQL.
+// Decision 061: files attached to a ticket, kept in PostgreSQL.
 const MIB = 1024 * 1024;
-// 3.75 MiB: 5 MB once base64-encoded for Claude (decision 058 B).
+// 3.75 MiB: 5 MB once base64-encoded for Claude (decision 061 B).
 export const MAX_IMAGE = 3_932_160;
 export const MAX_FILE = 20 * MIB;
 export const MAX_PER_TICKET = 20;

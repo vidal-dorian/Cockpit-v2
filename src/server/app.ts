@@ -6,6 +6,7 @@ import { accountRoutes } from "./accounts.ts";
 import { attachmentRoutes } from "./attachments.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
+import { costRoutes, metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
@@ -13,7 +14,7 @@ import { findingRoutes } from "./findings.ts";
 import { githubReader } from "./github.ts";
 import { alertRoutes } from "./github-alerts.ts";
 import { historyRoutes } from "./history.ts";
-import { homeRoutes } from "./home.ts";
+import { claudeRoutes, homeRoutes } from "./home.ts";
 import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { issueImportRoutes } from "./issue-import.ts";
 import { launcherRoutes } from "./launcher.ts";
@@ -21,6 +22,7 @@ import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
 import { questionRoutes } from "./questions.ts";
+import { queueRoutes } from "./queue.ts";
 import { type FireRoutine, routineRoutes } from "./routines.ts";
 import { runRoutes } from "./runs.ts";
 import { setupRoutes } from "./setup.ts";
@@ -53,7 +55,7 @@ export type AppOptions = {
 const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
 // The agent and team editors send a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
 const agentsBodyLimit = bodyLimit({ maxSize: 4 * 1024 * 1024 });
-// An upload: the file (20 MiB at most) and the envelope of the form (decision 058 C).
+// An upload: the file (20 MiB at most) and the envelope of the form (decision 061 C).
 const UPLOAD_MAX = 21 * 1024 * 1024;
 const uploadBodyLimit = bodyLimit({ maxSize: UPLOAD_MAX });
 // Judged on the headers alone, before the session and before any byte is read: a chunked body has no known size, and a declared one over the limit is not worth reading.
@@ -84,6 +86,7 @@ export function createApp(
 ) {
   const readInstance = instanceReader(db, encryptionKey);
   const readGitHub = githubReader(readInstance);
+  const fireDeps = { encryptionKey, fireRoutine };
   return (
     new Hono()
       // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
@@ -115,7 +118,7 @@ export function createApp(
       .route("/", authRoutes(db, readInstance, readGitHub))
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
-      .route("/", webhookRoutes(db, readInstance))
+      .route("/", webhookRoutes(db, readInstance, fireDeps))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))
@@ -127,15 +130,20 @@ export function createApp(
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", attachmentRoutes(db))
       .route("/", issueImportRoutes(db, readGitHub))
-      .route("/", storyRoutes(db, readGitHub))
-      .route("/", runRoutes(db, readGitHub))
+      .route("/", storyRoutes(db, readGitHub, fireDeps))
+      .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))
-      .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
-      .route("/", launcherRoutes(db, { encryptionKey, fireRoutine }, now))
-      .route("/", customRoutineRoutes(db, { encryptionKey, fireRoutine }, now))
+      .route("/", claudeRoutes(db))
+      .route("/", costRoutes(db, now))
+      .route("/", routineRoutes(db, fireDeps, now))
+      .route("/", launcherRoutes(db, fireDeps, now))
+      .route("/", queueRoutes(db))
+      .route("/", customRoutineRoutes(db, fireDeps, now))
+      // Outside /api: Claude Code's exporter has no session and its own 1 MiB limit (decision 060 A).
+      .route("/", metricsRoutes(db))
       .route("/", tokenRoutes(db))
-      .route("/", mcpRoutes(db, readGitHub, readInstance, version))
+      .route("/", mcpRoutes(db, readGitHub, readInstance, version, fireDeps))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))
       // The three discovery paths of decision 021 A are served above; any other one is a JSON 404, not the page.
       .all("/.well-known/*", (c) => c.json({ error: "Not found" }, 404))

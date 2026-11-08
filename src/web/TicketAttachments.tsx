@@ -17,7 +17,7 @@ import {
   sectionLabel,
 } from "./ui.ts";
 
-/** The card « Pièces jointes » of the ticket page (decision 058 E): the files as download links, removing with a confirmation on the spot, adding one or several. `readOnly` for an archived project. */
+/** The card « Pièces jointes » of the ticket page (decision 061 E): the files as download links, removing with a confirmation on the spot, adding one or several. `readOnly` for an archived project. */
 export function TicketAttachments({
   ticketId,
   projectId,

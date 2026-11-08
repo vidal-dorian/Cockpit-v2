@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { proposedBranch } from "../server/branch.ts";
 import { parseTeam } from "../server/team.ts";
 import { client } from "./api.ts";
+import { fetchBudgets } from "./Cost.tsx";
 import { fetchLauncher } from "./LauncherSettings.tsx";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
@@ -26,24 +28,12 @@ const validBranch = (name: string) =>
 type Story = {
   id: number;
   iWant: string;
+  status: string;
   branch: string | null;
   dependsOn: { id: number; iWant: string; status: string }[];
 };
 
 const storageKey = (projectId: number) => `cockpit.clone.${projectId}`;
-
-/** The short title of decision 005 D: lower case, no accents, dashes, 40 characters at most. */
-const proposedBranch = (story: Story) => {
-  const slug = story.iWant
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .slice(0, 40)
-    .replace(/-+$/, "");
-  return `us/${story.id}${slug && `-${slug}`}`;
-};
 
 async function fetchBranches(id: string) {
   const res = await client.api.projects[":id"].branches.$get({ param: { id } });
@@ -71,6 +61,12 @@ const LAUNCH_ERRORS: Record<string, string> = {
   branch_mismatch:
     "Cette US a déjà une autre branche : recharge la page pour la retrouver.",
   fire_failed: "Claude n'a pas pu être lancé : réessaie dans un instant.",
+  already_queued: "Cette US est déjà dans la file.",
+  project_not_in_launcher:
+    "Ce projet n'est plus coché dans le lanceur : coche-le dans Réglages.",
+  project_archived: "Ce projet est archivé.",
+  monthly_budget_reached:
+    "Le plafond par mois est atteint : relève-le dans la page Coût pour lancer.",
 };
 
 /** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
@@ -116,6 +112,14 @@ export function DevelopWindow({
     !!launcher.data?.connected &&
     !launcher.data.needsReconnect &&
     launcher.data.projectIds.includes(project.id);
+  const budgets = useQuery({
+    queryKey: ["budgets"],
+    queryFn: fetchBudgets,
+    retry: false,
+  });
+  // Prefilled with the cap per run until the user types.
+  const [typedCap, setTypedCap] = useState<string>();
+  const cap = typedCap ?? `${budgets.data?.runUsd ?? ""}`;
   const [chosen, setChosen] = useState<"cloud" | "pc">();
   const cloud = cloudPossible && chosen !== "pc";
   const queryClient = useQueryClient();
@@ -125,7 +129,12 @@ export function DevelopWindow({
     mutationFn: async () => {
       const res = await client.api.stories[":id"].launch.$post({
         param: { id: String(story.id) },
-        json: { branch, team: team || undefined, comment: extra || undefined },
+        json: {
+          branch,
+          team: team || undefined,
+          comment: extra || undefined,
+          budgetUsd: cap ? Number(cap) : undefined,
+        },
       });
       if (!res.ok) {
         const answer: { error?: string } = await res.json().catch(() => ({}));
@@ -135,6 +144,18 @@ export function DevelopWindow({
         );
       }
       return res.json();
+    },
+  });
+  const queue = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.queue.$post({ json: { storyId: story.id } });
+      if (!res.ok) {
+        const answer: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(
+          LAUNCH_ERRORS[answer.error ?? ""] ??
+            "Cette US ne peut pas être mise en file : recharge la page.",
+        );
+      }
     },
   });
   // The message that was copied (or that failed to copy): another message resets both.
@@ -193,20 +214,32 @@ export function DevelopWindow({
       footer={
         <>
           {cloud ? (
-            <button
-              type="button"
-              className={panelPrimaryButton}
-              disabled={!canLaunch}
-              onClick={() => launch.mutate()}
-            >
-              <span>Lancer dans le cloud</span>
-              <span
-                aria-hidden="true"
-                className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+            <>
+              <button
+                type="button"
+                className={panelPrimaryButton}
+                disabled={!canLaunch}
+                onClick={() => launch.mutate()}
               >
-                Ctrl Entrée
-              </span>
-            </button>
+                <span>Lancer dans le cloud</span>
+                <span
+                  aria-hidden="true"
+                  className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+                >
+                  Ctrl Entrée
+                </span>
+              </button>
+              {story.status === "ready" && (
+                <button
+                  type="button"
+                  className={ghostButton}
+                  disabled={queue.isPending || queue.isSuccess}
+                  onClick={() => queue.mutate()}
+                >
+                  Mettre en file
+                </button>
+              )}
+            </>
           ) : (
             <>
               <a
@@ -453,6 +486,26 @@ export function DevelopWindow({
           </span>
         )}
       </label>
+      {cloud && (
+        <div>
+          <label className={label}>
+            Plafond
+            <input
+              type="number"
+              min="0.01"
+              step="any"
+              aria-describedby="cap-hint"
+              className={field}
+              value={cap}
+              onChange={(e) => setTypedCap(e.target.value)}
+            />
+          </label>
+          <p id="cap-hint" className={hint}>
+            En dollars, facultatif (vide : ton plafond par run). Au plafond,
+            Cockpit demande l'arrêt du run.
+          </p>
+        </div>
+      )}
       {pending.map((d) => (
         <p key={d.id} className={hint}>
           ⚠ Dépend de l'US {d.id} ({d.iWant}),{" "}
@@ -475,6 +528,20 @@ export function DevelopWindow({
                   Voir la session ↗
                 </a>
               )}
+            </p>
+          )}
+          {queue.isSuccess && (
+            <p role="status">
+              Mis en file :{" "}
+              <Link to="/claude" className="underline">
+                voir la file
+              </Link>
+              .
+            </p>
+          )}
+          {queue.isError && (
+            <p role="alert" className={alertBox}>
+              {queue.error.message}
             </p>
           )}
           {launch.isError && (

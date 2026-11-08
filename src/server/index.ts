@@ -53,11 +53,12 @@ try {
 }
 // Started once the key is known good, so a failing start deletes nothing.
 schedulePurge(db);
-scheduleRoutines(db, {
-  encryptionKey,
-  fireRoutine: (url, init) => fetch(url, init),
+const fire = { encryptionKey, fireRoutine: fetch };
+scheduleRoutines(db, fire);
+scheduleDeliveries(db, {
+  readInstance: instanceReader(db, encryptionKey),
+  fire,
 });
-scheduleDeliveries(db, { readInstance: instanceReader(db, encryptionKey) });
 const [settings] = await db
   .select({ id: instanceSettings.id })
   .from(instanceSettings);

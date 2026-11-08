@@ -13,6 +13,7 @@ import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
+import { budgetsOf, monthSpent } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
@@ -27,6 +28,7 @@ import {
   writeUsRoutines,
 } from "./db/schema.ts";
 import { memberProject } from "./projects.ts";
+import { runQueues } from "./queue.ts";
 import { decrypt, encrypt } from "./secrets.ts";
 import { storyToRewrite, ticketNeedsStories } from "./stories.ts";
 import { assertActive, body, refusal } from "./tickets.ts";
@@ -306,6 +308,7 @@ async function hasWork(db: Db, projectId: number) {
  */
 export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
   await runDueCustomRoutines(db, deps, now);
+  await runQueues(db, deps, now);
   try {
     // A blocked scheduling user (012 G) is skipped, without an entry.
     const due = await db
@@ -597,12 +600,20 @@ export async function launchCloud(
     reserved = await db.transaction(async (tx) => {
       for (const id of projectIds) await assertActive(tx, id);
       const launcher = await readyLauncher(tx, entry.userId, projectIds);
+      const budgets = await budgetsOf(tx, entry.userId);
+      if (
+        budgets.monthUsd !== null &&
+        (await monthSpent(tx, entry.userId, at)) >= budgets.monthUsd
+      )
+        throw new Refused("monthly_budget_reached");
+      const reserved = await reserve(tx);
       const [launch] = await tx
         .insert(cloudLaunches)
         .values({
           userId: entry.userId,
           createdAt: at,
-          ...(await reserve(tx)),
+          ...reserved,
+          budgetUsd: reserved.budgetUsd ?? budgets.runUsd,
         })
         .returning({ id: cloudLaunches.id });
       if (!launch) throw new Error("launch not created");

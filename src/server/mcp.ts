@@ -42,6 +42,8 @@ import {
 import { pdfText } from "./pdf-text.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
+import { queueAfterRun } from "./queue.ts";
+import type { Fire } from "./routines.ts";
 import {
   activeRunId,
   finishRun,
@@ -82,7 +84,7 @@ const MAX_RESULTS = 20;
 /** Per ticket, over all the calls that write it (decision 017 B). */
 const MAX_STORIES = 100;
 
-/** Characters of a text attachment Claude reads at most (decision 058 H). */
+/** Characters of a text attachment Claude reads at most (decision 061 H). */
 const MAX_TEXT = 100_000;
 
 /** A tool result that is MCP content as is (an image), not data to wrap in JSON. */
@@ -94,7 +96,13 @@ class Rendered {
 }
 
 /** The caller of a tool and what the call writes to the history. `entry` is filled in as the call learns the ids it concerns. */
-type Call = { db: Db; userId: number; entry: Entry; readGitHub: ReadGitHub };
+type Call = {
+  db: Db;
+  userId: number;
+  entry: Entry;
+  readGitHub: ReadGitHub;
+  deps: Fire;
+};
 
 /** Arguments that do not fit the schema of the tool; `fields` names the faulty ones, for Claude only (the history gets the fixed code). */
 class InvalidArguments extends Refused {
@@ -1021,8 +1029,17 @@ const tools = {
       outcome: z.enum(["succeeded", "failed"]),
       summary: z.string().min(1).max(10_000).refine(noNul),
     }),
-    (call, args) =>
-      finishRun(call.db, call.userId, call.readGitHub, call.entry, args),
+    async (call, args) => {
+      const finished = await finishRun(
+        call.db,
+        call.userId,
+        call.readGitHub,
+        call.entry,
+        args,
+      );
+      await queueAfterRun(call.db, call.deps, args.run_id, new Date());
+      return finished;
+    },
   ),
 };
 
@@ -1149,6 +1166,7 @@ export function mcpRoutes(
   readGitHub: ReadGitHub,
   readInstance: ReadInstance,
   version: string,
+  deps: Fire,
 ) {
   return (
     new Hono()
@@ -1200,7 +1218,7 @@ export function mcpRoutes(
         }));
         server.setRequestHandler(CallToolRequestSchema, ({ params }) =>
           callTool(
-            { db, userId: caller.userId, readGitHub },
+            { db, userId: caller.userId, readGitHub, deps },
             caller.tokenId,
             params.name,
             params.arguments,

@@ -14,7 +14,7 @@ import {
 import { withProject } from "./test-mcp.ts";
 import { makeTicket } from "./test-tickets.ts";
 
-// Slice 11.4, decision 058 A, B, C (J for the name): adding an attachment to a ticket.
+// Slice 11.4, decision 061 A, B, C (J for the name): adding an attachment to a ticket.
 //
 // Pinned choices (the decision leaves them open):
 // - Table `attachments` (id, ticket_id, name, media_type, size, content bytea, created_at); read here with raw SQL.
@@ -40,7 +40,7 @@ const refused = async (res: Response, code: string) => {
   expect(await res.json()).toEqual({ error: code });
 };
 
-describe("058 B: the accepted types", () => {
+describe("061 B: the accepted types", () => {
   it.each([
     ["a PNG", "plan.png", PNG, "image/png"],
     ["a JPEG", "photo.jpg", JPEG, "image/jpeg"],
@@ -170,7 +170,7 @@ describe("058 B: the accepted types", () => {
   });
 });
 
-describe("058 J: the name", () => {
+describe("061 J: the name", () => {
   it("given a name with slashes, backslashes and control characters, when it is uploaded, then they are removed from the stored name", async () => {
     const { app, db, cookie, ticketId } = await ctxOf();
 

@@ -236,7 +236,7 @@ export function stubTicketApi(
           project: { id: 5, fullName: "octocat/hello" },
         });
       }
-      // Slice 11.4 (decision 058): the attachments of a ticket; none here, test-attachments.tsx lays real ones over this fake.
+      // Slice 11.4 (decision 061): the attachments of a ticket; none here, test-attachments.tsx lays real ones over this fake.
       if (/^\/api\/tickets\/[^/]+\/attachments$/.test(path) && method === "GET")
         return Response.json({ attachments: [] });
       const match = /^\/api\/tickets\/([^/]+)$/.exec(path);

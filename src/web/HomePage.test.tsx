@@ -455,3 +455,24 @@ describe("slice 9.3 review: the answer panel", () => {
     await waitFor(() => expect(document.activeElement).toBe(heading));
   });
 });
+
+describe("slice 14.4 (decision 059 D): the relaunches are exhausted", () => {
+  it("given a story whose CI still fails after 3 relaunches, when the home loads, then the message links to the story", async () => {
+    await show({
+      forYou: [
+        {
+          kind: "relaunch_exhausted",
+          storyId: 25,
+          iWant: "exporter en PDF",
+          prNumber: 15,
+          project: PROJECT,
+        },
+      ],
+    });
+
+    expect(section("1 · Maintenant").textContent).toContain(
+      "Relances épuisées : la CI échoue encore après 3 essais",
+    );
+    expect(hrefs(section("1 · Maintenant"))).toContain("/us/25");
+  });
+});

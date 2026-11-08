@@ -11,7 +11,7 @@ import {
 import { callTool, withProject } from "./test-mcp.ts";
 import { makeTicket } from "./test-tickets.ts";
 
-// Slice 11.4, decision 058 H, review finding B1: reading a PDF must never crash or freeze the server, whatever the file.
+// Slice 11.4, decision 061 H, review finding B1: reading a PDF must never crash or freeze the server, whatever the file.
 //
 // Pinned choices (the decision leaves them open):
 // - The text of a PDF is extracted in a worker thread with a memory limit and a timeout (the tests cannot see the worker: they assert the outcome,
@@ -60,7 +60,7 @@ const stillWorks = async (ctx: Ctx) => {
   expect(result.content[0]?.text).toContain("Bonjour le monde");
 };
 
-describe("058 H (B1): a PDF that cannot be read", () => {
+describe("061 H (B1): a PDF that cannot be read", () => {
   it("given a bomb PDF (a small file whose content inflates to 300 MB), when get_attachment is called, then the fixed sentence comes back as a normal result in time, and the next call works", async () => {
     const ctx = await ctxOf();
     const bomb = streamPdf([textOps(10_000_000)]);
@@ -119,7 +119,7 @@ describe("058 H (B1): a PDF that cannot be read", () => {
   });
 });
 
-describe("058 H (round 2): a PDF must not grow the server's memory", () => {
+describe("061 H (round 2): a PDF must not grow the server's memory", () => {
   it("given a PDF whose content stream inflates to 2 GB of spaces (256 MB referenced 8 times), when get_attachment is called, then the fixed sentence comes back, this process's RSS grows by less than 200 MB, and the next call works", async () => {
     const ctx = await ctxOf();
     const inflated = deflateSync(Buffer.alloc(256 * 1024 * 1024, 0x20), {

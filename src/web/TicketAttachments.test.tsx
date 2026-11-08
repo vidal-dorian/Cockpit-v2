@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFile, fileOf, layerFiles } from "./test-attachments.tsx";
 import { renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
 
-// Slice 11.4, decision 058 E and J (S21): the card « Pièces jointes » of the ticket page.
+// Slice 11.4, decision 061 E and J (S21): the card « Pièces jointes » of the ticket page.
 //
 // Pinned choices (the decision leaves them open):
 // - The card is a <section> named « Pièces jointes » (role region, an <h2> of that name) on /tickets/:id, always there (also without attachment, so that one can be added).
@@ -23,7 +23,7 @@ import { renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
 // - Choosing files POSTs each to /api/tickets/:id/attachments, one after the other, in the order chosen, as multipart with the field `file`. While it works the card shows « Envoi… »; then the list shows the new files.
 // - A refusal (400 { error }) shows in a role="alert" the name of the file and a sentence by code:
 //   unsupported_type « Ce type de fichier n'est pas accepté : images, PDF ou texte. »; too_large « Ce fichier dépasse 20 Mo (3,75 Mo pour une image). »;
-//   too_many « Ce ticket a déjà 20 pièces jointes. »; invalid_name « Ce nom de fichier n'est pas valide. » (058 does not word it). The other files of the choice are still sent.
+//   too_many « Ce ticket a déjà 20 pièces jointes. »; invalid_name « Ce nom de fichier n'est pas valide. » (061 does not word it). The other files of the choice are still sent.
 // - Archived project (GET /api/projects says `archived`): the card only reads: the files and their links, no « + Ajouter », no « Retirer ».
 // - J: an attachment is never HTML in the page: a name that looks like markup stays text, nothing is embedded (no iframe, embed, object), and a PDF or a text has no <img>.
 
@@ -69,7 +69,7 @@ const choose = (...files: File[]) =>
 const itemOf = (name: string) =>
   screen.getByRole("link", { name }).closest("li") as HTMLElement;
 
-describe("058 E: reading the card", () => {
+describe("061 E: reading the card", () => {
   it("given three attachments, when the ticket page loads, then the card lists them with icon, name as a download link and size in words", async () => {
     const { card } = await open({ files: { 7: FILES } });
 
@@ -141,7 +141,7 @@ describe("058 E: reading the card", () => {
   });
 });
 
-describe("058 E: removing a file", () => {
+describe("061 E: removing a file", () => {
   it("given a file, when « Retirer » is clicked, then the confirmation shows on the spot and nothing is sent; « Annuler » goes back", async () => {
     const { card, deletes } = await open({ files: { 7: FILES } });
     await card.findByRole("link", { name: "exemple.csv" });
@@ -184,7 +184,7 @@ describe("058 E: removing a file", () => {
   });
 });
 
-describe("058 E: adding files", () => {
+describe("061 E: adding files", () => {
   it("given the card, when « + Ajouter » is clicked, then it opens the file picker of a multiple input", async () => {
     const { card } = await open();
     const click = vi.spyOn(HTMLInputElement.prototype, "click");
@@ -248,7 +248,7 @@ describe("058 E: adding files", () => {
   });
 });
 
-describe("058 E (review): the projects list, read to know whether the project is archived", () => {
+describe("061 E (review): the projects list, read to know whether the project is archived", () => {
   it("given GET /api/projects still pending, when the page loads, then it says « Chargement… » and offers no « + Ajouter » yet", async () => {
     stubTicketApi([ticket(7, "Ajouter la recherche")]);
     layerFiles({ projects: "pending" });
@@ -286,7 +286,7 @@ describe("058 E (review): the projects list, read to know whether the project is
   });
 });
 
-describe("058 J: never HTML", () => {
+describe("061 J: never HTML", () => {
   it("given a name that looks like markup, when the card is read, then it is text: no element is created from it", async () => {
     const evil = "<img src=x onerror=alert(1)>.txt";
     const { card } = await open({

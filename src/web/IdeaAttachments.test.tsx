@@ -11,7 +11,7 @@ import { fileOf, layerFiles } from "./test-attachments.tsx";
 import { renderAt } from "./test-tickets.tsx";
 import { stubBar } from "./test-tickets-full.tsx";
 
-// Slice 11.4, decision 058 F (S09): « + Pièce jointe » in the panel of the idea.
+// Slice 11.4, decision 061 F (S09): « + Pièce jointe » in the panel of the idea.
 //
 // Pinned choices (the decision leaves them open):
 // - The panel (role dialog « Noter une idée ») gets a button « + Pièce jointe » and holds one <input type="file" multiple>; the button clicks it.
@@ -75,7 +75,7 @@ const start = (options: Parameters<typeof layerFiles>[0] = {}) => {
   return { ...api, ...files };
 };
 
-describe("058 F: choosing files", () => {
+describe("061 F: choosing files", () => {
   it("given the panel, when it opens, then it has « + Pièce jointe » and a multiple file input, and the button opens the picker", async () => {
     start();
     await open();
@@ -175,7 +175,7 @@ describe("058 F: choosing files", () => {
   });
 });
 
-describe("058 F: Noter", () => {
+describe("061 F: Noter", () => {
   it("given two chips, when « Noter » is clicked, then the ticket is created, then each file is POSTed to the new ticket in order as the field file, the panel closes and the idea is said noted", async () => {
     const api = start();
     await open("Exporter");
@@ -254,7 +254,7 @@ describe("058 F: Noter", () => {
   });
 });
 
-describe("058 F: Annuler", () => {
+describe("061 F: Annuler", () => {
   it("given chips, when « Annuler » is clicked and the panel opened again, then the chips are still in the draft", async () => {
     const api = start();
     await open();

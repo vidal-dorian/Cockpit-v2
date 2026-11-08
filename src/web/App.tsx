@@ -10,6 +10,8 @@ import {
 } from "react-router";
 import { Autoriser } from "./Autoriser.tsx";
 import { client } from "./api.ts";
+import { Claude } from "./Claude.tsx";
+import { Cost } from "./Cost.tsx";
 import { HomePage } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
 import { IssueImport } from "./IssueImport.tsx";
@@ -253,7 +255,9 @@ function Shell() {
               }
             />
             <Route path="/runs/:id" element={<RunPage />} />
+            <Route path="/claude" element={<Claude />} />
             <Route path="/claude/taches" element={<Taches />} />
+            <Route path="/claude/cout" element={<Cost />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/reglages" element={<Settings tab="claude" />} />
             <Route

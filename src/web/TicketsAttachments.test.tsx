@@ -5,7 +5,7 @@ import { fakeFile, layerFiles, withCount } from "./test-attachments.tsx";
 import { renderAt } from "./test-tickets.tsx";
 import { rich, stubTab } from "./test-tickets-full.tsx";
 
-// Slice 11.4, decision 058 G (S14): attachments on the Tickets tab.
+// Slice 11.4, decision 061 G (S14): attachments on the Tickets tab.
 //
 // Pinned choices (the decision leaves them open):
 // - GET /api/projects/:id/tickets gives each ticket `attachmentsCount` (a number; a missing one counts as 0).
@@ -34,7 +34,7 @@ const rowOf = async (title: string) =>
     "li",
   ) as HTMLElement;
 
-describe("058 G: the count on a row", () => {
+describe("061 G: the count on a row", () => {
   it("given tickets with 1, 3 and no attachments, when the tab loads, then the rows read « 📎 1 », « 📎 3 » and nothing", async () => {
     stubTab([A, B, C]);
     layerFiles();
@@ -57,7 +57,7 @@ describe("058 G: the count on a row", () => {
   });
 });
 
-describe("058 G: the panel", () => {
+describe("061 G: the panel", () => {
   it("given a ticket with three attachments, when its row is clicked, then the panel lists them by name under « Pièces jointes »", async () => {
     stubTab([A, B, C]);
     layerFiles({ files: FILES });

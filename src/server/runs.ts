@@ -7,6 +7,7 @@ import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
   cloudLaunches,
+  history,
   questions,
   runSteps,
   runs,
@@ -16,6 +17,8 @@ import { publish, subscribe } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
 import { isDatabaseId } from "./projects.ts";
+import { queueAfterRun } from "./queue.ts";
+import type { Fire } from "./routines.ts";
 import {
   changeStory,
   memberStory,
@@ -383,7 +386,12 @@ export const storyRuns = (db: Db, storyId: number) =>
     .where(eq(runs.storyId, storyId))
     .orderBy(desc(runs.id));
 
-export function runRoutes(db: Db, readGitHub: ReadGitHub) {
+export function runRoutes(
+  db: Db,
+  readGitHub: ReadGitHub,
+  deps: Fire,
+  now: () => number,
+) {
   /** The human controls of a running run (decision 037 A, B): one `act`, then the members and the issue are told. */
   const control =
     (action: "request_stop" | "close_run") => async (c: Context) => {
@@ -438,6 +446,8 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         );
         if (moved) await syncIssue(db, readGitHub, user.userId, found.story.id);
         await announce(db, found, id);
+        if (action === "close_run")
+          await queueAfterRun(db, deps, id, new Date(now()));
         return c.json({ run: { id, status, stopRequestedAt } });
       } catch (error) {
         if (!(error instanceof Refused)) throw error;
@@ -471,9 +481,23 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         .where(eq(runSteps.runId, run.id))
         .orderBy(asc(runSteps.id));
       const [launch] = await db
-        .select({ sessionUrl: cloudLaunches.sessionUrl })
+        .select({
+          sessionUrl: cloudLaunches.sessionUrl,
+          costUsd: cloudLaunches.costUsd,
+        })
         .from(cloudLaunches)
         .where(eq(cloudLaunches.runId, run.id));
+      const [stop] = await db
+        .select({ detail: history.detail })
+        .from(history)
+        .where(
+          and(
+            eq(history.runId, run.id),
+            eq(history.action, "request_stop"),
+            eq(history.actor, "system"),
+            eq(history.result, "ok"),
+          ),
+        );
       const asked = await db
         .select({
           id: questions.id,
@@ -514,6 +538,9 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
           finishedAt: run.finishedAt,
         },
         cloud: launch ? { sessionUrl: launch.sessionUrl } : null,
+        // A local run has no cost (decision 060 B); 0 is a cloud run no point reached yet, which the page cannot tell from none.
+        costUsd: launch && launch.costUsd > 0 ? launch.costUsd : null,
+        stopReason: stop?.detail?.reason === "budget" ? "budget" : null,
         steps,
         questions: asked,
         criteria,

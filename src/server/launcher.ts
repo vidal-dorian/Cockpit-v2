@@ -1,7 +1,8 @@
-import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
+import { budgetsOf, usd } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
@@ -9,10 +10,10 @@ import {
   projectMembers,
   projects,
   routines,
-  runs,
-  userStories,
+  users,
 } from "./db/schema.ts";
 import { memberProject } from "./projects.ts";
+import { reserveStory } from "./queue.ts";
 import {
   connectBody,
   entryOf,
@@ -26,8 +27,6 @@ import {
 import { memberStory } from "./stories.ts";
 import { AGENT_NAME, MAX_TEAM_NAME } from "./team.ts";
 import { assertActive, body, noNul, refusal } from "./tickets.ts";
-
-const PENDING_MS = 15 * 60_000;
 
 /** Decision 054 B: fixed, shown by « Copier la consigne ». Only `launch_id` travels in the fired text; the rest is read from Cockpit. */
 // Generic on purpose: what to do travels in `instructions`, so later launches (routines, the night) never make the user copy a new prompt.
@@ -47,6 +46,13 @@ const launchBody = z.object({
   branch: branchName,
   team: z.string().max(MAX_TEAM_NAME).regex(AGENT_NAME).optional(),
   comment: z.string().max(10_000).refine(noNul).optional(),
+  budgetUsd: usd.optional(),
+});
+
+const budgetsBody = z.object({
+  runUsd: usd.nullable(),
+  nightUsd: usd.nullable(),
+  monthUsd: usd.nullable(),
 });
 
 /** `get_launch` (decision 054 F, 056 C): the launch of the caller, with what Claude needs to start `/dev-us` or to run the routine. Nobody else's. */
@@ -233,7 +239,12 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
           !projectIds.includes(l.projectId),
       )
       .map((l) => l.projectId);
+    const [user] = await db
+      .select({ autoRelaunch: users.autoRelaunch })
+      .from(users)
+      .where(eq(users.id, userId));
     return {
+      autoRelaunch: user?.autoRelaunch ?? false,
       connected: row !== undefined,
       needsReconnect: row?.needsReconnect ?? false,
       prompt: LAUNCHER_PROMPT,
@@ -244,6 +255,8 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
 
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/me/launcher", signed)
+    .use("/api/me/launcher/auto-relaunch", signed)
+    .use("/api/me/budgets", signed)
     .use("/api/projects/:id/launcher", signed)
     .use("/api/stories/:id/launch", signed)
     .get("/api/me/launcher", async (c) => {
@@ -266,6 +279,42 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       const userId = c.get("userId");
       await removeTask(db, cloudLaunchers, userId, "disconnect_launcher");
       return c.body(null, 204);
+    })
+    .put(
+      "/api/me/launcher/auto-relaunch",
+      body(z.object({ enabled: z.boolean() })),
+      async (c) => {
+        const userId = c.get("userId");
+        const { enabled } = c.req.valid("json");
+        await act(
+          db,
+          { ...entryOf(userId, "set_auto_relaunch"), args: { enabled } },
+          (tx) =>
+            tx
+              .update(users)
+              .set({ autoRelaunch: enabled })
+              .where(eq(users.id, userId)),
+        );
+        return c.json({ enabled });
+      },
+    )
+    .get("/api/me/budgets", async (c) =>
+      c.json(await budgetsOf(db, c.get("userId"))),
+    )
+    .put("/api/me/budgets", body(budgetsBody), async (c) => {
+      const userId = c.get("userId");
+      const { runUsd, nightUsd, monthUsd } = c.req.valid("json");
+      await act(db, entryOf(userId, "set_budgets"), (tx) =>
+        tx
+          .update(users)
+          .set({
+            budgetRunUsd: runUsd,
+            budgetNightUsd: nightUsd,
+            budgetMonthUsd: monthUsd,
+          })
+          .where(eq(users.id, userId)),
+      );
+      return c.json({ runUsd, nightUsd, monthUsd });
     })
     .put(
       "/api/projects/:id/launcher",
@@ -311,7 +360,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       const found = await memberStory(db, userId, Number(c.req.param("id")));
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
-      const { branch, team, comment } = c.req.valid("json");
+      const { branch, team, comment, budgetUsd } = c.req.valid("json");
       const entry = {
         ...entryOf(userId, "launch_story"),
         userId,
@@ -327,49 +376,13 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
         entry,
         at,
         [project.id],
-        async (tx) => {
-          const [locked] = await tx
-            .select()
-            .from(userStories)
-            .where(eq(userStories.id, story.id))
-            .for("update");
-          if (!locked) throw new Refused("not_found");
-          if (!["ready", "in_review"].includes(locked.status))
-            throw new Refused("wrong_status");
-          const [running] = await tx
-            .select({ id: runs.id })
-            .from(runs)
-            .where(and(eq(runs.storyId, story.id), eq(runs.status, "running")));
-          if (running) throw new Refused("run_active");
-          if (locked.branch && locked.branch !== branch)
-            throw new Refused("branch_mismatch");
-          const [pending] = await tx
-            .select({ id: cloudLaunches.id })
-            .from(cloudLaunches)
-            .where(
-              and(
-                eq(cloudLaunches.storyId, story.id),
-                gt(
-                  cloudLaunches.createdAt,
-                  new Date(at.getTime() - PENDING_MS),
-                ),
-                isNull(cloudLaunches.runId),
-                isNull(cloudLaunches.reason),
-                or(
-                  isNull(cloudLaunches.result),
-                  eq(cloudLaunches.result, "ok"),
-                ),
-              ),
-            );
-          if (pending) throw new Refused("launch_pending");
-          return {
-            projectId: project.id,
-            storyId: story.id,
+        (tx) =>
+          reserveStory(tx, at, story.id, project.id, {
             branch,
             team,
             comment,
-          };
-        },
+            budgetUsd,
+          }),
       );
       return "error" in launched
         ? c.json({ error: launched.error }, launched.status)

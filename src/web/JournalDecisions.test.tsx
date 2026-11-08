@@ -35,6 +35,8 @@ const ACTIONS: [string, string, string, RegExp][] = [
   ["abandon_ticket", "human", "ui", /abandon/i],
   ["update_story", "human", "ui", /modifi/i],
   ["update_user_story", "claude", "mcp", /\S/],
+  ["set_auto_relaunch", "human", "ui", /relance/i],
+  ["set_budgets", "human", "ui", /plafond/i],
 ];
 
 describe("criterion 13: the Journal and the decisions", () => {

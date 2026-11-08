@@ -20,7 +20,7 @@ export type Idea = {
   descriptionMd: string;
   priority: keyof typeof PRIORITIES;
   tags: string[];
-  /** The files to attach once the ticket exists (decision 058 F). */
+  /** The files to attach once the ticket exists (decision 061 F). */
   files: File[];
 };
 

@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { expect } from "vitest";
 import type { App, TestDb } from "./test-mcp.ts";
 
-// Shared by the acceptance tests of slice 11.4 (decision 058): tiny files with real magic bytes, the multipart upload
+// Shared by the acceptance tests of slice 11.4 (decision 061): tiny files with real magic bytes, the multipart upload
 // over app.request(), and raw SQL on `attachments` (so no test depends on the Drizzle export of the table).
 
 export const MIB = 1024 * 1024;

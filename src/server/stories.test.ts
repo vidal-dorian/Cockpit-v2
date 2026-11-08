@@ -1409,7 +1409,7 @@ describe("criterion 6: list_tickets_needing_us", () => {
 
     const data = await list(w);
 
-    // Decision 058 H adds attachments_count.
+    // Decision 061 H adds attachments_count.
     expect(data.tickets).toEqual([
       {
         id: w.t.needsA,

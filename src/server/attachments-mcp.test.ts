@@ -15,7 +15,7 @@ import {
 } from "./test-mcp.ts";
 import { makeTicket } from "./test-tickets.ts";
 
-// Slice 11.4, decision 058 H: what Claude sees of the attachments.
+// Slice 11.4, decision 061 H: what Claude sees of the attachments.
 //
 // Pinned choices (the decision leaves them open):
 // - `get_ticket` adds `attachments: [{ id, name, media_type, size }]` (exactly those four keys, oldest first, [] without), `list_tickets_needing_us` adds `attachments_count` to each ticket (a number).
@@ -56,7 +56,7 @@ const read = async (
 const SCANNED =
   "Ce PDF ne contient pas de texte lisible (probablement scanné).";
 
-describe("058 H: get_ticket and list_tickets_needing_us", () => {
+describe("061 H: get_ticket and list_tickets_needing_us", () => {
   it("given a ticket with two attachments, when get_ticket is called, then attachments lists id, name, media_type and size", async () => {
     const ctx = await ctxOf();
     const a = await attach(ctx.app, ctx.cookie, ctx.ticketId, {
@@ -140,7 +140,7 @@ describe("058 H: get_ticket and list_tickets_needing_us", () => {
   });
 });
 
-describe("058 H: get_attachment", () => {
+describe("061 H: get_attachment", () => {
   it("given an image, when get_attachment is called, then the result is an MCP image with the base64 bytes and the media type", async () => {
     const ctx = await ctxOf();
     const { id } = await attach(ctx.app, ctx.cookie, ctx.ticketId, {
@@ -317,7 +317,7 @@ describe("058 H: get_attachment", () => {
   });
 });
 
-describe("058 H: tools/list", () => {
+describe("061 H: tools/list", () => {
   it("given a token, when tools/list is posted, then get_attachment is there, requires attachment_id and its description warns about the 100,000 characters cut", async () => {
     const { app, alice } = await withProject();
 

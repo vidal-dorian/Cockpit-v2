@@ -11,10 +11,10 @@ import {
 import { withProject } from "./test-mcp.ts";
 import { makeTicket, postTicket } from "./test-tickets.ts";
 
-// Slice 11.4, decision 058 A, B, C: the limits. A « Mo » is a mebibyte here (5 * 1024 * 1024 and 20 * 1024 * 1024 bytes).
+// Slice 11.4, decision 061 A, B, C: the limits. A « Mo » is a mebibyte here (5 * 1024 * 1024 and 20 * 1024 * 1024 bytes).
 //
 // Pinned choices (the decision leaves them open):
-// - An image of 3.75 MiB (3 932 160 bytes: 5 MB once base64-encoded for Claude, decision 058 B after review) is accepted, one byte more is 400 too_large. A PDF or a text of 20 MiB is accepted, one byte more is 400 too_large.
+// - An image of 3.75 MiB (3 932 160 bytes: 5 MB once base64-encoded for Claude, decision 061 B after review) is accepted, one byte more is 400 too_large. A PDF or a text of 20 MiB is accepted, one byte more is 400 too_large.
 //   An image over 3.75 MiB is refused even though it is under 20 MiB.
 // - A file just over its limit still fits the body limit of the route (20 MiB plus the envelope of the form), so it reaches the check and is a 400 too_large, not a 413.
 //   A body far over the limit (25 MiB of file) is stopped by the route's body limit: 413. The JSON routes keep their 256 KiB (413 above).
@@ -35,7 +35,7 @@ const note = (ctx: Ctx, n: number) =>
     bytes: `note ${n}`,
   });
 
-describe("058 B: the sizes", () => {
+describe("061 B: the sizes", () => {
   it("given an image of exactly 3.75 MiB (3 932 160 bytes), when it is uploaded, then it is accepted", async () => {
     const { app, db, cookie, ticketId } = await ctxOf();
 
@@ -101,7 +101,7 @@ describe("058 B: the sizes", () => {
   });
 });
 
-describe("058 C: the body limit of the route", () => {
+describe("061 C: the body limit of the route", () => {
   it("given a text of exactly 20 MiB, when it is uploaded, then it is accepted whole, while a JSON route still refuses a body over 256 KiB", async () => {
     const { app, db, cookie, projectId, ticketId } = await ctxOf();
 
@@ -135,7 +135,7 @@ describe("058 C: the body limit of the route", () => {
   });
 });
 
-describe("058 A: at most 20 attachments per ticket", () => {
+describe("061 A: at most 20 attachments per ticket", () => {
   it("given a ticket with 20 attachments, when a 21st is uploaded, then 400 too_many and the 20 stay", async () => {
     const ctx = await ctxOf();
     for (let n = 1; n <= 20; n++)

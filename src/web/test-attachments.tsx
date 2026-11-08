@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { type RichTicket, rich } from "./test-tickets-full.tsx";
 
-// Shared by the acceptance tests of slice 11.4 (decision 058): the attachments routes over the fake of the tickets.
+// Shared by the acceptance tests of slice 11.4 (decision 061): the attachments routes over the fake of the tickets.
 //
 // Pinned (the server tests pin the same shapes): GET /api/tickets/:id/attachments -> { attachments: [{ id, name, mediaType, size, createdAt }] };
 // POST /api/tickets/:id/attachments (multipart, field `file`) -> 201 { attachment } or 400 { error: <code> };

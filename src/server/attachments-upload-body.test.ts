@@ -3,7 +3,7 @@ import { MIB, multipart, PNG } from "./test-attachments.ts";
 import { withProject } from "./test-mcp.ts";
 import { makeTicket } from "./test-tickets.ts";
 
-// Slice 11.4, decision 058 C, review finding B2: the body of an upload is not read before the request is judged.
+// Slice 11.4, decision 061 C, review finding B2: the body of an upload is not read before the request is judged.
 //
 // Pinned choices (the decision leaves them open):
 // - POST /api/tickets/:id/attachments without a Content-Length (a chunked body) is 411 { error: "Length required" } for ANY such request, with or without a session,
@@ -44,7 +44,7 @@ const post = (
   });
 const MULTIPART = "multipart/form-data; boundary=x";
 
-describe("058 C (B2): the upload body", () => {
+describe("061 C (B2): the upload body", () => {
   it("given a chunked upload with a session, when it is posted, then 411 and the body is not read", async () => {
     const { app, alice, ticketId } = await ctxOf();
     const { state, body } = stream(400);

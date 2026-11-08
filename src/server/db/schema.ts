@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   customType,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -25,6 +26,20 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   // Set by an administrator (decision 012 G): a blocked account cannot log in. Null when active.
   blockedAt: timestamp("blocked_at", { withTimezone: true, mode: "date" }),
+  // The queue of stories to launch is paused (decision 058 E); the reason is a closed value, null after « Reprendre ».
+  queuePausedAt: timestamp("queue_paused_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  queuePausedReason: text("queue_paused_reason", {
+    enum: ["launch_failed", "run_failed", "no_session"],
+  }),
+  // Cockpit relaunches Claude when the CI of a PR fails (decision 059 A).
+  autoRelaunch: boolean("auto_relaunch").notNull().default(false),
+  // The caps in dollars, all optional (decision 060 C).
+  budgetRunUsd: doublePrecision("budget_run_usd"),
+  budgetNightUsd: doublePrecision("budget_night_usd"),
+  budgetMonthUsd: doublePrecision("budget_month_usd"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -269,7 +284,7 @@ const bytea = customType<{ data: Buffer; driverData: Uint8Array }>({
   fromDriver: (value) => (Buffer.isBuffer(value) ? value : Buffer.from(value)),
 });
 
-// Decision 058 A: the files of a ticket, stored next to it. Listing never selects `content`.
+// Decision 061 A: the files of a ticket, stored next to it. Listing never selects `content`.
 export const attachments = pgTable("attachments", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   ticketId: integer("ticket_id")
@@ -341,6 +356,8 @@ export const userStories = pgTable(
     // The paths of a takeover PR outside the tests, 20 at most, and their total (decision 050 E): null until read.
     prAppFiles: text("pr_app_files").array(),
     prAppFilesCount: integer("pr_app_files_count"),
+    // The automatic relaunches in a row since the CI last was not failing (decision 059 D).
+    relaunchCount: integer("relaunch_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -458,6 +475,14 @@ export const cloudLaunches = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     outcome: text("outcome", { enum: ["succeeded", "failed"] }),
     summary: text("summary"),
+    // Launched by the queue, not by hand (decision 058 C).
+    fromQueue: boolean("from_queue").notNull().default(false),
+    // Launched by the automatic relaunch after a failed CI (decision 059 C).
+    relaunch: boolean("relaunch").notNull().default(false),
+    // What Claude Code reported through OpenTelemetry, and the cap that stops the run (decision 060 B, D).
+    costUsd: doublePrecision("cost_usd").notNull().default(0),
+    tokens: bigint("tokens", { mode: "number" }).notNull().default(0),
+    budgetUsd: doublePrecision("budget_usd"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -469,6 +494,22 @@ export const cloudLaunches = pgTable(
     ),
   ],
 );
+
+/** The stories a user queued to launch one after the other (decision 058 A); a story is queued once. */
+export const queueItems = pgTable("queue_items", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  storyId: integer("story_id")
+    .notNull()
+    .unique()
+    .references(() => userStories.id),
+  position: integer("position").notNull(),
+  addedAt: timestamp("added_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
 
 /** A question Claude asks during a run (decision 036 A); one unanswered question per run at most. */
 export const questions = pgTable(

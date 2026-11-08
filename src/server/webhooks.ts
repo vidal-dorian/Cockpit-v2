@@ -19,6 +19,7 @@ import { type ReadInstance, WEBHOOK_PATH } from "./instance.ts";
 import { renderStory } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
+import type { Fire } from "./routines.ts";
 import { memberStory, storyParts } from "./stories.ts";
 
 // GitHub's own limit on a delivery; the 256 KiB of the other /api/* routes does not apply here (decision 024 A).
@@ -47,7 +48,8 @@ async function projectOfRepo(db: Db | Tx, repoId: number | null) {
 }
 
 type Delivery = typeof webhookDeliveries.$inferSelect;
-type Deps = { readInstance: ReadInstance };
+// `fire` lets a failed CI relaunch Claude (decision 059); without it, none does.
+type Deps = { readInstance: ReadInstance; fire?: Fire };
 
 const issueEdited = z.object({
   repository: z.object({ id: z.number() }),
@@ -138,6 +140,7 @@ async function handlePullRequest(
   db: Db,
   readGitHub: ReturnType<typeof githubReader>,
   delivery: Delivery,
+  fire?: Fire,
 ) {
   const parsed = pullNumbers.safeParse(delivery.payload);
   const numbers = parsed.success
@@ -162,7 +165,14 @@ async function handlePullRequest(
       );
     const found = story && (await memberStory(db, project.userId, story.id));
     if (found)
-      await followPullRequest(db, readGitHub, found, project.userId, "webhook");
+      await followPullRequest(
+        db,
+        readGitHub,
+        found,
+        project.userId,
+        "webhook",
+        fire,
+      );
   }
 }
 
@@ -224,7 +234,7 @@ export async function processDeliveries(db: Db, deps: Deps) {
         if (delivery.event === "issues" && delivery.action === "edited")
           await handleIssueEdited(db, deps, delivery);
         else if (PULL_EVENTS.includes(delivery.event))
-          await handlePullRequest(db, readGitHub, delivery);
+          await handlePullRequest(db, readGitHub, delivery, deps.fire);
         else if (isAlertEvent(delivery.event))
           await receiveAlert(db, readGitHub, delivery);
         await db
@@ -249,7 +259,7 @@ export function scheduleDeliveries(db: Db, deps: Deps): NodeJS.Timeout {
 }
 
 /** Receives GitHub's deliveries: verified on the raw bytes, then recorded with their history entry; the processing starts after the answer (decisions 024 and 025). */
-export function webhookRoutes(db: Db, readInstance: ReadInstance) {
+export function webhookRoutes(db: Db, readInstance: ReadInstance, fire: Fire) {
   return new Hono().post(
     WEBHOOK_PATH,
     bodyLimit({ maxSize: MAX_BODY }),
@@ -335,7 +345,7 @@ export function webhookRoutes(db: Db, readInstance: ReadInstance) {
         });
       });
       // Not awaited: the answer does not wait for the processing, which never throws.
-      void processDeliveries(db, { readInstance });
+      void processDeliveries(db, { readInstance, fire });
       return c.body(null, 202);
     },
   );

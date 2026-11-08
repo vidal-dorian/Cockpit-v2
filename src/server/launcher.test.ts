@@ -79,6 +79,7 @@ describe("criterion 1: the launcher of the user (C)", () => {
     expect(put.status).toBe(200);
     const got = await readLauncher(ctx);
     expect(got).toEqual({
+      autoRelaunch: false,
       connected: true,
       needsReconnect: false,
       prompt: expect.any(String),

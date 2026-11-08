@@ -21,7 +21,7 @@ import {
 } from "./test-mcp.ts";
 import { getTicket, listTickets, makeTicket } from "./test-tickets.ts";
 
-// Slice 11.4, decision 058 A, C, D: reading, deleting and listing attachments, who may, what the history keeps.
+// Slice 11.4, decision 061 A, C, D: reading, deleting and listing attachments, who may, what the history keeps.
 //
 // Pinned choices (the decision leaves them open):
 // - GET /api/attachments/:id answers 200 with the stored bytes, `Content-Type` starting with the stored media type (a charset may follow),
@@ -43,7 +43,7 @@ const ctxOf = async () => {
 const NOT_FOUND = { error: "Not found" };
 const SECRET_NAME = "salaire-de-marie-dupont.txt";
 
-describe("058 C: GET the file", () => {
+describe("061 C: GET the file", () => {
   it("given a PDF, when it is read, then the bytes come back with the stored type, an attachment disposition with an encoded filename*, nosniff and a sandbox policy", async () => {
     const { app, cookie, ticketId } = await ctxOf();
     const bytes = pdf("Bonjour");
@@ -103,7 +103,7 @@ describe("058 C: GET the file", () => {
   });
 });
 
-describe("058 C: DELETE and the list", () => {
+describe("061 C: DELETE and the list", () => {
   it("given an attachment, when it is deleted, then 204, the row is gone and the file is not served any more", async () => {
     const { app, db, cookie, ticketId } = await ctxOf();
     const { id } = await attach(app, cookie, ticketId, {
@@ -197,7 +197,7 @@ describe("058 C: DELETE and the list", () => {
   });
 });
 
-describe("058 C: members only", () => {
+describe("061 C: members only", () => {
   it("given no session, when each route is called, then 401", async () => {
     const { app, cookie, ticketId } = await ctxOf();
     const { id } = await attach(app, cookie, ticketId, {
@@ -257,7 +257,7 @@ describe("058 C: members only", () => {
   });
 });
 
-describe("058 C (014 D): an archived project", () => {
+describe("061 C (014 D): an archived project", () => {
   it("given an archived project, when a file is added or deleted, then 409 project_archived and nothing changes; reading still works", async () => {
     const { app, db, cookie, projectId, ticketId } = await ctxOf();
     const { id } = await attach(app, cookie, ticketId, {
@@ -283,7 +283,7 @@ describe("058 C (014 D): an archived project", () => {
   });
 });
 
-describe("058 D: the history", () => {
+describe("061 D: the history", () => {
   it("given an upload and a deletion, when the history is read, then add_attachment and delete_attachment carry ids only and the columns project_id and ticket_id", async () => {
     const { app, db, cookie, projectId, ticketId } = await ctxOf();
     const { id } = await attach(app, cookie, ticketId, {

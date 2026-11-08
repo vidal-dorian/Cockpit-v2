@@ -149,6 +149,12 @@ Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : l
 
 La page « Claude » → « Tâches programmées » (`/claude/taches`) ajoute tes propres routines par le même lanceur : un nom, une consigne (texte libre ou skill), des agents, des projets cochés dans le lanceur et un planning (à la demande, chaque jour, chaque semaine). Tu peux les lancer tout de suite, les mettre en pause ou les supprimer, et le panneau montre le résultat du dernier passage. Claude ne peut ni créer ni modifier une routine. Décision [056](docs/decisions/056-routines.md).
 
+La page « Claude » (`/claude`) montre ce que Claude fait : tes questions en attente, les runs en cours, ceux finis aujourd'hui. Sur une US prête, « Mettre en file » (à côté de « Lancer dans le cloud ») l'ajoute à la file d'attente : Cockpit lance les US une par une, saute celles qui ne sont pas prêtes ou qui attendent une dépendance, et met la file en pause si un lancement échoue (« Reprendre » la relance). Décision [058](docs/decisions/058-file-d-attente.md).
+
+Sur la carte « Lanceur Cockpit », la case « Relancer Claude quand la CI d'une PR échoue » (décochée par défaut) relance Claude sur la même branche quand la CI d'une PR passe au rouge, 3 fois d'affilée au plus ; ensuite l'accueil affiche « Relances épuisées ». Décision [059](docs/decisions/059-relance-automatique.md).
+
+La page « Claude » → « Coût » (`/claude/cout`) montre ce que Claude a coûté ce mois-ci, en moyenne par run, par PR mergée et par projet, et règle trois plafonds facultatifs : par run (au plafond, Cockpit demande l'arrêt du run), par mois (au plafond, plus aucun lancement ne part) et par nuit (pour la nuit de Claude, à venir). La page d'un run affiche « Coût du run ». Le coût ne vient que des runs lancés dans le cloud : il faut mettre les variables de la ligne « Coût » de « Réglages », « Tâches cloud » dans l'environnement cloud, sinon la page dit « coût inconnu ». Décision [060](docs/decisions/060-cout-et-budget.md).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :

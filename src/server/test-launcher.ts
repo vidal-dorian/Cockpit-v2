@@ -1,4 +1,4 @@
-import type { SQL } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import { expect } from "vitest";
 import { createApp } from "./app.ts";
 import { openTestDatabase } from "./db/test-db.ts";
@@ -11,6 +11,8 @@ import {
   testAppOptions,
 } from "./test-instance.ts";
 import {
+  callTool,
+  dataOf,
   seedProject,
   seedStory,
   seedTicket,
@@ -40,7 +42,7 @@ export const answerStatus =
 
 /** Alice with a project and a ready story, a fake clock, a fake `/fire`; the launcher is not connected yet. */
 export async function setup(handler: Handler = answerOk) {
-  stubGitHub({ account: 1000 });
+  const fetchMock = stubGitHub({ account: 1000 });
   const db = await openTestDatabase();
   await configureTestInstance(db, TEST_KEY);
   const clock = { now: NOW.getTime() };
@@ -69,6 +71,7 @@ export async function setup(handler: Handler = answerOk) {
   return {
     db,
     app,
+    fetchMock,
     calls,
     clock,
     fireRoutine,
@@ -162,3 +165,245 @@ export const pass = (ctx: Ctx, at: Date) =>
   );
 export const sqlRows = async <T>(ctx: Ctx, query: SQL) =>
   ((await ctx.db.execute(query)) as unknown as { rows: T[] }).rows;
+
+// Slice 14.3 (decision 058): the queue. Pinned where the decision leaves room:
+// - the routes answer like the others: POST /api/queue 201 { storyId } (409 { error: <code> }), DELETE and PUT 200, POST /pause and
+//   /resume 200; `waiting` of an item is null or { reason: "not_ready" } or { reason: "dependency", storyId } (the awaited story).
+// - tables `queue_items(story_id, position)`, `cloud_launches.from_queue`; `queue_paused_reason` is read through GET /api/queue.
+export type QueueItem = {
+  storyId: number;
+  iWant: string;
+  projectId: number;
+  projectName: string;
+  waiting: { reason: string; storyId?: number } | null;
+};
+export const queueCall = (
+  ctx: Ctx,
+  method: string,
+  suffix = "",
+  body?: unknown,
+  cookie = ctx.alice.cookie,
+) => send(ctx.app, cookie, method, `/api/queue${suffix}`, body);
+export const readQueue = async (ctx: Ctx) =>
+  (await (await queueCall(ctx, "GET")).json()) as {
+    paused: boolean;
+    pausedReason: string | null;
+    items: QueueItem[];
+  };
+/** A story of the project's ticket, ready unless said otherwise. */
+export const readyStory = (ctx: Ctx, over: Record<string, unknown> = {}) =>
+  seedStory(ctx.db, ctx.ticketId, { status: "ready", ...over });
+/** The stories (the first is ctx.storyId, plus n - 1 new ones) put in the queue through the route, each step checked. */
+export async function queued(ctx: Ctx, n: number) {
+  const ids = [ctx.storyId];
+  while (ids.length < n) ids.push(await readyStory(ctx));
+  for (const id of ids)
+    expect(
+      (await queueCall(ctx, "POST", "", { storyId: id })).status,
+      "queueing",
+    ).toBe(201);
+  return ids;
+}
+/** The launches made so far, oldest first. */
+export const launches = (ctx: Ctx) =>
+  sqlRows<{
+    id: number;
+    story_id: number;
+    branch: string;
+    from_queue: boolean;
+  }>(
+    ctx,
+    sql`select id, story_id, branch, from_queue from cloud_launches order by id`,
+  );
+/** What Claude does in the cloud once a launch is fired: start_run with the launch_id; then, for "succeeded", a linked PR; then finish_run. */
+export async function finishLaunched(
+  ctx: Ctx,
+  outcome: "succeeded" | "failed" | null,
+) {
+  const launch = (await launches(ctx)).at(-1);
+  expect(launch, "a launch to run").toBeDefined();
+  const { id, story_id, branch } = launch as Awaited<
+    ReturnType<typeof launches>
+  >[number];
+  const { run_id } = dataOf<{ run_id: number }>(
+    await callTool(ctx.app, ctx.alice.secret, "start_run", {
+      story_id,
+      branch,
+      model: "claude-x",
+      launch_id: id,
+    }),
+  );
+  if (outcome === null) return run_id;
+  if (outcome === "succeeded") {
+    ctx.fetchMock.addPull("user1000/app", 100 + story_id, branch);
+    dataOf(
+      await callTool(ctx.app, ctx.alice.secret, "link_pull_request", {
+        run_id,
+        pr_number: 100 + story_id,
+      }),
+    );
+  }
+  dataOf(
+    await callTool(ctx.app, ctx.alice.secret, "finish_run", {
+      run_id,
+      outcome,
+      summary: "fini",
+    }),
+  );
+  return run_id;
+}
+
+// Slice 14.4 (decision 059). Pinned where the decision leaves room:
+// - GET /api/me/launcher also gives `autoRelaunch`; PUT /api/me/launcher/auto-relaunch { enabled } answers 200;
+// - columns `users.auto_relaunch`, `user_stories.relaunch_count`, `cloud_launches.relaunch`;
+// - the item of « À toi de jouer » for exhausted relaunches is { kind: "relaunch_exhausted", storyId, iWant, prNumber, project }.
+export const setAutoRelaunch = (ctx: Ctx, enabled = true) =>
+  send(ctx.app, ctx.alice.cookie, "PUT", "/api/me/launcher/auto-relaunch", {
+    enabled,
+  });
+/** The story launched, run and finished with a PR (in_review), its CI pending, the launcher ready and the setting on unless said. */
+export async function inReview(ctx: Ctx, autoRelaunch = true) {
+  if (autoRelaunch)
+    expect((await setAutoRelaunch(ctx)).status, "setting").toBe(200);
+  expect((await launch(ctx)).status, "launching").toBe(201);
+  await finishLaunched(ctx, "succeeded");
+  await setStory(ctx, "pr_ci_state = 'pending'");
+  return 100 + ctx.storyId;
+}
+export const setStory = (ctx: Ctx, assignments: string) =>
+  ctx.db.execute(
+    sql.raw(`update user_stories set ${assignments} where id = ${ctx.storyId}`),
+  );
+/** The CI of the PR now has these check runs (name, conclusion), and Alice refreshes the PR. */
+export async function refreshCi(
+  ctx: Ctx,
+  pr: number,
+  checks: [string, "success" | "failure"][],
+) {
+  ctx.fetchMock.setCheckRuns(
+    "user1000/app",
+    `sha-${pr}`,
+    checks.map(([name, conclusion]) => ({
+      name,
+      status: "completed" as const,
+      conclusion,
+    })),
+  );
+  const res = await send(
+    ctx.app,
+    ctx.alice.cookie,
+    "POST",
+    `/api/stories/${ctx.storyId}/pr/refresh`,
+  );
+  expect(res.status, "refreshing the PR").toBe(200);
+}
+export const storyCounts = async (ctx: Ctx) =>
+  (
+    await sqlRows<{ relaunch_count: number }>(
+      ctx,
+      sql`select relaunch_count from user_stories where id = ${ctx.storyId}`,
+    )
+  )[0]?.relaunch_count;
+export const relaunches = (ctx: Ctx) =>
+  sqlRows<{ branch: string; comment: string; relaunch: boolean }>(
+    ctx,
+    sql`select branch, comment, relaunch from cloud_launches where relaunch order by id`,
+  );
+
+// Slice 14.5 (decision 060). Pinned where the decision leaves room:
+// - the launch of FIRE_ANSWER has the session "session_01ABCDEFGHIJ", sent by Claude Code as "cse_01ABCDEFGHIJ";
+// - columns `cloud_launches.cost_usd`, `.tokens`, `.budget_usd`; GET /api/runs/:id gives, beside `cloud`, `costUsd` (number or
+//   null) and `stopReason` ("budget" or null); GET /api/me/budgets and PUT (200, same shape) give { runUsd, nightUsd, monthUsd };
+// - a refused launch answers 409 { error: "monthly_budget_reached" }.
+export const CSE = "cse_01ABCDEFGHIJ";
+type PointOptions = {
+  name?: string;
+  temporality?: number;
+  session?: string;
+  inResource?: boolean;
+  tokens?: boolean;
+};
+/** An OTLP/HTTP JSON body with one point; `tokens` makes it an integer point of claude_code.token.usage. */
+export const otlp = (value: number, o: PointOptions = {}) => {
+  const attribute = {
+    key: "ccr.session.id",
+    value: { stringValue: o.session ?? CSE },
+  };
+  return {
+    resourceMetrics: [
+      {
+        resource: { attributes: o.inResource ? [attribute] : [] },
+        scopeMetrics: [
+          {
+            metrics: [
+              {
+                name:
+                  o.name ??
+                  (o.tokens
+                    ? "claude_code.token.usage"
+                    : "claude_code.cost.usage"),
+                unit: o.tokens ? "tokens" : "USD",
+                sum: {
+                  aggregationTemporality: o.temporality ?? 1,
+                  dataPoints: [
+                    {
+                      ...(o.tokens
+                        ? { asInt: String(value) }
+                        : { asDouble: value }),
+                      attributes: o.inResource ? [] : [attribute],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+};
+export const postMetrics = (
+  ctx: Ctx,
+  body: unknown,
+  contentType = "application/json",
+) =>
+  ctx.app.request("/v1/metrics", {
+    method: "POST",
+    headers: { "content-type": contentType },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+/** Claude Code reports a point, the answer checked. */
+export async function pay(ctx: Ctx, value: number, o: PointOptions = {}) {
+  const res = await postMetrics(ctx, otlp(value, o));
+  expect(res.status, "receiving a point").toBe(200);
+}
+/** The last launch's cost, tokens and cap. */
+export async function costOf(ctx: Ctx) {
+  const [row] = await sqlRows<{
+    cost_usd: string | number | null;
+    tokens: string | number | null;
+    budget_usd: string | number | null;
+  }>(
+    ctx,
+    sql`select cost_usd, tokens, budget_usd from cloud_launches order by id desc limit 1`,
+  );
+  return {
+    cost: Number(row?.cost_usd ?? 0),
+    tokens: Number(row?.tokens ?? 0),
+    budget: row?.budget_usd == null ? null : Number(row.budget_usd),
+  };
+}
+export const setBudgets = (
+  ctx: Ctx,
+  body: {
+    runUsd?: number | null;
+    nightUsd?: number | null;
+    monthUsd?: number | null;
+  },
+) =>
+  send(ctx.app, ctx.alice.cookie, "PUT", "/api/me/budgets", {
+    runUsd: null,
+    nightUsd: null,
+    monthUsd: null,
+    ...body,
+  });
