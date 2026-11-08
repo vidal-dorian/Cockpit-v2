@@ -10,7 +10,6 @@ import { memberStory } from "./stories.ts";
 
 // Decision 062 (slice 11.5): what the project delivered, read live from GitHub, and the branches of merged stories to clean.
 
-const RELEASES_MAX = 100;
 type Pull = { number: number; title: string; mergedAt: number };
 type Group = {
   kind: "unreleased" | "release" | "day" | "older";
@@ -37,6 +36,7 @@ const line = (pull: Pull, storyId: number | null) => {
 function group(
   pulls: Pull[],
   releases: { tag: string; name: string; publishedAt: number }[],
+  moreReleases: boolean,
   storyOf: (number: number) => number | null,
 ) {
   const groups = new Map<string, Group>();
@@ -49,7 +49,7 @@ function group(
     const day = new Date(pull.mergedAt).toISOString().slice(0, 10);
     // With 100 releases the list may be cut: a PR merged before the oldest one read may belong to an older release that was not read, so it is not placed under any.
     const cut =
-      releases.length >= RELEASES_MAX &&
+      moreReleases &&
       oldestFirst[0] !== undefined &&
       pull.mergedAt < oldestFirst[0].publishedAt;
     const [key, made]: [string, Group] =
@@ -124,9 +124,14 @@ export function changelogRoutes(db: Db, readGitHub: ReadGitHub) {
           title: p.title,
           mergedAt: Date.parse(p.merged_at as string),
         }));
-        const releases = (
-          await github.listReleases(project.installationId, project.fullName)
-        ).map((r) => ({ ...r, publishedAt: Date.parse(r.publishedAt) }));
+        const read = await github.listReleases(
+          project.installationId,
+          project.fullName,
+        );
+        const releases = read.releases.map((r) => ({
+          ...r,
+          publishedAt: Date.parse(r.publishedAt),
+        }));
         const mergedNumbers = new Set(pulls.map((p) => p.number));
         const toClean = stories.filter(
           (s) =>
@@ -149,7 +154,12 @@ export function changelogRoutes(db: Db, readGitHub: ReadGitHub) {
         const storyOf = new Map(stories.map((s) => [s.prNumber, s.id]));
         return c.json({
           repo: project.fullName,
-          groups: group(pulls, releases, (n) => storyOf.get(n) ?? null),
+          groups: group(
+            pulls,
+            releases,
+            read.cut,
+            (n) => storyOf.get(n) ?? null,
+          ),
           branches: toClean
             .filter((s) => onGitHub.has(s.branch as string))
             .map((s) => ({

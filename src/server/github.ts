@@ -1004,7 +1004,7 @@ export function githubClient(config: GitHubAppConfig) {
       return found.filter((p) => p.merged_at !== null);
     },
 
-    /** The published releases of the repo, drafts left out, 100 at most (decision 062 A). */
+    /** The published releases of the repo, drafts left out, 100 at most (decision 062 A); `cut` when GitHub sent a full page, drafts counted: older releases may exist. */
     async listReleases(installationId: number, fullName: string) {
       const [owner, repo] = fullName.split("/") as [string, string];
       const octokit = await app.getInstallationOctokit(installationId);
@@ -1012,7 +1012,8 @@ export function githubClient(config: GitHubAppConfig) {
         "GET /repos/{owner}/{repo}/releases",
         { owner, repo, per_page: PAGE_SIZE },
       );
-      return releasesSchema.parse(data).flatMap((r) =>
+      const all = releasesSchema.parse(data);
+      const releases = all.flatMap((r) =>
         r.draft || !r.published_at
           ? []
           : [
@@ -1023,6 +1024,7 @@ export function githubClient(config: GitHubAppConfig) {
               },
             ],
       );
+      return { releases, cut: all.length >= PAGE_SIZE };
     },
 
     /** The branches of the repo with the commit each points at, 100 per page, 10 pages at most (decision 062 D). */

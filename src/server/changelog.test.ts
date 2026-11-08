@@ -368,6 +368,24 @@ describe("review: more cases of the changelog", () => {
     expect(groups[1]).toMatchObject({ name: null, date: null });
   });
 
+  // Review of 11.5: a draft (release-drafter keeps one) fills the page GitHub sends, so 99 published releases can still mean more exist.
+  it("given 99 published releases and 1 draft (a full page from GitHub), when a PR was merged before the oldest published one, then it is in « older »", async () => {
+    const ctx = await changelogCtx();
+    release(ctx, {
+      tag: "next",
+      draft: true,
+      publishedAt: "2026-11-01T00:00:00Z",
+    });
+    for (let i = 98; i >= 0; i--)
+      release(ctx, {
+        tag: `v${i}`,
+        publishedAt: new Date(Date.UTC(2026, 6, 1 + i, 12)).toISOString(),
+      });
+    merged(ctx, 1, "feat: ancient", "2026-06-15T10:00:00Z");
+
+    expect((await read(ctx)).groups.map((g) => g.kind)).toEqual(["older"]);
+  });
+
   it("given 99 releases (all of them are known), when a PR was merged before the oldest, then it is under the oldest release", async () => {
     const ctx = await changelogCtx();
     for (let i = 98; i >= 0; i--)
