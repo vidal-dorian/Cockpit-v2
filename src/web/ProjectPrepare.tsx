@@ -36,7 +36,13 @@ const FAILED = "Ça n'a pas marché, réessaie dans un instant.";
 export type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
 /** What went wrong, for the page: `code` is the server's, never shown; `status` is 0 when no answer came. */
-export type Failure = { code: string; status: number; settingsUrl?: string };
+export type Failure = {
+  code: string;
+  status: number;
+  settingsUrl?: string;
+  /** The path of the value a `secret_in_clear` refusal points at. */
+  at?: string;
+};
 export type Done = { url: string; pullRequest: boolean };
 
 export function message({ code, status }: Failure) {
@@ -46,13 +52,16 @@ export function message({ code, status }: Failure) {
 }
 
 export async function failure(res: Response): Promise<Failure> {
-  const body: { error?: string; appSettingsUrl?: string } | null = await res
-    .json()
-    .catch(() => null);
+  const body: {
+    error?: string;
+    appSettingsUrl?: string;
+    at?: string;
+  } | null = await res.json().catch(() => null);
   return {
     code: body?.error ?? "",
     status: res.status,
     settingsUrl: body?.appSettingsUrl,
+    at: body?.at,
   };
 }
 

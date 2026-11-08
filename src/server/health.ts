@@ -48,6 +48,35 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 // A header or env value may only point at environment variables: "${VAR}", after an optional "Bearer ".
 const ONLY_REFERENCES = /^(Bearer )?(\$\{\w+\})+$/;
 
+/** Decision 065 C: what stops `.mcp.json` from being written, or null. Every server is judged, not only Cockpit; `at` is the path of the first value that is not a reference, never the value. */
+export function mcpRefusal(
+  text: string,
+): { error: "invalid_json" } | { error: "secret_in_clear"; at: string } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { error: "invalid_json" };
+  }
+  if (!isObject(parsed)) return { error: "invalid_json" };
+  const servers = isObject(parsed.mcpServers) ? parsed.mcpServers : {};
+  for (const [name, server] of Object.entries(servers)) {
+    if (!isObject(server)) continue;
+    const at = `mcpServers.${name}`;
+    const url = typeof server.url === "string" ? URL.parse(server.url) : null;
+    if (url?.username || url?.password)
+      return { error: "secret_in_clear", at: `${at}.url` };
+    for (const key of ["headers", "env"]) {
+      const values = server[key];
+      if (!isObject(values)) continue;
+      for (const [field, value] of Object.entries(values))
+        if (typeof value !== "string" || !ONLY_REFERENCES.test(value))
+          return { error: "secret_in_clear", at: `${at}.${key}.${field}` };
+    }
+  }
+  return null;
+}
+
 function mcpDetail(mcpJson: string | null, publicUrl: string): HealthDetail {
   // Cockpit is a claude.ai connector (decision 021 H): not declaring it in .mcp.json is right, and only a declaration with a secret is wrong.
   if (mcpJson === null) return "ok";

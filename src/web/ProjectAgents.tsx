@@ -1,9 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { type AgentFields, parseAgent, writeAgent } from "./agent-file.ts";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
+import {
+  ClaudeChips,
+  FILES,
+  fetchClaudeConfig,
+  ProjectClaudeConfig,
+} from "./ProjectClaudeConfig.tsx";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
 import { ProjectTeam } from "./ProjectTeam.tsx";
 import {
@@ -303,6 +310,14 @@ export function ProjectAgents({
     queryFn: () => fetchAgents(projectId),
     retry: false,
   });
+  // Decision 065 D: the chips of what Claude reads; Agents, the tab as it was, is the one without parameter.
+  const config = useQuery({
+    queryKey: ["claude-config", projectId],
+    queryFn: () => fetchClaudeConfig(projectId),
+    retry: false,
+  });
+  const param = useSearchParams()[0].get("fichier");
+  const fichier = FILES.find((f) => f === param) ?? null;
   const [editing, setEditing] = useState<Editing | null>(null);
   const [adding, setAdding] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
@@ -394,120 +409,147 @@ export function ProjectAgents({
   const team = (list?.agents ?? []).filter(
     (a) => !ANALYSIS_AGENTS.includes(a.name),
   );
-  return (
-    // Team (graph) on the left, repo agents on the right from `lg` (decision 042 B); the agents take the full width while a form is open and the team steps aside.
-    <div className="mx-[26px] mt-4 grid gap-x-3.5 gap-y-3.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
-      {list && (
-        <ProjectTeam
+  const chips = config.data?.data && (
+    <ClaudeChips
+      projectId={projectId}
+      fichier={fichier}
+      counts={{
+        rules: config.data.data.rules.length,
+        skills: config.data.data.skills.length,
+        agents: list?.agents.length,
+      }}
+    />
+  );
+  if (fichier)
+    return (
+      <>
+        {chips}
+        <ProjectClaudeConfig
           projectId={projectId}
           fullName={fullName}
           archived={archived}
-          hidden={editing !== null}
-          agents={list.agents}
-          team={list.team ?? null}
-          teams={list.teams ?? []}
-          onSaved={reload}
-          onEditAgent={(name) => {
-            const text = list.agents.find((a) => a.name === name)?.text;
-            if (text === undefined || text === null) return;
-            setProblem(null);
-            setDone(null);
-            setAdding(false);
-            setEditing({ name, before: text, base: text });
-          }}
+          fichier={fichier}
+          config={config}
         />
-      )}
-      <section
-        className={list && !editing ? undefined : "lg:col-span-2"}
-        aria-labelledby="agents"
-      >
-        <h2 id="agents" className={editing ? "sr-only" : sectionLabel}>
-          Les agents du repo
-        </h2>
-        {agents.isPending && (
-          <p className="mt-3 text-muted-foreground">Chargement…</p>
-        )}
-        {failed && (
-          <div role="alert" className={`mt-3 ${alertBox}`}>
-            <p>{message(failed)}</p>
-          </div>
-        )}
-        {problem && (
-          <div role="alert" className={`mt-3 ${alertBox}`}>
-            <p>{message(problem)}</p>
-            {problem.settingsUrl && (
-              <a
-                href={problem.settingsUrl}
-                className={`underline ${focusRing}`}
-              >
-                Réglages de l'App sur GitHub
-              </a>
-            )}
-          </div>
-        )}
-        {done && (
-          <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
-            <p>
-              {done.pullRequest
-                ? "La branche par défaut est protégée : une pull request est ouverte"
-                : "C'est fait"}
-            </p>
-            <a href={done.url} className={`underline ${focusRing}`}>
-              {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
-            </a>
-          </div>
-        )}
-        {list && !editing && (
-          <>
-            <ul className={`mt-2 ${listCard}`}>{team.map(agentRow)}</ul>
-            <button
-              type="button"
-              disabled={archived}
-              onClick={() => {
-                setEditing(null);
-                setAdding(true);
-              }}
-              className={`mt-2 ${button}`}
-            >
-              + Nouvel agent
-            </button>
-            {adding && (
-              <AddAgent
-                taken={list.agents.map((agent) => agent.name)}
-                catalog={list.catalog}
-                onContinue={(name, base) => {
-                  setProblem(null);
-                  setDone(null);
-                  setAdding(false);
-                  setEditing({ name, before: null, base });
-                }}
-              />
-            )}
-          </>
-        )}
-        {editing && (
-          <AgentForm
-            // The text too: opening an agent again after a re-read starts from the new text, not from stale fields.
-            key={`${editing.name}\n${editing.before}`}
-            editing={editing}
+      </>
+    );
+  return (
+    <>
+      {chips}
+      {/* Team (graph) on the left, repo agents on the right from `lg` (decision 042 B); the agents take the full width while a form is open and the team steps aside. */}
+      <div className="mx-[26px] mt-4 grid gap-x-3.5 gap-y-3.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        {list && (
+          <ProjectTeam
+            projectId={projectId}
+            fullName={fullName}
             archived={archived}
-            pending={commit.isPending}
-            onClose={() => setEditing(null)}
-            onCommit={(after) => {
+            hidden={editing !== null}
+            agents={list.agents}
+            team={list.team ?? null}
+            teams={list.teams ?? []}
+            onSaved={reload}
+            onEditAgent={(name) => {
+              const text = list.agents.find((a) => a.name === name)?.text;
+              if (text === undefined || text === null) return;
               setProblem(null);
-              commit.mutate({ before: editing.before, after });
+              setDone(null);
+              setAdding(false);
+              setEditing({ name, before: text, base: text });
             }}
           />
         )}
-      </section>
-      {list && !editing && analysis.length > 0 && (
-        <section className="lg:col-span-2" aria-labelledby="analysis-agents">
-          <h2 id="analysis-agents" className={sectionLabel}>
-            Agents d'analyse
+        <section
+          className={list && !editing ? undefined : "lg:col-span-2"}
+          aria-labelledby="agents"
+        >
+          <h2 id="agents" className={editing ? "sr-only" : sectionLabel}>
+            Les agents du repo
           </h2>
-          <ul className={`mt-2 ${listCard}`}>{analysis.map(agentRow)}</ul>
+          {agents.isPending && (
+            <p className="mt-3 text-muted-foreground">Chargement…</p>
+          )}
+          {failed && (
+            <div role="alert" className={`mt-3 ${alertBox}`}>
+              <p>{message(failed)}</p>
+            </div>
+          )}
+          {problem && (
+            <div role="alert" className={`mt-3 ${alertBox}`}>
+              <p>{message(problem)}</p>
+              {problem.settingsUrl && (
+                <a
+                  href={problem.settingsUrl}
+                  className={`underline ${focusRing}`}
+                >
+                  Réglages de l'App sur GitHub
+                </a>
+              )}
+            </div>
+          )}
+          {done && (
+            <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
+              <p>
+                {done.pullRequest
+                  ? "La branche par défaut est protégée : une pull request est ouverte"
+                  : "C'est fait"}
+              </p>
+              <a href={done.url} className={`underline ${focusRing}`}>
+                {done.pullRequest ? "Voir la pull request" : "Voir le commit"}
+              </a>
+            </div>
+          )}
+          {list && !editing && (
+            <>
+              <ul className={`mt-2 ${listCard}`}>{team.map(agentRow)}</ul>
+              <button
+                type="button"
+                disabled={archived}
+                onClick={() => {
+                  setEditing(null);
+                  setAdding(true);
+                }}
+                className={`mt-2 ${button}`}
+              >
+                + Nouvel agent
+              </button>
+              {adding && (
+                <AddAgent
+                  taken={list.agents.map((agent) => agent.name)}
+                  catalog={list.catalog}
+                  onContinue={(name, base) => {
+                    setProblem(null);
+                    setDone(null);
+                    setAdding(false);
+                    setEditing({ name, before: null, base });
+                  }}
+                />
+              )}
+            </>
+          )}
+          {editing && (
+            <AgentForm
+              // The text too: opening an agent again after a re-read starts from the new text, not from stale fields.
+              key={`${editing.name}\n${editing.before}`}
+              editing={editing}
+              archived={archived}
+              pending={commit.isPending}
+              onClose={() => setEditing(null)}
+              onCommit={(after) => {
+                setProblem(null);
+                commit.mutate({ before: editing.before, after });
+              }}
+            />
+          )}
         </section>
-      )}
-    </div>
+        {list && !editing && analysis.length > 0 && (
+          <section className="lg:col-span-2" aria-labelledby="analysis-agents">
+            <h2 id="analysis-agents" className={sectionLabel}>
+              Agents d'analyse
+            </h2>
+            <ul className={`mt-2 ${listCard}`}>{analysis.map(agentRow)}</ul>
+          </section>
+        )}
+      </div>
+    </>
   );
 }

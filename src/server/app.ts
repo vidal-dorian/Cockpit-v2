@@ -70,7 +70,8 @@ const uploadHeaders: MiddlewareHandler = (c, next) => {
   return uploadBodyLimit(c, next);
 };
 const UPLOAD_PATH = /^\/api\/tickets\/[^/]+\/attachments$/;
-const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/(agents|team)\/apply$/;
+const AGENTS_APPLY_PATH =
+  /^\/api\/projects\/[^/]+\/(agents|team|claude-config)\/apply$/;
 
 export function createApp(
   db: Db,
