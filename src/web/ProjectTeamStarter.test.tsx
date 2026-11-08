@@ -400,17 +400,12 @@ describe("decision 063 F: « Repartir d'une équipe de départ »", () => {
 // - S7: choosing a level while the draft or the agent changes are unsaved shows the warning « Les changements non enregistrés seront perdus » with « Confirmer le changement » and « Annuler »
 //   (the pattern of the team switch); nothing changes before the confirmation. A level that only changes agents counts as unsaved changes for switching teams too.
 describe("decision 063 review: B1, S3, S7", () => {
-  const withReviewer = (reviewer: string): AgentFile[] =>
-    REPO_AGENTS.map((a) =>
-      a.name === "reviewer" ? { name: "reviewer", text: reviewer } : a,
-    );
-
   it.each([
-    ["Premium", "premium", 1],
-    ["Standard", "standard", 0],
+    ["Premium", "premium"],
+    ["Standard", "standard"],
   ])(
     "B1: given a team.md equal to the %s text and a reviewer changed by hand, when the level is chosen again and committed, then before === after with the agents, and C'est fait",
-    async (name, id, _n) => {
+    async (name, id) => {
       const starter = STARTERS.find(
         (t) => t.id === id,
       ) as (typeof STARTERS)[number];
@@ -520,5 +515,54 @@ describe("decision 063 review: B1, S3, S7", () => {
     expect(
       screen.getByText("Les changements non enregistrés seront perdus"),
     ).toBeDefined();
+  });
+
+  // N1 (re-review): the front matter is found with CRLF line endings too, and written back verbatim (no `$` pattern of String.replace is interpreted).
+  const commitPremium = async (agents: AgentFile[]) => {
+    const calls = stubApi({
+      agents: [
+        ...REPO_AGENTS.filter((a) => !agents.some((x) => x.name === a.name)),
+        ...agents,
+      ],
+    });
+    await openTeam();
+    startFrom("Premium");
+    await waitFor(() => expect(rowAgents()).toHaveLength(5));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Voir les changements" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Faire le commit" }));
+    await screen.findByText("C'est fait");
+    return calls;
+  };
+
+  it("S3/N1: given a CRLF agent file whose front matter already has the level's model, when Premium is committed, then it is not counted as changed", async () => {
+    const crlf = "---\r\nname: test-writer\r\nmodel: sonnet\r\n---\r\nBody\r\n";
+
+    const calls = await commitPremium([{ name: "test-writer", text: crlf }]);
+
+    expect(sentAgent(calls, "test-writer")).toBeUndefined();
+  });
+
+  it("S3/N1: given a CRLF agent file with another model, when Premium is committed, then its model line is replaced in place, with no second front matter and the rest byte-identical", async () => {
+    const crlf =
+      "---\r\nname: test-writer\r\nmodel: opus\r\n---\r\nBody\r\nmore\r\n";
+
+    const calls = await commitPremium([{ name: "test-writer", text: crlf }]);
+
+    expect(sentAgent(calls, "test-writer")?.after).toBe(
+      "---\r\nname: test-writer\r\nmodel: sonnet\r\n---\r\nBody\r\nmore\r\n",
+    );
+  });
+
+  it("S3/N1: given a front matter with $$5, $' and $& in its description, when Premium is committed, then it is written back verbatim and only the model line changes", async () => {
+    const text =
+      "---\nname: reviewer\ndescription: costs $$5, see $' here and $&\nmodel: haiku\n---\nBody $& $'\n";
+
+    const calls = await commitPremium([{ name: "reviewer", text }]);
+
+    expect(sentAgent(calls, "reviewer")?.after).toBe(
+      text.replace("model: haiku", "model: opus"),
+    );
   });
 });
