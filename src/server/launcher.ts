@@ -167,8 +167,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       needsReconnect: row?.needsReconnect ?? false,
       prompt: LAUNCHER_PROMPT,
       projectIds,
-      // Left out when empty: the shape pinned by the acceptance test of the launcher (053 C) has four keys.
-      ...(missingProjectIds.length > 0 && { missingProjectIds }),
+      missingProjectIds,
     };
   };
 

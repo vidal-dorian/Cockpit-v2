@@ -35,7 +35,7 @@ type Launcher = {
   needsReconnect: boolean;
   prompt: string;
   projectIds: number[];
-  missingProjectIds?: number[];
+  missingProjectIds: number[];
 };
 
 function renderAt(path: string) {
@@ -57,6 +57,7 @@ function stubApi(launcher: Partial<Launcher> = {}) {
     needsReconnect: false,
     prompt: LAUNCHER_PROMPT,
     projectIds: [],
+    missingProjectIds: [],
     ...launcher,
   };
   const calls: Call[] = [];
@@ -331,7 +332,7 @@ describe("criterion 9: a repo missing from the task (D)", () => {
     const label = (name: RegExp) =>
       within(section).getByRole("checkbox", { name }).closest("label");
     expect(label(/octocat\/world/)?.textContent).toMatch(
-      /repo absent de la tâche/,
+      /Le repo n'est pas dans la tâche/,
     );
     expect(label(/octocat\/hello/)?.textContent).not.toMatch(/repo absent/);
   });

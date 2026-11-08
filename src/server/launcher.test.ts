@@ -83,6 +83,7 @@ describe("criterion 1: the launcher of the user (C)", () => {
       needsReconnect: false,
       prompt: expect.any(String),
       projectIds: [],
+      missingProjectIds: [],
     });
     const text = JSON.stringify(got) + (await put.clone().text());
     for (const secret of [TOKEN, "trig_01LAUNCHER"])

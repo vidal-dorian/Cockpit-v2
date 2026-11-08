@@ -114,10 +114,10 @@ export function LauncherSettings() {
                           }
                         />
                         {p.fullName}
-                        {data.missingProjectIds?.includes(p.id) && (
+                        {data.missingProjectIds.includes(p.id) && (
                           <span className="text-destructive">
-                            · repo absent de la tâche : ajoute-le sur claude.ai,
-                            puis coche à nouveau
+                            · Le repo n'est pas dans la tâche : ajoute-le sur
+                            claude.ai, puis coche à nouveau
                           </span>
                         )}
                       </label>

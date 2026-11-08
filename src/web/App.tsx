@@ -257,13 +257,14 @@ function Shell() {
               path="/reglages/utilisateurs"
               element={<Settings tab="utilisateurs" />}
             />
-            {["taches-cloud", "ecriture-us"].map((path) => (
-              <Route
-                key={path}
-                path={`/reglages/${path}`}
-                element={<Settings tab="taches-cloud" />}
-              />
-            ))}
+            <Route
+              path="/reglages/taches-cloud"
+              element={<Settings tab="taches-cloud" />}
+            />
+            <Route
+              path="/reglages/ecriture-us"
+              element={<Navigate to="/reglages/taches-cloud" replace />}
+            />
             <Route path="/bienvenue" element={<Welcome />} />
             {/* The wizard's address: once it is done, nothing to show there. */}
             <Route path="/installation" element={<Navigate to="/" replace />} />

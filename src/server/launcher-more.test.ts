@@ -37,7 +37,7 @@ describe("the repo missing from the task (D)", () => {
 
     await tick(ctx);
     expect((await readLauncher(ctx)).projectIds).toEqual([ctx.projectId]);
-    expect(await readLauncher(ctx)).not.toHaveProperty("missingProjectIds");
+    expect((await readLauncher(ctx)).missingProjectIds).toEqual([]);
   });
 
   it("given a launch that was reported, when the project is ticked again, then the story launches again at once", async () => {

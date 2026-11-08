@@ -117,7 +117,7 @@ export function DevelopWindow({
     !launcher.data.needsReconnect &&
     launcher.data.projectIds.includes(project.id);
   const [chosen, setChosen] = useState<"cloud" | "pc">();
-  const cloud = (chosen ?? (cloudPossible ? "cloud" : "pc")) === "cloud";
+  const cloud = cloudPossible && chosen !== "pc";
   const queryClient = useQueryClient();
   const launch = useMutation({
     // A refusal may mean the launcher changed (a token refused): the next read decides if the cloud is still possible.

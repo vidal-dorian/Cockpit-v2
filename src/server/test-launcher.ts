@@ -96,6 +96,7 @@ export const readLauncher = async (ctx: Ctx) =>
     needsReconnect: boolean;
     prompt: string;
     projectIds: number[];
+    missingProjectIds: number[];
   };
 
 /** Connected launcher and ticked project, each step checked so a test never goes on from a missing feature. */
