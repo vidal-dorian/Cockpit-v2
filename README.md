@@ -135,6 +135,10 @@ Cockpit peut lancer lui-même l'écriture des user stories, à la fréquence que
 
 Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pas dans les tests, qui le simulent. Détails dans la décision [022](docs/decisions/022-routine-ecriture-us.md).
 
+## Lancer dans le cloud
+
+Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : la session démarre sans PC allumé. Il faut relier une seconde tâche planifiée, le « Lanceur Cockpit », une seule fois : « Réglages », « Tâches cloud », carte « Lanceur Cockpit » (mêmes étapes que ci-dessus, avec sa propre consigne), puis cocher les projets dont le repo est dans la tâche. Après un changement du catalogue, « Mettre à jour » les repos préparés (`/dev-us --launch`). Décision [053](docs/decisions/053-lancer-dans-le-cloud.md).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :
