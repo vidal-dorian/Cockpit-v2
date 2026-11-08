@@ -4,6 +4,15 @@ import { client } from "./api.ts";
 import { alertBox, field, focusRing, kbd, panelPrimaryButton } from "./ui.ts";
 
 /** The answer block of a pending question (decision 036 G): suggested answers, a free text, then `queryKey` is read again. */
+// Why the story of a paused run could not be relaunched after its answer was saved (decision 044 E).
+const RELAUNCH_REFUSALS: Record<string, string> = {
+  launcher_not_connected: "le lanceur n'est pas connecté",
+  launcher_needs_reconnect: "le lanceur est à reconnecter",
+  project_not_in_launcher: "le projet n'est plus coché dans le lanceur",
+  monthly_budget_reached: "le plafond du mois est atteint",
+  fire_failed: "le lancement a échoué",
+};
+
 export function AnswerForm({
   id,
   suggestedAnswers,
@@ -26,7 +35,17 @@ export function AnswerForm({
         param: { id: String(id) },
         json: { answer },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const failure = (await res.json().catch(() => null)) as {
+          error?: string;
+          answerSaved?: boolean;
+        } | null;
+        throw new Error(
+          failure?.answerSaved
+            ? `saved:${failure.error}`
+            : `HTTP ${res.status}`,
+        );
+      }
     },
     onSuccess: () => {
       setTyped("");
@@ -93,7 +112,9 @@ export function AnswerForm({
       </form>
       {send.isError && (
         <p role="alert" className={`mt-2 ${alertBox}`}>
-          La réponse n'a pas été enregistrée.
+          {send.error.message.startsWith("saved:")
+            ? `Réponse enregistrée, mais l'US n'a pas pu être relancée : ${RELAUNCH_REFUSALS[send.error.message.slice(6)] ?? "relance refusée"}.`
+            : "La réponse n'a pas été enregistrée."}
         </p>
       )}
     </>

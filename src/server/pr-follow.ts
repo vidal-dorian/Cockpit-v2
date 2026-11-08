@@ -1,7 +1,8 @@
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import {
+  cloudLaunches,
   history,
   nightItems,
   nights,
@@ -179,33 +180,44 @@ export async function followPullRequest(
         .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
-      // A story this night launched, while its night is not over (not one launched by hand, nor a night not started): its one retry (044 F').
+      // A story this night launched (not one launched by hand, nor a night not started): its one retry (044 F').
+      const launchOf = tx
+        .select({ one: sql`1` })
+        .from(cloudLaunches)
+        .where(eq(cloudLaunches.nightItemId, nightItems.id));
       const [item] = await tx
-        .select({
-          id: nightItems.id,
-          night: nights,
-          relaunched: sql<boolean>`exists (select 1 from cloud_launches where night_item_id = ${nightItems.id} and relaunch)`,
-        })
+        .select({ id: nightItems.id, night: nights })
         .from(nightItems)
         .innerJoin(nights, eq(nights.id, nightItems.nightId))
         .where(
           and(
             eq(nightItems.storyId, story.id),
             inArray(nights.status, ["running", "finished"]),
-            gt(nights.endsAt, at),
-            sql`exists (select 1 from cloud_launches where night_item_id = ${nightItems.id})`,
+            exists(launchOf),
           ),
         )
         .orderBy(desc(nightItems.id))
         .limit(1);
+      const [retried] = item
+        ? await tx
+            .select({ id: cloudLaunches.id })
+            .from(cloudLaunches)
+            .where(
+              and(
+                eq(cloudLaunches.nightItemId, item.id),
+                eq(cloudLaunches.relaunch, true),
+              ),
+            )
+            .limit(1)
+        : [];
       // A blocked owner is never launched for, as in the queue and the routines.
       if (last && !last.blockedAt) {
-        if (item?.relaunched)
+        if (item && retried)
           await tx
             .update(nightItems)
             .set({ outcome: "ci_failed" })
             .where(eq(nightItems.id, item.id));
-        else if (item) {
+        else if (item && item.night.endsAt > at) {
           // The slot is the night's: its pass launches the retry when the run in progress is over.
           await tx
             .update(nightItems)

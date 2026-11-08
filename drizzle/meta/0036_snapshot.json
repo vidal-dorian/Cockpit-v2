@@ -1,5 +1,5 @@
 {
-  "id": "0f4aca42-32bd-4560-8fd0-da50839a35ea",
+  "id": "829c1e2c-aba5-4418-8fe1-3d1dab0c419d",
   "prevId": "fef428ea-9f69-414c-b39c-f4d53bb397b9",
   "version": "7",
   "dialect": "postgresql",
@@ -1420,6 +1420,12 @@
         "run_id": {
           "name": "run_id",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ci_retry_comment": {
+          "name": "ci_retry_comment",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

@@ -5,12 +5,15 @@ import {
   at,
   finishLaunched,
   launch,
+  launches,
   minutesAfter,
   nightCall,
   nightItems,
   pauseLaunched,
   planned,
+  queueCall,
   ready,
+  readyStory,
   refreshCi,
   relaunches,
   START,
@@ -68,6 +71,52 @@ describe("review: the night's CI retry", () => {
   });
 });
 
+describe("review: the CI retry of a finished night", () => {
+  it("given a finished night and a queue run holding the slot, when the night PR's CI fails, then the retry goes when the queue run ends, before the next queued story", async () => {
+    const ctx = await ready();
+    await planned(ctx, 1);
+    await at(ctx, START);
+    await finishLaunched(ctx, "succeeded");
+    const [first, second] = [await readyStory(ctx), await readyStory(ctx)];
+    for (const storyId of [first, second])
+      await queueCall(ctx, "POST", "", { storyId });
+    await at(ctx, minutesAfter(START, 5));
+    expect(ctx.calls).toHaveLength(2);
+    await setStory(ctx, "pr_ci_state = 'pending'");
+    await refreshCi(ctx, 100 + ctx.storyId, [["build", "failure"]]);
+    expect(ctx.calls).toHaveLength(2);
+
+    await finishLaunched(ctx, "succeeded");
+
+    expect(ctx.calls).toHaveLength(3);
+    expect((await launches(ctx)).map((l) => l.story_id)).toEqual([
+      ctx.storyId,
+      first,
+      ctx.storyId,
+    ]);
+  });
+
+  it("given a retry already made, when the CI fails again after the end hour, then the item is ci_failed", async () => {
+    const ctx = await ready();
+    await planned(ctx, 1);
+    await at(ctx, START);
+    await finishLaunched(ctx, "succeeded");
+    await setStory(ctx, "pr_ci_state = 'pending'");
+    await refreshCi(ctx, 100 + ctx.storyId, [["build", "failure"]]);
+    await finishLaunched(ctx, "succeeded");
+    ctx.clock.now = new Date("2026-11-09T07:10:00Z").getTime();
+    await setStory(ctx, "pr_ci_state = 'pending'");
+    const fired = ctx.calls.length;
+
+    await refreshCi(ctx, 100 + ctx.storyId, [["build", "failure"]]);
+
+    expect(ctx.calls).toHaveLength(fired);
+    expect((await nightItems(ctx)).map((i) => i.outcome)).toEqual([
+      "ci_failed",
+    ]);
+  });
+});
+
 describe("review: the night launches what is ready", () => {
   it("given the second story in review before its turn, when the first run finishes, then it is skipped", async () => {
     const ctx = await ready();
@@ -114,7 +163,10 @@ describe("review: answering a paused question", () => {
     const res = await answer(ctx, questionId);
 
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "launcher_not_connected" });
+    expect(await res.json()).toEqual({
+      error: "launcher_not_connected",
+      answerSaved: true,
+    });
     expect(
       await ctx.db.execute(
         sql`select 1 from questions where id = ${questionId} and answer = 'Valider'`,

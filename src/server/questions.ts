@@ -4,7 +4,7 @@ import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { questions, runs } from "./db/schema.ts";
+import { questions, runs, users } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 import { reserveStory } from "./queue.ts";
 import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
@@ -142,7 +142,12 @@ export function questionRoutes(db: Db, deps: LiveFire) {
       await announce(db, found, run.id);
       const { answer } = c.req.valid("json");
       const { branch } = found.story;
-      if (run.status === "paused" && branch) {
+      // A blocked owner is never launched for, as in the queue and the routines.
+      const [owner] = await db
+        .select({ blockedAt: users.blockedAt })
+        .from(users)
+        .where(eq(users.id, run.userId));
+      if (run.status === "paused" && branch && !owner?.blockedAt) {
         const at = new Date(deps.now());
         // The launcher is the owner of the run's, who may not be the one answering; the answer stays saved when the launch is refused.
         const launched = await launchCloud(
@@ -167,7 +172,10 @@ export function questionRoutes(db: Db, deps: LiveFire) {
             }),
         );
         if ("error" in launched)
-          return c.json({ error: launched.error }, launched.status);
+          return c.json(
+            { error: launched.error, answerSaved: true },
+            launched.status,
+          );
       }
       return c.json({ question: { id, answer } });
     },

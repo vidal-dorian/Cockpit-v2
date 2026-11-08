@@ -10,6 +10,7 @@ import {
   lte,
   notExists,
   notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import { Hono } from "hono";
@@ -58,6 +59,9 @@ const systemEntry = (userId: number, action: string, args: Entry["args"]) => ({
   args,
   result: "ok" as const,
 });
+
+/** A night of the table `nights` has a CI retry waiting for the slot (044 F'): the queue yields to it and the pass goes on with the night, finished or not. */
+export const retryWaiting = sql`exists (select 1 from night_items where night_id = ${nights.id} and ci_retry_comment is not null)`;
 
 const live = (db: Db) =>
   inArray(
@@ -162,6 +166,12 @@ export async function advance(
       const target = retry ?? next;
       const over = at >= night.endsAt || (left !== null && left <= 0);
       if (!target || over) {
+        // A retry that can no longer go (end hour, cap) would hold the queue back for ever.
+        if (retry)
+          await db
+            .update(nightItems)
+            .set({ ciRetryComment: null })
+            .where(eq(nightItems.id, retry.id));
         if (night.status === "running") await finishNight(db, night);
         return;
       }
@@ -202,8 +212,8 @@ export async function advance(
           relaunch: retry !== undefined,
         }),
       );
-      // One try only: the retry is spent whatever came of it.
-      if (retry)
+      // One try only: the retry is spent once reserved or refused, kept when the slot was busy.
+      if (retry && (!("error" in launched) || launched.error !== "slot_busy"))
         await db
           .update(nightItems)
           .set({ ciRetryComment: null })
@@ -243,7 +253,20 @@ export async function nightAfterRun(
       .innerJoin(nightItems, eq(nightItems.id, cloudLaunches.nightItemId))
       .innerJoin(nights, eq(nights.id, nightItems.nightId))
       .where(eq(cloudLaunches.runId, runId));
-    if (!ended) return;
+    if (!ended) {
+      // Not a night run (a queue run, say): a retry may have been waiting for its slot.
+      const [run] = await db
+        .select({ userId: runs.userId })
+        .from(runs)
+        .where(eq(runs.id, runId));
+      if (run)
+        for (const night of await db
+          .select()
+          .from(nights)
+          .where(and(eq(nights.userId, run.userId), retryWaiting)))
+          await advance(db, deps, night, at);
+      return;
+    }
     await db
       .update(nightItems)
       .set({
@@ -355,7 +378,7 @@ export async function runNights(db: Db, deps: Fire, now: Date) {
     for (const night of await db
       .select()
       .from(nights)
-      .where(and(eq(nights.status, "running"), live(db)))
+      .where(and(or(eq(nights.status, "running"), retryWaiting), live(db)))
       .orderBy(asc(nights.id))) {
       await closeSilent(db, deps, night.id, now);
       await advance(db, deps, night, now);
@@ -466,17 +489,6 @@ export function nightRoutes(db: Db, now: () => number) {
   const hoursBody = z
     .object({ startHour: hour, endHour: hour, timeZone })
     .refine((h) => h.startHour !== h.endHour);
-  const hoursOf = async (userId: number) => {
-    const [user] = await db
-      .select({
-        startHour: users.nightStartHour,
-        endHour: users.nightEndHour,
-        timeZone: users.nightTimeZone,
-      })
-      .from(users)
-      .where(eq(users.id, userId));
-    return user;
-  };
   const place = (tx: Tx, nightId: number, storyIds: number[]) =>
     tx
       .insert(nightItems)
@@ -530,9 +542,17 @@ export function nightRoutes(db: Db, now: () => number) {
     .use("/api/nights/*", signed)
     .use("/api/nights", signed)
     .use("/api/me/night-hours", signed)
-    .get("/api/me/night-hours", async (c) =>
-      c.json(await hoursOf(c.get("userId"))),
-    )
+    .get("/api/me/night-hours", async (c) => {
+      const [user] = await db
+        .select({
+          startHour: users.nightStartHour,
+          endHour: users.nightEndHour,
+          timeZone: users.nightTimeZone,
+        })
+        .from(users)
+        .where(eq(users.id, c.get("userId")));
+      return c.json(user);
+    })
     .put("/api/me/night-hours", body(hoursBody), async (c) => {
       const userId = c.get("userId");
       const { startHour, endHour, timeZone } = c.req.valid("json");

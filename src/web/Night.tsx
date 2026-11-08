@@ -81,8 +81,10 @@ export function Night() {
   const data = night.data;
   const stories = [...(data?.ready ?? []), ...(data?.toValidate ?? [])];
   const open = data?.night ?? null;
-  const program =
-    order ?? (open ? open.items : (data?.ready ?? [])).map((s) => s.storyId);
+  // The order typed in the evening gives way to the server's once the night is posted.
+  const program = open
+    ? open.items.map((s) => s.storyId)
+    : (order ?? (data?.ready ?? []).map((s) => s.storyId));
   const inProgram = program.flatMap((id) => {
     const story = stories.find((s) => s.storyId === id);
     return story ? [story] : [];

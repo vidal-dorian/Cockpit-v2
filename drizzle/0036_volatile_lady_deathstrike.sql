@@ -4,6 +4,7 @@ CREATE TABLE "night_items" (
 	"story_id" integer NOT NULL,
 	"position" integer NOT NULL,
 	"run_id" integer,
+	"ci_retry_comment" text,
 	"outcome" text,
 	CONSTRAINT "night_items_outcome_check" CHECK ("night_items"."outcome" in ('pr', 'paused', 'ci_failed', 'failed', 'skipped', 'not_started'))
 );

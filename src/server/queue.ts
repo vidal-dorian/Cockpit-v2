@@ -29,7 +29,7 @@ import {
   userStories,
   users,
 } from "./db/schema.ts";
-import { nightAfterRun } from "./night.ts";
+import { nightAfterRun, retryWaiting } from "./night.ts";
 import { isDatabaseId } from "./projects.ts";
 import { entryOf, type Fire, launchCloud, signedIn } from "./routines.ts";
 import { isUniqueViolation } from "./runs.ts";
@@ -274,11 +274,16 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
         ),
       );
     if (!user) return;
-    // The night has the launcher to itself (044 D').
+    // The night has the launcher to itself, and so has the CI retry it is waiting to launch (044 D', F').
     const [night] = await db
       .select({ id: nights.id })
       .from(nights)
-      .where(and(eq(nights.userId, userId), eq(nights.status, "running")));
+      .where(
+        and(
+          eq(nights.userId, userId),
+          or(eq(nights.status, "running"), retryWaiting),
+        ),
+      );
     if (night || (await slotBusy(db, userId, at))) return;
     const next = (await readItems(db, userId, at)).find((i) => !i.waiting);
     if (!next) return;
