@@ -22,6 +22,11 @@ const importBody = z.object({
 // PostgreSQL text cannot hold a NUL character, and GitHub's text is a stranger's.
 const clean = (text: string | null | undefined) =>
   (text ?? "").replaceAll("\0", "");
+/** The first `max` characters, never ending in half of a surrogate pair. */
+const clip = (text: string, max: number) =>
+  /[\uD800-\uDBFF]/.test(text.charAt(max - 1))
+    ? text.slice(0, max - 1)
+    : text.slice(0, max);
 
 /** Behind the gate of `projectRoutes` (503 before the session check). */
 export function issueImportRoutes(db: Db, readGitHub: ReadGitHub) {
@@ -138,10 +143,10 @@ export function issueImportRoutes(db: Db, readGitHub: ReadGitHub) {
               .insert(tickets)
               .values({
                 projectId: project.id,
-                title: clean(issue.title).slice(0, TITLE_MAX),
+                title: clip(clean(issue.title).trim(), TITLE_MAX),
                 descriptionMd:
                   text.length > DESCRIPTION_MAX
-                    ? `${text.slice(0, DESCRIPTION_MAX - MENTION.length - 2)}\n\n${MENTION}`
+                    ? `${clip(text, DESCRIPTION_MAX - MENTION.length - 2)}\n\n${MENTION}`
                     : text,
                 githubIssueNumber: number,
                 ...(story && { storiesWrittenAt: sql`now()` }),

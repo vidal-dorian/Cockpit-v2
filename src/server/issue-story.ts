@@ -99,11 +99,11 @@ function readCriteria(lines: string[]) {
 
 /** The user story an issue body is written as (decision 056 B), or null when it is a ticket: no narrative, no criterion, or over the limits of `create_user_stories`. */
 export function readStoryIssue(body: string) {
-  // Runs of spaces are collapsed first, so `\s+` never scans a long run again and again.
+  // Runs of whitespace are collapsed first, so `\s+` never scans a long run again and again.
   const lines = body
     .replaceAll("**", "")
     .split(/\r?\n/u)
-    .map((line) => line.replace(/[ \t]+/gu, " "));
+    .map((line) => line.replace(/\s+/gu, " "));
   const [asA, iWant, soThat] = readNarrative(lines) ?? [];
   const parsed = story.safeParse({
     asA,
