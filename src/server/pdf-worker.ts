@@ -2,6 +2,8 @@ import { getDocumentProxy } from "unpdf";
 
 // Runs in a child process (pdf-text.ts): pdf.js can use unbounded memory and time on a hostile file.
 // Page by page, stopping once `limit` characters are collected.
+// The server gone (killed outside Docker, where nothing kills its children): stop, never run on without a budget.
+process.once("disconnect", () => process.exit(1));
 process.once("message", async (message) => {
   const { data, limit } = message as { data: Uint8Array; limit: number };
   try {

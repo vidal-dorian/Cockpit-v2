@@ -11,10 +11,11 @@ export const pdfStats = { active: 0, maxActive: 0 };
 /** Resident memory of a process, or 0 where /proc does not exist. shortcut: Linux only, elsewhere only the timeout and --max-old-space-size bound the child; upgrade if Cockpit runs off Linux. */
 async function rssOf(pid: number) {
   try {
-    const pages = Number(
-      (await readFile(`/proc/${pid}/statm`, "utf8")).split(" ")[1],
-    );
-    return pages * 4096;
+    // VmRSS is in kB whatever the page size (a Pi 5 kernel uses 16 KiB pages: statm would read a quarter).
+    const kb = /^VmRSS:\s+(\d+) kB$/m.exec(
+      await readFile(`/proc/${pid}/status`, "utf8"),
+    )?.[1];
+    return Number(kb ?? 0) * 1024;
   } catch {
     return 0;
   }
@@ -56,6 +57,7 @@ let queue: Promise<unknown> = Promise.resolve();
 /** The text of a PDF (more than `limit` characters when it has that many), or undefined when it cannot be read: corrupt, encrypted, too heavy or too slow. Done in a child process killed above a memory budget or a delay, so a hostile file cannot take the server down. */
 export function pdfText(bytes: Uint8Array, limit: number) {
   const run = queue.then(() => extract(bytes, limit));
-  queue = run;
+  // A failed run never blocks the ones behind it.
+  queue = run.catch(() => {});
   return run;
 }
