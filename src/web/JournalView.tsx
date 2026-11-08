@@ -194,9 +194,12 @@ const clock = (at: string) =>
 function EntryPanel({
   entry,
   counter,
+  partial = false,
   onRetry,
 }: {
   entry: Entry;
+  /** A retry known only by its id, time and result (the filters hide it): no origin, no arguments. */
+  partial?: boolean;
   counter?: { index: number; entries: Entry[]; onOpen: (id: number) => void };
   onRetry: (retry: { id: number; at: string; result: string }) => void;
 }) {
@@ -208,7 +211,12 @@ function EntryPanel({
       `${when.toLocaleDateString("fr-FR")} ${when.toLocaleTimeString("fr-FR")}`,
     ],
     ["Acteur", ACTOR_WORDS[entry.actor] ?? entry.actor],
-    ["Origine", ORIGIN_WORDS[entry.origin] ?? entry.origin],
+    ...(partial
+      ? []
+      : ([["Origine", ORIGIN_WORDS[entry.origin] ?? entry.origin]] as [
+          string,
+          ReactNode,
+        ][])),
     ["Projet", entry.project ?? "—"],
     [
       "Résultat",
@@ -219,15 +227,19 @@ function EntryPanel({
         .filter(Boolean)
         .join(" · "),
     ],
-    [
-      "Arguments",
-      <pre
-        key="args"
-        className="overflow-x-auto rounded-lg bg-card p-3 font-mono text-[12.5px]"
-      >
-        {JSON.stringify("args" in entry ? entry.args : {}, null, 2)}
-      </pre>,
-    ],
+    ...(partial
+      ? []
+      : ([
+          [
+            "Arguments",
+            <pre
+              key="args"
+              className="overflow-x-auto rounded-lg bg-card p-3 font-mono text-[12.5px]"
+            >
+              {JSON.stringify("args" in entry ? entry.args : {}, null, 2)}
+            </pre>,
+          ],
+        ] as [string, ReactNode][])),
   ];
   return (
     <Panel
@@ -404,6 +416,7 @@ export function JournalList({
       {open && entries && (
         <EntryPanel
           entry={hidden ?? open}
+          partial={hidden !== null}
           counter={hidden ? undefined : { index, entries, onOpen: openEntry }}
           onRetry={(retry) =>
             entries.some((e) => e.id === retry.id)
@@ -413,7 +426,6 @@ export function JournalList({
                   ...retry,
                   result: retry.result as Entry["result"],
                   detail: null,
-                  args: {},
                   retry: null,
                 })
           }

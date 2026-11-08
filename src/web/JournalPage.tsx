@@ -116,6 +116,8 @@ export function Journal() {
   if (q) filters.q = q;
   // The box keeps what is typed; the address and the request follow 300 ms after the last keystroke.
   const [text, setText] = useState(q);
+  // The address wins when it changes from outside (back button, a link to /journal).
+  useEffect(() => setText(q), [q]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: only a keystroke starts the pause; `set` and `q` change with every render.
   useEffect(() => {
     if (text === q) return;
