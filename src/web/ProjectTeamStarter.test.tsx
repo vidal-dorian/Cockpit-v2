@@ -94,7 +94,14 @@ const GREEN = ["claude_md", "ci", "mcp", "agents"].map((key) => ({
   detail: "ok",
 }));
 
-function stubApi(options: { team?: string | null; archived?: boolean } = {}) {
+function stubApi(
+  options: {
+    team?: string | null;
+    archived?: boolean;
+    agents?: AgentFile[];
+    teams?: { name: string; text: string }[];
+  } = {},
+) {
   const calls = {
     applyBodies: [] as Record<string, unknown>[],
     reads: 0,
@@ -156,7 +163,8 @@ function stubApi(options: { team?: string | null; archived?: boolean } = {}) {
       if (path === "/api/projects/5/agents" && method === "GET") {
         calls.reads++;
         return Response.json({
-          agents: REPO_AGENTS,
+          agents: options.agents ?? REPO_AGENTS,
+          teams: options.teams ?? [],
           catalog: [],
           team: options.team === undefined ? TEAM : options.team,
         });
@@ -199,9 +207,10 @@ const rowAgents = () =>
     .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
     .map((li) => /^\s*\d+\s*([a-z0-9-]+)/.exec(li.textContent ?? "")?.[1]);
 const startFrom = (name: string) => {
-  fireEvent.click(
-    screen.getByRole("button", { name: "Repartir d'une équipe de départ" }),
-  );
+  if (!screen.queryByRole("group", { name: "Équipe de départ" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Repartir d'une équipe de départ" }),
+    );
   fireEvent.click(
     within(screen.getByRole("group", { name: "Équipe de départ" })).getByRole(
       "button",
@@ -382,5 +391,134 @@ describe("decision 063 F: « Repartir d'une équipe de départ »", () => {
       after: agentText("security-reviewer", "opus"),
     });
     expect(sentAgent(calls, "developer")?.after).toMatch(/^model:\s*opus\s*$/m);
+  });
+});
+
+// Decision 063 review (B1, S3, S7), pinned:
+// - B1: when the team text does not change but agents do, « Faire le commit » is enabled and sends before === after (the team text as read) with the agents; « C'est fait » follows.
+// - S3: the `model:` line is replaced or added only inside the front matter; a `model:` line of the body is untouched; a file with no front matter gets `---\nmodel: <m>\n---\n` put in front of its text.
+// - S7: choosing a level while the draft or the agent changes are unsaved shows the warning « Les changements non enregistrés seront perdus » with « Confirmer le changement » and « Annuler »
+//   (the pattern of the team switch); nothing changes before the confirmation. A level that only changes agents counts as unsaved changes for switching teams too.
+describe("decision 063 review: B1, S3, S7", () => {
+  const withReviewer = (reviewer: string): AgentFile[] =>
+    REPO_AGENTS.map((a) =>
+      a.name === "reviewer" ? { name: "reviewer", text: reviewer } : a,
+    );
+
+  it.each([
+    ["Premium", "premium", 1],
+    ["Standard", "standard", 0],
+  ])(
+    "B1: given a team.md equal to the %s text and a reviewer changed by hand, when the level is chosen again and committed, then before === after with the agents, and C'est fait",
+    async (name, id, _n) => {
+      const starter = STARTERS.find(
+        (t) => t.id === id,
+      ) as (typeof STARTERS)[number];
+      const calls = stubApi({
+        team: starter.team,
+        agents: [
+          ...starter.agents.map((a) => ({
+            name: a.name,
+            text:
+              a.name === "reviewer" ? agentText("reviewer", "haiku") : a.text,
+          })),
+        ],
+      });
+      await openTeam();
+
+      startFrom(name);
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Voir les changements" }),
+      );
+      const commit = screen.getByRole("button", {
+        name: "Faire le commit",
+      }) as HTMLButtonElement;
+      await waitFor(() => expect(commit.disabled).toBe(false));
+      fireEvent.click(commit);
+
+      await screen.findByText("C'est fait");
+      const sent = calls.applyBodies[0] as Record<string, unknown>;
+      expect(sent.before).toBe(starter.team);
+      expect(sent.after).toBe(starter.team);
+      expect(sent.starterTeam).toBe(id);
+      expect((sent.agents as { name: string }[]).map((a) => a.name)).toEqual([
+        "reviewer",
+      ]);
+    },
+  );
+
+  it("S3: given an agent whose body has a model: line and another with no front matter, when Premium is committed, then the model goes in the front matter only and the plain file gets one", async () => {
+    const body = "---\nname: reviewer\n---\nText\nmodel: haiku\nmore\n";
+    const plain = "Plain test-writer.\n";
+    const calls = stubApi({
+      agents: [
+        ...REPO_AGENTS.filter(
+          (a) => !["reviewer", "test-writer"].includes(a.name),
+        ),
+        { name: "reviewer", text: body },
+        { name: "test-writer", text: plain },
+      ],
+    });
+    await openTeam();
+    startFrom("Premium");
+    await waitFor(() => expect(rowAgents()).toHaveLength(5));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Voir les changements" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Faire le commit" }));
+
+    await screen.findByText("C'est fait");
+    expect(sentAgent(calls, "reviewer")?.after).toBe(
+      "---\nname: reviewer\nmodel: opus\n---\nText\nmodel: haiku\nmore\n",
+    );
+    expect(sentAgent(calls, "test-writer")?.after).toBe(
+      `---\nmodel: sonnet\n---\n${plain}`,
+    );
+  });
+
+  it("S7: given unsaved changes in the draft, when another level is chosen, then the warning shows first, the draft is kept until Confirmer le changement, and Annuler keeps it", async () => {
+    stubApi();
+    await openTeam();
+    startFrom("Éco");
+    await waitFor(() =>
+      expect(rowAgents()).toEqual(["test-writer", "developer"]),
+    );
+
+    startFrom("Premium");
+
+    expect(
+      screen.getByText("Les changements non enregistrés seront perdus"),
+    ).toBeDefined();
+    expect(rowAgents()).toEqual(["test-writer", "developer"]);
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(rowAgents()).toEqual(["test-writer", "developer"]);
+    startFrom("Premium");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmer le changement" }),
+    );
+    await waitFor(() => expect(rowAgents()).toHaveLength(5));
+  });
+
+  it("S7: given a level that only changes agents, when another team is chosen in the picker, then the warning shows too", async () => {
+    const premium = STARTERS.find(
+      (t) => t.id === "premium",
+    ) as (typeof STARTERS)[number];
+    stubApi({
+      team: premium.team,
+      teams: [{ name: "leger", text: TEAM }],
+      agents: premium.agents.map((a) => ({
+        name: a.name,
+        text: a.name === "reviewer" ? agentText("reviewer", "haiku") : a.text,
+      })),
+    });
+    await openTeam();
+    startFrom("Premium");
+
+    fireEvent.click(screen.getByRole("button", { name: "leger" }));
+
+    expect(
+      screen.getByText("Les changements non enregistrés seront perdus"),
+    ).toBeDefined();
   });
 });

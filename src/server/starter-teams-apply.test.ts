@@ -8,7 +8,9 @@ import { type Row, rows, withProject } from "./test-mcp.ts";
 // Pinned where the decision leaves it open (the developer follows these):
 // - POST /api/projects/:id/team/apply keeps `{ name?, before, after }` and gains two optional fields:
 //   * `agents`: `[{ name, before, after }]`, at most one entry per agent, `name` in the format of decision 029 B, `after` a text (never null), `before` the text in the repo (null for an agent to add);
-//     the files `.claude/agents/<name>.md` are written in the same commit as the team file, message `feat: update the team (Cockpit)`;
+//     the files `.claude/agents/<name>.md` are written in the same commit as the team file, message `feat: update the team and its agents (Cockpit)` when `agents` is not empty (S4), else the usual `feat: update the team (Cockpit)`;
+//   * (B1) `before === after` is accepted when `agents` is not empty: only the agent files change (team.md is not touched), still 400 with no agent;
+//   * (S2) `starterTeam` is for the default team only: with `name` or with `after: null` it is 400.
 //   * `starterTeam`: "eco" | "standard" | "premium" | "max" (else 400, nothing written).
 // - The `save_team` entry keeps `args: { path }` and gains `starterTeam` when it was sent (and only then); no agent text in the args.
 // - The project's `starter_team` becomes `starterTeam` in the transaction of the `ok` entry, so a refused or failed write changes nothing.
@@ -105,7 +107,7 @@ describe("decision 063 F: the team and its agents in one commit", () => {
     expect(res.status).toBe(200);
     expect(ctx.git.created.commits).toHaveLength(1);
     expect(ctx.git.created.commits[0]).toMatchObject({
-      message: "feat: update the team (Cockpit)",
+      message: "feat: update the team and its agents (Cockpit)",
       parents: [base],
     });
     const written = ctx.git.filesAt(ctx.git.head) ?? {};
@@ -267,5 +269,87 @@ describe("decision 063 F: what is refused", () => {
       ctx.git.filesAt(ctx.git.head)?.[".claude/agents/security-reviewer.md"],
     ).toContain("opus");
     expect(await level(ctx)).toBe("max");
+  });
+});
+
+describe("decision 063 review: B1, S2, S4", () => {
+  it("B1: given a team.md already equal to the level's text and a reviewer changed by hand, when only the agents are saved (before === after), then 200, one commit writes the agent files only and the level is saved", async () => {
+    const ctx = await ready({
+      files: {
+        "README.md": "# app\n",
+        [TEAM_PATH]: PREMIUM_TEAM,
+        ".claude/agents/reviewer.md": OLD_REVIEWER,
+      },
+    });
+    const teamBlob = ctx.git.filesAt(ctx.git.head)?.[TEAM_PATH];
+
+    const res = await apply(
+      ctx,
+      body({ before: PREMIUM_TEAM, after: PREMIUM_TEAM }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(ctx.git.created.commits).toHaveLength(1);
+    const written = ctx.git.filesAt(ctx.git.head) ?? {};
+    expect(written[TEAM_PATH]).toBe(teamBlob);
+    expect(written[".claude/agents/reviewer.md"]).toBe(NEW_REVIEWER);
+    expect(written[".claude/agents/doc-writer.md"]).toBe(docWriter());
+    expect(await level(ctx)).toBe("premium");
+  });
+
+  it.each([
+    ["no agents", {}],
+    ["an empty list", { agents: [] }],
+  ])(
+    "B1: given before === after and %s, when it is saved, then still 400 and nothing is written",
+    async (_name, extra) => {
+      const ctx = await ready({
+        files: { "README.md": "# app\n", [TEAM_PATH]: PREMIUM_TEAM },
+      });
+
+      const res = await apply(ctx, {
+        before: PREMIUM_TEAM,
+        after: PREMIUM_TEAM,
+        starterTeam: "premium",
+        ...extra,
+      });
+
+      expect(res.status).toBe(400);
+      expect(writes(ctx)).toEqual([]);
+    },
+  );
+
+  it.each([
+    ["a named team", { name: "leger", before: null }],
+    ["a removal", { name: "leger", before: PREMIUM_TEAM, after: null }],
+  ])(
+    "S2: given starterTeam with %s, when it is saved, then 400, nothing is written and the level is unchanged",
+    async (_name, overrides) => {
+      const ctx = await ready({
+        files: {
+          "README.md": "# app\n",
+          [TEAM_PATH]: OLD_TEAM,
+          ".claude/teams/leger.md": PREMIUM_TEAM,
+          ".claude/agents/reviewer.md": OLD_REVIEWER,
+        },
+      });
+
+      const res = await apply(ctx, body(overrides));
+
+      expect(res.status).toBe(400);
+      expect(writes(ctx)).toEqual([]);
+      expect(await level(ctx)).toBe("standard");
+    },
+  );
+
+  it("S4: given a save without agents, when it is done, then the message is the usual feat: update the team (Cockpit)", async () => {
+    const ctx = await ready();
+
+    const res = await apply(ctx, { before: OLD_TEAM, after: PREMIUM_TEAM });
+
+    expect(res.status).toBe(200);
+    expect(ctx.git.created.commits[0]?.message).toBe(
+      "feat: update the team (Cockpit)",
+    );
   });
 });

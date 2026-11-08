@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FakeGitRepoOptions } from "./test-github.ts";
-import { withProject } from "./test-mcp.ts";
+import { userWithToken, withProject } from "./test-mcp.ts";
 import {
   agentCatalog,
   fromCatalog,
@@ -244,6 +244,36 @@ describe("decision 063 E: applying the plan", () => {
     expect(res.status).toBe(400);
     expect(ctx.git.created.commits).toHaveLength(0);
   });
+});
+
+describe("decision 063 review S1: a non-member is answered 404 before any validation", () => {
+  it.each(LEVEL_IDS)(
+    "given a %s project and a forged plan, when a user who is not a member applies it, then 404 whatever the level, and nothing is written; the plan route is 404 too",
+    async (level) => {
+      const ctx = await ready(level);
+      const plan = await planOf(ctx);
+      const forged = {
+        ...plan,
+        files: [
+          { path: TEAM, content: "evil\n", status: "create" },
+          ...plan.files,
+        ],
+      };
+      const bob = await userWithToken(ctx.app, ctx.db, 2000);
+      const asBob = (path: string, body?: unknown) =>
+        ctx.app.request(`/api/projects/${ctx.projectId}${path}`, {
+          method: "POST",
+          headers: { cookie: bob.cookie, "content-type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+
+      expect((await asBob("/prepare/apply", { plan: forged })).status).toBe(
+        404,
+      );
+      expect((await asBob("/prepare")).status).toBe(404);
+      expect(ctx.git.created.commits).toHaveLength(0);
+    },
+  );
 });
 
 describe("decision 063 B, C: GET /api/starter-teams", () => {
