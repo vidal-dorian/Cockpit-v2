@@ -12,8 +12,8 @@ import { renderAt } from "./test-tickets.tsx";
 
 // Slice 14.5 (decision 060 F): the page « Coût » at /claude/cout.
 //
-// Data route assumed: GET /api/claude/cost -> { monthUsd, runAverageUsd, perMergedPrUsd, budgets: { runUsd, nightUsd,
-// monthUsd }, projects: [{ id, name, costUsd }] } (null averages when there is nothing to divide by); the caps save through
+// Data route assumed: GET /api/claude/cost -> { monthUsd, runAverageUsd, perMergedPrUsd,
+// projects: [{ id, name, costUsd }] } (null averages when there is nothing to divide by); the caps save through
 // PUT /api/me/budgets { runUsd, nightUsd, monthUsd }.
 // Pinned: the fields are labelled « Plafond par run », « Plafond par nuit », « Plafond par mois » (number inputs), the
 // button « Enregistrer »; amounts read like « 12,50 $ » (two decimals).

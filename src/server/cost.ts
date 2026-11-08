@@ -171,7 +171,7 @@ export function metricsRoutes(db: Db) {
         ).map((l) => l.id),
       );
       for (const { session, kind, add, max } of groups.values()) {
-        if (!known.has(session) || !sessions.includes(session)) continue;
+        if (!known.has(session)) continue;
         const column =
           kind === "cost" ? cloudLaunches.costUsd : cloudLaunches.tokens;
         const [launch] = await db
@@ -312,8 +312,6 @@ export function costRoutes(db: Db, now: () => number) {
       perMergedPrUsd: merged.length
         ? Number(ofMerged?.usd) / merged.length
         : null,
-      // Pinned by cost.test.ts; the page reads the caps from /api/me/budgets, which a save refreshes.
-      budgets: await budgetsOf(db, user.userId),
       projects: perProject.map((p) => ({ ...p, costUsd: Number(p.costUsd) })),
     });
   });

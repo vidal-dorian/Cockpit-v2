@@ -55,6 +55,16 @@ describe("criterion 1: the receiver", () => {
     expect(await rows(ctx.db)).toHaveLength(before);
   });
 
+  it("given a launch, when one export carries two delta points of the session (two models), then both are added", async () => {
+    const ctx = await launched();
+    const body = otlp(0.3);
+    body.resourceMetrics.push(...otlp(0.2).resourceMetrics);
+
+    expect((await postMetrics(ctx, body)).status).toBe(200);
+
+    expect((await costOf(ctx)).cost).toBeCloseTo(0.5);
+  });
+
   it("given a launch, when a token point comes, then the tokens add up", async () => {
     const ctx = await launched();
 
@@ -247,25 +257,18 @@ describe("criterion 5: the cap of the month", () => {
 });
 
 describe("criterion 6: the data of the page Coût", () => {
-  it("given a launch of 0.84 this month, when GET /api/claude/cost is read, then the month, the project and the budgets are there", async () => {
+  it("given a launch of 0.84 this month, when GET /api/claude/cost is read, then the month and the project are there", async () => {
     const ctx = await launched();
     await pay(ctx, 0.84);
-    await setBudgets(ctx, { monthUsd: 10 });
 
     const body = (await (
       await send(ctx.app, ctx.alice.cookie, "GET", "/api/claude/cost")
     ).json()) as {
       monthUsd: number;
-      budgets: unknown;
       projects: { id: number; name: string; costUsd: number }[];
     };
 
     expect(body.monthUsd).toBeCloseTo(0.84);
-    expect(body.budgets).toEqual({
-      runUsd: null,
-      nightUsd: null,
-      monthUsd: 10,
-    });
     expect(body.projects).toEqual([
       {
         id: ctx.projectId,

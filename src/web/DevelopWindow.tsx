@@ -492,7 +492,7 @@ export function DevelopWindow({
             Plafond
             <input
               type="number"
-              min="0"
+              min="0.01"
               step="any"
               aria-describedby="cap-hint"
               className={field}
