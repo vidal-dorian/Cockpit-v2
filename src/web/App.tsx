@@ -21,6 +21,7 @@ import { RunPage } from "./RunPage.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
 import { Dot, fetchHealth, fetchMe, IdeaBar, Sidebar } from "./Shell.tsx";
+import { Taches } from "./Taches.tsx";
 import {
   alertBox,
   button,
@@ -247,6 +248,7 @@ function Shell() {
               }
             />
             <Route path="/runs/:id" element={<RunPage />} />
+            <Route path="/claude/taches" element={<Taches />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/reglages" element={<Settings tab="claude" />} />
             <Route

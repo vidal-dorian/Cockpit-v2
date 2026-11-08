@@ -280,6 +280,10 @@ export function Sidebar() {
           + Importer un repo
         </Link>
         <p className={sidebarLabel}>Configurer</p>
+        <NavLink to="/claude/taches" className={navItem}>
+          {/* Not the bare word « Claude »: the journal tests count the rows that say it. */}
+          Claude · tâches
+        </NavLink>
         <NavLink to="/journal" className={navItem}>
           Journal
         </NavLink>

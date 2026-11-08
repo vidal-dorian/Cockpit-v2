@@ -62,6 +62,12 @@ export const ACTIONS: Record<string, string> = {
   // shortcut: one label for both directions (the entry's args are not read here), split when the journal shows them.
   set_launcher_project: "Projet ajouté ou retiré du lanceur",
   launch_story: "US lancée dans le cloud",
+  save_routine: "Routine enregistrée",
+  delete_routine: "Routine supprimée",
+  pause_routine: "Routine en pause",
+  resume_routine: "Routine reprise",
+  fire_routine: "Routine lancée",
+  finish_launch: "Passage fini",
   get_launch: "Lancement lu par Claude",
   report_launch: "Repo absent de la tâche",
   change_public_url: "Adresse publique modifiée",
