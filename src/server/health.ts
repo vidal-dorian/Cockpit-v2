@@ -145,6 +145,11 @@ export const ALERT_PERMISSIONS = {
   code_scanning: "security_events",
   secret_scanning: "secret_scanning_alerts",
 } as const;
+const ALERT_EVENTS = [
+  "dependabot_alert",
+  "code_scanning_alert",
+  "secret_scanning_alert",
+];
 const grants = (permissions: Record<string, string>, name: string) =>
   permissions[name] === "read" || permissions[name] === "write";
 /** Whether the permissions hold the three of the alerts. */
@@ -155,12 +160,17 @@ const hasAlertPermissions = (permissions: Record<string, string>) =>
 export function alertsAccess(
   access: {
     app: Record<string, string>;
+    /** The webhook events the App listens to. */
+    appEvents: string[];
     installation: Record<string, string>;
     installationUrl: string;
   },
   appSettingsUrl: string,
 ) {
-  if (!hasAlertPermissions(access.app))
+  if (
+    !hasAlertPermissions(access.app) ||
+    !ALERT_EVENTS.every((event) => access.appEvents.includes(event))
+  )
     return {
       detail: "app_missing_permissions" as const,
       url: `${appSettingsUrl}/permissions`,

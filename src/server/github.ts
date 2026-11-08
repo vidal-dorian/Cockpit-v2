@@ -96,7 +96,10 @@ const hookConfigSchema = z.object({
 });
 const hookDeliveriesSchema = z.array(z.object({ status_code: z.number() }));
 const permissionsSchema = z.record(z.string(), z.string()).default({});
-const appAccessSchema = z.object({ permissions: permissionsSchema });
+const appAccessSchema = z.object({
+  permissions: permissionsSchema,
+  events: z.array(z.string()).default([]),
+});
 const installationAccessSchema = z.object({
   html_url: z.string(),
   permissions: permissionsSchema,
@@ -130,6 +133,7 @@ export const codeScanningAlert = z.object({
   }),
   tool: z.object({ name: z.string().nullish() }),
   most_recent_instance: z.object({
+    ref: z.string().nullish(),
     commit_sha: z.string().nullish(),
     message: z.object({ text: z.string().nullish() }).nullish(),
     location: z
@@ -718,11 +722,13 @@ export function githubClient(config: GitHubAppConfig) {
       );
       return {
         app: appAccessSchema.parse(asApp.value.data).permissions,
+        appEvents: appAccessSchema.parse(asApp.value.data).events,
         installation: installed.permissions,
         installationUrl: installed.html_url,
       };
     },
 
+    // shortcut: Dependabot's `page` parameter is being closed down in favour of `before` / `after` cursors, upgrade the Dependabot read when GitHub removes it.
     /** The open alerts of a tool, as the installation, 100 per page and ten pages at most (decision 052 C). `disabled` when GitHub answers 403 or 404 (the tool is not on for this repo); `complete` is false when the last page was full, so more may exist. Other errors are left to the caller. */
     async readAlerts<T extends AlertTool>(
       installationId: number,
@@ -738,7 +744,15 @@ export function githubClient(config: GitHubAppConfig) {
         try {
           ({ data } = await octokit.request(
             `GET /repos/{owner}/{repo}/${path}/alerts`,
-            { owner, repo, state: "open", per_page: PAGE_SIZE, page },
+            {
+              owner,
+              repo,
+              state: "open",
+              per_page: PAGE_SIZE,
+              page,
+              // GitHub then does not even send the value of a secret.
+              ...(tool === "secret_scanning" && { hide_secret: true }),
+            },
           ));
         } catch (error) {
           const status = (error as { status?: number }).status;

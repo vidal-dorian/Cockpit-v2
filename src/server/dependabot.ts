@@ -170,7 +170,11 @@ export function dependabotRoutes(db: Db, readGitHub: ReadGitHub) {
       }
       try {
         checkWriteFiles(plan.files);
-        if (plan.files.length !== 1 || plan.files[0]?.path !== PATH)
+        if (
+          plan.files.length !== 1 ||
+          plan.files[0]?.path !== PATH ||
+          !["create", "exists"].includes(plan.files[0].status)
+        )
           throw new Error("Not the file of Dependabot");
       } catch {
         return c.json({ error: "Bad request" }, 400);

@@ -190,6 +190,8 @@ async function storeAlerts(
   type: (typeof GITHUB_ALERT_TYPES)[number],
   mapped: Mapped[],
 ) {
+  // A page shift can give one alert twice: the last one read wins.
+  mapped = [...new Map(mapped.map((m) => [m.number, m])).values()];
   if (mapped.length === 0) return { created: 0, updated: 0 };
   const known = new Map(
     (
@@ -225,6 +227,21 @@ async function storeAlerts(
           githubAlertNumber: m.number,
         })),
       )
+      // A webhook may have stored the alert since `known` was read.
+      .onConflictDoUpdate({
+        target: [
+          findings.projectId,
+          findings.githubAlertType,
+          findings.githubAlertNumber,
+        ],
+        set: {
+          title: sql`excluded.title`,
+          bodyMd: sql`excluded.body_md`,
+          severity: sql`excluded.severity`,
+          commitSha: sql`excluded.commit_sha`,
+          githubClosedAt: null,
+        },
+      })
       .returning({ id: findings.id, number: findings.githubAlertNumber });
     for (const row of created) ids.set(row.number as number, row.id);
   }
@@ -237,13 +254,9 @@ async function storeAlerts(
       .set({ ...columns(m), githubClosedAt: null })
       .where(eq(findings.id, id));
   }
-  if (seen.length > 0)
-    await tx.delete(codeSources).where(
-      inArray(
-        codeSources.findingId,
-        seen.map((m) => known.get(m.number) as number),
-      ),
-    );
+  await tx
+    .delete(codeSources)
+    .where(inArray(codeSources.findingId, [...ids.values()]));
   const sources = mapped.flatMap((m) =>
     m.source
       ? [{ findingId: ids.get(m.number) as number, position: 0, ...m.source }]
@@ -409,15 +422,25 @@ export async function receiveAlert(
     .from(projects)
     .where(eq(projects.githubRepoId, delivery.repoId));
   if (!project || project.archivedAt) return;
-  const { alert } = z
-    .object({ alert: ALERT_TOOLS[tool].schema })
+  // A closed alert may come without its tool or its occurrence: only its number and state are read then.
+  const { alert: head } = z
+    .object({ alert: z.object({ number: z.int(), state: z.string() }) })
     .parse(delivery.payload);
-  if (alert.state !== "open") {
+  if (head.state !== "open") {
     await db.transaction((tx) =>
-      closeAlerts(tx, project.id, tool, [], alert.number),
+      closeAlerts(tx, project.id, tool, [], head.number),
     );
     return;
   }
+  const { alert } = z
+    .object({ alert: ALERT_TOOLS[tool].schema })
+    .parse(delivery.payload);
+  // Only the default branch, like the list of a refresh.
+  if (
+    "most_recent_instance" in alert &&
+    alert.most_recent_instance.ref?.startsWith("refs/pull/")
+  )
+    return;
   const ready = await readGitHub();
   if (!ready) throw new Error("Cockpit is not configured");
   const [mapped] = await mapAlerts(tool, [alert], project, ready.github);

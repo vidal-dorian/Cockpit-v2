@@ -291,7 +291,10 @@ function RuntimePanel({
         {runtime.eolFrom && ` · Fin de vie : ${fullDate(runtime.eolFrom)}`}
       </p>
       {row.all.map((r) => (
-        <section key={r.module.path} aria-label={r.module.name}>
+        <section
+          key={`${r.module.path}:${r.source.path}:${r.source.startLine}`}
+          aria-label={r.module.name}
+        >
           <h3 className="font-semibold">{r.module.name}</h3>
           <SourceCode
             projectId={projectId}
@@ -407,7 +410,7 @@ export function Findings({
           <div className="mb-4 flex flex-wrap items-center justify-end gap-1.5">
             <button
               type="button"
-              className={`mr-auto ${button}`}
+              className={button}
               disabled={archived || refresh.isPending}
               onClick={() => refresh.mutate()}
             >

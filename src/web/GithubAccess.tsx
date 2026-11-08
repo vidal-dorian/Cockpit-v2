@@ -3,7 +3,7 @@ import { focusRing } from "./ui.ts";
 /** Decision 052 B and H: what to say, and where to go, when GitHub does not let Cockpit read the alerts. Shared by the health line and the screen of the findings. */
 export const ACCESS_TEXT: Record<string, string> = {
   app_missing_permissions:
-    "L'App ne demande pas les permissions des alertes : coche « Dependabot alerts », « Code scanning alerts » et « Secret scanning alerts » en lecture dans « Permissions & events » de l'App.",
+    "L'App ne demande pas les permissions des alertes : coche « Dependabot alerts », « Code scanning alerts » et « Secret scanning alerts » en lecture dans « Permissions & events » de l'App, puis les événements « Dependabot alert », « Code scanning alert » et « Secret scanning alert » dans « Subscribe to events ».",
   installation_not_approved:
     "GitHub attend ton accord pour les nouvelles permissions de l'App.",
   unknown:
