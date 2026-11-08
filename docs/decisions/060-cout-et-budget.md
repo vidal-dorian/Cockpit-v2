@@ -35,6 +35,8 @@ Claude Code exporte sa télémétrie en OpenTelemetry ([doc](https://code.claude
 
 - **Une estimation au prix catalogue** (doc), pas la facture.
 - **Sans secret, quiconque connaît l'identifiant d'une session peut gonfler son coût** (pas le faire baisser) : l'identifiant n'est montré qu'à l'utilisateur, sur claude.ai et dans Cockpit.
+- **Gonfler le coût d'une session peut atteindre le plafond du mois** et bloquer tous les lancements jusqu'au mois suivant : remonter ou retirer le plafond par mois les débloque.
+- **En temporalité `cumulative`** (pas le défaut), une session a une série par modèle (et par type de tokens) : Cockpit garde la plus grande, pas leur somme.
 - **Un envoi répété par l'exportateur** (nouvelle tentative) compte deux fois en `delta`.
 - **L'arrêt reste coopératif** (037) : Claude le lit à sa prochaine étape ; le coût continue jusque-là.
 - **Sans les variables dans l'environnement**, rien n'arrive : la page dit « coût inconnu ».
