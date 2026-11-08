@@ -32,7 +32,10 @@ describe("criterion 16: the step labels", () => {
     renderAt("/projets/5/tickets");
 
     for (const [code, label] of LABELS) {
-      const link = await screen.findByRole("link", { name: `ticket-${code}` });
+      // Decision 054 F: a row is a button that opens the panel, no longer a link.
+      const link = await screen.findByRole("button", {
+        name: `ticket-${code}`,
+      });
       const row = link.closest("li") as HTMLElement;
       expect(row, code).not.toBeNull();
       expect(within(row).getByText(label), code).toBeDefined();

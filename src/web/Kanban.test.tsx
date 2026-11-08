@@ -286,8 +286,12 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     const tickets = (
       await screen.findByRole("heading", { name: "Tickets" })
     ).closest("section") as HTMLElement;
+    // Decision 054 G: a row opens the panel of the ticket, « Ouvrir le ticket » leads to its page.
     fireEvent.click(
-      await within(tickets).findByRole("link", { name: "Idée A" }),
+      await within(tickets).findByRole("button", { name: "Idée A" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("link", { name: "Ouvrir le ticket" }),
     );
     await screen.findByRole("heading", { level: 1, name: /^Idée A/ });
   };
