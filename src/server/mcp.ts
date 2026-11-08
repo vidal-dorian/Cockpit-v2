@@ -356,7 +356,7 @@ const tools = {
   ),
 
   get_ticket: tool(
-    "Get one ticket: its title, its description in markdown, its step and its user stories (id, position, status, i_want; use get_user_story for one story in full). Use it when you have a ticket_id (from search or get_project) and need the whole idea. Works on tickets of archived projects too.",
+    "Get one ticket: its title, its description in markdown, its step, its priority (low, normal or high), its tags and its user stories (id, position, status, i_want; use get_user_story for one story in full). Use it when you have a ticket_id (from search or get_project) and need the whole idea. Works on tickets of archived projects too.",
     z.object({ ticket_id: id.describe("Id from search or get_project") }),
     async (call, { ticket_id }) => {
       call.entry.args = { ticketId: ticket_id };
@@ -376,6 +376,8 @@ const tools = {
             ticket,
             stories.map((story) => story.status),
           ),
+          priority: ticket.priority,
+          tags: ticket.tags,
           stories: stories.map((story) => ({
             id: story.id,
             position: story.position,

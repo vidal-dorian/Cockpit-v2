@@ -203,26 +203,43 @@ export const codeMaps = pgTable(
 );
 
 /** A raw idea of a project (decision 014). No step column: it is computed (decision 002). */
-export const tickets = pgTable("tickets", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  projectId: integer("project_id")
-    .notNull()
-    .references(() => projects.id),
-  title: text("title").notNull(),
-  descriptionMd: text("description_md").notNull().default(""),
-  abandonedAt: timestamp("abandoned_at", { withTimezone: true, mode: "date" }),
-  // Empty while Claude has not finished writing the stories of the ticket (decision 017 N).
-  storiesWrittenAt: timestamp("stories_written_at", {
-    withTimezone: true,
-    mode: "date",
-  }),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
-    .notNull()
-    .defaultNow(),
-});
+export const TICKET_PRIORITIES = ["low", "normal", "high"] as const;
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    title: text("title").notNull(),
+    descriptionMd: text("description_md").notNull().default(""),
+    // Decision 054 A: the tags are free text, normalised at the boundary.
+    priority: text("priority").notNull().default("normal"),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    abandonedAt: timestamp("abandoned_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    // Empty while Claude has not finished writing the stories of the ticket (decision 017 N).
+    storiesWrittenAt: timestamp("stories_written_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "tickets_priority_check",
+      sql`${t.priority} in ('low', 'normal', 'high')`,
+    ),
+  ],
+);
 
 export const STORY_STATUSES = [
   "to_validate",
