@@ -281,8 +281,7 @@ export function Sidebar() {
         </Link>
         <p className={sidebarLabel}>Configurer</p>
         <NavLink to="/claude/taches" className={navItem}>
-          {/* Not the bare word « Claude »: the journal tests count the rows that say it. */}
-          Claude · tâches
+          Claude
         </NavLink>
         <NavLink to="/journal" className={navItem}>
           Journal

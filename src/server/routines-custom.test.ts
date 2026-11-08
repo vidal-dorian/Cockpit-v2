@@ -227,9 +227,9 @@ describe("criterion 2: the pass of the minute", () => {
       await sqlRows<{ id: number }>(ctx, sql`select id from cloud_launches`)
     )[0]?.id;
     expect(ctx.calls[0]?.body).toEqual({ text: `launch_id: ${launchId}` });
-    expect((await routineRow(ctx, id))?.next_run_at?.toISOString()).toBe(
-      "2026-11-09T12:00:00.000Z",
-    );
+    expect(
+      new Date(String((await routineRow(ctx, id))?.next_run_at)).toISOString(),
+    ).toBe("2026-11-09T12:00:00.000Z");
     const [entry] = await entries(ctx, "fire_routine");
     expect(entry).toMatchObject({
       actor: "system",
