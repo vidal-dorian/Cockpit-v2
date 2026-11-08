@@ -491,7 +491,8 @@ describe("056 E: no duplicate", () => {
 });
 
 describe("056 E: a concurrent import wins between the read and the insert", () => {
-  // Review of 11.3: the conflict branch. A ticket for the issue 57 appears while the server reads GitHub: the import answers 200 and skips it, never a 500.
+  // Review of 11.3: a ticket for the issue 57 appears while the server reads GitHub: the import answers 200 and skips it, never a 500.
+  // shortcut: the ticket lands before the transaction, so it is skipped as already known; PGlite runs one transaction at a time, so the `onConflictDoNothing` branch itself is only covered by the unique index test above, test it on a real PostgreSQL if imports ever race.
   it("given a ticket from the issue 57 is created while the import reads GitHub, when the import of 57 and 58 ends, then 200 with 57 skipped and 58 imported", async () => {
     const holder: { db?: Ctx["db"]; projectId?: number } = {};
     let done = false;
