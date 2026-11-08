@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { fetchTickets } from "./ProjectTickets.tsx";
 import { Dot } from "./Shell.tsx";
-import { plural, STORY_STATUSES } from "./tickets.ts";
+import { fetchTickets, plural, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
   badge,

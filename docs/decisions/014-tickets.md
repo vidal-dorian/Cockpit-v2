@@ -6,6 +6,7 @@
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [010 — Historique](010-historique.md), [011 — Importer un projet](011-import-projets.md)
 - **Tranche** : 3.1 du [découpage](../decoupage.md)
 - **Modifiée par 017** : les lignes F et G (étape « Nouveau » pour tous les tickets, suppression « vraie d'office ») sont remplacées par les règles de la 002, appliquées avec les US, et par le refus `ticket_has_stories` ; dans la ligne I, « Supprimer » n'est plus montré dès que le ticket a des US — voir la [017](017-user-stories.md), choix I, J et L
+- **Modifiée par 055** : dans la ligne I, le formulaire « Nouveau ticket » quitte l'onglet Tickets (un ticket se crée par la barre « Noter une idée ») ; la priorité, les étiquettes et la recherche, repoussées ci-dessous, sont faites par la tranche 11.2 — voir la [055](055-tickets-complets.md)
 
 ## Contexte
 
@@ -28,7 +29,7 @@ Un ticket est une idée brute d'un projet (brief §6.2) : un titre suffit, une d
 ## Ce qui est repoussé
 
 - Le bouton global « Nouveau ticket » et le raccourci `N` : section 6.20 du brief.
-- Priorité, étiquettes, pièces jointes, recherche, import d'issues GitHub : tranches suivantes.
+- Pièces jointes, import d'issues GitHub : tranches suivantes. *Priorité, étiquettes et recherche sont faites par la [055](055-tickets-complets.md) (11.2).*
 - L'abandon d'un ticket (tranche 4.4) et les étapes autres que « Nouveau » (4.3 et suivantes).
 
 ## Limites connues

@@ -31,6 +31,12 @@ La page d'un projet a sept onglets : « Kanban » (`/projets/:id`, six colonnes 
 
 L'onglet « Agents » (`/projets/:id/agents`) modifie les agents de `.claude/agents/` du repo et ses équipes (`.claude/team.md` et `.claude/teams/<nom>.md`, au choix « Graphe » ou « Liste » ; l'éditeur d'un agent s'ouvre à côté de son fichier) : chaque changement montre son diff, puis fait un seul commit. Une section « Agents d'analyse » liste ceux de `/analyser` (`cartographer`, `rules-analyst`, `bug-hunter`, `security-reviewer`, `architect`, `upgrade-advisor`) : tu peux changer le modèle de chacun pour ce projet (plus petit sur l'abonnement Pro, `opus` partout sur Max) sans perdre les mises à jour du catalogue, car la ligne `model:` n'est pas comparée et « Mettre à jour » garde celle du repo. Décisions [030](docs/decisions/030-editeur-d-agent.md), [031](docs/decisions/031-equipe-en-graphe.md), [032](docs/decisions/032-plusieurs-equipes.md) et [042](docs/decisions/042-nouvelle-equipe-fenetre.md).
 
+### Noter une idée et les tickets
+
+La barre « Noter une idée » (en bas de chaque page, `N` pour y aller) est la seule façon de créer un ticket. On tape le titre, puis **Entrée** l'agrandit en un panneau : titre, description (Markdown), projet, priorité (basse, normale, haute) et étiquettes (« + étiquette », Entrée l'ajoute ; 10 au plus, en minuscules ; les étiquettes déjà utilisées dans le projet sont proposées). **« Noter »** (`Ctrl Entrée`) crée le ticket ; « Annuler » ou Échap referme le panneau et garde ce que tu as écrit, Entrée le rouvre. Seuls le titre et le projet sont obligatoires.
+
+L'onglet « Tickets » liste les tickets du projet, ceux de priorité haute d'abord : étape, détail de leurs US (« 4 US · 1 à valider, 2 prêtes »), étiquettes et âge. Les puces « Ouverts » (par défaut ; un second clic montre tous les tickets) et « Nouveaux », le menu « Étiquette » et la case de recherche (dans les tickets et dans les US, sans tenir compte de la casse ; les US trouvées ouvrent leur page) filtrent la liste. Si l'écriture automatique des US est connectée, « Écrire les US maintenant » est là aussi. Un clic sur une ligne ouvre le ticket à droite (« Ouvrir le ticket », « Modifier », « Supprimer »). Décision [055](docs/decisions/055-tickets-complets.md).
+
 ### Le Journal
 
 Le Journal est groupé par jour et affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
