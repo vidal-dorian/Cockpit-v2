@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import { history, runs, userStories, users } from "./db/schema.ts";
@@ -159,14 +159,19 @@ export async function followPullRequest(
       locked.relaunchCount < MAX_RELAUNCHES
     ) {
       const [last] = await tx
-        .select({ userId: runs.userId, on: users.autoRelaunch })
+        .select({
+          userId: runs.userId,
+          on: users.autoRelaunch,
+          blockedAt: users.blockedAt,
+        })
         .from(runs)
         .innerJoin(users, eq(users.id, runs.userId))
-        // A blocked owner is never launched for, as in the queue and the routines.
-        .where(and(eq(runs.storyId, story.id), isNull(users.blockedAt)))
+        .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
-      if (last?.on) relaunch = { by: last.userId, branch: locked.branch };
+      // A blocked owner is never launched for, as in the queue and the routines.
+      if (last?.on && !last.blockedAt)
+        relaunch = { by: last.userId, branch: locked.branch };
     }
     return { transitioned: action !== null, relaunch };
   });

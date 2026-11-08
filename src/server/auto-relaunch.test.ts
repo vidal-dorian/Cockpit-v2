@@ -13,7 +13,13 @@ import {
   storyCounts,
   tick,
 } from "./test-launcher.ts";
-import { callTool, dataOf, rows, seedStory } from "./test-mcp.ts";
+import {
+  callTool,
+  dataOf,
+  rows,
+  seedStory,
+  userWithToken,
+} from "./test-mcp.ts";
 
 // Slice 14.4 (decision 059): Cockpit relaunches Claude on the branch when the CI of the PR of a story fails.
 
@@ -112,6 +118,19 @@ describe("criterion 3: no relaunch (B)", () => {
         await inReview(ctx);
         await ctx.db.execute(
           sql`update users set blocked_at = now() where id = ${ctx.alice.id}`,
+        );
+      },
+    ],
+    [
+      "the last run is by a blocked user, an earlier one by the owner with the setting on",
+      async (ctx: Awaited<ReturnType<typeof ready>>) => {
+        await inReview(ctx);
+        const bob = await userWithToken(ctx.app, ctx.db, 2000);
+        await ctx.db.execute(
+          sql`update users set blocked_at = now() where id = ${bob.id}`,
+        );
+        await ctx.db.execute(
+          sql`insert into runs (story_id, user_id, status, model_actual, finished_at) values (${ctx.storyId}, ${bob.id}, 'failed', 'claude-x', now())`,
         );
       },
     ],
