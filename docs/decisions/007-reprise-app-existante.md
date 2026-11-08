@@ -304,6 +304,7 @@ Les citations des objets de la carte restent dans son `data` : elles sont rempla
 2. **Contrôle du mode « figer »** : le reviewer vérifie que la PR ne touche que des tests. Cockpit pourrait le vérifier lui-même sur le diff de la PR ; à décider en R4. *Tranché par la [050](050-figer-l-existant.md) C : le reviewer et Cockpit, sur les fichiers de la PR.*
 3. **Coloration du code** à gauche : à choisir avec l'écran de reprise (R2), sans couleur codée en dur (003). *Tranché par la [047](047-ecran-de-reprise.md) F : Shiki, thème `css-variables`.*
 4. **Modèle de chaque agent** d'analyse (005) : `security-reviewer` et `architect` méritent sans doute le plus gros.
+   *Tranché par la [051](051-constats-de-claude.md) : `security-reviewer` et `architect` en `opus`, `bug-hunter` en `sonnet`, modifiables par projet dans l'onglet Agents.*
 5. **Doublons entre deux analyses** : `list_findings` évite de redéposer ce qui est connu, sans le garantir. À revoir en R5 si le cas se présente.
 6. **`object_names` absent de la carte** : accepté et montré en gris (choix retenu), ou refusé par `create_takeover_stories` ? À confirmer en R2. *Tranché par la [047](047-ecran-de-reprise.md) J : accepté, montré en gris.*
 7. **Offre** : l'analyse et la reprise sont dans l'offre Pro ([offres](../offres.md)), bloquées côté serveur dans l'API **et** le MCP. À trancher avec la tranche « Service payant ».

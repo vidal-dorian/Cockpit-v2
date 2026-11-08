@@ -1,6 +1,6 @@
 # 051 — Les constats de Claude
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R5)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (« Les constats », « Trier les constats », `findings`, `code_sources`, `submit_findings`, `list_findings`, le choix L), [043](043-carte-du-code.md) (`verifyCitations`, la route du code), [047](047-ecran-de-reprise.md) (« C'est un bug », `CodeView`, la fenêtre d'analyse), [050](050-figer-l-existant.md) (les règles figées), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
@@ -30,6 +30,19 @@ La 007 laissait ouvert le **modèle de chaque agent d'analyse** (point 4). Le 20
 | J | La fenêtre d'analyse ? | Elle gagne les cases **Bugs**, **Sécurité** et **Architecture et stack** (047 L). « Ouvrir Claude » prérempli `/analyser` avec les mots choisis (`bugs`, `securite`, `architecture`). Le skill fait la carte d'abord si elle manque, et chaque agent lit `list_findings` avant de déposer |
 | K | Les agents ? | Trois agents de plus dans le catalogue : **`bug-hunter`** (`sonnet`), **`security-reviewer`** (`opus`) et **`architect`** (`opus`), tous déposent par `submit_findings` (point 4 : B). « Préparer pour Claude » et « Mettre à jour » (049) les écrivent |
 | L | Changer le modèle d'un agent ? | **Dans l'onglet Agents du projet** (l'éditeur de la 030), qui montre désormais aussi les **agents d'analyse** (`cartographer`, `rules-analyst`, `bug-hunter`, `security-reviewer`, `architect`) dans une section « Agents d'analyse », avec leur modèle modifiable comme celui des agents de l'équipe. Pour que ce choix ne coupe pas les mises à jour : **la ligne `model:` d'un agent ne compte pas** quand Cockpit compare une copie au catalogue (049 D), et « Mettre à jour » **garde le modèle du repo** (049 F). Quelqu'un sur Max peut donc tout passer en `opus`, quelqu'un sur Pro en `sonnet`, et recevoir quand même les améliorations des agents |
+
+## Ce que le code a précisé (tranche R5)
+
+- **MCP** : `submit_findings` rend `{ findings: [{ id }] }` ; un refus dit l'endroit fautif, `findings[i].sources[j]`. Le type `upgrade` est refusé jusqu'à R6. `list_findings` rend les constats sans leur texte. Les deux outils portent le total à 20.
+- **Routes** : `GET /api/projects/:id/findings` (filtre `?status=`) rend les constats triés par gravité puis du plus récent au plus ancien, avec leurs sources et `unprotected` (I, calculé à l'affichage). `POST /api/findings/:id/ticket`, `/dismiss` (raison facultative) et `/later`, chacune dans un `act` après `assertActive`, le constat relu `FOR UPDATE`.
+- **409 `not_open`** : un constat déjà `ticketed` ou `dismissed` ne se tranche plus. C'est un choix fait en R5 (la 007 ne le disait pas) : un constat rejeté reste seulement visible dans « Rejetés », il ne revient pas à trancher ; « Plus tard » se retranche, lui.
+- **Journal** : actions `ticket_finding`, `dismiss_finding` et `later_finding`, écrites « Constat transformé en ticket », « Constat rejeté » et « Constat remis à plus tard ».
+- **Base** : table `findings` et colonne `code_sources.finding_id` (migration `0026`). La route du code de la 043 (H) sert aussi les lignes citées par un constat du projet.
+- **« C'est un bug » (H)** : `takeover.ts` crée le constat `bug` (`ticketed`, `ticket_id`) avec des copies des sources que la règle perd en étant retirée de son US.
+- **Catalogue** : les trois agents et le skill `/analyser` (mots `bugs`, `securite`, `architecture`) ; « Préparer pour Claude » écrit 12 fichiers, `catalogStates` rend 11 états (sans le `CLAUDE.md` de départ).
+- **La ligne `model:` (L)** : ignorée à la comparaison (`catalog-update.ts`), avec chaque ligne de modèle qu'une version passée a pu avoir (`history.json` ne connaît que les textes du catalogue) ; gardée par « Mettre à jour », par l'aperçu du plan et par « Préparer pour Claude » sur les fichiers `update`. `npm run catalog:history` liste désormais les versions **de la plus ancienne à la plus récente** : la dernière est la version courante, et la relancer ne change rien.
+- **Onglet Agents** : la section « Agents d'analyse » (L) liste `cartographer`, `rules-analyst`, `bug-hunter`, `security-reviewer` et `architect`, avec l'éditeur de la 030.
+- **Différences avec S44** : les filtres ont leur propre rangée ; « En faire un ticket » est dans la première carte et dans le panneau, pas sur chaque ligne des autres constats. La puce « Versions » et les lignes GitHub attendent R6.
 
 ## Ce qui est repoussé
 
