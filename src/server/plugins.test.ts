@@ -144,7 +144,7 @@ describe("decision 066 B: PUT /api/plugins/repo", () => {
     ]);
   });
 
-  it("given a repo the installation does not reach, when it is linked, then 409 repo_unreachable, nothing is linked and no entry is recorded", async () => {
+  it("given a repo the installation does not reach, when it is linked, then 409 repo_unreachable, nothing is linked and the refusal is recorded (decision 010 C)", async () => {
     const ctx = await ready();
 
     const res = await link(ctx, "user1000/elsewhere");
@@ -152,7 +152,13 @@ describe("decision 066 B: PUT /api/plugins/repo", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "repo_unreachable" });
     expect(await (await read(ctx)).json()).toMatchObject({ repo: null });
-    expect(await pluginRows(ctx)).toEqual([]);
+    expect(await pluginRows(ctx)).toMatchObject([
+      {
+        user_id: ctx.alice.id,
+        action: "link_plugin_repo",
+        result: "refused",
+      },
+    ]);
   });
 
   it.each([
