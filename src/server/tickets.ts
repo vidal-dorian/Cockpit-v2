@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -9,6 +9,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
+  attachments,
   projects,
   questions,
   runs,
@@ -223,8 +224,21 @@ export function ticketRoutes(
         db,
         rows.map((t) => t.id),
       );
+      const counts = new Map(
+        (
+          await db
+            .select({ id: attachments.ticketId, n: count() })
+            .from(attachments)
+            .innerJoin(tickets, eq(tickets.id, attachments.ticketId))
+            .where(eq(tickets.projectId, project.id))
+            .groupBy(attachments.ticketId)
+        ).map((row) => [row.id, row.n]),
+      );
       return c.json({
-        tickets: rows.map((t) => present(t, statuses.get(t.id) ?? [])),
+        tickets: rows.map((t) => ({
+          ...present(t, statuses.get(t.id) ?? []),
+          attachmentsCount: counts.get(t.id) ?? 0,
+        })),
       });
     })
     .get(

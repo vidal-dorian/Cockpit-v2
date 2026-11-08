@@ -1,8 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { checkFile, formatSize, nextKey, refusal } from "./attachments.ts";
 import { TagField } from "./TagField.tsx";
 import { fetchTickets, PRIORITIES, withPending } from "./tickets.ts";
-import { button, field, focusRing, kbd, primaryButton } from "./ui.ts";
+import {
+  alertBox,
+  badge,
+  button,
+  field,
+  focusRing,
+  ghostButton,
+  kbd,
+  primaryButton,
+} from "./ui.ts";
 
 export type Idea = {
   projectId: string;
@@ -10,6 +20,8 @@ export type Idea = {
   descriptionMd: string;
   priority: keyof typeof PRIORITIES;
   tags: string[];
+  /** The files to attach once the ticket exists (decision 061 F). */
+  files: File[];
 };
 
 /** The idea bar grown upwards (decision 055 D, S09): title, description, project, priority and tags. The draft is the caller's, so that it survives « Annuler » and Escape; both are ignored while the idea is sending. */
@@ -30,6 +42,10 @@ export function IdeaPanel({
 }) {
   const heading = useId();
   const [tagText, setTagText] = useState("");
+  const picker = useRef<HTMLInputElement>(null);
+  const [rejected, setRejected] = useState<
+    { key: number; name: string; code: string }[]
+  >([]);
   const set = onChange;
   // The tags already used in the chosen project, offered as suggestions.
   const used = useQuery({
@@ -116,7 +132,72 @@ export function IdeaPanel({
           suggestions={suggestions}
         />
       </div>
+      <input
+        ref={picker}
+        type="file"
+        multiple
+        hidden
+        onChange={(event) => {
+          const chosen = Array.from(event.target.files ?? []);
+          event.target.value = "";
+          const checked = chosen.map((file) => ({
+            file,
+            code: checkFile(file),
+          }));
+          setRejected(
+            checked.flatMap((c) =>
+              c.code
+                ? [{ key: nextKey(), name: c.file.name, code: c.code }]
+                : [],
+            ),
+          );
+          set({
+            files: [
+              ...idea.files,
+              ...checked.flatMap((c) => (c.code ? [] : [c.file])),
+            ],
+          });
+        }}
+      />
+      {idea.files.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {idea.files.map((file, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: two chosen files can share a name
+            <li key={i} className={`${badge} gap-2`}>
+              <span>{`${file.name} · ${formatSize(file.size)}`}</span>
+              <button
+                type="button"
+                aria-label={`Retirer ${file.name}`}
+                disabled={pending}
+                onClick={() =>
+                  set({ files: idea.files.filter((_, j) => j !== i) })
+                }
+                className={`rounded-full ${focusRing}`}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {rejected.length > 0 && (
+        <div role="alert" className={alertBox}>
+          {rejected.map((r) => (
+            <p key={r.key}>
+              {r.name} : {refusal(r.code)}
+            </p>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => picker.current?.click()}
+          className={ghostButton}
+        >
+          + Pièce jointe
+        </button>
         <p className="mr-auto text-[12.5px] text-muted-foreground">
           Seuls le titre et le projet sont obligatoires.
         </p>
