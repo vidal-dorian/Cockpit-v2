@@ -47,7 +47,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | tranché ([064](../decisions/064-tranches-restantes.md) 12.4) : permission `workflows`, `propose_workflow_change` ; pas de « 2 tests sur 31 » |
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 (existe) | 062 | |
-| [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 | 026 | |
+| [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 (existe) | 026, 065 | |
 | [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | tranché (044 N', [064](../decisions/064-tranches-restantes.md)) : la section « la nuit » est retirée |
 | [S20](S20_NouveauDepuisModele.png) | Nouveau projet depuis un repo modèle | 12.5 | | |
 | [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3 | 019 | |

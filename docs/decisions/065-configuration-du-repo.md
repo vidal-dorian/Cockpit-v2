@@ -1,6 +1,6 @@
 # 065 — Éditer la configuration Claude du repo
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.1)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.1 A à C)
 - **Dépend de** : [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [013 — Le bilan de santé](013-bilan-de-sante.md) (la ligne MCP), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
@@ -23,6 +23,15 @@ Le brief (§6.9) veut modifier depuis Cockpit tout ce que Claude lit dans un rep
 | F | Éditer un skill | Comme l'éditeur d'agent (030) : une liste, « + Nouveau skill », et un formulaire **Nom** (à la création seulement), **Description**, **Outils autorisés** (`allowed-tools`, séparés par des virgules, vide = pas de ligne), **Consigne** (le corps de `SKILL.md`), avec l'aperçu du fichier et son diff avant « Faire le commit ». L'entête écrit : `---`, `name: <nom>`, `description: <description>`, `allowed-tools: <outils>` si non vide, `---`, une ligne vide, puis la consigne. Un skill dont l'entête ne se lit pas s'ouvre en texte brut, comme un agent. « Supprimer le skill » avec confirmation sur place |
 | G | Les refus | Chaque refus est dit en français, à côté du bouton : le fichier a changé sur GitHub (« Recharge la page pour repartir de la version de GitHub. »), le projet est archivé, le JSON n'est pas valide, une valeur n'est pas une référence (« `<at>` doit être une référence comme `${GITHUB_TOKEN}` : un secret n'est jamais écrit dans un repo. »), GitHub injoignable (« Réessayer »). Sur un projet archivé, tout se lit et les boutons sont grisés avec la raison |
 | H | La couleur | Le budget de la 045 : rien en rouge sauf un refus ; « Faire le commit » est le seul bouton blanc de la zone |
+
+## Ce que le code a précisé (tranche 12.1)
+
+- **`at`** n'est que dans la réponse HTTP du refus `secret_in_clear` ; l'entrée refusée de l'historique ne garde que `{ reason }`.
+- **Un fichier vide ou illisible** (lien symbolique, trop gros) est montré comme non modifiable : l'éditeur ne s'ouvre pas dessus, et l'écriture le refuserait de toute façon (`repo_changed`, 026).
+- **Ce qui ne se juge pas est refusé** : une valeur de `mcpServers`, d'un serveur, de `headers` ou de `env` qui n'est pas un objet (ou une valeur qui n'est pas une chaîne) pourrait cacher un secret, donc `secret_in_clear` à son propre chemin. Une `url` que `URL.parse` ne lit pas est jugée à son allure : un `//…@` y est refusé, un `${MCP_URL}` passe.
+- **L'entête d'un skill** : `description` et `allowed-tools` sont écrits en texte simple quand YAML le lit tel quel, sinon en chaîne JSON entre guillemets (`a : b`, `x #y`, espaces aux bords). Ouvrir un skill sans toucher aux champs ne change pas le texte.
+- **Les noms** : un nom de skill du catalogue est refusé en 400 aussi à la création ; la longueur maximale est celle qui garde `.claude/skills/<nom>/SKILL.md` sous les 255 caractères de la 026 D.
+- **Les puces** sont toujours affichées, même sans fichier ni règle ; un paramètre `fichier` inconnu ouvre Agents.
 
 ## Ce qui est repoussé
 

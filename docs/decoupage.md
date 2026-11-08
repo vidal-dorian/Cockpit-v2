@@ -71,6 +71,7 @@
 - **Fait** : tranche 14.6 (la nuit de Claude, [décision 044](decisions/044-la-nuit-de-claude.md)) ; la phase 14 est terminée.
 - **Fait** : tranche 11.5 (après le merge : le changelog et les branches à nettoyer, [décision 062](decisions/062-apres-le-merge.md)).
 - **Fait** : tranche 11.6 (les équipes de départ Éco, Standard, Premium et Max, [décision 063](decisions/063-equipes-de-depart.md)) ; la phase 11 est terminée.
+- **Fait** : tranche 12.1 (la configuration Claude du repo : `CLAUDE.md`, règles, skills et `.mcp.json`, [décision 065](decisions/065-configuration-du-repo.md)).
 - **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7, puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
