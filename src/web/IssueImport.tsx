@@ -88,6 +88,8 @@ export function IssueImport() {
         json: { numbers },
       });
       if (res.status === 502) throw new GithubDown();
+      if (res.status === 409)
+        throw new Error("Ce projet est archivé : l'import n'est pas possible.");
       if (!res.ok) throw new Error("L'import a échoué, réessaie.");
       return res.json();
     },
@@ -230,9 +232,13 @@ export function IssueImport() {
                 Importer {plural(checked.length, "issue", "issues")}
               </button>
               <p className="text-[12.5px] text-muted-foreground">
-                {stories} deviendront des US validées,{" "}
-                {checked.length - stories} des tickets que Claude transformera
-                en US.
+                {stories}{" "}
+                {stories === 1
+                  ? "deviendra une US validée"
+                  : "deviendront des US validées"}
+                , {checked.length - stories}{" "}
+                {checked.length - stories === 1 ? "un ticket" : "des tickets"}{" "}
+                que Claude transformera en US.
               </p>
             </div>
           </>

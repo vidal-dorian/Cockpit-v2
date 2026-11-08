@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchStories } from "./ProjectKanban.tsx";
 import { RunNowButton } from "./ProjectRoutine.tsx";
+import { fetchProjects } from "./Projects.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { age, fetchTickets, STEPS, STORY_STATUSES } from "./tickets.ts";
 import {
@@ -96,6 +97,10 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
     queryKey: ["tickets", projectId],
     queryFn: () => fetchTickets(projectId),
   });
+  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const archived = projects.data?.find(
+    (p) => String(p.id) === projectId,
+  )?.archived;
   const stories = useQuery({
     queryKey: ["stories", projectId],
     queryFn: () => fetchStories(projectId),
@@ -162,7 +167,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
       <h2 id="tickets" className="sr-only">
         Tickets
       </h2>
-      {tickets.data && (
+      {tickets.data && !archived && (
         <div className="mb-3 flex justify-end">
           <Link
             to={`/projets/${projectId}/tickets/importer`}
