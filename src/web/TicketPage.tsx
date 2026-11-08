@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { ImportedFrom } from "./IssueImport.tsx";
+import { fetchProjects } from "./Projects.tsx";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Breadcrumb, StateSentence, useHome } from "./Shell.tsx";
 import { TagField } from "./TagField.tsx";
+import { TicketAttachments } from "./TicketAttachments.tsx";
 import {
   decisionError,
   PRIORITIES,
@@ -60,7 +62,11 @@ function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
   return `${stories.length} user ${stories.length === 1 ? "story écrite" : "stories écrites"} par Claude${waiting > 0 ? ` · ${waiting} ${waiting === 1 ? "attend" : "attendent"} ta validation` : ""}.`;
 }
 
-function TicketView({ ticket, stories }: Loaded) {
+function TicketView({
+  ticket,
+  stories,
+  archived,
+}: Loaded & { archived: boolean }) {
   const fullName = useHome().data?.projects.find(
     (p) => p.id === ticket.projectId,
   )?.name;
@@ -364,14 +370,23 @@ function TicketView({ ticket, stories }: Loaded) {
                 <SafeMarkdown>{ticket.descriptionMd}</SafeMarkdown>
               </div>
             </section>
-            <dl
-              className={`${card} grid h-fit grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 p-5 text-[13.5px]`}
-            >
-              <dt className="text-muted-foreground">Étape</dt>
-              <dd>{STEPS[ticket.step] ?? ticket.step}</dd>
-              <dt className="text-muted-foreground">Créé</dt>
-              <dd>{new Date(ticket.createdAt).toLocaleDateString("fr-FR")}</dd>
-            </dl>
+            <div className="flex h-fit flex-col gap-3.5">
+              <dl
+                className={`${card} grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 p-5 text-[13.5px]`}
+              >
+                <dt className="text-muted-foreground">Étape</dt>
+                <dd>{STEPS[ticket.step] ?? ticket.step}</dd>
+                <dt className="text-muted-foreground">Créé</dt>
+                <dd>
+                  {new Date(ticket.createdAt).toLocaleDateString("fr-FR")}
+                </dd>
+              </dl>
+              <TicketAttachments
+                ticketId={ticket.id}
+                projectId={ticket.projectId}
+                readOnly={archived}
+              />
+            </div>
           </div>
           {stories.length > 0 && (
             <section className="px-[26px] pt-[22px]">
@@ -523,6 +538,9 @@ export function TicketPage() {
     queryKey: ["ticket", id],
     queryFn: () => fetchTicket(id),
   });
+  // Read with the ticket, so that the card never offers « + Ajouter » on an archived project for a moment.
+  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const loaded = ticket.data;
 
   return (
     <main className="pb-6">
@@ -561,8 +579,15 @@ export function TicketPage() {
           </>
         )}
         {/* Keyed by id: another ticket starts from a clean state, a save keeps the node (and the focus). */}
-        {ticket.data && ticket.data !== "not_found" && (
-          <TicketView key={ticket.data.ticket.id} {...ticket.data} />
+        {loaded && loaded !== "not_found" && !projects.isPending && (
+          <TicketView
+            key={loaded.ticket.id}
+            {...loaded}
+            archived={
+              projects.data?.find((p) => p.id === loaded.ticket.projectId)
+                ?.archived ?? false
+            }
+          />
         )}
       </div>
     </main>

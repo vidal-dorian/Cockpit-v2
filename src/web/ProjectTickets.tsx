@@ -17,7 +17,9 @@ import {
   primaryButton,
 } from "./ui.ts";
 
-type Ticket = NonNullable<Awaited<ReturnType<typeof fetchTickets>>>[number];
+type Ticket = NonNullable<Awaited<ReturnType<typeof fetchTickets>>>[number] & {
+  attachmentsCount?: number;
+};
 type Stories = NonNullable<Awaited<ReturnType<typeof fetchStories>>>;
 
 /** « 4 US · 1 à valider, 2 prêtes, 1 en cours »: the stories of a ticket by status (decision 055 F). */
@@ -84,6 +86,9 @@ function TicketRow({
         ))}
         {ticket.priority === "high" && (
           <span className={badge}>priorité haute</span>
+        )}
+        {(ticket.attachmentsCount ?? 0) > 0 && (
+          <span>📎 {ticket.attachmentsCount}</span>
         )}
         <span>{age(ticket.createdAt)}</span>
       </div>

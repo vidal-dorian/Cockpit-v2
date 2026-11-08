@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useMatch } from "react-router";
 import { client } from "./api.ts";
+import { uploadAttachment } from "./attachments.ts";
 import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
 import { Logo } from "./Logo.tsx";
 import { ticketError } from "./tickets.ts";
@@ -340,6 +341,11 @@ export function IdeaBar() {
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
   const [done, setDone] = useState<string>();
+  // The files a refused upload left out: the ticket exists, its page is where to try again (decision 058 F).
+  const [unattached, setUnattached] = useState<{
+    id: number;
+    names: string[];
+  }>();
   // Enter opens the panel of decision 055 D instead of creating the ticket.
   const [open, setOpen] = useState(false);
   // What the panel holds besides the title (the bar's own): it survives « Annuler » and goes with a successful « Noter ».
@@ -383,6 +389,7 @@ export function IdeaBar() {
       projectId: id,
       title,
       descriptionMd,
+      files,
       ...rest
     }: Idea) => {
       const res = await client.api.projects[":id"].tickets.$post({
@@ -394,8 +401,14 @@ export function IdeaBar() {
         },
       });
       if (!res.ok) throw await ticketError(res, rest.tags.length > 0);
+      const { ticket } = await res.json();
+      const names: string[] = [];
+      for (const file of files)
+        if (await uploadAttachment(ticket.id, file)) names.push(file.name);
+      return { id: ticket.id, names };
     },
-    onSuccess: (_, sent) => {
+    onSuccess: ({ id, names }, sent) => {
+      setUnattached(names.length > 0 ? { id, names } : undefined);
       setTitle("");
       setDraft({});
       setOpen(false);
@@ -419,6 +432,17 @@ export function IdeaBar() {
           {send.error.message}
         </p>
       )}
+      {unattached && !send.isError && (
+        <p role="alert" className="mb-2 text-destructive">
+          {unattached.names.length === 1
+            ? "Ce fichier n'a pas été joint"
+            : "Ces fichiers n'ont pas été joints"}{" "}
+          : {unattached.names.join(", ")}.{" "}
+          <Link to={`/tickets/${unattached.id}`} className="underline">
+            Ouvrir le ticket
+          </Link>
+        </p>
+      )}
       {done && !send.isError && (
         <p role="status" className="mb-2 text-muted-foreground">
           {done}
@@ -434,6 +458,7 @@ export function IdeaBar() {
             descriptionMd: "",
             priority: "normal",
             tags: [],
+            files: [],
             ...draft,
             projectId: draft.projectId ?? projectId,
             title,
@@ -443,7 +468,10 @@ export function IdeaBar() {
             if (edited !== undefined) setTitle(edited);
             setDraft({ ...draft, ...rest });
           }}
-          onSubmit={(idea) => send.mutate(idea)}
+          onSubmit={(idea) => {
+            setUnattached(undefined);
+            send.mutate(idea);
+          }}
           onCancel={() => {
             setOpen(false);
             send.reset();
@@ -472,6 +500,7 @@ export function IdeaBar() {
           onChange={(event) => {
             setTitle(event.target.value);
             setDone(undefined);
+            setUnattached(undefined);
           }}
           className={`field-sizing-content min-w-[7.5rem] max-w-full bg-transparent placeholder:text-dim ${focusRing}`}
         />
