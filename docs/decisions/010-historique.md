@@ -4,6 +4,7 @@
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [008 — Service en ligne](008-service-en-ligne.md), [009 — Connexion avec GitHub](009-connexion-github.md)
+- **Modifiée par 053** : `GET /api/history` accepte des filtres et rend aussi `projectId`, `ticketId`, `storyId`, `runId`, `args`, `detail` et `retry` ; `GET /api/history/export` rend le CSV — voir la [053](053-journal-filtrable.md), choix A, B et H
 - **Modifiée par 028** : `GET /api/history` rend 25 entrées par page, `{ entries, hasMore }`, et `?before=<id>` pour la suivante — voir la [028](028-creme-sombre-onglets-journal.md), choix F
 - **Tranche** : 1.4 du [découpage](../decoupage.md)
 - **Règle** : le point ouvert 4 de la [008](008-service-en-ligne.md) (données personnelles dans les `args`)
@@ -23,7 +24,7 @@ Le brief en fait une règle non négociable (§6.12, principe 4) : tout ce qui s
 | E | Connexion | `login` : `ok` avec l'utilisateur. Un compte **refusé** donne une entrée `refused` **sans rien qui l'identifie** (il n'a pas de ligne `users` à rendre anonyme). Un échec avec GitHub donne une entrée `error` dont la raison est `error` (le code précis, comme `token_http_500`, ne va que dans les logs). Une requête sans `state` valide (qui n'a donc pas été lancée depuis Cockpit) n'écrit **rien** dans l'historique, seulement dans les logs : sinon n'importe qui pourrait faire grossir une table qu'on ne peut pas vider. La création de la session et l'entrée `ok` sont dans la même transaction |
 | F | Déconnexion | `logout` : `ok` avec l'utilisateur, seulement quand une session existait vraiment |
 | G | Qui voit quoi ? | `GET /api/history` (connecté seulement) rend **ses propres entrées**, les 100 plus récentes. Les entrées sans utilisateur (refus, erreurs de connexion) ne sont visibles par personne pour l'instant ; l'administration viendra plus tard (brief §6.19) |
-| H | La page Journal | Une page `/journal` (React Router, 001), reliée depuis l'en-tête : date, action, résultat (en mots et en couleur), origine. Les filtres (brief §6.12) viendront avec les projets |
+| H | La page Journal | Une page `/journal` (React Router, 001), reliée depuis l'en-tête : date, action, résultat (en mots et en couleur), origine. Les filtres (brief §6.12) viendront avec les projets<br>*Tranché par la [053](053-journal-filtrable.md) en 11.1 : le Journal se filtre (auteur, résultat, projet, outil, origine, période, recherche), s'exporte en CSV, et chaque projet a un onglet « Historique ».* |
 
 ## Limites connues
 

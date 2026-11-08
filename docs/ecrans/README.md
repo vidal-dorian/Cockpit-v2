@@ -45,7 +45,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1 (existe), 11.2 | 014 | |
 | [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | permission `workflows` (012) |
-| [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 | 010 | |
+| [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 | | |
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 | 026 | |
 | [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | |
@@ -90,7 +90,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S38b](S38b_Equipe_Intercaler.png) | Intercaler un agent oublié sur un lien | E6 | 045 | |
 | [S38c](S38c_Equipe_TracerLien.png) | Tracer un lien, mettre deux agents en parallèle | E6 | 045 | **les branches en parallèle, la condition écrite** |
 | [S39](S39_ConfigGlobale.png) | Agents et skills communs à tous les projets | 12.3 | | |
-| [S40](S40_Journal.png) | Le journal filtrable, une entrée ouverte | 1.4 (existe), 11.1 | 010, 028 F | |
+| [S40](S40_Journal.png) | Le journal filtrable, une entrée ouverte | 1.4, 11.1 (existent) | 010, 028 F, 053 | |
 
 ## 7 · Reprendre une app existante
 
