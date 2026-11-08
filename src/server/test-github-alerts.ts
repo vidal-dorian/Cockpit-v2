@@ -236,3 +236,69 @@ export const markClosed = (db: TestDb, id: number) =>
   db.execute(
     sql`update findings set github_closed_at = now() where id = ${id}`,
   );
+
+// The alerts as the WEBHOOKS send them, built from GitHub's own schema (node_modules/@octokit/openapi-webhooks-types/types.d.ts, v12.1.0), not from the REST list:
+// - secret_scanning_alert: type "secret-scanning-alert-webhook": NO `state` field; open while `resolution` and `resolved_at` are null, closed once `resolution` is set
+//   (a secret-scanning-alert-resolution-webhook: false_positive, wont_fix, revoked, used_in_tests, pattern_deleted, pattern_edited or null). It has no `secret` field in the schema.
+// - code_scanning_alert: type "webhook-code-scanning-alert-created" (and its siblings): `alert.state` is "open" | "dismissed" | null (null for an alert outside the default branch),
+//   `alert.tool` may be null, `alert.most_recent_instance` is optional and nullable, the rule has no `security_severity_level`.
+// - dependabot_alert: type "dependabot-alert": state "auto_dismissed" | "dismissed" | "fixed" | "open", the advisory severity low | medium | high | critical; the REST fixture `dependabot()`
+//   has the same fields for what Cockpit reads, so it is used as is for the webhooks of Dependabot.
+
+export const webhookSecret = (
+  n: number,
+  opts: { resolution?: string | null; display?: string } = {},
+) => ({
+  number: n,
+  created_at: "2026-11-01T10:00:00Z",
+  updated_at: null,
+  url: `https://api.github.com/repos/user1000/app/secret-scanning/alerts/${n}`,
+  html_url: `${REPO_URL}/security/secret-scanning/${n}`,
+  locations_url: `https://api.github.com/repos/user1000/app/secret-scanning/alerts/${n}/locations`,
+  resolution: opts.resolution ?? null,
+  resolved_at: opts.resolution ? "2026-11-07T10:00:00Z" : null,
+  resolved_by: null,
+  resolution_comment: null,
+  secret_type: "github_personal_access_token",
+  secret_type_display_name: opts.display ?? "GitHub Personal Access Token",
+  validity: "active",
+  push_protection_bypassed: false,
+  publicly_leaked: false,
+  multi_repo: false,
+});
+
+export const webhookCodeScanning = (
+  n: number,
+  opts: {
+    state?: "open" | "dismissed" | "fixed" | null;
+    ref?: string;
+    commit?: string;
+    description?: string;
+  } = {},
+) => ({
+  number: n,
+  state: opts.state === undefined ? "open" : opts.state,
+  created_at: "2026-11-01T10:00:00Z",
+  dismissed_at: null,
+  dismissed_by: null,
+  dismissed_reason: null,
+  html_url: `${REPO_URL}/security/code-scanning/${n}`,
+  url: `https://api.github.com/repos/user1000/app/code-scanning/alerts/${n}`,
+  rule: {
+    id: "js/sql-injection",
+    name: "SqlInjection",
+    severity: "error",
+    description:
+      opts.description ?? `Requête SQL construite avec une entrée ${n}`,
+  },
+  tool: { name: "CodeQL", version: "2.15.0", guid: null },
+  most_recent_instance: {
+    analysis_key: ".github/workflows/codeql.yml:analyze",
+    environment: "{}",
+    ref: opts.ref ?? "refs/heads/main",
+    commit_sha: opts.commit ?? "a".repeat(40),
+    state: "open",
+    message: { text: `Cette requête dépend d'une valeur fournie ${n}.` },
+    location: { path: "api/src/db.ts", start_line: 5, end_line: 9 },
+  },
+});

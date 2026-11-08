@@ -361,6 +361,36 @@ describe("decision 052 L: writing .github/dependabot.yml", () => {
     });
   });
 
+  // Review: the plan says `create`, and the repo gained a .github/dependabot.yaml (the other spelling) since: the apply re-checks both names. Pinned: 409 repo_changed, nothing written.
+  it("given a repo that gained a .github/dependabot.yaml since the plan, when the plan is applied, then 409 repo_changed and nothing is written", async () => {
+    const ctx = await ready1();
+    const p = await planOf(ctx);
+    ctx.git.push({ ".github/dependabot.yaml": "version: 2\nupdates: []\n" });
+    const head = ctx.git.head;
+
+    const res = await apply(ctx, { plan: p });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_changed" });
+    expect(ctx.git.head).toBe(head);
+    expect(ctx.git.created.commits).toEqual([]);
+  });
+
+  // Review: the content of the plan comes from the manifests; one that appeared since makes the plan stale, which is a 409 repo_changed and not a 400.
+  it("given a manifest that appeared in the repo since the plan (a composer.json), when the plan is applied, then 409 repo_changed and nothing is written", async () => {
+    const ctx = await ready1();
+    const p = await planOf(ctx);
+    ctx.git.push({ "composer.json": "{}\n" });
+    const head = ctx.git.head;
+
+    const res = await apply(ctx, { plan: p });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_changed" });
+    expect(ctx.git.head).toBe(head);
+    expect(ctx.git.created.commits).toEqual([]);
+  });
+
   it("given a plan whose file exists, when it is applied, then 200 with nothing created and nothing is written", async () => {
     const ctx = await ready({
       "package.json": "{}\n",

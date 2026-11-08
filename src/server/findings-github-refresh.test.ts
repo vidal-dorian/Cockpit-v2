@@ -640,6 +640,8 @@ describe("review O1: the same alert twice, or created meanwhile", () => {
     expect(
       (await githubRows(ctx.db)).map((r) => r.github_alert_number),
     ).toEqual([1, 2]);
+    // Two alerts are new: the repeated one counts once.
+    expect(await res.json()).toMatchObject({ created: 2, updated: 0 });
   });
 
   it("given a finding for the same tool and number created between the read and the store (a webhook), when it is refreshed, then 200 and there is still one finding for it", async () => {
@@ -660,6 +662,8 @@ describe("review O1: the same alert twice, or created meanwhile", () => {
 
     expect(landed, "the webhook landed after the read").toBe(true);
     expect(res.status).toBe(200);
+    // The alert the upsert turned into an update is not counted as created.
+    expect(await res.clone().json()).toMatchObject({ created: 0, updated: 1 });
     const rowsNow = await githubRows(ctx.db);
     expect(rowsNow).toHaveLength(1);
     expect(rowsNow[0]?.title).toBe("vendor/pkg-1 : Fuite de cookie 1");

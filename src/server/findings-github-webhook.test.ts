@@ -12,6 +12,8 @@ import {
   SECRET,
   secretScanning,
   stored,
+  webhookCodeScanning,
+  webhookSecret,
   withAlerts,
 } from "./test-github-alerts.ts";
 import { deliveryRow, pass, seedDelivery } from "./test-issue-edit.ts";
@@ -23,6 +25,9 @@ import { deliveryRow, pass, seedDelivery } from "./test-issue-edit.ts";
 //   (the same objects as the fakes of test-github-alerts.ts). The finding is found, created or updated by the tool of the event and `alert.number`, with the same mapping as a read (decision 052 D),
 //   whatever the action: the state of the alert decides. `alert.state` open: the finding is created, or updated and reopened (github_closed_at null); any other state (fixed, dismissed,
 //   auto_dismissed, resolved...): an existing finding is dated closed on GitHub (github_closed_at now, if it was not) and its status is not touched; an alert never read and not open creates nothing.
+// - REVIEW (decision 052 C): the webhook fixtures below are the shapes of GitHub's webhook schema (see the end of test-github-alerts.ts), not the REST list: a secret_scanning_alert has no
+//   `state` (open while `resolution` is null, closed once it is set), a code_scanning_alert may have `state` null, `tool` null and no instance (outside the default branch). Only an instance on
+//   `refs/heads/<repository.default_branch>` makes a finding. A delivery that makes nothing is processed all the same (processed_at set, attempts 0, no process_webhook entry).
 // - A secret scanning delivery asks `GET .../secret-scanning/alerts/<n>/locations` like a read does (the payload holds no location); the value `alert.secret` that GitHub sends is never stored in a finding,
 //   a source, a ticket or the history (the recorded delivery itself is the business of the webhook route, decision 024).
 // - A delivery whose repository is not a tracked project is processed and writes nothing. Every handled delivery gets its `processed_at` date. No history entry is written for a success.
@@ -56,7 +61,11 @@ async function deliver(
       action,
       alert,
       installation: { id: 77 },
-      repository: { id: repoId, full_name: "user1000/app" },
+      repository: {
+        id: repoId,
+        full_name: "user1000/app",
+        default_branch: "main",
+      },
       sender: { login: "dependabot[bot]" },
     },
   });
@@ -150,7 +159,7 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
       a.locations[2] = [commitLocation("api/src/db.ts", 5, 9, c.sha)];
     });
 
-    await deliver(ctx, "secret_scanning", "created", secretScanning(2));
+    await deliver(ctx, "secret_scanning", "created", webhookSecret(2));
 
     const [row] = await githubRows(ctx.db);
     expect(row).toMatchObject({
@@ -284,17 +293,60 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
 
   it("given a code scanning alert whose latest occurrence is on a pull request ref, when GitHub sends it created, then no finding is created (the default branch only, like the refresh)", async () => {
     const ctx = await withAlerts();
-    const alert = codeScanning(5, { commit: "c".repeat(40) });
-
-    await deliver(ctx, "code_scanning", "created", {
-      ...alert,
-      most_recent_instance: {
-        ...alert.most_recent_instance,
-        ref: "refs/pull/12/merge",
-      },
-    });
+    // The real shape: an alert of a pull request has state null (types.d.ts, webhook-code-scanning-alert-created).
+    await deliver(
+      ctx,
+      "code_scanning",
+      "created",
+      webhookCodeScanning(5, { state: null, ref: "refs/pull/12/merge" }),
+    );
 
     expect(await githubRows(ctx.db)).toEqual([]);
+  });
+
+  it.each([
+    [
+      "state null, tool null and no instance",
+      { state: null, tool: null, most_recent_instance: undefined },
+    ],
+    [
+      "an open alert on another branch",
+      { state: "open", ref: "refs/heads/feature" },
+    ],
+  ])(
+    "given a code_scanning_alert created with %s, when a pass runs, then no finding is created and the delivery is processed with no failure",
+    async (_name, over) => {
+      const ctx = await withAlerts();
+      const { ref, ...alertOver } = over as { ref?: string };
+      const alert = { ...webhookCodeScanning(7, { ref }), ...alertOver };
+
+      const id = await deliver(ctx, "code_scanning", "created", alert);
+
+      expect(await githubRows(ctx.db)).toEqual([]);
+      expect(await delivered(ctx, id)).toEqual({
+        processed: true,
+        attempts: 0,
+      });
+      expect(await processErrors(ctx)).toBe(0);
+    },
+  );
+
+  it("given a code_scanning_alert created on the default branch in the webhook shape, when a pass runs, then the finding is created (the schema shape is read)", async () => {
+    const ctx = await withAlerts();
+
+    await deliver(
+      ctx,
+      "code_scanning",
+      "created",
+      webhookCodeScanning(8, { commit: ctx.sha, description: "Injection SQL" }),
+    );
+
+    expect((await githubRows(ctx.db))[0]).toMatchObject({
+      title: "Injection SQL",
+      severity: "high",
+      commit_sha: ctx.sha,
+      github_alert_number: 8,
+    });
   });
 
   it("given a code scanning finding closed on GitHub, when GitHub sends it reopened, then github_closed_at is null again and the status is the same", async () => {
@@ -383,7 +435,7 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
       "created",
       codeScanning(1, { commit: ctx.sha }),
     );
-    await deliver(ctx, "secret_scanning", "created", secretScanning(1));
+    await deliver(ctx, "secret_scanning", "created", webhookSecret(1));
 
     expect(await githubRows(ctx.db)).toHaveLength(3);
     const entries = (await ctx.db.execute(
@@ -392,3 +444,92 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
     expect(entries.rows[0]?.n).toBe(0);
   });
 });
+
+describe("review (decision 052 C): the secret_scanning_alert webhook has no state", () => {
+  const seeded = () =>
+    withAlerts((a, c) => {
+      a.secret_scanning.push(secretScanning(2));
+      a.locations[2] = [commitLocation("api/src/db.ts", 5, 9, c.sha)];
+    });
+
+  it("given a secret alert in the webhook shape (no state, resolution null) created, when a pass runs, then the finding exists and is open", async () => {
+    const ctx = await withAlerts((a, c) => {
+      a.locations[2] = [commitLocation("api/src/db.ts", 5, 9, c.sha)];
+    });
+
+    await deliver(ctx, "secret_scanning", "created", webhookSecret(2));
+
+    expect((await githubRows(ctx.db))[0]).toMatchObject({
+      github_alert_type: "secret_scanning",
+      github_alert_number: 2,
+      github_closed_at: null,
+      severity: "critical",
+    });
+  });
+
+  it("given a secret finding, when GitHub sends resolved with a resolution set, then it is closed on GitHub and its status does not move", async () => {
+    const ctx = await seeded();
+    await refreshed(ctx);
+
+    await deliver(
+      ctx,
+      "secret_scanning",
+      "resolved",
+      webhookSecret(2, { resolution: "revoked" }),
+    );
+
+    const [row] = await githubRows(ctx.db);
+    expect(row?.github_closed_at).not.toBeNull();
+    expect(row?.status).toBe("open");
+  });
+
+  it("given a secret finding closed on GitHub, when GitHub sends reopened with resolution null, then it is open again", async () => {
+    const ctx = await seeded();
+    await refreshed(ctx);
+    await deliver(
+      ctx,
+      "secret_scanning",
+      "resolved",
+      webhookSecret(2, { resolution: "revoked" }),
+    );
+    expect((await githubRows(ctx.db))[0]?.github_closed_at).not.toBeNull();
+
+    await deliver(ctx, "secret_scanning", "reopened", webhookSecret(2));
+
+    expect((await githubRows(ctx.db))[0]?.github_closed_at).toBeNull();
+  });
+
+  it.each(["validated", "publicly_leaked"])(
+    "given a secret finding, when GitHub sends %s (resolution null), then the delivery is processed with no failure and the finding is kept open",
+    async (action) => {
+      const ctx = await seeded();
+      await refreshed(ctx);
+
+      const id = await deliver(
+        ctx,
+        "secret_scanning",
+        action,
+        webhookSecret(2),
+      );
+
+      expect(await delivered(ctx, id)).toEqual({
+        processed: true,
+        attempts: 0,
+      });
+      expect(await processErrors(ctx)).toBe(0);
+      expect(await githubRows(ctx.db)).toHaveLength(1);
+      expect((await githubRows(ctx.db))[0]?.github_closed_at).toBeNull();
+    },
+  );
+});
+
+async function delivered(ctx: Ctx, id: string) {
+  const row = await deliveryRow(ctx.db, id);
+  return { processed: row.processed_at !== null, attempts: row.attempts };
+}
+async function processErrors(ctx: Ctx) {
+  const result = (await ctx.db.execute(
+    sql`select count(*)::int as n from history where action = 'process_webhook'`,
+  )) as unknown as { rows: { n: number }[] };
+  return result.rows[0]?.n;
+}
