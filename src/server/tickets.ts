@@ -145,6 +145,7 @@ const CONFLICTS = [
   "no_divergence",
   "not_template",
   "not_takeover",
+  "not_open",
   "takeover_story",
 ];
 

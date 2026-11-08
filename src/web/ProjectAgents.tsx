@@ -25,6 +25,15 @@ const MODELS = ["sonnet", "opus", "haiku", "fable"];
 const AGENT_NAME = /^[a-z0-9][a-z0-9-]*$/;
 const MAX_NAME = 237;
 
+// Decision 051 L: the agents of the analysis have their own section, in this order.
+const ANALYSIS_AGENTS = [
+  "cartographer",
+  "rules-analyst",
+  "bug-hunter",
+  "security-reviewer",
+  "architect",
+];
+
 /** An agent being edited: `before` is the text read (null for an addition), `base` the text the form starts from. */
 type Editing = { name: string; before: string | null; base: string };
 type Done = { url: string; pullRequest: boolean };
@@ -341,6 +350,49 @@ export function ProjectAgents({
     agents.data?.failure ??
     (agents.isError ? { code: "", status: 0 } : undefined);
   const list = agents.data?.data;
+  const agentRow = (agent: { name: string; text: string | null }) => {
+    const fields = agent.text === null ? null : parseAgent(agent.text);
+    return (
+      <li key={agent.name} className="min-h-[50px]">
+        <button
+          type="button"
+          aria-label={`Ouvrir ${agent.name}`}
+          disabled={agent.text === null}
+          onClick={() => {
+            setProblem(null);
+            setDone(null);
+            setAdding(false);
+            setEditing(
+              agent.text === null
+                ? null
+                : {
+                    name: agent.name,
+                    before: agent.text,
+                    base: agent.text,
+                  },
+            );
+          }}
+          className={`flex min-h-[50px] w-full flex-col justify-center px-[18px] py-2 text-left hover:bg-raised disabled:opacity-50 ${focusRing}`}
+        >
+          <span className="font-semibold">{agent.name}</span>
+          <span className="text-[12.5px] text-muted-foreground">
+            <span className="capitalize">
+              {agent.text === null
+                ? "Fichier trop gros"
+                : (fields?.model ?? "En-tête illisible") || SESSION_MODEL}
+            </span>
+            {fields && ` · ${fields.tools.trim() || "tous les outils"}`}
+          </span>
+        </button>
+      </li>
+    );
+  };
+  const analysis = ANALYSIS_AGENTS.flatMap(
+    (name) => list?.agents.find((a) => a.name === name) ?? [],
+  );
+  const team = (list?.agents ?? []).filter(
+    (a) => !ANALYSIS_AGENTS.includes(a.name),
+  );
   return (
     // Team (graph) on the left, repo agents on the right from `lg` (decision 042 B); the agents take the full width while a form is open and the team steps aside.
     <div className="mx-[26px] mt-4 grid gap-x-3.5 gap-y-3.5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
@@ -406,48 +458,7 @@ export function ProjectAgents({
         )}
         {list && !editing && (
           <>
-            <ul className={`mt-2 ${listCard}`}>
-              {list.agents.map((agent) => {
-                const fields =
-                  agent.text === null ? null : parseAgent(agent.text);
-                return (
-                  <li key={agent.name} className="min-h-[50px]">
-                    <button
-                      type="button"
-                      aria-label={`Ouvrir ${agent.name}`}
-                      disabled={agent.text === null}
-                      onClick={() => {
-                        setProblem(null);
-                        setDone(null);
-                        setAdding(false);
-                        setEditing(
-                          agent.text === null
-                            ? null
-                            : {
-                                name: agent.name,
-                                before: agent.text,
-                                base: agent.text,
-                              },
-                        );
-                      }}
-                      className={`flex min-h-[50px] w-full flex-col justify-center px-[18px] py-2 text-left hover:bg-raised disabled:opacity-50 ${focusRing}`}
-                    >
-                      <span className="font-semibold">{agent.name}</span>
-                      <span className="text-[12.5px] text-muted-foreground">
-                        <span className="capitalize">
-                          {agent.text === null
-                            ? "Fichier trop gros"
-                            : (fields?.model ?? "En-tête illisible") ||
-                              SESSION_MODEL}
-                        </span>
-                        {fields &&
-                          ` · ${fields.tools.trim() || "tous les outils"}`}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <ul className={`mt-2 ${listCard}`}>{team.map(agentRow)}</ul>
             <button
               type="button"
               disabled={archived}
@@ -488,6 +499,14 @@ export function ProjectAgents({
           />
         )}
       </section>
+      {list && !editing && analysis.length > 0 && (
+        <section className="lg:col-span-2" aria-labelledby="analysis-agents">
+          <h2 id="analysis-agents" className={sectionLabel}>
+            Agents d'analyse
+          </h2>
+          <ul className={`mt-2 ${listCard}`}>{analysis.map(agentRow)}</ul>
+        </section>
+      )}
     </div>
   );
 }

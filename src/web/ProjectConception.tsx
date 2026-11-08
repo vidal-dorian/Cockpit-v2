@@ -10,6 +10,8 @@ import { NavLink, useSearchParams } from "react-router";
 import { AnalyseWindow } from "./AnalyseWindow.tsx";
 import { ConceptionObject } from "./ConceptionObject.tsx";
 import { fetchCodeMap, linkLabel } from "./conception.ts";
+import { Findings } from "./Findings.tsx";
+import { toDecide, useFindings } from "./findings.ts";
 import { ProjectFeatures } from "./ProjectFeatures.tsx";
 import { chip } from "./ProjectTeam.tsx";
 import { Reprise } from "./Reprise.tsx";
@@ -29,7 +31,7 @@ const ConceptionGraph = lazy(() => import("./ConceptionGraph.tsx"));
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
-/** Decision 043 I, J, K, L: the tab « Conception », one diagram (or list) per module of the map; decision 047 I: with the chip « Règles », the takeover screen; decision 048 E: with « Fonctionnalités », the graph of the features. */
+/** Decision 043 I, J, K, L: the tab « Conception », one diagram (or list) per module of the map; decision 047 I: with the chip « Règles », the takeover screen; decision 048 E: with « Fonctionnalités », the graph of the features; decision 051 D: with « Constats », the findings of Claude. */
 export function ProjectConception({
   projectId,
   fullName,
@@ -39,13 +41,14 @@ export function ProjectConception({
   projectId: string;
   fullName: string;
   archived: boolean;
-  screen?: "map" | "rules" | "features";
+  screen?: "map" | "rules" | "features" | "findings";
 }) {
   const map = useQuery({
     queryKey: ["code-map", projectId],
     queryFn: () => fetchCodeMap(projectId),
   });
   const rules = useRules(projectId);
+  const findings = useFindings(projectId);
   // Decision 047 J: a rule leads here with `?objet=<name>`, which opens the panel of that object.
   const wanted = useSearchParams()[0].get("objet");
   const [selected, setSelected] = useState<string | null>(null);
@@ -117,6 +120,14 @@ export function ProjectConception({
       >
         Fonctionnalités
       </NavLink>
+      <NavLink
+        to={`/projets/${projectId}/conception/constats`}
+        className={chipLink}
+      >
+        {findings.data
+          ? `Constats · ${toDecide(findings.data).length}`
+          : "Constats"}
+      </NavLink>
     </nav>
   );
   if (screen === "rules")
@@ -124,6 +135,18 @@ export function ProjectConception({
       <section className="mx-[26px] mt-6" aria-label="Conception">
         {chips}
         <Reprise
+          projectId={projectId}
+          fullName={fullName}
+          archived={archived}
+        />
+      </section>
+    );
+
+  if (screen === "findings")
+    return (
+      <section className="mx-[26px] mt-6" aria-label="Conception">
+        {chips}
+        <Findings
           projectId={projectId}
           fullName={fullName}
           archived={archived}

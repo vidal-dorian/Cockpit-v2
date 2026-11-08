@@ -57,6 +57,7 @@
 - **Fait** : tranche R3 (le graphe par fonctionnalité, [décision 048](decisions/048-graphe-par-fonctionnalite.md)).
 - **Fait** : tranche C1 (la mise à jour du catalogue, [décision 049](decisions/049-mise-a-jour-du-catalogue.md)).
 - **Fait** : tranche R4 (figer l'existant, [décision 050](decisions/050-figer-l-existant.md)).
+- **Fait** : tranche R5 (les constats de Claude, [décision 051](decisions/051-constats-de-claude.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -299,7 +300,7 @@ Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée 
 | Plusieurs instances : quatre choses en mémoire à passer en base (phase 13.3) | [008](decisions/008-service-en-ligne.md), [architecture](architecture.md) « Montée en charge » |
 | Hébergeur ; facturation par personne ou par organisation (13.2, 13.3) | [008](decisions/008-service-en-ligne.md) points ouverts 1 et 2, [offres](offres.md) |
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
-| Reprise : modèle de chaque agent d'analyse, doublons entre analyses (R5). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris). Tranché par la 050 en R4 : contrôle du mode « figer » (le reviewer et Cockpit, sur les fichiers de la PR) | [007](decisions/007-reprise-app-existante.md), points ouverts 2 (tranché), 4 et 5 ; [047](decisions/047-ecran-de-reprise.md), [050](decisions/050-figer-l-existant.md) |
+| Reprise : doublons entre analyses (R5, reste ouvert). Tranché par la 051 en R5 : modèle de chaque agent d'analyse (modifiable dans l'onglet Agents). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris). Tranché par la 050 en R4 : contrôle du mode « figer » (le reviewer et Cockpit, sur les fichiers de la PR) | [007](decisions/007-reprise-app-existante.md), points ouverts 2 (tranché), 4 (tranché) et 5 ; [047](decisions/047-ecran-de-reprise.md), [050](decisions/050-figer-l-existant.md), [051](decisions/051-constats-de-claude.md) |
 | Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
 | Version téléphone (phase 15) | [003](decisions/003-interface.md), point ouvert 4 |
 

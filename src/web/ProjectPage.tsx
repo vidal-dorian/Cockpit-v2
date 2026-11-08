@@ -5,6 +5,7 @@ import { client } from "./api.ts";
 import { CatalogLine } from "./CatalogLine.tsx";
 import { fetchCodeMap } from "./conception.ts";
 import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
+import { findingsSentence, toDecide, useFindings } from "./findings.ts";
 import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { FeaturesExport } from "./ProjectFeatures.tsx";
@@ -119,7 +120,7 @@ export function ProjectPage({
 }: {
   tab: ProjectTab;
   /** The takeover screen (decision 047 I) or the features (decision 048 E) of the Conception tab. */
-  view?: "rules" | "features";
+  view?: "rules" | "features" | "findings";
 }) {
   const { id = "" } = useParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
@@ -187,6 +188,7 @@ export function ProjectPage({
     enabled: tab === "tickets",
   });
   const rules = useRules(id, tab === "conception");
+  const findings = useFindings(id, tab === "conception");
   const features = useFeatures(id, tab === "conception" && view === "features");
   const feature = chosenFeature(
     features.data?.features ?? [],
@@ -212,47 +214,55 @@ export function ProjectPage({
                 title: `${name} est prêt pour Claude.`,
                 rest: "Tout le bilan est au vert.",
               }
-          : tab === "conception" && view === "rules" && rules.data
-            ? { title: rulesSentence(rules.data), rest: undefined }
-            : tab === "conception" && view === "features" && features.data
-              ? {
-                  title: feature
-                    ? featureSentence(feature)
-                    : "Pas encore de fonctionnalité.",
-                  rest: feature
-                    ? "Un clic sur une règle ouvre l'écran de reprise."
+          : tab === "conception" && view === "findings" && findings.data
+            ? {
+                title: findingsSentence(name, toDecide(findings.data)),
+                rest:
+                  toDecide(findings.data).length > 0
+                    ? "Triés par gravité. Une faille devient un ticket en un clic."
                     : undefined,
-                }
-              : tab === "conception" && view === "features"
-                ? { title: name, rest: undefined }
-                : tab === "conception" &&
-                    codeMap.data &&
-                    codeMap.data.length > 0
-                  ? {
-                      title: `Claude a lu ${name} : voici son modèle.`,
-                      rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                        codeMap.data.reduce(
-                          (n, m) => n + m.data.objects.length,
-                          0,
-                        ),
-                        "objet",
-                        "objets",
-                      )}, chacun avec le code qui le prouve.`,
-                    }
-                  : tab === "tickets" && tickets.data
+              }
+            : tab === "conception" && view === "rules" && rules.data
+              ? { title: rulesSentence(rules.data), rest: undefined }
+              : tab === "conception" && view === "features" && features.data
+                ? {
+                    title: feature
+                      ? featureSentence(feature)
+                      : "Pas encore de fonctionnalité.",
+                    rest: feature
+                      ? "Un clic sur une règle ouvre l'écran de reprise."
+                      : undefined,
+                  }
+                : tab === "conception" && view === "features"
+                  ? { title: name, rest: undefined }
+                  : tab === "conception" &&
+                      codeMap.data &&
+                      codeMap.data.length > 0
                     ? {
-                        title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                        rest: writingSentence(schedule.data),
+                        title: `Claude a lu ${name} : voici son modèle.`,
+                        rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                          codeMap.data.reduce(
+                            (n, m) => n + m.data.objects.length,
+                            0,
+                          ),
+                          "objet",
+                          "objets",
+                        )}, chacun avec le code qui le prouve.`,
                       }
-                    : {
-                        title:
-                          tab === "reglages"
-                            ? `Réglages de ${name}.`
-                            : tab === "agents"
-                              ? `Les agents et les équipes de ${name}.`
-                              : name,
-                        rest: TAB_REST[tab],
-                      };
+                    : tab === "tickets" && tickets.data
+                      ? {
+                          title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                          rest: writingSentence(schedule.data),
+                        }
+                      : {
+                          title:
+                            tab === "reglages"
+                              ? `Réglages de ${name}.`
+                              : tab === "agents"
+                                ? `Les agents et les équipes de ${name}.`
+                                : name,
+                          rest: TAB_REST[tab],
+                        };
 
   return (
     <main className="pb-6">

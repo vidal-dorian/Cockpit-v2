@@ -16,11 +16,13 @@ import {
   acceptanceCriteria,
   codeMaps,
   codeSources,
+  findings,
   type projects,
   storyDependencies,
   tickets,
   userStories,
 } from "./db/schema.ts";
+import { permalink } from "./findings.ts";
 import type { ReadGitHub } from "./github.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
 import { WrongStatus } from "./stories.ts";
@@ -224,11 +226,10 @@ export async function sourcesOf(db: Db, criterionIds: number[]) {
     .from(codeSources)
     .where(inArray(codeSources.criterionId, criterionIds))
     .orderBy(asc(codeSources.criterionId), asc(codeSources.position));
-  for (const s of found)
-    byCriterion.set(s.criterionId, [
-      ...(byCriterion.get(s.criterionId) ?? []),
-      s,
-    ]);
+  for (const s of found) {
+    const id = s.criterionId as number;
+    byCriterion.set(id, [...(byCriterion.get(id) ?? []), s]);
+  }
   return byCriterion;
 }
 
@@ -367,13 +368,6 @@ async function loadFeatures(db: Db, projectId: number) {
       links.set(JSON.stringify([from, to, kind]), { from, to, kind });
   return { features: [...features.values()], links: [...links.values()] };
 }
-
-/** A permalink to the cited lines, as GitHub writes it. */
-const permalink = (
-  fullName: string,
-  s: { commitSha: string; path: string; startLine: number; endLine: number },
-) =>
-  `https://github.com/${fullName}/blob/${s.commitSha}/${s.path.split("/").map(encodeURIComponent).join("/")}#L${s.startLine}${s.endLine > s.startLine ? `-L${s.endLine}` : ""}`;
 
 /** The human decisions on the rules of the takeover screen (decision 047 E and H). Claude decides none of them: there is no tool for it. */
 export function takeoverRoutes(db: Db) {
@@ -541,7 +535,27 @@ export function takeoverRoutes(db: Db) {
               descriptionMd: description,
             })
             .returning({ id: tickets.id, title: tickets.title });
-          // The sources go with it (ON DELETE CASCADE).
+          if (!bug) throw new Error("bug ticket not created");
+          // Decision 051 H: the bug stays in the list of findings, with copies of the sources the rule loses (ON DELETE CASCADE).
+          const [filed] = await tx
+            .insert(findings)
+            .values({
+              projectId,
+              kind: "bug",
+              title: bug.title,
+              bodyMd: `**Règle** : ${rule.summary}\n\n**Raisonnement de Claude** : ${rule.reasoning}`,
+              severity: "medium",
+              status: "ticketed",
+              ticketId: bug.id,
+              commitSha: (sources[0] as { commitSha: string }).commitSha,
+            })
+            .returning({ id: findings.id });
+          await tx.insert(codeSources).values(
+            sources.map(({ id: _, criterionId: __, ...s }) => ({
+              ...s,
+              findingId: (filed as { id: number }).id,
+            })),
+          );
           await tx
             .delete(acceptanceCriteria)
             .where(eq(acceptanceCriteria.id, rule.id));
@@ -556,7 +570,6 @@ export function takeoverRoutes(db: Db) {
               .update(userStories)
               .set({ status: "abandoned", updatedAt: sql`now()` })
               .where(eq(userStories.id, storyId));
-          if (!bug) throw new Error("bug ticket not created");
           return bug;
         },
         async (ticket) => ({ ticket }),

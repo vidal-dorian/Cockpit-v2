@@ -20,16 +20,19 @@ import {
   panelPrimaryButton,
 } from "./ui.ts";
 
-// The three files of decisions 043 M and 047 M, as the catalog names them.
+// The six files of /analyser (decisions 043 M, 047 M and 051 K), as the catalog names them.
 const ANALYSER_FILES = [
   ".claude/skills/analyser/SKILL.md",
   ".claude/agents/cartographer.md",
   ".claude/agents/rules-analyst.md",
+  ".claude/agents/bug-hunter.md",
+  ".claude/agents/security-reviewer.md",
+  ".claude/agents/architect.md",
 ];
 
 const storageKey = (projectId: string) => `cockpit.clone.${projectId}`;
 
-/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the three files, their addition with the write of decision 026. */
+/** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the six files, their addition with the write of decision 026. */
 export function AnalyseWindow({
   projectId,
   fullName,
@@ -54,6 +57,9 @@ export function AnalyseWindow({
     }
   });
   const [map, setMap] = useState(true);
+  const [bugs, setBugs] = useState(false);
+  const [security, setSecurity] = useState(false);
+  const [architecture, setArchitecture] = useState(false);
   const [rules, setRules] = useState(initialRules);
   const [features, setFeatures] = useState("");
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
@@ -109,12 +115,18 @@ export function AnalyseWindow({
     .trim()
     .replace(/^"(.*)"$/, "$1")
     .trim();
-  const cases = [map && "carte", rules && "regles"].filter(Boolean);
+  const cases = [
+    map && "carte",
+    bugs && "bugs",
+    security && "securite",
+    architecture && "architecture",
+    rules && "regles",
+  ].filter(Boolean);
   const prompt = `/analyser ${cases.join(" ")}${rules ? ` ${features.trim()}` : ""}`;
   // What is missing from the prompt, said next to the button (decision 045 K).
   const lacking =
     cases.length === 0
-      ? "Coche au moins une analyse : la carte ou les règles."
+      ? "Coche au moins une analyse : la carte, les constats ou les règles."
       : rules && !features.trim()
         ? "Indique les fonctionnalités à reprendre pour lancer Claude."
         : null;
@@ -207,6 +219,30 @@ export function AnalyseWindow({
           />
           Règles
         </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={bugs}
+            onChange={(e) => setBugs(e.target.checked)}
+          />
+          Bugs
+        </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={security}
+            onChange={(e) => setSecurity(e.target.checked)}
+          />
+          Sécurité
+        </label>
+        <label className="flex items-center gap-2.5 font-semibold">
+          <input
+            type="checkbox"
+            checked={architecture}
+            onChange={(e) => setArchitecture(e.target.checked)}
+          />
+          Architecture et stack
+        </label>
       </fieldset>
       {rules && (
         <label className="block font-semibold">
@@ -236,8 +272,8 @@ export function AnalyseWindow({
         <div>
           {missing && (
             <p className="mb-2">
-              Ce repo n'a pas encore /analyser : ajoute-le avant de lancer
-              Claude.
+              Il manque des fichiers de /analyser dans ce repo : ajoute-les
+              avant de lancer Claude.
             </p>
           )}
           <ul className={listCard}>
@@ -252,7 +288,7 @@ export function AnalyseWindow({
               disabled={archived || commit.isPending}
               onClick={() => {
                 setProblem(null);
-                // The plan as received (base commit and signature), reduced to the three files.
+                // The plan as received (base commit and signature), reduced to the six files.
                 commit.mutate({ ...plan, files });
               }}
             >

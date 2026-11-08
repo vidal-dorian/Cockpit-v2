@@ -433,14 +433,74 @@ export const acceptanceCriteria = pgTable(
   ],
 );
 
-/** The lines of code a rule cites, verified on GitHub at `commitSha` when it was written (decision 047 C). */
+export const FINDING_KINDS = [
+  "bug",
+  "security",
+  "architecture",
+  "stack",
+] as const;
+export const FINDING_SEVERITIES = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+] as const;
+export const FINDING_EFFORTS = ["small", "medium", "large"] as const;
+export const FINDING_STATUSES = [
+  "open",
+  "ticketed",
+  "dismissed",
+  "later",
+] as const;
+
+/** What Claude found in the code of a project (decisions 007 and 051): the human triages it; `ticketed` and `ticketId` go together. */
+export const findings = pgTable(
+  "findings",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    kind: text("kind", { enum: FINDING_KINDS }).notNull(),
+    // `claude` only until R6 brings the findings of GitHub.
+    source: text("source", { enum: ["claude"] })
+      .notNull()
+      .default("claude"),
+    title: text("title").notNull(),
+    bodyMd: text("body_md").notNull(),
+    severity: text("severity", { enum: FINDING_SEVERITIES }).notNull(),
+    effort: text("effort", { enum: FINDING_EFFORTS }),
+    status: text("status", { enum: FINDING_STATUSES })
+      .notNull()
+      .default("open"),
+    ticketId: integer("ticket_id").references(() => tickets.id),
+    dismissReason: text("dismiss_reason"),
+    commitSha: text("commit_sha").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "findings_ticket_check",
+      sql`(${t.status} = 'ticketed') = (${t.ticketId} is not null)`,
+    ),
+    index("findings_project_idx").on(t.projectId),
+  ],
+);
+
+/** The lines of code a rule or a finding cites (exactly one of the two), verified on GitHub at `commitSha` when it was written (decisions 047 C and 051 C). */
 export const codeSources = pgTable(
   "code_sources",
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    criterionId: integer("criterion_id")
-      .notNull()
-      .references(() => acceptanceCriteria.id, { onDelete: "cascade" }),
+    criterionId: integer("criterion_id").references(
+      () => acceptanceCriteria.id,
+      { onDelete: "cascade" },
+    ),
+    findingId: integer("finding_id").references(() => findings.id, {
+      onDelete: "cascade",
+    }),
     // From 0, in the order of the rule.
     position: integer("position").notNull(),
     path: text("path").notNull(),
@@ -451,6 +511,11 @@ export const codeSources = pgTable(
   (t) => [
     check("code_sources_lines_check", sql`${t.startLine} <= ${t.endLine}`),
     check("code_sources_start_check", sql`${t.startLine} >= 1`),
+    check(
+      "code_sources_owner_check",
+      sql`(${t.criterionId} is null) <> (${t.findingId} is null)`,
+    ),
+    index("code_sources_finding_idx").on(t.findingId),
     index("code_sources_criterion_idx").on(t.criterionId),
     index("code_sources_commit_path_idx").on(t.commitSha, t.path),
   ],

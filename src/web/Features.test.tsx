@@ -64,7 +64,7 @@ const region = (name: string) => within(main()).getByRole("region", { name });
 const search = () => new URLSearchParams(window.location.search).get("f");
 
 describe("decision 048 E: the chip « Fonctionnalités » of the Conception tab", () => {
-  it("given 3 rules, when the map loads, then the nav holds the links « Modèle », « Règles · 3 » and « Fonctionnalités » in that order, the last one to /projets/5/conception/fonctionnalites", async () => {
+  it("given 3 rules, when the map loads, then the nav holds the links « Modèle », « Règles · 3 », « Fonctionnalités » and « Constats » (decision 051 D) in that order, « Fonctionnalités » to /projets/5/conception/fonctionnalites", async () => {
     stubFeatures([FACTURER], [], { modules: [API_MODULE] }, rules(3));
     renderAt("/projets/5/conception");
 
@@ -81,6 +81,7 @@ describe("decision 048 E: the chip « Fonctionnalités » of the Conception tab"
       ["Modèle", "/projets/5/conception"],
       ["Règles · 3", "/projets/5/conception/regles"],
       ["Fonctionnalités", PATH],
+      ["Constats", "/projets/5/conception/constats"],
     ]);
   });
 

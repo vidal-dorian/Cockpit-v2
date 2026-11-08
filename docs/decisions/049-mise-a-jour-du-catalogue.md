@@ -42,3 +42,5 @@ Le 2026-11-07, Dorian a tranché les deux questions : Cockpit **garde l'empreint
 - **Une version du catalogue qui n'a jamais été dans `main`** (une branche de travail) n'est pas dans `history.json` : une copie écrite depuis cette branche est vue comme modifiée à la main.
 - **Une copie modifiée puis remise exactement à l'identique** redevient d'origine : c'est voulu, le texte est le même.
 - **Une écriture par pull request garde l'empreinte tout de suite**, alors que la branche par défaut garde l'ancien texte jusqu'à la fusion. C'est sans effet tant que Cockpit est déployé depuis `main` (tous les textes qu'il écrit sont dans `history.json`) ; mais une copie connue seulement par son empreinte gardée (un Cockpit construit depuis une branche) serait alors vue comme modifiée à la main.
+
+*Note : la [051](051-constats-de-claude.md) L modifie D et F : la ligne `model:` d'un agent ne compte pas dans la comparaison, et « Mettre à jour » garde le modèle du repo.*

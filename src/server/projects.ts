@@ -9,7 +9,6 @@ import { currentUser } from "./auth.ts";
 import {
   ANALYSER_FILES,
   CATALOG_FILES,
-  CATALOG_TEXTS,
   type CatalogState,
   catalogStates,
   DEV_US,
@@ -20,6 +19,7 @@ import {
   readCatalogFiles,
   recordedHashes,
   recordWrites,
+  textToWrite,
 } from "./catalog-update.ts";
 import type { Db } from "./db/db.ts";
 import { projectMembers, projects } from "./db/schema.ts";
@@ -527,6 +527,7 @@ export function projectRoutes(
             project.fullName,
             PREPARE_FILES,
             (path, text) => isOldCopy(path, text, recorded),
+            textToWrite,
           );
         if ("refused" in plan) return c.json({ error: plan.refused }, 409);
         return c.json({ plan });
@@ -553,8 +554,10 @@ export function projectRoutes(
           const known = PREPARE_FILES.find((f) => f.path === file.path);
           if (
             !known ||
-            ((file.status === "create" || file.status === "update") &&
-              file.content !== known.content) ||
+            (file.status === "create" && file.content !== known.content) ||
+            // The text of an update keeps the repo's model line (decision 051 L).
+            (file.status === "update" &&
+              file.content !== textToWrite(file.path, file.current ?? null)) ||
             // Decision 049 F: only an old original copy is replaced, never a hand-modified one.
             (file.status === "update" &&
               !isOldCopy(file.path, file.current ?? "", recorded))
@@ -668,7 +671,7 @@ export function projectRoutes(
             path,
             state: state as Extract<CatalogState, "old" | "absent">,
             current: texts[path] ?? null,
-            content: CATALOG_TEXTS.get(path) as string,
+            content: textToWrite(path, texts[path] ?? null),
           }));
         return c.json({ plan: { files } });
       } catch (error) {
@@ -701,7 +704,7 @@ export function projectRoutes(
         files.map(({ path, before }) => ({
           path,
           before,
-          after: CATALOG_TEXTS.get(path) as string,
+          after: textToWrite(path, before),
         })),
         UPDATE_MESSAGE,
         {

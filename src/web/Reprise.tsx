@@ -98,8 +98,8 @@ function SourceCode({
   );
 }
 
-/** One tab per source when the rule cites several (decision 047 G). */
-function RuleCode({
+/** One tab per source when the rule (or, decision 051 F, the finding) cites several (decision 047 G). */
+export function RuleCode({
   projectId,
   fullName,
   sources,

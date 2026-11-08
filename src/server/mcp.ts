@@ -23,6 +23,12 @@ import {
   userStories,
   users,
 } from "./db/schema.ts";
+import {
+  findingsArgs,
+  listFindings,
+  listFindingsArgs,
+  submitFindings,
+} from "./findings.ts";
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
 import { memberProject, memberProjects } from "./projects.ts";
@@ -871,6 +877,32 @@ const tools = {
         project,
         args,
       );
+    },
+  ),
+
+  submit_findings: tool(
+    "File what you found in the code of a project, in /analyser (bugs, securite and architecture parts): bugs, security flaws, architecture and stack opinions. Send the project_id, the commit_sha (40 hexadecimal characters: the commit of HEAD, which must be pushed) and 1 to 50 findings. A finding has kind (bug, security, architecture or stack), title (1 to 200 characters), body_md (1 to 20,000 characters of Markdown, with the template of its kind), severity (critical, high, medium or low), optional effort (small, medium or large) and 1 to 5 sources: { path, start_line, end_line } (lines from 1) of the code that shows it. Cockpit checks each source on GitHub at that commit, and at most 100 distinct files may be cited per call. Call list_findings first and do not file again what is known. Never put a secret in a finding: say where it is. Cockpit stores them as open: only the user triages them, in Cockpit. All or nothing. Answers the id of each finding, in order. Refused with the faulty location (for example findings[1].sources[0]): fix it and send again. Refused on archived projects.",
+    findingsArgs,
+    async (call, args) => {
+      call.entry.args = { projectId: args.project_id };
+      const project = await ownProject(call, args.project_id);
+      return submitFindings(
+        call.db,
+        call.readGitHub,
+        call.entry,
+        project,
+        args,
+      );
+    },
+  ),
+
+  list_findings: tool(
+    "List the findings already known on a project (id, title, kind, severity, status and the files they cite, never their text), optionally only one kind (bug, security, architecture, stack) or one status (open, ticketed, dismissed, later). Call it before submit_findings so that you do not file again what the user already knows, rejected findings included. Ordered by id.",
+    listFindingsArgs,
+    async (call, { project_id, ...filters }) => {
+      call.entry.args = { projectId: project_id };
+      const project = await ownProject(call, project_id);
+      return listFindings(call.db, call.entry, project.id, filters);
     },
   ),
 

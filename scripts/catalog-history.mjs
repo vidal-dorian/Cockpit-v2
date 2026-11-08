@@ -12,6 +12,9 @@ const FILES = [
   "skills/write-us/SKILL.md",
   "agents/cartographer.md",
   "agents/rules-analyst.md",
+  "agents/bug-hunter.md",
+  "agents/security-reviewer.md",
+  "agents/architect.md",
   "skills/analyser/SKILL.md",
 ];
 const git = (...args) =>
@@ -33,7 +36,14 @@ if (git("rev-parse", "--is-shallow-repository").trim() === "true") {
 
 const history = {};
 for (const file of FILES) {
-  const versions = git("log", "--format=%H", "--", `catalog/${file}`)
+  // Oldest first, the working text last: the last hash of each list is the current version.
+  const versions = git(
+    "log",
+    "--reverse",
+    "--format=%H",
+    "--",
+    `catalog/${file}`,
+  )
     .split("\n")
     .filter(Boolean)
     .map((commit) => {
@@ -45,6 +55,7 @@ for (const file of FILES) {
     })
     .filter((text) => text !== null);
   versions.push(readFileSync(`catalog/${file}`, "utf8"));
+  // `new Set` keeps the first place of a repeated hash: a file reverted to an older text would not end its list (catalog-freeze tests catch it).
   history[`.claude/${file}`] = [...new Set(versions.map(sha256))];
 }
 writeFileSync("catalog/history.json", `${JSON.stringify(history, null, 2)}\n`);

@@ -6,6 +6,7 @@ import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
 import type { Db } from "./db/db.ts";
+import { findingRoutes } from "./findings.ts";
 import { githubReader } from "./github.ts";
 import { historyRoutes } from "./history.ts";
 import { homeRoutes } from "./home.ts";
@@ -88,6 +89,7 @@ export function createApp(
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))
+      .route("/", findingRoutes(db))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))

@@ -764,6 +764,9 @@ export function githubClient(config: GitHubAppConfig) {
       fullName: string,
       files: (WriteFile & { unlessExists?: string[] })[],
       isOldCopy: (path: string, text: string) => boolean = () => false,
+      // The text an `update` file is given instead of its own `content` (the repo's model line kept, decision 051 L).
+      updated: (path: string, current: string) => string = (path) =>
+        files.find((f) => f.path === path)?.content as string,
     ): Promise<RepoWritePlan | RepoWriteRefusal> {
       checkWriteFiles(files);
       const repo = await writeAccess(installationId, fullName);
@@ -784,7 +787,12 @@ export function githubClient(config: GitHubAppConfig) {
             if (!found) return { ...file, status: "create" };
             if (found.text === file.content) return { ...file, status: "same" };
             if (found.text !== undefined && isOldCopy(file.path, found.text))
-              return { ...file, status: "update", current: found.text };
+              return {
+                ...file,
+                status: "update",
+                content: updated(file.path, found.text),
+                current: found.text,
+              };
             return {
               ...file,
               status: "exists",

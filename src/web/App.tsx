@@ -199,6 +199,10 @@ function Shell() {
               element={<ProjectPage tab="conception" view="rules" />}
             />
             <Route
+              path="/projets/:id/conception/constats"
+              element={<ProjectPage tab="conception" view="findings" />}
+            />
+            <Route
               path="/projets/:id/conception/fonctionnalites"
               element={<ProjectPage tab="conception" view="features" />}
             />
