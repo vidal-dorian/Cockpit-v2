@@ -83,3 +83,36 @@ export function writeAgent(text: string, fields: AgentFields): string {
     ? lines.join("\n")
     : [...lines.slice(0, end + 1), fields.prompt].join("\n");
 }
+
+export type SkillFields = { description: string; tools: string; body: string };
+
+/** The form fields of a skill file (decision 065 F), null when its header cannot be read. The blank line after the header is not part of the body. */
+export function parseSkill(text: string): SkillFields | null {
+  const header = readHeader(text);
+  if (!header) return null;
+  const get = (key: string) => header.keys.get(key)?.value ?? "";
+  return {
+    description: get("description"),
+    tools: get("allowed-tools"),
+    body: header.lines
+      .slice(header.end + 1)
+      .join("\n")
+      .replace(/^\n/, ""),
+  };
+}
+
+// A plain YAML scalar when it is safe (`a : b` or `x #y` would not be one), else a JSON string, which YAML reads too.
+const scalar = (v: string) =>
+  /^[\p{L}\p{N}][^:#]*$/u.test(v) && v === v.trim() ? v : JSON.stringify(v);
+
+/** The file of a skill as decision 065 F writes it: `allowed-tools` only when not empty, a blank line before the instruction. */
+export const writeSkill = (name: string, f: SkillFields) =>
+  [
+    "---",
+    `name: ${name}`,
+    `description: ${scalar(f.description)}`,
+    ...(f.tools ? [`allowed-tools: ${scalar(f.tools)}`] : []),
+    "---",
+    "",
+    f.body,
+  ].join("\n");

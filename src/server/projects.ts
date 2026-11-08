@@ -34,6 +34,7 @@ import {
   catalogLine,
   type HealthLine,
   healthLines,
+  mcpRefusal,
   updatesLine,
   webhookLine,
 } from "./health.ts";
@@ -117,6 +118,41 @@ const agentBody = z
       .nullable(),
   })
   .refine(({ before, after }) => before !== after);
+
+// Decision 065 B: the path is built by the server from `kind` and `name` (the format of decision 029 B, mandatory for a rule and a skill, forbidden otherwise); only a rule or a skill may be removed.
+const CLAUDE_FILES = {
+  claude_md: { path: () => "CLAUDE.md", noun: "CLAUDE.md" },
+  rule: { path: (n: string) => `.claude/rules/${n}.md`, noun: "the rule" },
+  skill: {
+    path: (n: string) => `.claude/skills/${n}/SKILL.md`,
+    noun: "the skill",
+  },
+  mcp_json: { path: () => ".mcp.json", noun: ".mcp.json" },
+} as const;
+// The longest name for which `.claude/skills/<name>/SKILL.md` fits the 255 characters of decision 026 D.
+const MAX_SKILL_NAME = 255 - CLAUDE_FILES.skill.path("").length;
+const CATALOG_SKILLS = new Set(
+  [...CATALOG_FILES, ...ANALYSER_FILES]
+    .map((f) => f.path.match(/^\.claude\/skills\/([^/]+)\/SKILL\.md$/)?.[1])
+    .filter((name) => name !== undefined),
+);
+const claudeConfigBody = z
+  .object({
+    kind: z.enum(["claude_md", "rule", "skill", "mcp_json"]),
+    name: z.string().max(MAX_SKILL_NAME).regex(AGENT_NAME).optional(),
+    before: z.string().nullable(),
+    after: z
+      .string()
+      .refine((text) => Buffer.byteLength(text) <= 1_048_576)
+      .nullable(),
+  })
+  .refine(
+    ({ kind, name, before, after }) =>
+      before !== after &&
+      (kind === "rule" || kind === "skill") === (name !== undefined) &&
+      (after !== null || kind === "rule" || kind === "skill") &&
+      !(kind === "skill" && CATALOG_SKILLS.has(name ?? "")),
+  );
 
 // Decision 031 H: `after` is a team that `parseTeam` reads, at most 1 MiB, never null.
 // Decision 032 F: an optional `name` picks `.claude/teams/<name>.md`; only then may `after` be null (a removal).
@@ -274,7 +310,7 @@ export function projectRoutes(
       refuse?: (project: {
         installationId: number;
         fullName: string;
-      }) => Promise<string | null>;
+      }) => Promise<string | { error: string; at?: string } | null>;
       /** Run in the transaction of the `ok` entry. */
       onWritten?: (tx: Tx, projectId: number) => Promise<void>;
     } = {},
@@ -305,8 +341,9 @@ export function projectRoutes(
     try {
       const code = await hooks.refuse?.(project);
       if (code) {
-        await record(new Refused(code));
-        return c.json({ error: code }, 409);
+        const refusal = typeof code === "string" ? { error: code } : code;
+        await record(new Refused(refusal.error));
+        return c.json(refusal, 409);
       }
       result = await c
         .get("github")
@@ -829,6 +866,31 @@ export function projectRoutes(
         return c.json({ error: "github_unavailable" }, 502);
       }
     })
+    .get("/api/projects/:id/claude-config", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const read = await c
+          .get("github")
+          .readClaudeConfig(project.installationId, project.fullName);
+        if ("refused" in read) return c.json({ error: read.refused }, 409);
+        // The catalogue skills are kept up to date by the catalogue (decision 049).
+        return c.json({
+          ...read,
+          skills: read.skills.filter((s) => !CATALOG_SKILLS.has(s.name)),
+        });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
     .get("/api/projects/:id/branches", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
@@ -869,6 +931,40 @@ export function projectRoutes(
         },
         [{ path, before, after }],
         `feat: ${verb} the agent ${name} (Cockpit)`,
+      );
+    })
+    .post("/api/projects/:id/claude-config/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = claudeConfigBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { kind, name = "", before, after } = parsed.data;
+      const { path, noun } = CLAUDE_FILES[kind];
+      const file = path(name);
+      const verb =
+        after === null ? "remove" : before === null ? "add" : "update";
+      return saveFile(
+        c,
+        {
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action:
+            kind === "rule" || kind === "skill"
+              ? `${after === null ? "delete" : "save"}_${kind}`
+              : `save_${kind}`,
+          args: { path: file },
+        },
+        [{ path: file, before, after }],
+        // A rule or a skill is « added » on creation; CLAUDE.md and .mcp.json are only ever updated.
+        `feat: ${kind === "rule" || kind === "skill" ? verb : "update"} ${noun}${name && ` ${name}`} (Cockpit)`,
+        {
+          // Decision 065 C: a secret never reaches the repo, whatever the server.
+          refuse: async () =>
+            kind === "mcp_json" && after !== null ? mcpRefusal(after) : null,
+        },
       );
     })
     .post("/api/projects/:id/team/apply", async (c) => {

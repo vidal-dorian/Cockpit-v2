@@ -407,6 +407,32 @@ export function githubClient(config: GitHubAppConfig) {
     };
   };
 
+  /** The entries of a directory of a commit that have this type, [] when there is none (404, or 422 for a file). */
+  const entriesOf = async (
+    repo: Awaited<ReturnType<typeof writeAccess>>,
+    sha: string,
+    dir: string,
+    type: "blob" | "tree",
+  ) => {
+    try {
+      const { data } = await repo.octokit.request(
+        "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+        { owner: repo.owner, repo: repo.name, tree_sha: `${sha}:${dir}` },
+      );
+      return treeSchema.parse(data).tree.filter((e) => e.type === type);
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      if (status === 404 || status === 422) return [];
+      throw error;
+    }
+  };
+  const mdNames = (entries: { path: string }[], max: number) =>
+    entries
+      .filter((e) => e.path.endsWith(".md"))
+      .map((e) => e.path.slice(0, -".md".length))
+      .filter((name) => name.length <= max && AGENT_NAME.test(name))
+      .sort();
+
   /** Commits `entries` on top of `head` and advances the default branch without force, once; when it is protected, the commit goes to a branch `cockpit/<7>` and a pull request listing `paths` is opened (decision 026 G). Shared by `applyRepoWrite` and `applyRepoChanges`. */
   const commitToHead = async (
     { octokit, owner, name }: Awaited<ReturnType<typeof writeAccess>>,
@@ -1260,30 +1286,7 @@ export function githubClient(config: GitHubAppConfig) {
       // null only for no file: one that cannot be read gives "", which the page shows as not rewritable.
       const found = await repo.inspect(".claude/team.md", head.sha);
       const team = found === null ? null : (found.text ?? "");
-      // The blobs of a directory, [] when there is none (404, or 422 for a file).
-      const blobsOf = async (dir: string) => {
-        try {
-          const { data } = await repo.octokit.request(
-            "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
-            {
-              owner: repo.owner,
-              repo: repo.name,
-              tree_sha: `${head.sha}:${dir}`,
-            },
-          );
-          return treeSchema.parse(data).tree.filter((e) => e.type === "blob");
-        } catch (error) {
-          const status = (error as { status?: number }).status;
-          if (status === 404 || status === 422) return [];
-          throw error;
-        }
-      };
-      const mdNames = (entries: { path: string }[], max: number) =>
-        entries
-          .filter((e) => e.path.endsWith(".md"))
-          .map((e) => e.path.slice(0, -".md".length))
-          .filter((name) => name.length <= max && AGENT_NAME.test(name))
-          .sort();
+      const blobsOf = (dir: string) => entriesOf(repo, head.sha, dir, "blob");
       const agentNames = mdNames(
         (await blobsOf(".claude/agents")).filter((e) =>
           /^100(644|755)$/.test(e.mode),
@@ -1310,6 +1313,56 @@ export function githubClient(config: GitHubAppConfig) {
                 ?.text ?? null,
           })),
         ),
+      };
+    },
+
+    /** What Claude reads in the repo beside the agents (decision 065 A): `CLAUDE.md` and `.mcp.json` (null when absent), the rules `.claude/rules/<name>.md` and the skills `.claude/skills/<name>/SKILL.md` of the default branch, by name, a text that cannot be read being "". Reads only. */
+    async readClaudeConfig(
+      installationId: number,
+      fullName: string,
+    ): Promise<
+      | {
+          claudeMd: string | null;
+          mcpJson: string | null;
+          rules: { name: string; text: string }[];
+          skills: { name: string; text: string }[];
+        }
+      | RepoWriteRefusal
+    > {
+      const repo = await writeAccess(installationId, fullName);
+      const head = await repo.head();
+      if ("refused" in head) return head;
+      // null only for no file, as for team.md.
+      const read = async (path: string) => {
+        const found = await repo.inspect(path, head.sha);
+        return found === null ? null : (found.text ?? "");
+      };
+      const rules = mdNames(
+        await entriesOf(repo, head.sha, ".claude/rules", "blob"),
+        Infinity,
+      );
+      const dirs = (await entriesOf(repo, head.sha, ".claude/skills", "tree"))
+        .map((e) => e.path)
+        .filter((name) => AGENT_NAME.test(name))
+        .sort();
+      return {
+        claudeMd: await read("CLAUDE.md"),
+        mcpJson: await read(".mcp.json"),
+        rules: await Promise.all(
+          rules.map(async (name) => ({
+            name,
+            text: (await read(`.claude/rules/${name}.md`)) ?? "",
+          })),
+        ),
+        // A directory without SKILL.md is not a skill.
+        skills: (
+          await Promise.all(
+            dirs.map(async (name) => ({
+              name,
+              text: await read(`.claude/skills/${name}/SKILL.md`),
+            })),
+          )
+        ).flatMap(({ name, text }) => (text === null ? [] : [{ name, text }])),
       };
     },
 

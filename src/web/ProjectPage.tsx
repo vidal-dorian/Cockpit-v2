@@ -8,6 +8,7 @@ import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { findingsSentence, toDecide, useFindings } from "./findings.ts";
 import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { ProjectAgents } from "./ProjectAgents.tsx";
+import { FILES } from "./ProjectClaudeConfig.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { ProjectDelivered } from "./ProjectDelivered.tsx";
 import { FeaturesExport } from "./ProjectFeatures.tsx";
@@ -205,10 +206,11 @@ export function ProjectPage({
   const rules = useRules(id, tab === "conception");
   const findings = useFindings(id, tab === "conception");
   const features = useFeatures(id, tab === "conception" && view === "features");
-  const feature = chosenFeature(
-    features.data?.features ?? [],
-    useSearchParams()[0].get("f"),
-  );
+  const search = useSearchParams()[0];
+  const feature = chosenFeature(features.data?.features ?? [], search.get("f"));
+  // Decision 065 D: a chip of the tab Agents other than Agents.
+  const fichier =
+    tab === "agents" && FILES.some((f) => f === search.get("fichier"));
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
   const sentence: { title: string; rest?: string; inline?: boolean } =
@@ -273,17 +275,21 @@ export function ProjectPage({
                           title:
                             tab === "reglages"
                               ? `Réglages de ${name}.`
-                              : tab === "agents"
-                                ? `Les agents et les équipes de ${name}.`
-                                : tab === "historique" && view === "delivered"
-                                  ? `Ce que ${name} a livré.`
-                                  : tab === "historique"
-                                    ? `Ce qui s'est passé sur ${name}.`
-                                    : name,
+                              : tab === "agents" && fichier
+                                ? `Ce que Claude lit dans ${project?.fullName ?? name}.`
+                                : tab === "agents"
+                                  ? `Les agents et les équipes de ${name}.`
+                                  : tab === "historique" && view === "delivered"
+                                    ? `Ce que ${name} a livré.`
+                                    : tab === "historique"
+                                      ? `Ce qui s'est passé sur ${name}.`
+                                      : name,
                           rest:
                             view === "delivered"
                               ? "Une ligne par PR, écrite à partir de son titre."
-                              : TAB_REST[tab],
+                              : fichier
+                                ? "Chaque modification passe par un diff, puis un commit."
+                                : TAB_REST[tab],
                         };
 
   return (

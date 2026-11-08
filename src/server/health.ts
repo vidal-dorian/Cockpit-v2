@@ -48,6 +48,41 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 // A header or env value may only point at environment variables: "${VAR}", after an optional "Bearer ".
 const ONLY_REFERENCES = /^(Bearer )?(\$\{\w+\})+$/;
 
+/** Decision 065 C: what stops `.mcp.json` from being written, or null. Every server is judged, not only Cockpit; `at` is the path of the first value that is not a reference, never the value. */
+export function mcpRefusal(
+  text: string,
+): { error: "invalid_json" } | { error: "secret_in_clear"; at: string } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { error: "invalid_json" };
+  }
+  if (!isObject(parsed)) return { error: "invalid_json" };
+  // What is present but not an object cannot be judged, so it could hide a secret: refused, at its own path.
+  const secret = (at: string) => ({ error: "secret_in_clear" as const, at });
+  if (parsed.mcpServers === undefined) return null;
+  if (!isObject(parsed.mcpServers)) return secret("mcpServers");
+  for (const [name, server] of Object.entries(parsed.mcpServers)) {
+    const at = `mcpServers.${name}`;
+    if (!isObject(server)) return secret(at);
+    const raw = typeof server.url === "string" ? server.url : "";
+    const url = URL.parse(raw);
+    // An address that does not parse is judged on its look: credentials before an @ (a "${MCP_URL}" has none).
+    if (url ? url.username || url.password : /\/\/[^/]*@/.test(raw))
+      return secret(`${at}.url`);
+    for (const key of ["headers", "env"]) {
+      const values = server[key];
+      if (values === undefined) continue;
+      if (!isObject(values)) return secret(`${at}.${key}`);
+      for (const [field, value] of Object.entries(values))
+        if (typeof value !== "string" || !ONLY_REFERENCES.test(value))
+          return secret(`${at}.${key}.${field}`);
+    }
+  }
+  return null;
+}
+
 function mcpDetail(mcpJson: string | null, publicUrl: string): HealthDetail {
   // Cockpit is a claude.ai connector (decision 021 H): not declaring it in .mcp.json is right, and only a declaration with a secret is wrong.
   if (mcpJson === null) return "ok";
