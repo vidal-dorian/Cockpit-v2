@@ -9,6 +9,7 @@ import { findingsSentence, toDecide, useFindings } from "./findings.ts";
 import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
+import { ProjectDelivered } from "./ProjectDelivered.tsx";
 import { FeaturesExport } from "./ProjectFeatures.tsx";
 import { ProjectHistory } from "./ProjectHistory.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
@@ -134,7 +135,7 @@ export function ProjectPage({
 }: {
   tab: ProjectTab;
   /** The takeover screen (decision 047 I) or the features (decision 048 E) of the Conception tab. */
-  view?: "rules" | "features" | "findings";
+  view?: "rules" | "features" | "findings" | "delivered";
 }) {
   const { id = "" } = useParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
@@ -274,10 +275,15 @@ export function ProjectPage({
                               ? `Réglages de ${name}.`
                               : tab === "agents"
                                 ? `Les agents et les équipes de ${name}.`
-                                : tab === "historique"
-                                  ? `Ce qui s'est passé sur ${name}.`
-                                  : name,
-                          rest: TAB_REST[tab],
+                                : tab === "historique" && view === "delivered"
+                                  ? `Ce que ${name} a livré.`
+                                  : tab === "historique"
+                                    ? `Ce qui s'est passé sur ${name}.`
+                                    : name,
+                          rest:
+                            view === "delivered"
+                              ? "Une ligne par PR, écrite à partir de son titre."
+                              : TAB_REST[tab],
                         };
 
   return (
@@ -497,7 +503,7 @@ export function ProjectPage({
           projectId={id}
           fullName={project.fullName}
           archived={project.archived}
-          screen={view ?? "map"}
+          screen={view === "delivered" ? "map" : (view ?? "map")}
         />
       )}
       {!notFound && tab === "agents" && project && (
@@ -507,7 +513,12 @@ export function ProjectPage({
           archived={project.archived}
         />
       )}
-      {!notFound && tab === "historique" && <ProjectHistory projectId={id} />}
+      {!notFound && tab === "historique" && view === "delivered" && (
+        <ProjectDelivered projectId={id} fullName={project?.fullName} />
+      )}
+      {!notFound && tab === "historique" && view !== "delivered" && (
+        <ProjectHistory projectId={id} />
+      )}
       {!notFound && tab === "reglages" && (
         <ProjectRoutine projectId={id} archived={project?.archived ?? false} />
       )}
