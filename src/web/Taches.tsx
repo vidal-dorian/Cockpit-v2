@@ -35,6 +35,15 @@ const WEEKDAYS = [
   "samedi",
   "dimanche",
 ];
+const REFUSALS: Record<string, string | undefined> = {
+  project_not_in_launcher:
+    "Un projet n'est plus coché dans le lanceur : coche-le à nouveau dans les Réglages.",
+  launcher_not_connected:
+    "Le lanceur n'est pas relié : relie-le dans les Réglages.",
+  launcher_needs_reconnect:
+    "Le lanceur est à reconnecter : colle un nouveau jeton dans les Réglages.",
+  routine_running: "Un passage est déjà en cours : attends qu'il finisse.",
+};
 const OUTCOMES = { succeeded: "réussi", failed: "échoué" } as const;
 const when = (at: string) =>
   new Date(at).toLocaleString("fr-FR", {
@@ -59,9 +68,13 @@ export function Taches() {
   const loaded = routines.data && launcher.data && writeUs.data;
   const list = routines.data ?? [];
   const names = new Map(projects.data?.map((p) => [p.id, p.fullName]));
-  const next = list
-    .filter((r) => r.nextRunAt && !r.pausedAt)
-    .sort((a, b) => (a.nextRunAt ?? "").localeCompare(b.nextRunAt ?? ""));
+  const next = [
+    ...list
+      .filter((r) => !r.pausedAt)
+      .map((r) => ({ key: r.id, at: r.nextRunAt, name: r.name })),
+  ]
+    .filter((n): n is typeof n & { at: string } => !!n.at)
+    .sort((a, b) => a.at.localeCompare(b.at));
   const running = next.length + (writeUs.data?.connected ? 1 : 0);
   const selected = list.find((r) => r.id === open);
 
@@ -143,9 +156,9 @@ export function Taches() {
                 Prochains lancements
               </h2>
               <ul className="mt-2 grid gap-1.5">
-                {next.map((r) => (
-                  <li key={r.id}>
-                    {when(r.nextRunAt ?? "")} · {r.name}
+                {next.map((n) => (
+                  <li key={n.key}>
+                    {when(n.at)} · {n.name}
                   </li>
                 ))}
                 {next.length === 0 && (
@@ -192,16 +205,16 @@ function RoutinePanel({
   const [weekday, setWeekday] = useState(routine?.weekday ?? 1);
   const [projectIds, setProjectIds] = useState(routine?.projectIds ?? []);
   const act = useMutation({
-    mutationFn: async (
-      call: () => Promise<{ ok: boolean; status: number }>,
-    ) => {
+    mutationFn: async (call: () => Promise<Response>) => {
       const res = await call();
-      if (!res.ok)
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "" }));
         throw new Error(
-          res.status === 409
-            ? "Impossible pour l'instant : un passage est en cours, le lanceur est à reconnecter ou un projet n'est plus coché dans le lanceur."
-            : "L'opération a échoué, réessaie.",
+          (res.status === 400
+            ? "Un champ n'est pas valide : vérifie le nom, la consigne, les agents et les projets."
+            : REFUSALS[error as string]) ?? "L'opération a échoué, réessaie.",
         );
+      }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["routines"] }),
   });
@@ -369,7 +382,7 @@ function RoutinePanel({
           <p className="text-[13px] text-muted-foreground">
             Dernier lancement :{" "}
             {last
-              ? `${when(last.at)} · ${last.outcome ? OUTCOMES[last.outcome] : "en cours"}`
+              ? `${when(last.at)} · ${last.outcome ? OUTCOMES[last.outcome] : "en cours"}${last.summary ? ` · ${last.summary}` : ""}`
               : "jamais"}
             {last?.sessionUrl && (
               <>

@@ -95,8 +95,10 @@ describe("Journal page, the MCP actions", () => {
     // The refusal is a refusal, whoever made it.
     expect(within(auth).getByText("Refusée")).toBeDefined();
     // Claude's six rows say so; the human row keeps its origin.
-    expect(screen.getAllByText("Claude")).toHaveLength(7);
-    expect(screen.getAllByText("Interface")).toHaveLength(1);
+    // Counted in the list of the journal: the sidebar has its own « Claude ».
+    const list = within(screen.getByRole("main"));
+    expect(list.getAllByText("Claude")).toHaveLength(6);
+    expect(list.getAllByText("Interface")).toHaveLength(1);
     const login = (await rowOf("Connexion")).textContent;
     expect(login).not.toMatch(/Claude/);
     expect(screen.queryByText("mcp")).toBeNull();

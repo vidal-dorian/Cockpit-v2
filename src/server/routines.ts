@@ -86,13 +86,14 @@ export const connectBody = z.object({
 });
 export const timeZone = z.string().max(100).refine(isTimeZone);
 export const hour = z.number().int().min(0).max(23);
+export const weekday = z.number().int().min(1).max(7);
 const scheduleBody = z.discriminatedUnion("frequency", [
   z.object({ frequency: z.enum(["off", "on_demand"]), timeZone }),
   z.object({ frequency: z.literal("daily"), hour, timeZone }),
   z.object({
     frequency: z.literal("weekly"),
     hour,
-    weekday: z.number().int().min(1).max(7),
+    weekday,
     timeZone,
   }),
 ]);
@@ -376,7 +377,7 @@ const busy = async (db: Db, userId: number, at: Date) =>
       )
   ).length > 0;
 
-type Routine = typeof routines.$inferSelect;
+export type Routine = typeof routines.$inferSelect;
 
 /** The launch of a routine (decision 055 B), by the pass or by « Lancer maintenant ». */
 export const runCustomRoutine = (
@@ -437,8 +438,6 @@ async function runDueCustomRoutines(db: Db, deps: Fire, now: Date) {
       .orderBy(routines.id);
     for (const routine of due) {
       try {
-        // Not claimed while another passage runs: it waits for the next minute.
-        if (await busy(db, routine.userId, now)) continue;
         const [claimed] = await db
           .update(routines)
           .set({ nextRunAt: nextOccurrence(now, scheduleOf(routine)) })
@@ -446,20 +445,25 @@ async function runDueCustomRoutines(db: Db, deps: Fire, now: Date) {
             and(
               eq(routines.id, routine.id),
               isNull(routines.pausedAt),
-              routine.nextRunAt
-                ? eq(routines.nextRunAt, routine.nextRunAt)
-                : undefined,
+              // Due rows have a next run (`lte` above): the type does not know it.
+              eq(routines.nextRunAt, routine.nextRunAt as Date),
             ),
           )
           .returning({ id: routines.id });
-        if (claimed)
-          await runCustomRoutine(
-            db,
-            deps,
-            routine,
-            { actor: "system", origin: "system" },
-            now,
-          );
+        if (!claimed) continue;
+        const launched = await runCustomRoutine(
+          db,
+          deps,
+          routine,
+          { actor: "system", origin: "system" },
+          now,
+        );
+        // Another passage began since: it waits for the next minute (055 B).
+        if ("error" in launched && launched.error === "routine_running")
+          await db
+            .update(routines)
+            .set({ nextRunAt: routine.nextRunAt })
+            .where(eq(routines.id, routine.id));
       } catch (error) {
         console.error(`Routine ${routine.id} failed:`, error);
       }
@@ -565,7 +569,7 @@ async function readyLauncher(tx: Db, userId: number, projectIds: number[]) {
         eq(projectMembers.inLauncher, true),
       ),
     );
-  if (ticked.length < new Set(projectIds).size)
+  if (ticked.length < projectIds.length)
     throw new Refused("project_not_in_launcher");
   return launcher;
 }

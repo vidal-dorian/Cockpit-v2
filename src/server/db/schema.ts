@@ -409,7 +409,7 @@ export const cloudLaunches = pgTable(
     // What Claude reported (`report_launch`).
     reason: text("reason"),
     runId: integer("run_id").references(() => runs.id),
-    // The end of a routine passage (`finish_launch`, or given up after two hours, decision 055 D).
+    // The end of a routine passage: `finish_launch`, `report_launch`, a failed `/fire`, or given up after two hours (decision 055 D).
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     outcome: text("outcome", { enum: ["succeeded", "failed"] }),
     summary: text("summary"),

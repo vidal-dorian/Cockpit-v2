@@ -12,6 +12,7 @@ import {
   type Fire,
   hour,
   nextOccurrence,
+  type Routine,
   runCustomRoutine,
   scheduleOf,
   signedIn,
@@ -20,7 +21,6 @@ import {
 import { AGENT_NAME } from "./team.ts";
 import { body, noNul } from "./tickets.ts";
 
-type Routine = typeof routines.$inferSelect;
 type Vars = { Variables: { userId: number; routine: Routine } };
 
 const common = {
@@ -77,6 +77,7 @@ export function customRoutineRoutes(db: Db, deps: Fire, now: () => number) {
         at: cloudLaunches.createdAt,
         outcome: cloudLaunches.outcome,
         sessionUrl: cloudLaunches.sessionUrl,
+        summary: cloudLaunches.summary,
       })
       .from(cloudLaunches)
       .where(
@@ -105,40 +106,30 @@ export function customRoutineRoutes(db: Db, deps: Fire, now: () => number) {
               at: found.at,
               outcome: found.outcome,
               sessionUrl: found.sessionUrl,
+              summary: found.summary,
             }
           : null,
       };
     });
   };
 
-  /** One `act` on the routine of the request, locked; the entry has `args: { routineId }` and never the instruction. */
-  const change = async (
+  /** One `act` on the routine of the request; the entry has `args: { routineId }` and never the instruction. */
+  const change = (
     c: Context<Vars>,
     action: string,
     work: (tx: Tx, routine: Routine) => Promise<unknown>,
   ) => {
-    const { id } = c.get("routine");
-    await act(
+    const routine = c.get("routine");
+    return act(
       db,
-      { ...entryOf(c.get("userId"), action), args: { routineId: id } },
-      async (tx) => {
-        const [routine] = await tx
-          .select()
-          .from(routines)
-          .where(eq(routines.id, id))
-          .for("update");
-        if (!routine) throw new Refused("not_found");
-        await work(tx, routine);
-      },
+      { ...entryOf(c.get("userId"), action), args: { routineId: routine.id } },
+      (tx) => work(tx, routine),
     );
   };
 
-  const next = (r: {
-    frequency: string;
-    hour: number | null;
-    weekday: number | null;
-    timeZone: string;
-  }) =>
+  const next = (
+    r: Pick<Routine, "frequency" | "hour" | "weekday" | "timeZone">,
+  ) =>
     r.frequency === "on_demand"
       ? null
       : nextOccurrence(new Date(now()), scheduleOf(r));
@@ -188,7 +179,7 @@ export function customRoutineRoutes(db: Db, deps: Fire, now: () => number) {
                 await tx
                   .update(routines)
                   .set({ ...values, nextRunAt: next(values) })
-                  .where(and(eq(routines.id, id), eq(routines.userId, userId)))
+                  .where(eq(routines.id, id))
                   .returning({ id: routines.id })
               )[0];
         if (!row) throw new Refused("not_found");

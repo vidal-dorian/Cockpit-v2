@@ -252,6 +252,9 @@ export function Sidebar() {
             </>
           )}
         </NavLink>
+        <NavLink to="/claude/taches" className={navItem}>
+          Claude
+        </NavLink>
         {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}
         {projects.map((p) => {
           const count = forYou.filter(
@@ -280,9 +283,6 @@ export function Sidebar() {
           + Importer un repo
         </Link>
         <p className={sidebarLabel}>Configurer</p>
-        <NavLink to="/claude/taches" className={navItem}>
-          Claude
-        </NavLink>
         <NavLink to="/journal" className={navItem}>
           Journal
         </NavLink>

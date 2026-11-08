@@ -124,8 +124,22 @@ export function reportLaunch(
         ),
       )
       .for("update");
-    // A routine launch has no single repository to untick: it finishes with `finish_launch`.
-    if (!launch || launch.projectId === null) throw new Refused("not_found");
+    if (!launch) throw new Refused("not_found");
+    // A routine has no single repository to untick: the passage fails.
+    if (launch.routineId !== null) {
+      if (launch.finishedAt) throw new Refused("launch_finished");
+      await tx
+        .update(cloudLaunches)
+        .set({
+          reason: args.reason,
+          finishedAt: new Date(),
+          outcome: "failed",
+          summary: args.reason,
+        })
+        .where(eq(cloudLaunches.id, launch.id));
+      return { launch_id: launch.id, reason: args.reason };
+    }
+    if (launch.projectId === null) throw new Refused("not_found");
     entry.projectId = launch.projectId;
     entry.storyId = launch.storyId ?? undefined;
     if (launch.runId !== null) throw new Refused("launch_started");
