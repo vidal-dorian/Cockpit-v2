@@ -49,11 +49,17 @@ const NO_PULL_REQUEST_RIGHT = {
 };
 const sha256 = (text: string) =>
   createHash("sha256").update(text, "utf8").digest("hex");
-const fromCatalog = (relative: string) =>
-  readFileSync(
-    fileURLToPath(new URL(`../../catalog/${relative}`, import.meta.url)),
-    "utf8",
-  );
+// A missing file is a marker text, not an exception: until slice R6 adds agents/upgrade-advisor.md (decision 052 K), only the tests that count the catalogue fail.
+const fromCatalog = (relative: string) => {
+  try {
+    return readFileSync(
+      fileURLToPath(new URL(`../../catalog/${relative}`, import.meta.url)),
+      "utf8",
+    );
+  } catch {
+    return `missing catalog/${relative}`;
+  }
+};
 const CATALOG: Record<string, string> = {
   ".claude/agents/test-writer.md": fromCatalog("agents/test-writer.md"),
   ".claude/agents/developer.md": fromCatalog("agents/developer.md"),
@@ -68,6 +74,8 @@ const CATALOG: Record<string, string> = {
     "agents/security-reviewer.md",
   ),
   ".claude/agents/architect.md": fromCatalog("agents/architect.md"),
+  // Slice R6 (decision 052 K): the thirteenth file with CLAUDE.md, the twelfth without.
+  ".claude/agents/upgrade-advisor.md": fromCatalog("agents/upgrade-advisor.md"),
 };
 const PATHS = Object.keys(CATALOG).sort();
 const DEV = ".claude/agents/developer.md";

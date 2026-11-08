@@ -579,6 +579,8 @@ describe("GET /api/projects/:id/health", () => {
   const readyRepo = (): Record<string, string> => ({
     "CLAUDE.md": "# Project",
     ".github/workflows/ci.yml": "name: ci",
+    // Decision 052 L (slice R6): a ready repo also has an update configuration, so the `updates` line is ok.
+    ".github/dependabot.yml": "version: 2\n",
     ".mcp.json": mcpFile({ cockpit: cockpitServer(GOOD_AUTH) }),
     // Decision 049: the files of the catalogue as they are today, so the catalog line is ok.
     ...Object.fromEntries(CATALOG_TEXTS),
@@ -601,7 +603,12 @@ describe("GET /api/projects/:id/health", () => {
     },
     // Decision 024 F: the stub's webhook is the one of the test instance, with no failed delivery.
     { key: "webhook", ok: true, detail: OK },
+    // Decision 052 B and L (slice R6): the sixth and seventh lines of the health check, after the webhook. The stub's App has the three alert permissions.
+    { key: "github_alerts", ok: true, detail: OK },
+    { key: "updates", ok: true, detail: OK },
   ];
+  const ALERTS = { key: "github_alerts", ok: true, detail: OK };
+  const UPDATES_MISSING = { key: "updates", ok: false, detail: "missing" };
 
   type Line = { key: string; ok: boolean; detail: string };
   const health = (
@@ -618,9 +625,10 @@ describe("GET /api/projects/:id/health", () => {
   // What the server asked of the repo (not the installation token), as "METHOD path?query", sorted: the reads run in parallel. Every read but the root is pinned to the commit sha the root returned (decision 013).
   const repoCalls = (fetchMock: ReturnType<typeof stubGitHub>) =>
     githubCalls(fetchMock)
-      // Nor the App's own reads of the webhook (decision 024 F), which no repo owns.
+      // Nor the App's own reads of the webhook (decision 024 F) and of its permissions (decision 052 B: GET /app), which no repo owns.
       .filter(
         (c) =>
+          c.path !== "/app" &&
           !c.path.startsWith("/app/installations/") &&
           !c.path.startsWith("/app/hook/"),
       )
@@ -636,6 +644,8 @@ describe("GET /api/projects/:id/health", () => {
   const ROOT = `${REPO}/git/trees/HEAD`;
   const CLAUDE_DIR = `${REPO}/git/trees/SHA:.claude?recursive=1`;
   const WORKFLOWS = `${REPO}/git/trees/SHA:.github/workflows`;
+  // Decision 052 L: `.github` itself (not recursive) is read in the same wave as the workflows, to find dependabot.yml or a Renovate file.
+  const GITHUB_DIR = `${REPO}/git/trees/SHA:.github`;
   const MCP_JSON = `${REPO}/contents/.mcp.json?ref=SHA`;
   // Decision 049 H: a prepared repo adds the reads of the catalogue line, pinned to the same commit: the trees down to each file (the root by its bare sha) and each file present once.
   const CATALOG_READS = [
@@ -654,13 +664,14 @@ describe("GET /api/projects/:id/health", () => {
     MCP_JSON,
     CLAUDE_DIR,
     WORKFLOWS,
+    GITHUB_DIR,
     ROOT,
     ...CATALOG_READS,
   ].sort();
   // The four stub agent files of AGENT_FILES only: the catalogue line reads those four, and the other files are absent.
   const CATALOG_READS_OF_FOUR = CATALOG_READS.filter(
     (call) =>
-      !/write-us|analyser|cartographer|rules-analyst|bug-hunter|security-reviewer|architect/.test(
+      !/write-us|analyser|cartographer|rules-analyst|bug-hunter|security-reviewer|architect|upgrade-advisor/.test(
         call,
       ),
   );
@@ -680,6 +691,8 @@ describe("GET /api/projects/:id/health", () => {
     { key: "mcp", ok: true, detail: OK },
     { key: "agents", ok: false, detail: "missing" },
     { key: "webhook", ok: true, detail: OK },
+    ALERTS,
+    UPDATES_MISSING,
   ];
 
   /** A user A with one project user1000/app, and the stubbed GitHub holding `files`. */
@@ -869,6 +882,8 @@ describe("GET /api/projects/:id/health", () => {
           READY_LINES[3],
           READY_LINES[4],
           READY_LINES[5],
+          READY_LINES[6],
+          READY_LINES[7],
         ],
       });
     },
@@ -1158,7 +1173,13 @@ describe("GET /api/projects/:id/health", () => {
     expect(res.status).toBe(200);
     // Besides the reads of the catalogue line: only the four files present are read.
     expect(repoCalls(fetchMock)).toEqual(
-      [CLAUDE_DIR, WORKFLOWS, ROOT, ...CATALOG_READS_OF_FOUR].sort(),
+      [
+        CLAUDE_DIR,
+        WORKFLOWS,
+        GITHUB_DIR,
+        ROOT,
+        ...CATALOG_READS_OF_FOUR,
+      ].sort(),
     );
   });
 
@@ -1180,7 +1201,7 @@ describe("GET /api/projects/:id/health", () => {
       "a repo with only a .github directory",
       { ".github/workflows/ci.yml": "x" },
       {},
-      [ROOT, WORKFLOWS],
+      [ROOT, WORKFLOWS, GITHUB_DIR],
     ],
     [
       "a repo with only a .mcp.json",
@@ -1280,6 +1301,8 @@ describe("GET /api/projects/:id/health", () => {
         READY_LINES[3],
         CATALOG_OF_FOUR,
         READY_LINES[5],
+        ALERTS,
+        UPDATES_MISSING,
       ],
     });
     expect(repoCalls(fetchMock)).toEqual(
@@ -1311,6 +1334,8 @@ describe("GET /api/projects/:id/health", () => {
         { key: "mcp", ok: true, detail: OK },
         { key: "agents", ok: false, detail: "missing" },
         READY_LINES[5],
+        ALERTS,
+        UPDATES_MISSING,
       ],
     });
   });
@@ -1533,7 +1558,7 @@ describe("GET /api/projects/:id/health", () => {
       ok: false,
       detail: "missing",
     });
-    expect(repoCalls(fetchMock)).toEqual([ROOT, WORKFLOWS].sort());
+    expect(repoCalls(fetchMock)).toEqual([ROOT, WORKFLOWS, GITHUB_DIR].sort());
   });
 
   it("given an empty repository (the tree answers 409 Git Repository is empty), when the health is requested, then 200 with the lines of an empty repo (mcp ok, decision 021 H), in order, after a single call to the tree", async () => {
@@ -1840,6 +1865,8 @@ describe("GET /api/projects/:id/health", () => {
         ),
       },
       READY_LINES[5],
+      READY_LINES[6],
+      READY_LINES[7],
     ]);
     const [oldSha] = fetchMock.served;
     expect(pinnedShas(fetchMock)).toEqual(
@@ -2035,6 +2062,7 @@ describe("GET /api/projects/:id/health", () => {
         "GET /repos/user1000/r1/contents/.mcp.json?ref=SHA",
         "GET /repos/user1000/r1/git/trees/SHA:.claude?recursive=1",
         "GET /repos/user1000/r1/git/trees/SHA:.github/workflows",
+        "GET /repos/user1000/r1/git/trees/SHA:.github",
         "GET /repos/user1000/r1/git/trees/HEAD",
         ...CATALOG_READS.map((call) => call.replace("/app/", "/r1/")),
       ].sort(),

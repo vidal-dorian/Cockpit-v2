@@ -31,7 +31,7 @@ import { criterionIds, withRules } from "./test-takeover.ts";
 //
 // Pinned where the decision leaves it open (the developer follows these; see src/server/test-findings.ts for the arguments, the answers and the columns):
 // - A call that breaks the schema of A is refused `Refused: invalid arguments (<path>: <why>)` like every tool, the path naming the faulty field; journaled `invalid_arguments`.
-//   `kind: "upgrade"` is refused that way too (it waits for R6). The refusals that need the repo or the project say the location with brackets, as `submit_code_map` does:
+//   `kind: "upgrade"` was refused until slice R6 (decision 052 K), it is valid now. The refusals that need the repo or the project say the location with brackets, as `submit_code_map` does:
 //   `findings[2].sources[0]` for a citation, `commit_sha` for an unknown commit; journaled `refused` with a closed lowercase code (`project_archived`, `not_found`).
 // - The history keeps one entry per call, actions `submit_findings` and `list_findings`, actor claude, origin mcp; submit_findings keeps counts and ids, none of the texts.
 
@@ -232,11 +232,7 @@ describe("decision 051 A: the bounds of the schema", () => {
       /findings/,
       () => Array.from({ length: 51 }, (_, i) => finding(i)),
     ],
-    [
-      "kind upgrade (it waits for R6)",
-      /kind/,
-      () => [finding(1, { kind: "upgrade" })],
-    ],
+    // The case "kind upgrade is refused" is gone: decision 052 K (slice R6) makes `upgrade` a valid kind, see findings-github-schema.test.ts.
     ["an unknown kind", /kind/, () => [finding(1, { kind: "style" })]],
     ["no kind", /kind/, () => [without("kind")]],
     ["an empty title", /title/, () => [finding(1, { title: "" })]],

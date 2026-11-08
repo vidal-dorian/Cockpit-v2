@@ -98,12 +98,13 @@ describe("decision 047 M: « Préparer pour Claude » writes it", () => {
   const planOf = async (ctx: Awaited<ReturnType<typeof prepared>>) =>
     ((await (await ctx.post("/prepare")).json()) as { plan: Plan }).plan;
 
-  it("given a repo with nothing of the catalogue, when the plan is read, then it has 12 files and the agent is create with the text of the catalogue", async () => {
+  it("given a repo with nothing of the catalogue, when the plan is read, then it has 13 files and the agent is create with the text of the catalogue", async () => {
     const ctx = await prepared({});
 
     const plan = await planOf(ctx);
 
-    expect(plan.files).toHaveLength(12);
+    // Changed by decision 052 K (slice R6): 13 files with upgrade-advisor, it had 12.
+    expect(plan.files).toHaveLength(13);
     expect(plan.files.find((f) => f.path === AGENT)).toEqual({
       path: AGENT,
       status: "create",

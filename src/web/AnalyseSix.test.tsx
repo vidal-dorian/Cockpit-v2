@@ -5,6 +5,7 @@ import { plan, SKILL, stubConception } from "./test-conception.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
 // Slice R5 (decision 051 K): « Ajouter /analyser au repo » offers the six files of /analyser, the three agents of the analysis included.
+// Changed by decision 052 K (slice R6): upgrade-advisor is the seventh file of /analyser (the file keeps its name, the list has seven entries now).
 
 afterEach(() => {
   cleanup();
@@ -14,6 +15,7 @@ afterEach(() => {
 
 const SIX = [
   SKILL,
+  ".claude/agents/upgrade-advisor.md",
   ".claude/agents/cartographer.md",
   ".claude/agents/rules-analyst.md",
   ".claude/agents/bug-hunter.md",
@@ -21,8 +23,8 @@ const SIX = [
   ".claude/agents/architect.md",
 ];
 
-describe("decision 051 K: the six files of /analyser", () => {
-  it("given a plan of the six files, when the window opens, then the six are listed and sent", async () => {
+describe("decision 051 K and 052 K: the seven files of /analyser", () => {
+  it("given a plan of the seven files, when the window opens, then the seven are listed and sent", async () => {
     const api = stubConception({
       prepare: {
         status: 200,

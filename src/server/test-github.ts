@@ -69,6 +69,42 @@ type FakeWebhook = {
   deliveriesStatus?: number;
 };
 
+/** The permissions the App of the tests has, the three alert permissions of decision 052 A included (read in `GET /app` and in `GET /app/installations/{id}`). */
+export const BASE_PERMISSIONS: Record<string, string> = {
+  metadata: "read",
+  contents: "write",
+  issues: "write",
+  pull_requests: "write",
+  checks: "read",
+  statuses: "read",
+  actions: "read",
+};
+export const ALERT_PERMISSIONS: Record<string, string> = {
+  dependabot_alerts: "read",
+  security_events: "read",
+  secret_scanning_alerts: "read",
+};
+
+/** The `html_url` of the installation as `GET /app/installations/{id}` serves it (decision 052 B: the « Approuver sur GitHub » link). */
+export const installationUrl = (id = INSTALLATION_ID) =>
+  `https://github.com/settings/installations/${id}`;
+
+/** The alerts of one repo (slice R6, decision 052 C): the raw objects of GitHub's REST API, a list per tool, and the failures a test plays. */
+export type FakeAlerts = {
+  dependabot: Record<string, unknown>[];
+  code_scanning: Record<string, unknown>[];
+  secret_scanning: Record<string, unknown>[];
+  /** Fails every call on the tool's alerts with that status (403: the tool is not enabled; 404: code scanning without analysis; 500). */
+  status: {
+    dependabot?: number;
+    code_scanning?: number;
+    secret_scanning?: number;
+  };
+  /** The locations of a secret scanning alert, by alert number (`GET .../secret-scanning/alerts/{n}/locations`). */
+  locations: Record<number, Record<string, unknown>[]>;
+  locationsStatus?: number;
+};
+
 /** A check run as GitHub's API serves it (slice 7.6, decision 038 E). */
 export type FakeCheckRun = {
   name: string;
@@ -195,6 +231,13 @@ export function failOnUnexpectedFetch() {
  * It starts at DEFAULT_WEBHOOK_URL with no delivery, so a health check reads it green. The returned mock holds it as `webhook` (a live object: assign
  * its fields between two calls, `initial.webhook` seeds them); `configStatus` and `deliveriesStatus` fail one of the two calls.
  *
+ * The App and its installation (slice R6, decision 052 B), read as the App itself (a JWT, 401 otherwise): `GET /app` (`{ id, slug, permissions }`) and `GET /app/installations/{id}`
+ * (`{ id, html_url, permissions }`, 404 for an installation `installations` does not list). Both start with BASE_PERMISSIONS and ALERT_PERMISSIONS, so a health check reads `github_alerts` green;
+ * `appInfo` and `installationInfo` (`{ permissions?, status? }`, live: `update(...)` changes them) replace the permissions or fail the call with a status.
+ * The alerts of a repo (slice R6, decision 052 C, D), any repo whatever `gitRepos` says: `GET /repos/{o}/{r}/dependabot/alerts`, `.../code-scanning/alerts` and `.../secret-scanning/alerts`
+ * (`state`, `per_page` at most 100 and `page`, answering the alerts of the list whose `state` is the one asked, a `Link: <next>; rel="next"` header when more pages exist) and
+ * `GET .../secret-scanning/alerts/{n}/locations`. `alerts(fullName)` is the live list of a repo (`FakeAlerts`): push raw alerts in, set `status` or `locationsStatus` to fail a call.
+ *
  * Writing into a repo (slice 6.1, decision 026): `gitRepos` names the repos (`owner/repo`) that keep a real Git history, which the stub serves instead of the snapshots above:
  * `GET /repos/{o}/{r}` (`default_branch`), `GET .../git/ref/heads/{branch}` (only the default branch exists; 409 on an empty repo), `GET .../git/commits/{sha}`,
  * `GET .../git/trees/{sha}:{dir}` (the tree of a directory at a commit; the root is `{sha}` or `{sha}:`; nothing else is served, no query string, no `HEAD`, no branch name; entries are
@@ -241,6 +284,9 @@ export function stubGitHub(initial: {
   failOn?: (call: { method: string; path: string }) => boolean | number;
   webhook?: Partial<FakeWebhook>;
   gitRepos?: Record<string, FakeGitRepoOptions>;
+  appInfo?: { permissions?: Record<string, string>; status?: number };
+  installationInfo?: { permissions?: Record<string, string>; status?: number };
+  alerts?: Record<string, Partial<FakeAlerts>>;
 }) {
   // Mutable on purpose: `update` changes it between two calls.
   const options = { ...initial };
@@ -249,6 +295,23 @@ export function stubGitHub(initial: {
     deliveries: [],
     ...initial.webhook,
   };
+  const alertsOf = (() => {
+    const all = new Map<string, FakeAlerts>();
+    return (fullName: string) => {
+      const known = all.get(fullName);
+      if (known) return known;
+      const created: FakeAlerts = {
+        dependabot: [],
+        code_scanning: [],
+        secret_scanning: [],
+        status: {},
+        locations: {},
+        ...initial.alerts?.[fullName],
+      };
+      all.set(fullName, created);
+      return created;
+    };
+  })();
   let etagSalt = 0;
   let afterRoot: (() => void) | undefined;
   const served: string[] = [];
@@ -532,6 +595,78 @@ export function stubGitHub(initial: {
         return Response.json({
           total_count: repositories.length,
           repositories,
+        });
+      }
+      // Slice R6 (decision 052 B): the App and its installation, as the App itself.
+      const appRoute =
+        /^GET https:\/\/api\.github\.com\/app(?:\/installations\/(\d+))?$/.exec(
+          route,
+        );
+      if (appRoute) {
+        if (!/^bearer eyJ/i.test(headers.get("authorization") ?? ""))
+          return Response.json({ message: "Bad credentials" }, { status: 401 });
+        const info =
+          appRoute[1] === undefined
+            ? options.appInfo
+            : options.installationInfo;
+        if (info?.status)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: info.status },
+          );
+        const permissions = info?.permissions ?? {
+          ...BASE_PERMISSIONS,
+          ...ALERT_PERMISSIONS,
+        };
+        if (appRoute[1] === undefined)
+          return Response.json({
+            id: Number(githubAppConfig.githubAppId),
+            slug: githubAppConfig.githubAppSlug,
+            permissions,
+          });
+        if (!installations.includes(Number(appRoute[1])))
+          return Response.json({ message: "Not Found" }, { status: 404 });
+        return Response.json({
+          id: Number(appRoute[1]),
+          html_url: installationUrl(Number(appRoute[1])),
+          permissions,
+        });
+      }
+      // Slice R6 (decision 052 C, D): the alerts of a repo, whatever its other routes.
+      const alertRoute =
+        /^GET https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\/(dependabot|code-scanning|secret-scanning)\/alerts(?:\/(\d+)\/locations)?$/.exec(
+          route,
+        );
+      if (alertRoute) {
+        const [, fullName, tool, number] = alertRoute;
+        const alerts = alertsOf(fullName as string);
+        const key = (tool as string).replace("-", "_") as
+          | "dependabot"
+          | "code_scanning"
+          | "secret_scanning";
+        const failure =
+          number === undefined ? alerts.status[key] : alerts.locationsStatus;
+        if (failure)
+          return Response.json(
+            { message: "github-boom-message" },
+            { status: failure },
+          );
+        if (number !== undefined)
+          return Response.json(alerts.locations[Number(number)] ?? []);
+        const state = url.searchParams.get("state");
+        const size = Math.min(
+          Number(url.searchParams.get("per_page") ?? 30),
+          100,
+        );
+        const page = Number(url.searchParams.get("page") ?? 1);
+        const matching = alerts[key].filter((a) => !state || a.state === state);
+        const next = new URL(url);
+        next.searchParams.set("page", String(page + 1));
+        return Response.json(matching.slice((page - 1) * size, page * size), {
+          headers:
+            matching.length > page * size
+              ? { link: `<${next.href}>; rel="next"` }
+              : {},
         });
       }
       const gitRoute =
@@ -1272,6 +1407,8 @@ export function stubGitHub(initial: {
       if (!git) throw new Error(`${fullName} is not in gitRepos`);
       return git;
     },
+    /** The alerts of a repo as GitHub holds them now (live object, see `FakeAlerts`). */
+    alerts: alertsOf,
     /** The commit sha of each root answer 200, in order. */
     served,
     update(patch: Partial<typeof initial>) {

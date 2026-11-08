@@ -209,11 +209,11 @@ describe("decision 032 C: the agents line checks the named teams", () => {
       expect(
         paths.filter((p) => p === `/repos/${REPO}/contents/${teamPath(name)}`),
       ).toHaveLength(1);
-    // The three of before, and the five of the catalogue line (decision 049 H): the root, .claude, agents, skills and dev-us.
-    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(3 + 5);
+    // Changed by decision 052 L (slice R6): four of before (root, .claude, workflows and now .github itself), and the five of the catalogue line (decision 049 H): the root, .claude, agents, skills and dev-us.
+    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(4 + 5);
   });
 
-  it("given a ready repo without .claude/teams, when the health is requested, then only the three tree reads of before are made (root, .claude, workflows), besides the catalogue line, and no file is read but the catalogue ones", async () => {
+  it("given a ready repo without .claude/teams, when the health is requested, then only the four tree reads are made (root, .claude, workflows, .github), besides the catalogue line, and no file is read but the catalogue ones", async () => {
     const ctx = await readyForHealth(READY);
 
     expect(await agentsLine(ctx)).toEqual({
@@ -222,7 +222,7 @@ describe("decision 032 C: the agents line checks the named teams", () => {
       detail: "ok",
     });
     const paths = repoCalls(ctx).map((c) => c.path);
-    // The catalogue line (decision 049 H) reads the four catalogue files READY holds, and five trees on its way.
+    // The catalogue line (decision 049 H) reads the four catalogue files READY holds, and five trees on its way; the fourth tree of the first wave is `.github` (decision 052 L).
     expect(paths.filter((p) => p.includes("/contents/")).sort()).toEqual(
       [
         ".claude/agents/developer.md",
@@ -231,7 +231,7 @@ describe("decision 032 C: the agents line checks the named teams", () => {
         SKILL,
       ].map((path) => `/repos/${REPO}/contents/${path}`),
     );
-    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(3 + 5);
+    expect(paths.filter((p) => p.includes("/git/trees/"))).toHaveLength(4 + 5);
   });
 });
 

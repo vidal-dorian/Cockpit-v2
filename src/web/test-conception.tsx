@@ -97,6 +97,46 @@ export const WEB_MODULE = {
   },
 };
 
+/** A runtime as GET /api/projects/5/versions gives it (slice R6, decision 052 I; src/server/versions.test.ts): the end of life is judged by the server. */
+export type FakeRuntime = {
+  module: { path: string; name: string };
+  name: string;
+  version: string;
+  product: string;
+  cycle: string | null;
+  state: "eol" | "soon" | "ok" | "unknown";
+  eolFrom: string | null;
+  source: {
+    path: string;
+    startLine: number;
+    endLine: number;
+    commitSha: string;
+  };
+};
+/** A runtime of the module `api` (Serveur), whose line of the manifest is `api/package.json:2` at the commit of the map. */
+export const runtime = (
+  name: string,
+  version: string,
+  state: FakeRuntime["state"],
+  eolFrom: string | null,
+  over: Partial<FakeRuntime> = {},
+): FakeRuntime => ({
+  module: { path: "api", name: "Serveur" },
+  name,
+  version,
+  product: name,
+  cycle: state === "unknown" ? null : version,
+  state,
+  eolFrom,
+  source: {
+    path: "api/package.json",
+    startLine: 2,
+    endLine: 2,
+    commitSha: SHA_API,
+  },
+  ...over,
+});
+
 export type Call = {
   method: string;
   path: string;
@@ -132,6 +172,8 @@ export type Options = {
   apply?: Answer;
   /** The answer of GET /api/projects/5/rules (slice R2, decision 047; default: no rule). */
   rules?: unknown[];
+  /** The runtimes GET /api/projects/5/versions gives (slice R6, decision 052 I; default: none). `fail` makes the route answer 502. */
+  versions?: FakeRuntime[] | "fail";
 };
 
 /** The fake server of the Conception tab; every request is recorded in `calls`. */
@@ -191,6 +233,10 @@ export function stubConception(options: Options = {}) {
             },
           },
         );
+      if (url.pathname === "/api/projects/5/versions" && method === "GET")
+        return options.versions === "fail"
+          ? Response.json({ error: "stub failure" }, { status: 502 })
+          : Response.json({ runtimes: options.versions ?? [] });
       if (url.pathname === "/api/projects/5/rules" && method === "GET")
         return Response.json({ rules: options.rules ?? [] });
       if (url.pathname === "/api/projects/5/prepare" && method === "POST")
