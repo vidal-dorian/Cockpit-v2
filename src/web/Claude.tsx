@@ -27,7 +27,7 @@ const PAUSES: Record<string, string> = {
 const row = "flex min-h-[50px] flex-wrap items-center gap-x-3 px-[18px] py-2.5";
 const iconButton = `grid size-[30px] place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
 
-/** Decision 057 F: the page « Claude », what Claude does now and the queue of stories it launches one by one. */
+/** Decision 058 F: the page « Claude », what Claude does now and the queue of stories it launches one by one. */
 export function Claude() {
   const queryClient = useQueryClient();
   // Under "home" so the stream of changes reloads them with the home.

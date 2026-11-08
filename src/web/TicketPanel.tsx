@@ -2,8 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { ImportedFrom } from "./IssueImport.tsx";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
-import { Panel } from "./Shell.tsx";
+import { Panel, useHome } from "./Shell.tsx";
 import { STORY_STATUSES, ticketError } from "./tickets.ts";
 import {
   alertBox,
@@ -21,6 +22,7 @@ type Ticket = {
   projectId: number;
   title: string;
   descriptionMd: string;
+  githubIssueNumber?: number | null;
 };
 type Story = { id: number; iWant: string; status: string };
 
@@ -42,6 +44,9 @@ export function TicketPanel({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const fullName = useHome().data?.projects.find(
+    (p) => p.id === ticket.projectId,
+  )?.name;
   const [confirming, setConfirming] = useState(false);
   const remove = useMutation({
     mutationFn: async () => {
@@ -127,6 +132,9 @@ export function TicketPanel({
       }
     >
       <h2 className="text-lg font-semibold">{ticket.title}</h2>
+      {fullName && ticket.githubIssueNumber != null && (
+        <ImportedFrom fullName={fullName} number={ticket.githubIssueNumber} />
+      )}
       <SafeMarkdown>{ticket.descriptionMd}</SafeMarkdown>
       {stories.length > 0 && (
         <>

@@ -24,7 +24,7 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   // Set by an administrator (decision 012 G): a blocked account cannot log in. Null when active.
   blockedAt: timestamp("blocked_at", { withTimezone: true, mode: "date" }),
-  // The queue of stories to launch is paused (decision 057 E); the reason is a closed value, null after « Reprendre ».
+  // The queue of stories to launch is paused (decision 058 E); the reason is a closed value, null after « Reprendre ».
   queuePausedAt: timestamp("queue_paused_at", {
     withTimezone: true,
     mode: "date",
@@ -240,6 +240,8 @@ export const tickets = pgTable(
     // Decision 055 A: the tags are free text, normalised at the boundary.
     priority: text("priority").notNull().default("normal"),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    // Decision 057 E: the issue the ticket was imported from.
+    githubIssueNumber: integer("github_issue_number"),
     abandonedAt: timestamp("abandoned_at", {
       withTimezone: true,
       mode: "date",
@@ -260,6 +262,10 @@ export const tickets = pgTable(
     check(
       "tickets_priority_check",
       sql`${t.priority} in ('low', 'normal', 'high')`,
+    ),
+    uniqueIndex("tickets_project_issue_idx").on(
+      t.projectId,
+      t.githubIssueNumber,
     ),
   ],
 );
@@ -438,7 +444,7 @@ export const cloudLaunches = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     outcome: text("outcome", { enum: ["succeeded", "failed"] }),
     summary: text("summary"),
-    // Launched by the queue, not by hand (decision 057 C).
+    // Launched by the queue, not by hand (decision 058 C).
     fromQueue: boolean("from_queue").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
@@ -452,7 +458,7 @@ export const cloudLaunches = pgTable(
   ],
 );
 
-/** The stories a user queued to launch one after the other (decision 057 A); a story is queued once. */
+/** The stories a user queued to launch one after the other (decision 058 A); a story is queued once. */
 export const queueItems = pgTable("queue_items", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   userId: integer("user_id")

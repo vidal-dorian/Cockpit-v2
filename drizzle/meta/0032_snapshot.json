@@ -1,5 +1,5 @@
 {
-  "id": "8394d962-7aa0-41b0-8588-ac1d0c6fff0e",
+  "id": "a8c0eaea-8934-45b7-90f0-58c056ecf4e3",
   "prevId": "b13ccf37-bb32-4c0d-b3ac-95c1609a9950",
   "version": "7",
   "dialect": "postgresql",
@@ -391,13 +391,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "from_queue": {
-          "name": "from_queue",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1681,96 +1674,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.queue_items": {
-      "name": "queue_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "queue_items_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "story_id": {
-          "name": "story_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "added_at": {
-          "name": "added_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "queue_items_user_id_users_id_fk": {
-          "name": "queue_items_user_id_users_id_fk",
-          "tableFrom": "queue_items",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "queue_items_story_id_user_stories_id_fk": {
-          "name": "queue_items_story_id_user_stories_id_fk",
-          "tableFrom": "queue_items",
-          "tableTo": "user_stories",
-          "columnsFrom": [
-            "story_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "queue_items_story_id_unique": {
-          "name": "queue_items_story_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "story_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.routines": {
       "name": "routines",
       "schema": "",
@@ -2279,6 +2182,12 @@
           "notNull": true,
           "default": "'{}'::text[]"
         },
+        "github_issue_number": {
+          "name": "github_issue_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "abandoned_at": {
           "name": "abandoned_at",
           "type": "timestamp with time zone",
@@ -2306,7 +2215,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "tickets_project_issue_idx": {
+          "name": "tickets_project_issue_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "github_issue_number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "tickets_project_id_projects_id_fk": {
           "name": "tickets_project_id_projects_id_fk",
@@ -2591,18 +2522,6 @@
         "blocked_at": {
           "name": "blocked_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "queue_paused_at": {
-          "name": "queue_paused_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "queue_paused_reason": {
-          "name": "queue_paused_reason",
-          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

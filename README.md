@@ -37,6 +37,8 @@ La barre « Noter une idée » (en bas de chaque page, `N` pour y aller) est la 
 
 L'onglet « Tickets » liste les tickets du projet, ceux de priorité haute d'abord : étape, détail de leurs US (« 4 US · 1 à valider, 2 prêtes »), étiquettes et âge. Les puces « Ouverts » (par défaut ; un second clic montre tous les tickets) et « Nouveaux », le menu « Étiquette » et la case de recherche (dans les tickets et dans les US, sans tenir compte de la casse ; les US trouvées ouvrent leur page) filtrent la liste. Si l'écriture automatique des US est connectée, « Écrire les US maintenant » est là aussi. Un clic sur une ligne ouvre le ticket à droite (« Ouvrir le ticket », « Modifier », « Supprimer »). Décision [055](docs/decisions/055-tickets-complets.md).
 
+**« Importer les issues »** (en haut de l'onglet Tickets, sauf sur un projet archivé) lit les issues du repo (les 1 000 plus récentes, sans les pull requests) et propose celles qui sont ouvertes, cochées par défaut ; « Déjà dans Cockpit » et « Fermées » sont grisées. Une issue écrite comme une US (un récit « En tant que … je veux … afin de … » et au moins un critère « Étant donné … quand … alors … », ou en anglais « As a … I want … so that … » et « Given … when … then … ») devient un ticket avec son US validée ; toute autre devient un ticket « Nouveau » dont Claude écrira les US. Le ticket garde un lien « Importé de l'issue #N ↗ ». **Rien n'est écrit sur GitHub** : on peut relancer l'import sans doublon. À la première publication d'une US importée, Cockpit réécrit le corps de son issue avec son gabarit et pose le label de statut, sans créer de seconde issue. Décision [057](docs/decisions/057-importer-les-issues.md).
+
 ### Le Journal
 
 Le Journal est groupé par jour et affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
@@ -147,7 +149,7 @@ Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : l
 
 La page « Claude » → « Tâches programmées » (`/claude/taches`) ajoute tes propres routines par le même lanceur : un nom, une consigne (texte libre ou skill), des agents, des projets cochés dans le lanceur et un planning (à la demande, chaque jour, chaque semaine). Tu peux les lancer tout de suite, les mettre en pause ou les supprimer, et le panneau montre le résultat du dernier passage. Claude ne peut ni créer ni modifier une routine. Décision [056](docs/decisions/056-routines.md).
 
-La page « Claude » (`/claude`) montre ce que Claude fait : tes questions en attente, les runs en cours, ceux finis aujourd'hui. Sur une US prête, « Mettre en file » (à côté de « Lancer dans le cloud ») l'ajoute à la file d'attente : Cockpit lance les US une par une, saute celles qui ne sont pas prêtes ou qui attendent une dépendance, et met la file en pause si un lancement échoue (« Reprendre » la relance). Décision [057](docs/decisions/057-file-d-attente.md).
+La page « Claude » (`/claude`) montre ce que Claude fait : tes questions en attente, les runs en cours, ceux finis aujourd'hui. Sur une US prête, « Mettre en file » (à côté de « Lancer dans le cloud ») l'ajoute à la file d'attente : Cockpit lance les US une par une, saute celles qui ne sont pas prêtes ou qui attendent une dépendance, et met la file en pause si un lancement échoue (« Reprendre » la relance). Décision [058](docs/decisions/058-file-d-attente.md).
 
 ## Lancer en local
 

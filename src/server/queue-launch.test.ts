@@ -17,7 +17,7 @@ import {
 import { rows } from "./test-mcp.ts";
 import { runRoute } from "./test-run-controls.ts";
 
-// Slice 14.3 (decision 057 C, D, E): the launch of the queue by the pass of the minute, the skips and the pauses.
+// Slice 14.3 (decision 058 C, D, E): the launch of the queue by the pass of the minute, the skips and the pauses.
 
 afterEach(() => {
   vi.unstubAllGlobals();

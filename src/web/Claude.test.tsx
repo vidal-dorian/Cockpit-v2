@@ -10,9 +10,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { empty, stubHome } from "./test-home.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 14.3 (decision 057 F): the page « Claude » at /claude.
+// Slice 14.3 (decision 058 F): the page « Claude » at /claude.
 //
-// Data source chosen: one new route GET /api/claude for what no existing route gives, plus GET /api/queue (decision 057 B).
+// Data source chosen: one new route GET /api/claude for what no existing route gives, plus GET /api/queue (decision 058 B).
 //   GET /api/claude -> { questions: [{ questionId, question, runId, storyId, iWant, project: { id, name } }],
 //     running: [{ runId, storyId, iWant, project, step: string | null, cloud: boolean }],
 //     finishedToday: [{ runId, storyId, iWant, project, outcome: "succeeded" | "failed" }],

@@ -10,7 +10,7 @@ import {
 } from "./test-launcher.ts";
 import { archiveProject, rows, userWithToken } from "./test-mcp.ts";
 
-// Slice 14.3 (decision 057 A, B, G): the routes of the queue and their history entries.
+// Slice 14.3 (decision 058 A, B, G): the routes of the queue and their history entries.
 
 afterEach(() => {
   vi.unstubAllGlobals();

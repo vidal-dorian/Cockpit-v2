@@ -30,7 +30,7 @@ const project = (r: { projectId: number; projectName: string }) => ({
 const mineOf = (userId: number) =>
   and(eq(projectMembers.userId, userId), isNull(projects.archivedAt));
 
-/** The running runs of the user's projects, each with its pending question and its open step; shared by the home and the page « Claude » (decision 057 F). */
+/** The running runs of the user's projects, each with its pending question and its open step; shared by the home and the page « Claude » (decision 058 F). */
 async function runningRuns(db: Db, userId: number) {
   const running = await db
     .select({
@@ -249,7 +249,7 @@ export function homeRoutes(db: Db) {
   });
 }
 
-/** The page « Claude » (decision 057 F): the questions, the running runs, the runs finished today and the ready stories that can be queued. */
+/** The page « Claude » (decision 058 F): the questions, the running runs, the runs finished today and the ready stories that can be queued. */
 export function claudeRoutes(db: Db) {
   return new Hono().get("/api/claude", async (c) => {
     const user = await currentUser(db, c);

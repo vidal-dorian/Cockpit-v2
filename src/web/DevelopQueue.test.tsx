@@ -9,7 +9,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 
-// Slice 14.3 (decision 057 F): « Mettre en file » next to « Lancer dans le cloud », in the cloud target of « Développer avec Claude ».
+// Slice 14.3 (decision 058 F): « Mettre en file » next to « Lancer dans le cloud », in the cloud target of « Développer avec Claude ».
 // It POSTs /api/queue { storyId } and the panel says « Mis en file ». Same fakes as DevelopCloud.test.tsx (launcher connected, project 5 ticked).
 
 afterEach(() => {

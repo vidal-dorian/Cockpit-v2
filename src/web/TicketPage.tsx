@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
+import { ImportedFrom } from "./IssueImport.tsx";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Breadcrumb, StateSentence, useHome } from "./Shell.tsx";
 import { TagField } from "./TagField.tsx";
@@ -60,10 +61,10 @@ function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
 }
 
 function TicketView({ ticket, stories }: Loaded) {
-  const projectName = useHome()
-    .data?.projects.find((p) => p.id === ticket.projectId)
-    ?.name.split("/")
-    .pop();
+  const fullName = useHome().data?.projects.find(
+    (p) => p.id === ticket.projectId,
+  )?.name;
+  const projectName = fullName?.split("/").pop();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
@@ -334,6 +335,14 @@ function TicketView({ ticket, stories }: Loaded) {
               }
             />
           </div>
+          {fullName && ticket.githubIssueNumber != null && (
+            <p className="px-[26px] pt-3">
+              <ImportedFrom
+                fullName={fullName}
+                number={ticket.githubIssueNumber}
+              />
+            </p>
+          )}
           {((ticket.tags ?? []).length > 0 || ticket.priority !== "normal") && (
             <div className="flex flex-wrap gap-2 px-[26px] pt-3">
               {ticket.priority !== "normal" && (

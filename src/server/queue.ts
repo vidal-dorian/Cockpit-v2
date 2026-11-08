@@ -45,7 +45,7 @@ const pendingSince = (at: Date) =>
   );
 
 // Here, not in launcher.ts: queue.ts is loaded through routines.ts, and launcher.ts uses `noNul` of tickets.ts when it loads, which may not be loaded yet.
-/** What a launch of a story checks and writes (054 E), in the transaction of `launchCloud`; shared by the route and the queue (057 C). */
+/** What a launch of a story checks and writes (054 E), in the transaction of `launchCloud`; shared by the route and the queue (058 C). */
 export async function reserveStory(
   tx: Tx,
   at: Date,
@@ -80,7 +80,7 @@ export async function reserveStory(
   return { projectId, storyId, branch, team, comment };
 }
 
-/** The queue of the user in order; `waiting` says why a story is skipped (decision 057 B, D). */
+/** The queue of the user in order; `waiting` says why a story is skipped (decision 058 B, D). */
 async function readItems(db: Db, userId: number, at: Date) {
   const items = await db
     .select({
@@ -140,7 +140,7 @@ async function readItems(db: Db, userId: number, at: Date) {
     return {
       ...i,
       waiting:
-        // shortcut: an archived project or a pending launch shows as « not ready », the shape pinned by 057 B; add a reason if users ask why.
+        // shortcut: an archived project or a pending launch shows as « not ready », the shape pinned by 058 B; add a reason if users ask why.
         i.status !== "ready" ||
         i.archived ||
         pending.some((p) => p.storyId === i.storyId)
@@ -152,7 +152,7 @@ async function readItems(db: Db, userId: number, at: Date) {
   });
 }
 
-/** Pauses the queue of a user for a reason of its own (057 E), once: a queue already paused keeps its first reason. */
+/** Pauses the queue of a user for a reason of its own (058 E), once: a queue already paused keeps its first reason. */
 async function pauseQueue(
   db: Db,
   userId: number,
@@ -176,7 +176,7 @@ async function pauseQueue(
   });
 }
 
-// The refusals of `launchCloud` that mean the launcher cannot launch (057 E).
+// The refusals of `launchCloud` that mean the launcher cannot launch (058 E).
 const STOPS_QUEUE = [
   "fire_failed",
   "launcher_not_connected",
@@ -184,7 +184,7 @@ const STOPS_QUEUE = [
   "project_not_in_launcher",
 ];
 
-/** A launch of the queue is in progress while its run runs or, with no run yet, for 15 minutes (057 C). */
+/** A launch of the queue is in progress while its run runs or, with no run yet, for 15 minutes (058 C). */
 async function slotBusy(db: Db, userId: number, at: Date) {
   const [inProgress] = await db
     .select({ id: cloudLaunches.id })
@@ -208,7 +208,7 @@ async function slotBusy(db: Db, userId: number, at: Date) {
   return inProgress !== undefined;
 }
 
-/** Launches the first story of the queue that is not skipped, unless the queue is paused or a launch of the queue is in progress (057 C). Never throws. */
+/** Launches the first story of the queue that is not skipped, unless the queue is paused or a launch of the queue is in progress (058 C). Never throws. */
 async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
   try {
     const [user] = await db
@@ -267,7 +267,7 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
   }
 }
 
-/** The pass of the minute for the queues (057 C, E): a launch that got no run in 15 minutes pauses its queue, then every queue that can goes on. Never throws. */
+/** The pass of the minute for the queues (058 C, E): a launch that got no run in 15 minutes pauses its queue, then every queue that can goes on. Never throws. */
 export async function runQueues(db: Db, deps: Fire, now: Date) {
   try {
     const lost = await db
@@ -295,7 +295,7 @@ export async function runQueues(db: Db, deps: Fire, now: Date) {
   }
 }
 
-/** After a run ends (057 C, E): the end of a queue run that did not succeed pauses the queue of the owner of the launch, a success starts their next story at once. Never throws. */
+/** After a run ends (058 C, E): the end of a queue run that did not succeed pauses the queue of the owner of the launch, a success starts their next story at once. Never throws. */
 export async function queueAfterRun(
   db: Db,
   deps: Fire,
@@ -323,7 +323,7 @@ const reorderBody = z.object({
   storyIds: z.array(z.number().int().positive()).max(1000),
 });
 
-/** The queue of the user (decision 057 B): read, add, remove, reorder, pause, resume. */
+/** The queue of the user (decision 058 B): read, add, remove, reorder, pause, resume. */
 export function queueRoutes(db: Db) {
   const signed = signedIn(db);
   /** One `act` of a queue action; a refusal is the 409 of its code (a missing story is the 404). */

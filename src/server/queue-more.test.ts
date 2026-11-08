@@ -23,7 +23,7 @@ import {
 } from "./test-mcp.ts";
 import { runRoute } from "./test-run-controls.ts";
 
-// Slice 14.3 (decision 057 B, C, E): what the acceptance tests leave out: a refusal that is not a failure, the one slot, the owner of a run, who may touch a queue, the data of GET /api/claude.
+// Slice 14.3 (decision 058 B, C, E): what the acceptance tests leave out: a refusal that is not a failure, the one slot, the owner of a run, who may touch a queue, the data of GET /api/claude.
 
 afterEach(() => {
   vi.unstubAllGlobals();

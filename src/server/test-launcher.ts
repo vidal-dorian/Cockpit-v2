@@ -166,7 +166,7 @@ export const pass = (ctx: Ctx, at: Date) =>
 export const sqlRows = async <T>(ctx: Ctx, query: SQL) =>
   ((await ctx.db.execute(query)) as unknown as { rows: T[] }).rows;
 
-// Slice 14.3 (decision 057): the queue. Pinned where the decision leaves room:
+// Slice 14.3 (decision 058): the queue. Pinned where the decision leaves room:
 // - the routes answer like the others: POST /api/queue 201 { storyId } (409 { error: <code> }), DELETE and PUT 200, POST /pause and
 //   /resume 200; `waiting` of an item is null or { reason: "not_ready" } or { reason: "dependency", storyId } (the awaited story).
 // - tables `queue_items(story_id, position)`, `cloud_launches.from_queue`; `queue_paused_reason` is read through GET /api/queue.
