@@ -50,6 +50,8 @@ A step with `loop_to` and `until` sends you back to that step until the conditio
 2. **developer** implements until those tests pass, without touching them.
 3. **reviewer** reviews the diff with a fresh context. Blocking findings go back to the developer, then to a new review, until the verdict is **ready**.
 
+An agent can be any of `.claude/agents/`: the **security-reviewer** as a step reviews the diff of the story for security and gives a verdict like the reviewer (its blocking findings go back to the developer until the verdict is **ready**, it files no finding), and the **doc-writer** and **doc-reviewer** steps update the documentation (the doc-reviewer's blocking findings go back to the doc-writer).
+
 ### Freeze mode
 
 When `get_user_story` gives `kind` `takeover`, the story is an existing app being frozen, not a feature to build: its criteria are the rules of the app as it is. Whatever the team, change the steps this way:

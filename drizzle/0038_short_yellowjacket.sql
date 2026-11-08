@@ -1,0 +1,2 @@
+ALTER TABLE "projects" ADD COLUMN "starter_team" text DEFAULT 'standard' NOT NULL;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_starter_team_check" CHECK ("projects"."starter_team" in ('eco', 'standard', 'premium', 'max'));
