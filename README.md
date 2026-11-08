@@ -155,7 +155,11 @@ La page « Claude » (`/claude`) montre ce que Claude fait : tes questions en at
 
 Sur la carte « Lanceur Cockpit », la case « Relancer Claude quand la CI d'une PR échoue » (décochée par défaut) relance Claude sur la même branche quand la CI d'une PR passe au rouge, 3 fois d'affilée au plus ; ensuite l'accueil affiche « Relances épuisées ». Décision [059](docs/decisions/059-relance-automatique.md).
 
-La page « Claude » → « Coût » (`/claude/cout`) montre ce que Claude a coûté ce mois-ci, en moyenne par run, par PR mergée et par projet, et règle trois plafonds facultatifs : par run (au plafond, Cockpit demande l'arrêt du run), par mois (au plafond, plus aucun lancement ne part) et par nuit (pour la nuit de Claude, à venir). La page d'un run affiche « Coût du run ». Le coût ne vient que des runs lancés dans le cloud : il faut mettre les variables de la ligne « Coût » de « Réglages », « Tâches cloud » dans l'environnement cloud, sinon la page dit « coût inconnu ». Décision [060](docs/decisions/060-cout-et-budget.md).
+La page « Claude » → « Coût » (`/claude/cout`) montre ce que Claude a coûté ce mois-ci, en moyenne par run, par PR mergée et par projet, et règle trois plafonds facultatifs : par run (au plafond, Cockpit demande l'arrêt du run), par mois (au plafond, plus aucun lancement ne part) et par nuit (pour la nuit de Claude, voir plus bas). La page d'un run affiche « Coût du run ». Le coût ne vient que des runs lancés dans le cloud : il faut mettre les variables de la ligne « Coût » de « Réglages », « Tâches cloud » dans l'environnement cloud, sinon la page dit « coût inconnu ». Décision [060](docs/decisions/060-cout-et-budget.md).
+
+## La nuit de Claude
+
+Le soir, « ☾ Cette nuit » (`/nuit`) compose le programme : tu choisis des US prêtes et leur ordre. Les heures de la nuit (22 h à 7 h par défaut) se règlent sur la carte « Lanceur Cockpit » de « Tâches cloud ». La nuit, Claude les développe une par une dans le cloud ; une question met l'US en pause jusqu'à ta réponse, et « Arrêter la nuit » la finit. Le matin, l'accueil raconte la nuit, jusqu'à « Masquer » ou jusqu'à l'heure de début suivante. Décision [044](docs/decisions/044-la-nuit-de-claude.md).
 
 ## Lancer en local
 
