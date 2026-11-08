@@ -432,6 +432,41 @@ describe("decision 066 C, E: POST /api/plugins/apply", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "no_plugin_repo" });
     expect(ctx.git.created.commits).toEqual([]);
+    expect((await pluginRows(ctx)).at(-1)).toMatchObject({
+      action: "save_shared_agent",
+      result: "refused",
+      detail: { reason: "no_plugin_repo" },
+    });
+  });
+
+  it("given GitHub that fails before the commit, when it is applied, then 502 and one error entry is recorded", async () => {
+    const ctx = await linked();
+    ctx.fetchMock.update({
+      failOn: (c) => c.path.endsWith("/git/ref/heads/main"),
+    });
+
+    const res = await apply(ctx, {
+      kind: "agent",
+      name: "dev",
+      before: null,
+      after: AG,
+    });
+
+    expect(res.status).toBe(502);
+    expect((await pluginRows(ctx)).at(-1)).toMatchObject({
+      action: "save_shared_agent",
+      result: "error",
+    });
+  });
+
+  it("given a settings.json already as it would be written, when installing, then 400 and nothing is written", async () => {
+    const before = text(INSTALLED);
+    const ctx = await linked({}, { [SETTINGS]: before });
+
+    const res = await install(ctx, { install: true, before });
+
+    expect(res.status).toBe(400);
+    noWrite(ctx);
   });
 
   it("given the file changed on GitHub since it was read, when it is applied, then 409 repo_changed, nothing is written and one refused entry is recorded", async () => {

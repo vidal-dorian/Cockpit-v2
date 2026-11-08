@@ -191,7 +191,7 @@ export function Plugins() {
         {(failed || problem) && (
           <div role="alert" className={alertBox}>
             <p>{message((failed ?? problem) as Failure)}</p>
-            {failed?.code === "repo_unreachable" && (
+            {failed?.status === 409 && (
               <button
                 type="button"
                 onClick={() => link.mutate(null)}

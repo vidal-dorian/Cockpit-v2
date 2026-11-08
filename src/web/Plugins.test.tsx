@@ -180,8 +180,8 @@ describe("decision 066 B: linking the repo", () => {
     );
   });
 
-  it("given a repo that is no longer reached, when the page opens, then an alert in French shows, not the code", async () => {
-    stubPlugins({
+  it("given a repo that is no longer reached, when the page opens, then an alert in French shows, not the code, and « Délier » sends fullName null", async () => {
+    const sent = stubPlugins({
       plugins: { status: 409, body: { error: "repo_unreachable" } },
     });
     renderAt("/equipes/commun");
@@ -190,6 +190,12 @@ describe("decision 066 B: linking the repo", () => {
 
     expect(alert.textContent).not.toContain("repo_unreachable");
     expect(alert.textContent).toMatch(/repo/i);
+    fireEvent.click(within(alert).getByRole("button", { name: "Délier" }));
+    await waitFor(() =>
+      expect(sent).toEqual([
+        { method: "PUT", path: "/api/plugins/repo", body: { fullName: null } },
+      ]),
+    );
   });
 });
 

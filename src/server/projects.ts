@@ -275,13 +275,11 @@ const present = (p: typeof projects.$inferSelect) => ({
 });
 
 type GitHub = ReturnType<typeof githubClient>;
-type Hooks = {
-  /** A refusal code to answer 409 and record, asked with the repo to write; it reads GitHub, so a failure is a 502. */
-  refuse?: (repo: {
-    installationId: number;
-    fullName: string;
-  }) => Promise<string | { error: string; at?: string } | null>;
-};
+type Repo = { installationId: number; fullName: string };
+/** A refusal code to answer 409 and record, asked with the repo to write; it reads GitHub, so a failure is a 502. */
+type Refuse = (
+  repo: Repo,
+) => Promise<string | { error: string; at?: string } | null>;
 type Env = {
   Variables: {
     github: GitHub;
@@ -354,18 +352,21 @@ export function projectRoutes(
   const writeChanges = async (
     c: Context<Env, string>,
     entry: Entry & { userId: number },
-    repo: { installationId: number; fullName: string },
+    /** The repo to write, or the refusal code when there is none; it may read GitHub, so a failure is a 502. */
+    repo: () => Promise<Repo | string>,
     changes: { path: string; before: string | null; after: string | null }[],
     message: string,
     hooks: {
-      refuse?: Hooks["refuse"];
+      refuse?: Refuse;
       /** Run in the transaction of the `ok` entry. */
       onWritten?: (tx: Tx) => Promise<void>;
     } = {},
   ) => {
     let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
     try {
-      const code = await hooks.refuse?.(repo);
+      const target = await repo();
+      const code =
+        typeof target === "string" ? target : await hooks.refuse?.(target);
       if (code) {
         const refusal = typeof code === "string" ? { error: code } : code;
         await record(entry, new Refused(refusal.error));
@@ -373,7 +374,12 @@ export function projectRoutes(
       }
       result = await c
         .get("github")
-        .applyRepoChanges(repo.installationId, repo.fullName, changes, message);
+        .applyRepoChanges(
+          (target as Repo).installationId,
+          (target as Repo).fullName,
+          changes,
+          message,
+        );
     } catch (error) {
       await record(entry, error);
       return c.json({ error: "github_unavailable" }, 502);
@@ -421,7 +427,8 @@ export function projectRoutes(
       valid?: (projectId: number) => Promise<boolean>;
       /** Run in the transaction of the `ok` entry. */
       onWritten?: (tx: Tx, projectId: number) => Promise<void>;
-    } & Pick<Hooks, "refuse"> = {},
+      refuse?: Refuse;
+    } = {},
   ) => {
     const id = Number(c.req.param("id"));
     const project = await memberProject(db, entry.userId, id);
@@ -436,7 +443,7 @@ export function projectRoutes(
     }
     if (hooks.valid && !(await hooks.valid(id)))
       return c.json({ error: "Bad request" }, 400);
-    return writeChanges(c, entry, project, changes, message, {
+    return writeChanges(c, entry, async () => project, changes, message, {
       refuse: hooks.refuse,
       onWritten: (tx) => hooks.onWritten?.(tx, id) ?? Promise.resolve(),
     });
@@ -1031,35 +1038,41 @@ export function projectRoutes(
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { fullName } = parsed.data;
       try {
-        // The repo must be one the installation of the user reaches (decision 066 B).
-        const found =
-          fullName !== null &&
-          (await installedRepos(c.get("github"), user.login, user.githubId));
-        if (
-          found !== false &&
-          !found?.repos.some((r) => r.full_name === fullName)
-        )
-          return c.json({ error: "repo_unreachable" }, 409);
+        await act(
+          db,
+          {
+            userId: user.userId,
+            actor: "human",
+            origin: "ui",
+            action: fullName ? "link_plugin_repo" : "unlink_plugin_repo",
+            args: {},
+          },
+          async (tx) => {
+            // The repo must be one the installation of the user reaches (decision 066 B).
+            const found =
+              fullName !== null &&
+              (await installedRepos(
+                c.get("github"),
+                user.login,
+                user.githubId,
+              ));
+            if (
+              found !== false &&
+              !found?.repos.some((r) => r.full_name === fullName)
+            )
+              throw new Refused("repo_unreachable");
+            await tx
+              .update(users)
+              .set({ pluginRepo: fullName })
+              .where(eq(users.id, user.userId));
+          },
+        );
       } catch (error) {
+        if (error instanceof Refused)
+          return c.json({ error: error.message }, 409);
         console.error("GitHub request failed:", error);
         return c.json({ error: "github_unavailable" }, 502);
       }
-      await act(
-        db,
-        {
-          userId: user.userId,
-          actor: "human",
-          origin: "ui",
-          action: fullName ? "link_plugin_repo" : "unlink_plugin_repo",
-          args: {},
-        },
-        async (tx) => {
-          await tx
-            .update(users)
-            .set({ pluginRepo: fullName })
-            .where(eq(users.id, user.userId));
-        },
-      );
       return c.json({ repo: fullName });
     })
     .get("/api/plugins", async (c) => {
@@ -1092,55 +1105,11 @@ export function projectRoutes(
       );
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { kind, name, before, after } = parsed.data;
-      if (!user.pluginRepo) return c.json({ error: "no_plugin_repo" }, 409);
       const path = PLUGIN_FILES[kind](name);
       const verb =
         after === null ? "remove" : before === null ? "add" : "update";
       const changes = [{ path, before, after }];
-      let repo: { installationId: number; fullName: string };
-      try {
-        const github = c.get("github");
-        const installationId = await github.findUserInstallation(
-          user.login,
-          user.githubId,
-        );
-        if (installationId === null)
-          return c.json({ error: "repo_unreachable" }, 409);
-        repo = { installationId, fullName: user.pluginRepo };
-        // Decision 066 C: the two files of the marketplace join the commit when they are missing, and are never rewritten.
-        const { inspect, head } = await github.fileReader(
-          installationId,
-          user.pluginRepo,
-        );
-        const at = await head();
-        if ("refused" in at) return c.json({ error: at.refused }, 409);
-        const market = marketplaceOf(user.login);
-        const description = `Les agents et skills communs de ${user.login}, écrits par Cockpit`;
-        const json = (o: unknown) => `${JSON.stringify(o, null, 2)}\n`;
-        for (const file of after === null
-          ? []
-          : [
-              {
-                path: ".claude-plugin/marketplace.json",
-                text: json({
-                  name: market,
-                  owner: { name: user.login },
-                  plugins: [
-                    { name: "commun", source: "./plugins/commun", description },
-                  ],
-                }),
-              },
-              {
-                path: "plugins/commun/.claude-plugin/plugin.json",
-                text: json({ name: "commun", description }),
-              },
-            ])
-          if ((await inspect(file.path, at.sha)) === null)
-            changes.push({ path: file.path, before: null, after: file.text });
-      } catch (error) {
-        console.error("GitHub request failed:", error);
-        return c.json({ error: "github_unavailable" }, 502);
-      }
+      const github = c.get("github");
       return writeChanges(
         c,
         {
@@ -1150,9 +1119,60 @@ export function projectRoutes(
           action: `${after === null ? "delete" : "save"}_shared_${kind}`,
           args: { path },
         },
-        repo,
+        async () => {
+          if (!user.pluginRepo) return "no_plugin_repo";
+          const installationId = await github.findUserInstallation(
+            user.login,
+            user.githubId,
+          );
+          return installationId === null
+            ? "repo_unreachable"
+            : { installationId, fullName: user.pluginRepo };
+        },
         changes,
         `feat: ${verb} the shared ${kind} ${name} (Cockpit)`,
+        {
+          // Decision 066 C: the two files of the marketplace join the commit when they are missing, and are never rewritten.
+          refuse: async ({ installationId, fullName }) => {
+            const { inspect, head } = await github.fileReader(
+              installationId,
+              fullName,
+            );
+            const at = await head();
+            if ("refused" in at) return at.refused;
+            const description = `Les agents et skills communs de ${user.login}, écrits par Cockpit`;
+            const json = (o: unknown) => `${JSON.stringify(o, null, 2)}\n`;
+            for (const file of after === null
+              ? []
+              : [
+                  {
+                    path: ".claude-plugin/marketplace.json",
+                    text: json({
+                      name: marketplaceOf(user.login),
+                      owner: { name: user.login },
+                      plugins: [
+                        {
+                          name: "commun",
+                          source: "./plugins/commun",
+                          description,
+                        },
+                      ],
+                    }),
+                  },
+                  {
+                    path: "plugins/commun/.claude-plugin/plugin.json",
+                    text: json({ name: "commun", description }),
+                  },
+                ])
+              if ((await inspect(file.path, at.sha)) === null)
+                changes.push({
+                  path: file.path,
+                  before: null,
+                  after: file.text,
+                });
+            return null;
+          },
+        },
       );
     })
     .get("/api/plugins/projects", async (c) => {
@@ -1163,12 +1183,13 @@ export function projectRoutes(
         const mine = (await memberProjects(db, user.userId)).filter(
           (p) => !p.archivedAt,
         );
-        // A repo the installation no longer reaches has no settings to read.
+        // Keeps an uninstalled App, or a repo it no longer reaches, from turning the list into a 502: such a project has no settings to read.
         const reached = new Set(
           (
             await installedRepos(c.get("github"), user.login, user.githubId)
           )?.repos.map((r) => r.full_name),
         );
+        // shortcut: one GitHub read per project in parallel, unbounded; batch if users have dozens of projects.
         const projects = await Promise.all(
           mine.map(async (p) => {
             let settings: string | null = null;
@@ -1216,6 +1237,9 @@ export function projectRoutes(
       } catch {
         invalid = true;
       }
+      // A no-op commit is not written.
+      if (!invalid && after === before)
+        return c.json({ error: "Bad request" }, 400);
       return saveFile(
         c,
         {

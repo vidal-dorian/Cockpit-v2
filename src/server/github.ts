@@ -1373,12 +1373,17 @@ export function githubClient(config: GitHubAppConfig) {
         const found = await repo.inspect(path, head.sha);
         return found === null ? null : (found.text ?? "");
       };
+      const { files: rules, skills } = await readNamed(
+        repo,
+        head.sha,
+        ".claude/rules",
+        ".claude/skills",
+      );
       return {
         claudeMd: await read("CLAUDE.md"),
         mcpJson: await read(".mcp.json"),
-        ...(({ files, skills }) => ({ rules: files, skills }))(
-          await readNamed(repo, head.sha, ".claude/rules", ".claude/skills"),
-        ),
+        rules,
+        skills,
       };
     },
 
