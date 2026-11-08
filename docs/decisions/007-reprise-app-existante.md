@@ -81,6 +81,7 @@ Le skill impose un gabarit au texte, selon le type :
 ### Ce qui vient de GitHub
 
 - Les **alertes Dependabot** (`security` ou `upgrade`), **code scanning** (`security`) et **secret scanning** (`security`) deviennent des constats `source = github`, lus au clic sur « Actualiser », puis par webhook une fois la tranche 5.1 faite. Une alerte réimportée ne crée pas de doublon (numéro d'alerte unique par projet). Une alerte de secret ne garde que son emplacement et le type de secret, **jamais la valeur** (principe 5 du brief).
+  *Tranché par la [052](052-constats-de-github-et-versions.md) : lues au clic sur « Actualiser » (10 pages de 100 au plus par outil) puis par webhook ; la route des webhooks retire `alert.secret` avant d'enregistrer la livraison.*
 - La **fin de vie** des runtimes de la carte est lue sur endoflife.date à l'affichage. Un runtime en fin de vie, ou qui le sera dans les six mois, est signalé sur la carte et dans la liste des versions.
 - Le **bilan de santé** (2.2) gagne une ligne : « Mises à jour automatiques configurées » (Dependabot ou Renovate). Sa correction propose un `.github/dependabot.yml` : c'est de la configuration, Cockpit peut donc l'écrire, diff montré avant (principe 3, mécanisme de 6.1).
 

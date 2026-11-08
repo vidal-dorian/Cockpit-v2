@@ -18,6 +18,7 @@ Après la 011, déployer Cockpit demande neuf valeurs dans `/etc/cockpit/cockpit
 
 - **Créer une GitHub App à partir d'un manifeste** ([docs GitHub](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest)) : Cockpit envoie la description complète de l'App, la personne clique « Create GitHub App » sur GitHub, et Cockpit reçoit en retour l'identifiant, le slug, la clé privée, l'identifiant et le secret OAuth, et le secret des webhooks. L'échange doit avoir lieu dans l'heure.
 - **Aucune API ne modifie les permissions d'une App existante.** Quand l'App en demande davantage, chaque compte qui l'a installée doit approuver sur GitHub ; d'ici là, l'App garde ses anciennes permissions ([docs GitHub](https://docs.github.com/en/apps/using-github-apps/approving-updated-permissions-for-a-github-app)).
+  *Tranché par la [052](052-constats-de-github-et-versions.md) A et B pour les alertes de GitHub : le manifeste demande `dependabot_alerts`, `security_events` et `secret_scanning_alerts` en lecture et trois événements ; pour une App existante, Cockpit guide (ligne « Alertes GitHub » du bilan, ligne grise sur l'écran des constats), il ne modifie rien.*
 
 ## Les choix
 

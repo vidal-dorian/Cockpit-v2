@@ -41,7 +41,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 |---|---|---|---|---|
 | [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | les favoris |
 | [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1 | 011, 007 | |
-| [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) | 013, 027 | |
+| [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1 (existe), 11.2 | 014 | |
 | [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | permission `workflows` (012) |
@@ -96,10 +96,10 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S41](S41_Reprise_Carte.png) | Onglet Conception : la carte du modèle, un objet et son code | R1 (existe) | 007, 043 | |
+| [S41](S41_Reprise_Carte.png) | Onglet Conception : la carte du modèle, un objet et son code | R1 (existe) ; R6 : fin de vie des runtimes | 007, 043, 052 | |
 | [S42](S42_Reprise_Regle.png) | Valider une règle à côté de son code | R2 (existe) | 007, 047 | |
 | [S43](S43_Reprise_Graphe.png) | Le graphe d'une fonctionnalité | R3 (existe) | 007, 048 | |
-| [S44](S44_Reprise_Constats.png) | Les constats : failles, versions, architecture | R5 (existe, sans Versions ni lignes GitHub : R6) | 007, 051 | |
+| [S44](S44_Reprise_Constats.png) | Les constats : failles, versions, architecture | R5, R6 (existe) | 007, 051, 052 | |
 
 ## 8 · Réglages
 
