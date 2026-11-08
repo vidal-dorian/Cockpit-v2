@@ -633,6 +633,8 @@ export const history = pgTable(
       "history_result_check",
       sql`${t.result} in ('ok', 'error', 'refused')`,
     ),
+    // The journal (newest first, per user) and the retry lookup (same user, action, later at) of decision 053.
+    index("history_user_at_idx").on(t.userId, t.at.desc(), t.id.desc()),
   ],
 );
 

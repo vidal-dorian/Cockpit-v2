@@ -1,0 +1,1 @@
+CREATE INDEX "history_user_at_idx" ON "history" USING btree ("user_id","at" DESC NULLS LAST,"id" DESC NULLS LAST);
