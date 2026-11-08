@@ -17,6 +17,8 @@ const FILES = [
   "agents/architect.md",
   "agents/upgrade-advisor.md",
   "skills/analyser/SKILL.md",
+  "agents/doc-writer.md",
+  "agents/doc-reviewer.md",
 ];
 const git = (...args) =>
   execFileSync("git", args, {

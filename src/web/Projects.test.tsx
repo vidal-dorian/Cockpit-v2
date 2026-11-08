@@ -359,7 +359,11 @@ describe("Projets page, import", () => {
         (c) => c.method === "POST" && c.path === "/api/projects",
       );
       expect(post).toBeDefined();
-      expect(JSON.parse(post?.body ?? "null")).toEqual({ githubRepoId: 10 });
+      // Decision 063 D: the import also carries the starter team, Standard by default.
+      expect(JSON.parse(post?.body ?? "null")).toEqual({
+        githubRepoId: 10,
+        starterTeam: "standard",
+      });
     });
     // Only a project row has an Archiver button; the repo now reads Déjà importé.
     expect(

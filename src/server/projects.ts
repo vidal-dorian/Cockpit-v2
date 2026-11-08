@@ -37,13 +37,18 @@ import {
   updatesLine,
   webhookLine,
 } from "./health.ts";
+import { levelFiles, STARTER_LEVELS, STARTER_TEAMS } from "./starter-teams.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
   "GitHub ne répond pas comme prévu, réessaie dans un instant.";
 
-const importBody = z.object({ githubRepoId: z.number().int() });
+const importBody = z.object({
+  githubRepoId: z.number().int(),
+  // Decision 063 D: absent is Standard; anything else than the four levels is refused.
+  starterTeam: z.enum(STARTER_TEAMS).default("standard"),
+});
 
 // The plan as `planRepoWrite` served it and the page hands it back (decision 027 D); the paths are checked by `checkWriteFiles`.
 export const prepareBody = z.object({
@@ -118,6 +123,24 @@ const agentBody = z
 const teamBody = z
   .object({
     name: z.string().max(MAX_TEAM_NAME).regex(AGENT_NAME).nullish(),
+    // Decision 063 F: « Repartir d'une équipe de départ » also writes the agents of the level, in the same commit.
+    starterTeam: z.enum(STARTER_TEAMS).optional(),
+    agents: z
+      .array(
+        z.object({
+          name: z.string().max(MAX_AGENT_NAME).regex(AGENT_NAME),
+          before: z.string().nullable(),
+          after: z
+            .string()
+            .refine((text) => Buffer.byteLength(text) <= 1_048_576),
+        }),
+      )
+      .refine(
+        (agents) =>
+          new Set(agents.map((a) => a.name)).size === agents.length &&
+          agents.every((a) => a.before !== a.after),
+      )
+      .optional(),
     before: z.string().nullable(),
     after: z
       .string()
@@ -127,8 +150,14 @@ const teamBody = z
       )
       .nullable(),
   })
-  .refine(({ before, after }) => before !== after)
-  .refine(({ name, after }) => name != null || after !== null);
+  // The team file may stay as it is when agents are written with it.
+  .refine(({ before, after, agents }) => before !== after || !!agents?.length)
+  .refine(({ name, after }) => name != null || after !== null)
+  // The level is the one of the default team only.
+  .refine(
+    ({ starterTeam, name, after }) =>
+      starterTeam === undefined || (name == null && after !== null),
+  );
 
 const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
@@ -170,6 +199,7 @@ const present = (p: typeof projects.$inferSelect) => ({
   fullName: p.fullName,
   defaultBranch: p.defaultBranch,
   archived: p.archivedAt !== null,
+  starterTeam: p.starterTeam,
 });
 
 type GitHub = ReturnType<typeof githubClient>;
@@ -383,6 +413,11 @@ export function projectRoutes(
         return c.json({ error: GITHUB_DOWN }, 502);
       }
     })
+    .get("/api/starter-teams", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      return c.json({ teams: STARTER_LEVELS });
+    })
     .get("/api/projects", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
@@ -399,7 +434,7 @@ export function projectRoutes(
       async (c) => {
         const user = await currentUser(db, c);
         if (!user) return c.json(unauthorized, 401);
-        const { githubRepoId } = c.req.valid("json");
+        const { githubRepoId, starterTeam } = c.req.valid("json");
 
         // The name, branch and installation come from GitHub, never from the request (decision 011 B).
         let found: Awaited<ReturnType<typeof installedRepos>>;
@@ -433,6 +468,7 @@ export function projectRoutes(
                 fullName: repo.full_name,
                 defaultBranch: repo.default_branch,
                 installationId: found.installationId,
+                starterTeam,
               })
               .onConflictDoNothing({ target: projects.githubRepoId })
               .returning();
@@ -443,7 +479,7 @@ export function projectRoutes(
               role: "owner",
             });
             entry.projectId = created.id;
-            entry.args = { projectId: created.id };
+            entry.args = { projectId: created.id, starterTeam };
             return created;
           });
           return c.json({ project: present(project) }, 201);
@@ -550,7 +586,7 @@ export function projectRoutes(
           .planRepoWrite(
             project.installationId,
             project.fullName,
-            PREPARE_FILES,
+            levelFiles(PREPARE_FILES, project.starterTeam),
             (path, text) => isOldCopy(path, text, recorded),
             textToWrite,
           );
@@ -571,12 +607,18 @@ export function projectRoutes(
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { plan } = parsed.data;
       const id = Number(c.req.param("id"));
-      const recorded = isDatabaseId(id) ? await recordedHashes(db, id) : {};
+      // A non-member is answered 404 below, before anything that depends on the project is read or checked.
+      const member = await memberProject(db, user.userId, id);
+      const recorded = member ? await recordedHashes(db, id) : {};
+      const allowed = levelFiles(
+        PREPARE_FILES,
+        member?.starterTeam ?? "standard",
+      );
       try {
-        checkWriteFiles(plan.files);
+        if (member) checkWriteFiles(plan.files);
         // Only the catalogue goes through this route (decision 026 D: "the files come from the catalogue").
-        for (const file of plan.files) {
-          const known = PREPARE_FILES.find((f) => f.path === file.path);
+        for (const file of member ? plan.files : []) {
+          const known = allowed.find((f) => f.path === file.path);
           if (
             !known ||
             (file.status === "create" && file.content !== known.content) ||
@@ -683,7 +725,7 @@ export function projectRoutes(
           .fileReader(project.installationId, project.fullName);
         const at = await head();
         if ("refused" in at) return c.json({ error: at.refused }, 409);
-        const texts = await readCatalogFiles(inspect, at.sha);
+        const texts = await readCatalogFiles(inspect, at.sha, true);
         const states = catalogStates({
           files: texts,
           recorded: await recordedHashes(db, project.id),
@@ -834,7 +876,7 @@ export function projectRoutes(
       if (!user) return c.json(unauthorized, 401);
       const parsed = teamBody.safeParse(await c.req.json().catch(() => null));
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
-      const { name, before, after } = parsed.data;
+      const { name, before, after, starterTeam, agents = [] } = parsed.data;
       const path = name ? `.claude/teams/${name}.md` : ".claude/team.md";
       return saveFile(
         c,
@@ -843,12 +885,28 @@ export function projectRoutes(
           actor: "human",
           origin: "ui",
           action: after === null ? "delete_team" : "save_team",
-          args: { path },
+          args: { path, ...(starterTeam && { starterTeam }) },
         },
-        [{ path, before, after }],
+        [
+          { path, before, after },
+          ...agents.map((a) => ({
+            path: `.claude/agents/${a.name}.md`,
+            before: a.before,
+            after: a.after,
+          })),
+        ],
         !name
-          ? "feat: update the team (Cockpit)"
+          ? `feat: update the team${agents.length ? " and its agents" : ""} (Cockpit)`
           : `feat: ${after === null ? "remove" : "update"} the team ${name} (Cockpit)`,
+        {
+          onWritten: async (tx, projectId) => {
+            if (starterTeam)
+              await tx
+                .update(projects)
+                .set({ starterTeam })
+                .where(eq(projects.id, projectId));
+          },
+        },
       );
     })
     .post("/api/projects/:id/archive", async (c) => {

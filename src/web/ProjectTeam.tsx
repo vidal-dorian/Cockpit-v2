@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   lazy,
   Suspense,
@@ -12,6 +12,7 @@ import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
+import { STARTER_LEVELS } from "./starter-levels.ts";
 import {
   addStep,
   DEFAULT_STEPS,
@@ -49,6 +50,57 @@ const MAX_TEAM_NAME = 238;
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
+type StarterAgent = { name: string; text: string };
+type StarterTeams = {
+  teams: { id: string; team: string; agents: StarterAgent[] }[];
+};
+const STARTER_KEY = ["starter-teams"];
+const starterQuery = {
+  queryKey: STARTER_KEY,
+  queryFn: async (): Promise<StarterTeams> => {
+    const res = await client.api["starter-teams"].$get();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+};
+type AgentChange = { name: string; before: string | null; after: string };
+
+const MODEL = /^model:.*$/m;
+const FRONT = /^---\r?\n(?:[\s\S]*?\r?\n)?---(?:\r?\n|$)/;
+// Only the front matter counts: a `model:` line in the body is text.
+const modelOf = (text: string) =>
+  /^model:\s*(.*?)\s*$/m.exec(FRONT.exec(text)?.[0] ?? "")?.[1];
+
+/** The agent files a starter team adds (its catalogue text) or changes (only the `model:` line, decision 063 F). */
+function starterChanges(
+  starter: StarterAgent[],
+  steps: TeamStep[],
+  repo: Agent[],
+): AgentChange[] {
+  const changes: AgentChange[] = [];
+  for (const { name, text } of starter) {
+    if (!steps.some((s) => s.agent === name)) continue;
+    const before = repo.find((a) => a.name === name)?.text;
+    if (before === undefined) changes.push({ name, before: null, after: text });
+    else if (before !== null && modelOf(before) !== modelOf(text)) {
+      const line = `model: ${modelOf(text)}`;
+      // No `model:` line: it goes last in the front matter; no front matter: one is added.
+      const head = FRONT.exec(before)?.[0];
+      const eol = /\r?\n/.exec(head ?? before)?.[0] ?? "\n";
+      // Function replacers: the file's text is never a replacement pattern.
+      const after = !head
+        ? `---${eol}${line}${eol}---${eol}${before}`
+        : (MODEL.test(head)
+            ? head.replace(MODEL, () => line)
+            : head.replace(
+                /---(\r?\n|$)$/,
+                (fence) => `${line}${eol}${fence}`,
+              )) + before.slice(head.length);
+      changes.push({ name, before, after });
+    }
+  }
+  return changes;
+}
 function StepPanel({
   uid,
   step,
@@ -600,11 +652,24 @@ export function ProjectTeam({
   const [view, setView] = useState<"graph" | "list">("graph");
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+  // « Repartir d'une équipe de départ »: the level chosen, its agent files, and whether its buttons show.
+  const queryClient = useQueryClient();
+  const [starter, setStarter] = useState<{
+    id: string;
+    agents: StarterAgent[];
+  } | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  useEffect(() => {
+    void queryClient.prefetchQuery(starterQuery);
+  }, [queryClient]);
+  // The level asked for over unsaved changes, until « Confirmer le changement » or « Annuler ».
+  const [levelSwitch, setLevelSwitch] = useState<string | null>(null);
   // Another team or a new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
   if (seen !== key) {
     setSeen(key);
     setDraft(initial);
     setShowDiff(false);
+    setStarter(null);
   }
 
   const commit = useMutation({
@@ -613,6 +678,8 @@ export function ProjectTeam({
       before: string | null;
       after: string | null;
       created?: Draft;
+      starterTeam?: string;
+      agents?: AgentChange[];
     }) => {
       const res = await client.api.projects[":id"].team.apply.$post(
         { param: { id: projectId } },
@@ -637,6 +704,7 @@ export function ProjectTeam({
         if (answer.failure.code !== "repo_changed") return;
       } else {
         const { commitSha, pullRequest } = answer.done;
+        setStarter(null);
         if (after === null) setName(null); // the team is gone: back to the default one
         if (created) {
           // Not in `teams` until the reload below answers: the picker and the draft start from what was sent.
@@ -656,11 +724,14 @@ export function ProjectTeam({
     onError: () => setProblem({ code: "", status: 0 }),
   });
 
+  const agentChanges =
+    starter && draft ? starterChanges(starter.agents, draft.steps, agents) : [];
   const dirty =
-    draft !== null &&
-    initial !== null &&
-    writeTeam(draft.steps, draft.body) !==
-      writeTeam(initial.steps, initial.body);
+    agentChanges.length > 0 ||
+    (draft !== null &&
+      initial !== null &&
+      writeTeam(draft.steps, draft.body) !==
+        writeTeam(initial.steps, initial.body));
   const goTo = (next: string | null) => {
     setName(next);
     setSwitchTo(null);
@@ -668,6 +739,29 @@ export function ProjectTeam({
     setDeleting(false);
     setProblem(null);
     setDone(null);
+    setStarter(null);
+    setChoosing(false);
+  };
+  const chooseLevel = async (id: string) => {
+    setLevelSwitch(null);
+    setProblem(null);
+    setDone(null);
+    try {
+      // Read ahead (below): the draft changes at once when the answer is already there.
+      const answer =
+        queryClient.getQueryData(STARTER_KEY) ??
+        (await queryClient.fetchQuery(starterQuery));
+      const { teams } = answer as StarterTeams;
+      const chosen = teams.find((t) => t.id === id);
+      const read = chosen && readTeam(chosen.team);
+      if (!chosen || !read) throw new Error("starter team");
+      setDraft(read);
+      setStarter({ id: chosen.id, agents: chosen.agents });
+      setShowDiff(false);
+      setChoosing(false);
+    } catch {
+      setProblem({ code: "", status: 0 });
+    }
   };
   const viewSwitch = (
     <span className="ml-auto flex gap-1.5">
@@ -705,6 +799,7 @@ export function ProjectTeam({
                 if (!dirty) return goTo(n);
                 setCreating(null);
                 setDeleting(false);
+                setLevelSwitch(null);
                 setSwitchTo(n ?? "");
               }}
               className={chip(name === n)}
@@ -729,7 +824,40 @@ export function ProjectTeam({
         </button>
         {viewSwitch}
       </div>
-      {switchTo !== null && (
+      {name === null && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            disabled={archived || commit.isPending}
+            aria-expanded={choosing}
+            onClick={() => setChoosing(!choosing)}
+            className={button}
+          >
+            Repartir d'une équipe de départ
+          </button>
+          {choosing && (
+            <fieldset aria-label="Équipe de départ" className="contents">
+              {STARTER_LEVELS.map((level) => (
+                <button
+                  key={level.id}
+                  type="button"
+                  disabled={archived || commit.isPending}
+                  title={level.sentence}
+                  onClick={() => {
+                    if (!dirty) return void chooseLevel(level.id);
+                    setSwitchTo(null);
+                    setLevelSwitch(level.id);
+                  }}
+                  className={chip(false)}
+                >
+                  {level.name}
+                </button>
+              ))}
+            </fieldset>
+          )}
+        </div>
+      )}
+      {(switchTo !== null || levelSwitch !== null) && (
         <div className="mt-3">
           <p id="switch-team-warning">
             Les changements non enregistrés seront perdus
@@ -738,7 +866,11 @@ export function ProjectTeam({
             type="button"
             aria-describedby="switch-team-warning"
             disabled={commit.isPending}
-            onClick={() => goTo(switchTo || null)}
+            onClick={() =>
+              levelSwitch !== null
+                ? void chooseLevel(levelSwitch)
+                : goTo(switchTo || null)
+            }
             className={`mt-2 ${button}`}
           >
             Confirmer le changement
@@ -749,7 +881,10 @@ export function ProjectTeam({
             // The select that asked keeps its value: focus goes to the safe choice.
             // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
             autoFocus
-            onClick={() => setSwitchTo(null)}
+            onClick={() => {
+              setSwitchTo(null);
+              setLevelSwitch(null);
+            }}
             className={`mt-2 ml-2 ${button}`}
           >
             Annuler
@@ -850,7 +985,8 @@ export function ProjectTeam({
   const unchanged =
     current !== null &&
     initial !== null &&
-    after === writeTeam(initial.steps, initial.body);
+    after === writeTeam(initial.steps, initial.body) &&
+    agentChanges.length === 0;
   const lines = showDiff ? diffLines(current ?? "", after) : null;
   const canCommit =
     !archived &&
@@ -894,7 +1030,15 @@ export function ProjectTeam({
             onClick={() => {
               setProblem(null);
               setDone(null);
-              commit.mutate({ name, before: current, after });
+              commit.mutate({
+                name,
+                before: current,
+                after,
+                ...(starter && {
+                  starterTeam: starter.id,
+                  agents: agentChanges,
+                }),
+              });
             }}
             className={primaryButton}
           >
@@ -935,6 +1079,24 @@ export function ProjectTeam({
             <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
               {after}
             </pre>
+          ))}
+        {showDiff &&
+          agentChanges.map((c) => (
+            <div key={c.name}>
+              <p className="mt-3 font-mono text-[12.5px]">
+                .claude/agents/{c.name}.md
+              </p>
+              {(() => {
+                const agentLines = diffLines(c.before ?? "", c.after);
+                return agentLines ? (
+                  <DiffList lines={agentLines} />
+                ) : (
+                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm">
+                    {c.after}
+                  </pre>
+                );
+              })()}
+            </div>
           ))}
       </div>
     </section>

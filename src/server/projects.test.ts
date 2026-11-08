@@ -420,11 +420,13 @@ describe("GET /api/projects", () => {
         .slice(0, 2)
         .sort(),
     ).toEqual([first, second].sort());
+    // Decision 063 D: a project also says its starter team.
     expect(body.projects[2]).toEqual({
       id: old,
       fullName: "user1000/old",
       defaultBranch: "main",
       archived: true,
+      starterTeam: "standard",
     });
     expect(JSON.stringify(body)).not.toContain("user2000");
   });

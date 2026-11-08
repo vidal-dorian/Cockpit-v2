@@ -87,6 +87,8 @@ export const sessions = pgTable("sessions", {
 });
 
 const FREQUENCIES = ["off", "on_demand", "daily", "weekly"] as const;
+/** The starter teams of decision 063, in the order they are offered. */
+export const STARTER_TEAMS = ["eco", "standard", "premium", "max"] as const;
 
 export const projects = pgTable(
   "projects",
@@ -121,11 +123,19 @@ export const projects = pgTable(
     }),
     // Only a https://claude.ai address: the page makes it a link.
     routineLastRunSessionUrl: text("routine_last_run_session_url"),
+    // The level chosen at import (decision 063 D): where the team started from.
+    starterTeam: text("starter_team", { enum: STARTER_TEAMS })
+      .notNull()
+      .default("standard"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
   },
   (t) => [
+    check(
+      "projects_starter_team_check",
+      sql`${t.starterTeam} in ('eco', 'standard', 'premium', 'max')`,
+    ),
     check(
       "projects_routine_frequency_check",
       sql`${t.routineFrequency} in ('off', 'on_demand', 'daily', 'weekly')`,

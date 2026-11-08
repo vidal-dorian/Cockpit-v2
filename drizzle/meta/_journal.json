@@ -267,6 +267,13 @@
       "when": 1794154983681,
       "tag": "0037_stormy_mephistopheles",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794162470849,
+      "tag": "0038_short_yellowjacket",
+      "breakpoints": true
     }
   ]
 }
