@@ -48,7 +48,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 | | |
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 | 026 | |
-| [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | |
+| [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | la section « la nuit » (044 N' : la nuit se compose sur `/nuit`) |
 | [S20](S20_NouveauDepuisModele.png) | Nouveau projet depuis un repo modèle | 12.5 | | |
 | [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3 | 019 | |
 
@@ -59,7 +59,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S21](S21_Ticket.png) | Un ticket, ses US, ses pièces jointes | 3.1, 11.4 (existent) | 014, 061 | |
 | [S22](S22_US_AValider.png) | Une US à valider, la décision à droite | 4.4 (existe) | 018 | |
 | [S23](S23_US_Renvoyer.png) | Renvoyer une US à Claude, avec un commentaire obligatoire | 4.4 (existe) | 018 | |
-| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1 (existent), 14.6 | 034, 044, 054 | |
+| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1 (existent), 14.6 | 034, 044, 054 | le choix « Cette nuit » (044 N' : la nuit se compose sur `/nuit`) |
 | [S25](S25_US_EnRevue.png) | Une US en revue : la PR, la CI, le verdict | 7.6, 7.7 (existent) | 038, 039 | |
 | [S26](S26_IssueModifiee.png) | Issue modifiée sur GitHub : choisir la version | 5.2 (existe) | 025 | |
 | [S27](S27_ImporterIssues.png) | Importer les issues GitHub | 11.3 (existe) | 020, 057 | |
@@ -74,10 +74,10 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S31](S31_Run_Fermer.png) | Fermer un run muet | 7.5 (existe) | 037 | |
 | [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 056 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
 | [S33](S33_CoutBudget.png) | Coût et plafonds | 14.5 (existe) | 060 | le coût des runs locaux est repoussé (060) |
-| [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 | 044 | |
-| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 | 044 | |
-| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6 | 044 | |
-| [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 14.6, 15.2 | 044 | |
+| [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 (existe) | 044 | |
+| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; la frise « à l'échelle des heures » est repoussée (044 M', N') |
+| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6 (existe) | 044 | bilan et « Relire en série » repoussés (044 N') |
+| [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 | 044 | la notification attend la 15.2 (044 M') |
 
 ## 6 · Équipes d'agents et journal
 
@@ -106,7 +106,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | |
-| [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1 (existent), 14.6 | 022, 044, 054 | |
+| [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1, 14.6 (existent) | 022, 044, 054 | |
 | [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | le thème clair |
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | **les rôles** |
 | [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | **les prix** ([offres](../offres.md)) |

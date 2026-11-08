@@ -1,13 +1,22 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { history, runs, userStories, users } from "./db/schema.ts";
+import {
+  cloudLaunches,
+  history,
+  nightItems,
+  nights,
+  runs,
+  userStories,
+  users,
+} from "./db/schema.ts";
 import { publish } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
+import { advance } from "./night.ts";
 import { APP_FILES_KEPT, isTestPath } from "./pr-files.ts";
 import { reserveStory } from "./queue.ts";
-import { entryOf, type Fire, launchCloud } from "./routines.ts";
+import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
 import type { memberStory } from "./stories.ts";
 
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
@@ -60,6 +69,7 @@ const relaunchComment = (prNumber: number, runs: CheckRun[]) =>
 /**
  * Reads the PR of a story on GitHub as the App and brings the story up to date (decision 038 B and D): a merge finishes it, a close without merge frees it, anything else only refreshes the CI and review caches.
  * A failed read throws before anything is written. The sync of the issue, the event and the automatic relaunch of a CI gone red (decision 059, only with `fire`) come after the commit.
+ * A story of the night (decision 044 F') is relaunched once, whatever the setting, and left `ci_failed` at the second failure.
  */
 export async function followPullRequest(
   db: Db,
@@ -67,9 +77,10 @@ export async function followPullRequest(
   found: Found,
   userId: number,
   origin: "webhook" | "ui",
-  fire?: Fire,
+  fire?: LiveFire,
 ) {
   const { story, ticket, project } = found;
+  const at = fire ? new Date(fire.now()) : new Date();
   const prNumber = story.prNumber;
   if (prNumber === null) return;
   const ready = await readGitHub();
@@ -149,17 +160,18 @@ export async function followPullRequest(
     }
     // The count itself moves in the launch (a refused one costs nothing); the owner of the last run is the one who asked for Claude.
     let relaunch: { by: number; branch: string } | null = null;
+    let retryNight: typeof nights.$inferSelect | null = null;
     if (
       fire &&
       pull.open &&
       ci === "failure" &&
       locked.prCiState !== "failure" &&
       locked.status === "in_review" &&
-      locked.branch &&
-      locked.relaunchCount < MAX_RELAUNCHES
+      locked.branch
     ) {
       const [last] = await tx
         .select({
+          runId: runs.id,
           userId: runs.userId,
           on: users.autoRelaunch,
           blockedAt: users.blockedAt,
@@ -169,20 +181,60 @@ export async function followPullRequest(
         .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
+      // The item of the night whose run is the last one of the story (044 F'): a later run, by hand or from an answer, is followed as usual.
+      const launchOf = (extra: ReturnType<typeof eq>) =>
+        tx
+          .select({ one: sql`1` })
+          .from(cloudLaunches)
+          .where(and(eq(cloudLaunches.nightItemId, nightItems.id), extra));
+      const [item] = last
+        ? await tx
+            .select({
+              id: nightItems.id,
+              night: nights,
+              relaunched: sql<boolean>`${exists(launchOf(eq(cloudLaunches.relaunch, true)))}`,
+            })
+            .from(nightItems)
+            .innerJoin(nights, eq(nights.id, nightItems.nightId))
+            .where(
+              and(
+                eq(nightItems.storyId, story.id),
+                inArray(nights.status, ["running", "finished"]),
+                exists(launchOf(eq(cloudLaunches.runId, last.runId))),
+              ),
+            )
+            .orderBy(desc(nightItems.id))
+            .limit(1)
+        : [];
       // A blocked owner is never launched for, as in the queue and the routines.
-      if (last?.on && !last.blockedAt)
-        relaunch = { by: last.userId, branch: locked.branch };
+      if (last && !last.blockedAt) {
+        if (item?.relaunched)
+          await tx
+            .update(nightItems)
+            .set({ outcome: "ci_failed" })
+            .where(eq(nightItems.id, item.id));
+        else if (item && item.night.endsAt > at) {
+          // The slot is the night's: its pass launches the retry when the run in progress is over.
+          await tx
+            .update(nightItems)
+            .set({ ciRetryComment: relaunchComment(prNumber, pull.checkRuns) })
+            .where(eq(nightItems.id, item.id));
+          retryNight = item.night;
+        } else if (last.on && locked.relaunchCount < MAX_RELAUNCHES)
+          relaunch = { by: last.userId, branch: locked.branch };
+      }
     }
-    return { transitioned: action !== null, relaunch };
+    return { transitioned: action !== null, relaunch, retryNight };
   });
   if (!outcome) return;
   // Also when a relaunch keeps its status: the issue still shows the one it had before the PR.
   if (outcome.transitioned) await syncIssue(db, readGitHub, userId, story.id);
   await publish(db, project.id, [`story:${story.id}`]);
+  if (fire && outcome.retryNight)
+    await advance(db, fire, outcome.retryNight, at);
   // After the commit, never inside it: `/fire` is a network call. A refusal (a run is active, the project is not ticked) writes its entry and nothing else.
   if (fire && outcome.relaunch) {
     const { by, branch } = outcome.relaunch;
-    const at = new Date();
     await launchCloud(
       db,
       fire,

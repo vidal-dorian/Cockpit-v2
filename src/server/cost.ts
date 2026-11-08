@@ -190,24 +190,20 @@ export function metricsRoutes(db: Db) {
           launch.budgetUsd !== null &&
           launch.costUsd >= launch.budgetUsd
         )
-          await stopForBudget(
-            db,
-            launch.userId,
-            launch.projectId,
-            launch.runId,
-          );
+          await systemStop(db, launch.userId, launch.projectId, launch.runId);
       }
       return c.json({});
     },
   );
 }
 
-/** The stop request of 037 A, made by the system once: the UPDATE only matches a running run without one. Not `act`: nothing is written when it did not match. */
-async function stopForBudget(
+/** The stop request of 037 A, made by the system once, for the cap of a run or of a night (`budget`) or for « Arrêter la nuit »: the UPDATE only matches a running run without one. Not `act`: nothing is written when it did not match. */
+export async function systemStop(
   db: Db,
   userId: number,
   projectId: number | null,
   runId: number,
+  reason: "budget" | "night_stopped" = "budget",
 ) {
   const stopped = await db.transaction(async (tx) => {
     const [run] = await tx
@@ -237,7 +233,7 @@ async function stopForBudget(
       ticketId: story?.ticketId,
       runId,
       result: "ok",
-      detail: { reason: "budget" },
+      detail: { reason },
     });
     return run;
   });

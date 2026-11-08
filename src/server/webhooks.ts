@@ -19,7 +19,7 @@ import { type ReadInstance, WEBHOOK_PATH } from "./instance.ts";
 import { renderStory } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
-import type { Fire } from "./routines.ts";
+import type { LiveFire } from "./routines.ts";
 import { memberStory, storyParts } from "./stories.ts";
 
 // GitHub's own limit on a delivery; the 256 KiB of the other /api/* routes does not apply here (decision 024 A).
@@ -49,7 +49,7 @@ async function projectOfRepo(db: Db | Tx, repoId: number | null) {
 
 type Delivery = typeof webhookDeliveries.$inferSelect;
 // `fire` lets a failed CI relaunch Claude (decision 059); without it, none does.
-type Deps = { readInstance: ReadInstance; fire?: Fire };
+type Deps = { readInstance: ReadInstance; fire?: LiveFire };
 
 const issueEdited = z.object({
   repository: z.object({ id: z.number() }),
@@ -140,7 +140,7 @@ async function handlePullRequest(
   db: Db,
   readGitHub: ReturnType<typeof githubReader>,
   delivery: Delivery,
-  fire?: Fire,
+  fire?: LiveFire,
 ) {
   const parsed = pullNumbers.safeParse(delivery.payload);
   const numbers = parsed.success
@@ -259,7 +259,11 @@ export function scheduleDeliveries(db: Db, deps: Deps): NodeJS.Timeout {
 }
 
 /** Receives GitHub's deliveries: verified on the raw bytes, then recorded with their history entry; the processing starts after the answer (decisions 024 and 025). */
-export function webhookRoutes(db: Db, readInstance: ReadInstance, fire: Fire) {
+export function webhookRoutes(
+  db: Db,
+  readInstance: ReadInstance,
+  fire: LiveFire,
+) {
   return new Hono().post(
     WEBHOOK_PATH,
     bodyLimit({ maxSize: MAX_BODY }),
