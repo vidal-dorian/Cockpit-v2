@@ -153,7 +153,13 @@ export function historyRoutes(db: Db) {
                 .from(h)
                 .leftJoinLateral(next, sql`true`)
                 .where(inArray(h.id, failed))
-            ).map(({ of, ...retry }) => [of, retry.id === null ? null : retry]),
+            ).map(({ of, id, at, result }) => [
+              of,
+              // The left join gives nulls when no retry follows.
+              id === null || at === null || result === null
+                ? null
+                : { id, at, result },
+            ]),
       );
 
       // The Journal names a received webhook by its event.

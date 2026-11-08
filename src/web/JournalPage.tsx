@@ -24,9 +24,8 @@ type Facet = {
   free?: boolean;
 };
 
-// The value itself (`resultat=ok`) is read too, as the slug is only a friendlier spelling.
 const optionOf = (f: Facet, slug: string | null) =>
-  f.options.find((o) => o.slug === slug || o.value === slug);
+  f.options.find((o) => o.slug === slug);
 
 const fixed = (
   name: string,

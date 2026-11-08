@@ -397,7 +397,7 @@ describe("Journal, the days and the next page (decision 053 F)", () => {
         ? { entries: today(5, 5), hasMore: false }
         : { entries: today(30, 25), hasMore: true },
     );
-    renderAt("/journal?auteur=claude&resultat=ok&periode=semaine");
+    renderAt("/journal?auteur=claude&resultat=reussi&periode=semaine");
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Afficher plus" }),
