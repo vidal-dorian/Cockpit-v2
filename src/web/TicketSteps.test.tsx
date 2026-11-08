@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
 
@@ -30,6 +30,10 @@ describe("criterion 16: the step labels", () => {
     );
 
     renderAt("/projets/5/tickets");
+    // Decision 054 F: « Ouverts » is pressed by default and hides done and abandoned tickets; releasing it shows them all.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /^Ouverts/, pressed: true }),
+    );
 
     for (const [code, label] of LABELS) {
       // Decision 054 F: a row is a button that opens the panel, no longer a link.

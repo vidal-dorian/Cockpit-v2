@@ -44,7 +44,8 @@ describe("review of slice 9.3: the idea bar", () => {
     await waitFor(async () => expect((await select()).value).toBe("9"));
   });
 
-  it("given an idea being sent, when I type on, then the select is disabled meanwhile and the new text is kept", async () => {
+  // Decision 054 D: the bar's button opens the panel, whose « Noter » sends; it is disabled while sending, so a double click sends once.
+  it("given an idea being sent from the panel, then « Noter » is disabled meanwhile and one ticket is sent", async () => {
     const api = stubShell({ projects });
     const inner = globalThis.fetch;
     let release = () => {};
@@ -64,14 +65,17 @@ describe("review of slice 9.3: the idea bar", () => {
     fireEvent.change(await field(), { target: { value: "première" } });
 
     fireEvent.click(await send());
-    await waitFor(async () => expect((await select()).disabled).toBe(true));
-    fireEvent.change(await field(), { target: { value: "seconde" } });
+    const panel = await screen.findByRole("dialog", { name: "Noter une idée" });
+    const noter = within(panel).getByRole("button", {
+      name: /^Noter/,
+    }) as HTMLButtonElement;
+    fireEvent.click(noter);
+    await waitFor(() => expect(noter.disabled).toBe(true));
+    fireEvent.click(noter);
     release();
 
     expect(await screen.findByRole("status")).toBeDefined();
-    expect((await field()).value).toBe("seconde");
     expect(api.sent).toHaveLength(1);
-    expect((await select()).disabled).toBe(false);
   });
 });
 

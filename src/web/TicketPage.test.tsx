@@ -270,8 +270,9 @@ describe("Ticket page, deleting", () => {
     // The project page opens on its Kanban, whose heading is a sentence (045 D): its Tickets tab says it has loaded.
     // Decision 028 G: the tickets are listed in the Tickets tab, not on the Kanban tab the project opens on.
     fireEvent.click(await screen.findByRole("link", { name: "Tickets" }));
-    await screen.findByRole("link", { name: "Survit" });
-    expect(screen.queryByRole("link", { name: "Disparaît" })).toBeNull();
+    // Decision 054 F: a row is a button that opens the panel.
+    await screen.findByRole("button", { name: "Survit" });
+    expect(screen.queryByRole("button", { name: "Disparaît" })).toBeNull();
     expect(api.writes()).toEqual([
       { method: "DELETE", path: "/api/tickets/7", body: undefined },
     ]);
