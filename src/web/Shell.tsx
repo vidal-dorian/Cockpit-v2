@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useMatch } from "react-router";
 import { client } from "./api.ts";
+import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
 import { Logo } from "./Logo.tsx";
 import { ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
@@ -336,6 +337,8 @@ export function IdeaBar() {
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
   const [done, setDone] = useState<string>();
+  // Enter opens the panel of decision 054 D instead of creating the ticket.
+  const [open, setOpen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -361,22 +364,31 @@ export function IdeaBar() {
       ? (routeId as string)
       : String(projects[0]?.id);
   const send = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+    mutationFn: async ({
+      projectId: id,
+      title,
+      descriptionMd,
+      ...rest
+    }: Idea) => {
       const res = await client.api.projects[":id"].tickets.$post({
         param: { id },
-        json: { title },
+        json: {
+          title: title.trim(),
+          ...(descriptionMd && { descriptionMd }),
+          ...rest,
+        },
       });
       if (!res.ok) throw await ticketError(res);
     },
     onSuccess: (_, sent) => {
-      // Typing went on while it was sending: keep what is in the field now.
-      setTitle((current) => (current.trim() === sent.title ? "" : current));
+      setTitle("");
+      setOpen(false);
       setDone(
-        `Idée notée dans ${repoName(projects.find((p) => String(p.id) === sent.id)?.name ?? "")}.`,
+        `Idée notée dans ${repoName(projects.find((p) => String(p.id) === sent.projectId)?.name ?? "")}.`,
       );
       for (const queryKey of [
-        ["tickets", sent.id],
-        ["stories", sent.id],
+        ["tickets", sent.projectId],
+        ["stories", sent.projectId],
         ["home"],
       ])
         queryClient.invalidateQueries({ queryKey });
@@ -396,12 +408,29 @@ export function IdeaBar() {
           {done}
         </p>
       )}
+      {open && (
+        <IdeaPanel
+          projects={projects.map((p) => ({
+            id: p.id,
+            label: repoName(p.name),
+          }))}
+          projectId={projectId}
+          title={title}
+          pending={send.isPending}
+          onSubmit={(idea) => send.mutate(idea)}
+          onCancel={(edited) => {
+            setTitle(edited);
+            setOpen(false);
+            send.reset();
+            input.current?.focus();
+          }}
+        />
+      )}
       <form
         aria-label="Noter une idée"
         onSubmit={(event) => {
           event.preventDefault();
-          if (title.trim() !== "" && !send.isPending)
-            send.mutate({ id: projectId, title: title.trim() });
+          if (title.trim() !== "") setOpen(true);
         }}
         className="flex items-center gap-2.5 rounded-[14px] border border-border bg-card py-2.5 pr-3 pl-4"
       >
@@ -427,7 +456,6 @@ export function IdeaBar() {
         <select
           aria-label="Projet"
           value={projectId}
-          disabled={send.isPending}
           onChange={(event) => setChosen({ routeId, id: event.target.value })}
           className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
         >
@@ -440,7 +468,7 @@ export function IdeaBar() {
         <button
           type="submit"
           aria-label="Noter l'idée"
-          disabled={title.trim() === "" || send.isPending}
+          disabled={title.trim() === ""}
           className={`${squareButton} size-9`}
         >
           ↑

@@ -66,6 +66,55 @@ const when = (iso: string) =>
     timeStyle: "short",
   });
 
+/** « Écrire les US maintenant » (decision 022 H), with the refusal of the server under it; `onlyConnected` hides it until a routine exists (the Tickets tab, 054 F). */
+export function RunNowButton({
+  projectId,
+  onlyConnected = false,
+}: {
+  projectId: string;
+  onlyConnected?: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const routine = useQuery({ queryKey: ["routine"], queryFn: fetchRoutine });
+  const run = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.projects[":id"].routine.run.$post({
+        param: { id: projectId },
+      });
+      if (!res.ok) throw await failure(res, RUN_REFUSALS);
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["routine-schedule", projectId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["routine"] }),
+      ]),
+  });
+  if (onlyConnected && !routine.data?.connected) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => run.mutate()}
+        disabled={
+          !routine.data?.connected ||
+          routine.data.needsReconnect ||
+          run.isPending
+        }
+        className={button}
+      >
+        Écrire les US maintenant
+      </button>
+      {run.error && (
+        <p role="alert" className={`mt-3 ${alertBox}`}>
+          {run.error.message}
+        </p>
+      )}
+    </>
+  );
+}
+
 /** Decisions 022 D and H: the frequency of the writing of the stories of the project, the button, the last and the next run. */
 export function ProjectRoutine({
   projectId,
@@ -124,16 +173,6 @@ export function ProjectRoutine({
     },
     onSettled: refresh,
   });
-  const run = useMutation({
-    mutationFn: async () => {
-      const res = await client.api.projects[":id"].routine.run.$post({
-        param: { id: projectId },
-      });
-      if (!res.ok) throw await failure(res, RUN_REFUSALS);
-    },
-    onSettled: refresh,
-  });
-
   const saved = schedule.data;
   const form =
     draft ??
@@ -311,20 +350,13 @@ export function ProjectRoutine({
                 </p>
               )}
               <div>
-                <button
-                  type="button"
-                  onClick={() => run.mutate()}
-                  disabled={!canRun || run.isPending}
-                  className={button}
-                >
-                  Écrire les US maintenant
-                </button>
+                <RunNowButton projectId={projectId} />
               </div>
             </div>
           )}
-          {(save.error ?? run.error) && (
+          {save.error && (
             <p role="alert" className={`mt-3 ${alertBox}`}>
-              {(save.error ?? run.error)?.message}
+              {save.error.message}
             </p>
           )}
         </div>

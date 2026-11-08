@@ -1,3 +1,5 @@
+import { client } from "./api.ts";
+
 /** The step labels of a ticket (decision 002); the codes of the server are never shown. */
 export const STEPS: Record<string, string> = {
   abandoned: "Abandonné",
@@ -82,3 +84,38 @@ export async function decisionError(res: Response) {
 /** « 1 critère », « 2 critères ». */
 export const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
+
+/** The tickets of a project, in the order of the list (priority, then newest first), or null when the server answers 401. */
+export async function fetchTickets(id: string) {
+  const res = await client.api.projects[":id"].tickets.$get({ param: { id } });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).tickets;
+}
+
+/** The priorities of a ticket (decision 054 A), as the select of the idea panel and of the ticket page offers them. */
+export const PRIORITIES = {
+  low: "Priorité : basse",
+  normal: "Priorité : normale",
+  high: "Priorité : haute",
+} as const;
+
+/** A tag as the server keeps it (decision 054 A): trimmed, inner spaces reduced to one, lowercase. */
+export const normalizeTag = (text: string) =>
+  text.trim().replace(/\s+/g, " ").toLowerCase();
+
+/** How old a ticket is, in the words of the list (« 10 min », « 2 j », « 2 sem. »). */
+export function age(iso: string) {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(iso)) / 60_000),
+  );
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `${minutes} min`;
+  const days = Math.floor(minutes / 1440);
+  if (days < 1) return `${Math.floor(minutes / 60)} h`;
+  if (days < 7) return `${days} j`;
+  return days < 60
+    ? `${Math.floor(days / 7)} sem.`
+    : `${Math.floor(days / 30)} mois`;
+}

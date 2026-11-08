@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
+import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Breadcrumb, StateSentence, useHome } from "./Shell.tsx";
+import { TagField } from "./TagField.tsx";
 import {
   decisionError,
+  PRIORITIES,
   STEPS,
   STORY_STATUSES,
   ticketError,
@@ -20,7 +22,6 @@ import {
   focusRing,
   ghostButton,
   listCard,
-  markdownStyle,
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
@@ -65,11 +66,18 @@ function TicketView({ ticket, stories }: Loaded) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
+  // « Modifier » of the panel of the Tickets tab leads here with ?modifier=1 (decision 054 G).
   const [mode, setMode] = useState<"view" | "edit" | "delete" | "abandon">(
-    "view",
+    useSearchParams()[0].get("modifier") === "1" && !ticket.abandonedAt
+      ? "edit"
+      : "view",
   );
   const [title, setTitle] = useState(ticket.title);
   const [descriptionMd, setDescriptionMd] = useState(ticket.descriptionMd);
+  const [priority, setPriority] = useState<keyof typeof PRIORITIES>(
+    ticket.priority as keyof typeof PRIORITIES,
+  );
+  const [tags, setTags] = useState(ticket.tags ?? []);
   const id = String(ticket.id);
   const unfinished = stories.filter(
     (s) => s.status !== "done" && s.status !== "abandoned",
@@ -99,7 +107,7 @@ function TicketView({ ticket, stories }: Loaded) {
     mutationFn: async () => {
       const res = await client.api.tickets[":id"].$patch({
         param: { id },
-        json: { title, descriptionMd },
+        json: { title, descriptionMd, priority, tags },
       });
       if (!res.ok) throw await ticketError(res);
     },
@@ -236,6 +244,23 @@ function TicketView({ ticket, stories }: Loaded) {
               className={field}
             />
           </label>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <select
+              aria-label="Priorité"
+              value={priority}
+              onChange={(event) =>
+                setPriority(event.target.value as keyof typeof PRIORITIES)
+              }
+              className={`rounded-[10px] border border-border-strong bg-sunken px-2 py-1 ${focusRing}`}
+            >
+              {Object.entries(PRIORITIES).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <TagField tags={tags} onChange={setTags} />
+          </div>
           <div className="mt-3 flex gap-2">
             <button
               type="submit"
@@ -280,6 +305,8 @@ function TicketView({ ticket, stories }: Loaded) {
                     onClick={() => {
                       setTitle(ticket.title);
                       setDescriptionMd(ticket.descriptionMd);
+                      setPriority(ticket.priority as keyof typeof PRIORITIES);
+                      setTags(ticket.tags ?? []);
                       open("edit");
                     }}
                     className={button}
@@ -290,14 +317,25 @@ function TicketView({ ticket, stories }: Loaded) {
               }
             />
           </div>
+          {((ticket.tags ?? []).length > 0 || ticket.priority !== "normal") && (
+            <div className="flex flex-wrap gap-2 px-[26px] pt-3">
+              {ticket.priority !== "normal" && (
+                <span className={badge}>
+                  priorité {ticket.priority === "high" ? "haute" : "basse"}
+                </span>
+              )}
+              {(ticket.tags ?? []).map((tag) => (
+                <span key={tag} className={badge}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="grid gap-3.5 px-[26px] pt-[22px] lg:grid-cols-[minmax(0,1fr)_280px]">
             <section className={`${card} p-5`}>
               <h2 className={sectionLabel}>Description</h2>
-              {/* No raw HTML, no remote image (it would be a tracking pixel): react-markdown ignores the HTML and drops unsafe link addresses (decision 014). */}
-              <div className={`mt-2 ${markdownStyle}`}>
-                <Markdown disallowedElements={["img"]}>
-                  {ticket.descriptionMd}
-                </Markdown>
+              <div className="mt-2">
+                <SafeMarkdown>{ticket.descriptionMd}</SafeMarkdown>
               </div>
             </section>
             <dl
