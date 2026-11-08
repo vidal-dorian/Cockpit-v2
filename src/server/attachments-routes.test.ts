@@ -63,8 +63,9 @@ describe("058 C: GET the file", () => {
     );
     expect(disposition).not.toContain("relevé");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(res.headers.get("content-security-policy")).toMatch(
-      /(^|;\s*)sandbox\s*(;|$)/,
+    // The page-wide policy of app.ts joins the route's, it does not replace it.
+    expect(res.headers.get("content-security-policy")).toBe(
+      "sandbox; frame-ancestors 'none'",
     );
   });
 

@@ -22,7 +22,7 @@ import { renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
 // - Under the list: « Claude les lit quand il écrit les US. » and the button « + Ajouter ». The card holds one <input type="file" multiple>; a click on « + Ajouter » clicks it.
 // - Choosing files POSTs each to /api/tickets/:id/attachments, one after the other, in the order chosen, as multipart with the field `file`. While it works the card shows « Envoi… »; then the list shows the new files.
 // - A refusal (400 { error }) shows in a role="alert" the name of the file and a sentence by code:
-//   unsupported_type « Ce type de fichier n'est pas accepté : images, PDF ou texte. »; too_large « Ce fichier dépasse 20 Mo (5 Mo pour une image). »;
+//   unsupported_type « Ce type de fichier n'est pas accepté : images, PDF ou texte. »; too_large « Ce fichier dépasse 20 Mo (3,75 Mo pour une image). »;
 //   too_many « Ce ticket a déjà 20 pièces jointes. »; invalid_name « Ce nom de fichier n'est pas valide. » (058 does not word it). The other files of the choice are still sent.
 // - Archived project (GET /api/projects says `archived`): the card only reads: the files and their links, no « + Ajouter », no « Retirer ».
 // - J: an attachment is never HTML in the page: a name that looks like markup stays text, nothing is embedded (no iframe, embed, object), and a PDF or a text has no <img>.
@@ -38,7 +38,7 @@ const MO = 1024 * 1024;
 const SENTENCES = {
   unsupported_type:
     "Ce type de fichier n'est pas accepté : images, PDF ou texte.",
-  too_large: "Ce fichier dépasse 20 Mo (5 Mo pour une image).",
+  too_large: "Ce fichier dépasse 20 Mo (3,75 Mo pour une image).",
   too_many: "Ce ticket a déjà 20 pièces jointes.",
   invalid_name: "Ce nom de fichier n'est pas valide.",
 };
@@ -245,6 +245,44 @@ describe("058 E: adding files", () => {
     expect(alert.textContent).toContain("gros.pdf");
     expect(alert.textContent).toContain(SENTENCES.too_large);
     expect(alert.textContent).not.toContain("a.txt");
+  });
+});
+
+describe("058 E (review): the projects list, read to know whether the project is archived", () => {
+  it("given GET /api/projects still pending, when the page loads, then it says « Chargement… » and offers no « + Ajouter » yet", async () => {
+    stubTicketApi([ticket(7, "Ajouter la recherche")]);
+    layerFiles({ projects: "pending" });
+    renderAt("/tickets/7");
+
+    // Long enough for the ticket itself to have been read: only the projects list is still awaited.
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(globalThis.fetch)
+          .mock.calls.some(([input]) =>
+            String(input).includes("/api/tickets/7"),
+          ),
+      ).toBe(true),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(
+      within(screen.getByRole("main")).getByText("Chargement…"),
+    ).toBeDefined();
+    expect(screen.queryByRole("button", { name: "+ Ajouter" })).toBeNull();
+  });
+
+  it("given GET /api/projects failing, when the page loads, then the ticket and its card show, editable, without waiting", async () => {
+    stubTicketApi([ticket(7, "Ajouter la recherche")]);
+    layerFiles({ projects: 500, files: { 7: FILES } });
+    renderAt("/tickets/7");
+
+    const card = within(
+      await screen.findByRole("region", { name: "Pièces jointes" }),
+    );
+    expect(card.getByRole("button", { name: "+ Ajouter" })).toBeDefined();
+    expect(
+      screen.getByRole("heading", { level: 1, name: /Ajouter la recherche/ }),
+    ).toBeDefined();
   });
 });
 

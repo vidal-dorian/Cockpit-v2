@@ -178,6 +178,17 @@ describe("058 J: the name", () => {
     expect((await storedRows(db))[0]?.name).toBe("..évildirabc.txt");
   });
 
+  it("given a name with C1 controls and bidi controls, when it is uploaded, then they are removed (a right-to-left override could disguise the extension)", async () => {
+    const { app, cookie, ticketId } = await ctxOf();
+
+    const attachment = await attach(app, cookie, ticketId, {
+      name: "a\u0085b\u009fc\u202ed\u202ae\u2066f\u2069g\u200eh\u200fi.txt",
+      bytes: "texte",
+    });
+
+    expect(attachment.name).toBe("abcdefghi.txt");
+  });
+
   it("given a name of 250 characters, when it is uploaded, then it is cut at its first 200 characters", async () => {
     const { app, cookie, ticketId } = await ctxOf();
     const name = `${"n".repeat(246)}.txt`;

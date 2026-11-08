@@ -1,3 +1,4 @@
+import { deflateSync } from "node:zlib";
 import { sql } from "drizzle-orm";
 import { expect } from "vitest";
 import type { App, TestDb } from "./test-mcp.ts";
@@ -134,3 +135,62 @@ export async function storedRows(db: TestDb) {
 }
 
 export const storedCount = async (db: TestDb) => (await storedRows(db)).length;
+
+/** A PDF whose pages each have `content` as their content stream (Flate-compressed when `compress`): a few KB can inflate to hundreds of MB. */
+export function streamPdf(pages: Buffer[], compress = true, extraTrailer = "") {
+  const objs: (string | Buffer)[] = [];
+  const kids: string[] = [];
+  objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  let n = 4;
+  for (const content of pages) {
+    const data = compress ? deflateSync(content) : content;
+    const c = n++;
+    const p = n++;
+    objs[c] = Buffer.concat([
+      Buffer.from(
+        `<< /Length ${data.length}${compress ? " /Filter /FlateDecode" : ""} >>\nstream\n`,
+      ),
+      data,
+      Buffer.from("\nendstream"),
+    ]);
+    objs[p] =
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${c} 0 R >>`;
+    kids.push(`${p} 0 R`);
+  }
+  objs[2] = `<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${kids.length} >>`;
+  const parts = [Buffer.from("%PDF-1.4\n")];
+  const offsets: number[] = [];
+  let off = (parts[0] as Buffer).length;
+  for (let i = 1; i < n; i++) {
+    offsets[i] = off;
+    const b = Buffer.concat([
+      Buffer.from(`${i} 0 obj\n`),
+      Buffer.from(objs[i] as string | Buffer),
+      Buffer.from("\nendobj\n"),
+    ]);
+    parts.push(b);
+    off += b.length;
+  }
+  let xref = `xref\n0 ${n}\n0000000000 65535 f \n`;
+  for (let i = 1; i < n; i++)
+    xref += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  parts.push(
+    Buffer.from(
+      `${xref}trailer\n<< /Size ${n} /Root 1 0 R ${extraTrailer} >>\nstartxref\n${off}\n%%EOF\n`,
+    ),
+  );
+  return Buffer.concat(parts);
+}
+
+/** A page of text-showing operators, `repeat` times: 33 bytes of content for each. */
+export const textOps = (repeat: number) =>
+  Buffer.alloc(repeat * 33, "BT /F1 12 Tf 72 720 Td (x) Tj ET\n");
+
+/** A PDF that declares the standard security handler: a reader needs a password it does not have. */
+export const encryptedPdf = () =>
+  streamPdf(
+    [Buffer.from("BT /F1 12 Tf 72 720 Td (secret) Tj ET")],
+    false,
+    `/ID [<00112233445566778899aabbccddeeff> <00112233445566778899aabbccddeeff>] /Encrypt << /Filter /Standard /V 1 /R 2 /O <${"ab".repeat(32)}> /U <${"cd".repeat(32)}> /P -4 >>`,
+  );

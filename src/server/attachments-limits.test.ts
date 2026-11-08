@@ -14,12 +14,14 @@ import { makeTicket, postTicket } from "./test-tickets.ts";
 // Slice 11.4, decision 058 A, B, C: the limits. A « Mo » is a mebibyte here (5 * 1024 * 1024 and 20 * 1024 * 1024 bytes).
 //
 // Pinned choices (the decision leaves them open):
-// - An image of 5 MiB is accepted, one byte more is 400 too_large. A PDF or a text of 20 MiB is accepted, one byte more is 400 too_large.
-//   An image over 5 MiB is refused even though it is under 20 MiB.
+// - An image of 3.75 MiB (3 932 160 bytes: 5 MB once base64-encoded for Claude, decision 058 B after review) is accepted, one byte more is 400 too_large. A PDF or a text of 20 MiB is accepted, one byte more is 400 too_large.
+//   An image over 3.75 MiB is refused even though it is under 20 MiB.
 // - A file just over its limit still fits the body limit of the route (20 MiB plus the envelope of the form), so it reaches the check and is a 400 too_large, not a 413.
 //   A body far over the limit (25 MiB of file) is stopped by the route's body limit: 413. The JSON routes keep their 256 KiB (413 above).
 // - The 21st attachment of a ticket is 400 too_many; deleting one makes room again. The count is checked in the transaction with the ticket row locked,
 //   so two uploads racing for the 20th place give one 201 and one 400 too_many.
+
+const IMAGE_MAX = 3_932_160;
 
 const ctxOf = async () => {
   const ctx = await withProject();
@@ -34,27 +36,27 @@ const note = (ctx: Ctx, n: number) =>
   });
 
 describe("058 B: the sizes", () => {
-  it("given an image of exactly 5 MiB, when it is uploaded, then it is accepted", async () => {
+  it("given an image of exactly 3.75 MiB (3 932 160 bytes), when it is uploaded, then it is accepted", async () => {
     const { app, db, cookie, ticketId } = await ctxOf();
 
     const res = await upload(app, cookie, ticketId, {
       name: "grande.png",
-      bytes: padded(PNG, 5 * MIB),
+      bytes: padded(PNG, IMAGE_MAX),
     });
 
     expect(res.status).toBe(201);
     expect((await storedRows(db))[0]).toMatchObject({
-      size: 5 * MIB,
-      stored: 5 * MIB,
+      size: IMAGE_MAX,
+      stored: IMAGE_MAX,
     });
   });
 
-  it("given an image of 5 MiB and one byte, when it is uploaded, then 400 too_large and nothing is stored", async () => {
+  it("given an image of 3.75 MiB and one byte, when it is uploaded, then 400 too_large and nothing is stored", async () => {
     const { app, db, cookie, ticketId } = await ctxOf();
 
     const res = await upload(app, cookie, ticketId, {
       name: "trop-grande.png",
-      bytes: padded(PNG, 5 * MIB + 1),
+      bytes: padded(PNG, IMAGE_MAX + 1),
     });
 
     expect(res.status).toBe(400);
@@ -62,12 +64,12 @@ describe("058 B: the sizes", () => {
     expect(await storedCount(db)).toBe(0);
   });
 
-  it("given a PDF of 5 MiB and one byte, when it is uploaded, then it is accepted: the 5 MiB limit is the images'", async () => {
+  it("given a PDF of 3.75 MiB and one byte, when it is uploaded, then it is accepted: that limit is the images'", async () => {
     const { app, cookie, ticketId } = await ctxOf();
 
     const res = await upload(app, cookie, ticketId, {
       name: "gros.pdf",
-      bytes: padded(pdf("Bonjour"), 5 * MIB + 1),
+      bytes: padded(pdf("Bonjour"), IMAGE_MAX + 1),
     });
 
     expect(res.status).toBe(201);

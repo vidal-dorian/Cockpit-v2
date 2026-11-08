@@ -43,6 +43,8 @@ type Options = {
   files?: Record<number, FakeFile[]>;
   /** GET /api/projects answers project 5 as archived. */
   archived?: boolean;
+  /** GET /api/projects never answers ("pending") or answers this status (an error). */
+  projects?: "pending" | number;
   /** A code makes the POST of that file answer 400 with it. */
   refuse?: (file: { name: string; size: number }) => string | undefined;
   /** While set, a POST waits for it before answering. */
@@ -83,6 +85,11 @@ export function layerFiles(options: Options = {}) {
         init?.method ?? (input instanceof Request ? input.method : "GET")
       ).toUpperCase();
       const path = new URL(raw, "http://localhost").pathname;
+      if (options.projects && path === "/api/projects" && method === "GET") {
+        if (options.projects === "pending")
+          return new Promise<Response>(() => {});
+        return Response.json({ error: "x" }, { status: options.projects });
+      }
       if (options.archived && path === "/api/projects" && method === "GET")
         return Response.json({
           projects: [

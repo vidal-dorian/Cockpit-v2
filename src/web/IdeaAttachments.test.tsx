@@ -16,9 +16,9 @@ import { stubBar } from "./test-tickets-full.tsx";
 // Pinned choices (the decision leaves them open):
 // - The panel (role dialog « Noter une idée ») gets a button « + Pièce jointe » and holds one <input type="file" multiple>; the button clicks it.
 // - A chosen file becomes a chip: the text « <name> · <size> » (sizes written as on the ticket page: « 2 Ko » for 2 048 bytes) and a button « Retirer <name> » (a cross) that takes it out of the draft.
-// - The type and the size are checked as soon as the file is chosen, on the name's extension (png, jpg, jpeg, webp, gif: an image, 5 Mo at most; pdf, txt, md, csv, json: 20 Mo at most; a Mo is 1 048 576 bytes)
+// - The type and the size are checked as soon as the file is chosen, on the name's extension (png, jpg, jpeg, webp, gif: an image, 3,75 Mo at most (3 932 160 bytes); pdf, txt, md, csv, json: 20 Mo at most; a Mo is 1 048 576 bytes)
 //   and the size: a file that fails is NOT added as a chip, nothing is sent, and a role="alert" in the panel gives its name and the sentence of the ticket page:
-//   « Ce type de fichier n'est pas accepté : images, PDF ou texte. » or « Ce fichier dépasse 20 Mo (5 Mo pour une image). ». The server re-checks (the content, the count).
+//   « Ce type de fichier n'est pas accepté : images, PDF ou texte. » or « Ce fichier dépasse 20 Mo (3,75 Mo pour une image). ». The server re-checks (the content, the count).
 // - « Noter » POSTs the ticket as before, THEN POSTs /api/tickets/:new-id/attachments once per chip, in the order of the chips, as multipart with the field `file`.
 //   Without chip, no request on the attachments. All attached: the panel closes and « Idée notée dans <repo>. » shows, as before.
 // - A refused upload leaves the ticket created: the panel closes and the bar is emptied as for a success, and a role="alert" says « pas été joint(s) », names each refused file (and none of the attached ones)
@@ -34,8 +34,9 @@ afterEach(() => {
 });
 
 const MO = 1024 * 1024;
+const IMAGE_MAX = 3_932_160;
 const TYPE = "Ce type de fichier n'est pas accepté : images, PDF ou texte.";
-const LARGE = "Ce fichier dépasse 20 Mo (5 Mo pour une image).";
+const LARGE = "Ce fichier dépasse 20 Mo (3,75 Mo pour une image).";
 
 const open = async (title = "ranger le Kanban") => {
   const bar = within(
@@ -123,7 +124,7 @@ describe("058 F: choosing files", () => {
   it.each([
     ["a type that is not accepted", "outil.exe", 10, TYPE],
     ["an SVG", "logo.svg", 10, TYPE],
-    ["an image over 5 Mo", "grande.png", 5 * MO + 1, LARGE],
+    ["an image over 3,75 Mo", "grande.png", IMAGE_MAX + 1, LARGE],
     ["a PDF over 20 Mo", "énorme.pdf", 20 * MO + 1, LARGE],
     ["a text over 20 Mo", "journal.txt", 20 * MO + 1, LARGE],
   ])(
@@ -145,14 +146,19 @@ describe("058 F: choosing files", () => {
     },
   );
 
-  it("given an image of exactly 5 Mo and a PDF of exactly 20 Mo, when they are chosen, then both are chips", async () => {
+  it("given an image of exactly 3,75 Mo and a PDF of exactly 20 Mo, when they are chosen, then both are chips", async () => {
     start();
     await open();
 
-    await choose(fileOf("limite.png", 5 * MO), fileOf("limite.pdf", 20 * MO));
+    await choose(
+      fileOf("limite.png", IMAGE_MAX),
+      fileOf("limite.pdf", 20 * MO),
+    );
 
     const panel = await inPanel();
-    expect(panel.getByText("limite.png · 5 Mo")).toBeDefined();
+    expect(
+      panel.getByRole("button", { name: "Retirer limite.png" }),
+    ).toBeDefined();
     expect(panel.getByText("limite.pdf · 20 Mo")).toBeDefined();
   });
 
