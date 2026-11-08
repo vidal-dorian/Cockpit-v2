@@ -14,6 +14,7 @@ import { alertRoutes } from "./github-alerts.ts";
 import { historyRoutes } from "./history.ts";
 import { homeRoutes } from "./home.ts";
 import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
+import { issueImportRoutes } from "./issue-import.ts";
 import { launcherRoutes } from "./launcher.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
@@ -103,6 +104,7 @@ export function createApp(
       .route("/", versionRoutes(db, fetchEndOfLife, now))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
+      .route("/", issueImportRoutes(db, readGitHub))
       .route("/", storyRoutes(db, readGitHub))
       .route("/", runRoutes(db, readGitHub))
       .route("/", questionRoutes(db))

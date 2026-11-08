@@ -1199,6 +1199,35 @@ export function githubClient(config: GitHubAppConfig) {
       return { ...done, changed: changes.map((change) => change.path) };
     },
 
+    /** The issues of a repo, open and closed, pull requests left out (decision 057 A). Shortcut: 10 pages of 100 at most, the oldest are not listed. Errors are left to the caller. */
+    async listIssues(installationId: number, fullName: string) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const items: unknown[] = [];
+      // Paged by hand, as listInstallationRepos.
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/issues",
+          { owner, repo, state: "all", per_page: PAGE_SIZE, page },
+        );
+        items.push(...data);
+        if (data.length < PAGE_SIZE) break;
+      }
+      return z
+        .array(
+          z.object({
+            number: z.number().int(),
+            title: z.string(),
+            body: z.string().nullish(),
+            state: z.enum(["open", "closed"]),
+            pull_request: z.unknown().optional(),
+          }),
+        )
+        .parse(items)
+        .filter((issue) => !issue.pull_request)
+        .map(({ pull_request: _, ...issue }) => issue);
+    },
+
     /** Writes the issues of a repo and the labels Cockpit puts on them (decision 020), as the installation. */
     async issues(installationId: number, fullName: string) {
       const [owner, repo] = fullName.split("/") as [string, string];

@@ -116,6 +116,7 @@ const present = (t: typeof tickets.$inferSelect, statuses: StoryStatus[]) => ({
   descriptionMd: t.descriptionMd,
   priority: t.priority,
   tags: t.tags,
+  githubIssueNumber: t.githubIssueNumber,
   step: ticketStep(t, statuses),
   storiesWrittenAt: t.storiesWrittenAt,
   abandonedAt: t.abandonedAt,

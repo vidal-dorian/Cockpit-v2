@@ -29,7 +29,7 @@ Un ticket est une idée brute d'un projet (brief §6.2) : un titre suffit, une d
 ## Ce qui est repoussé
 
 - Le bouton global « Nouveau ticket » et le raccourci `N` : section 6.20 du brief.
-- Pièces jointes, import d'issues GitHub : tranches suivantes. *Priorité, étiquettes et recherche sont faites par la [055](055-tickets-complets.md) (11.2).*
+- Pièces jointes, import d'issues GitHub : tranches suivantes. *Priorité, étiquettes et recherche sont faites par la [055](055-tickets-complets.md) (11.2), l'import d'issues par la [057](057-importer-les-issues.md) (11.3).*
 - L'abandon d'un ticket (tranche 4.4) et les étapes autres que « Nouveau » (4.3 et suivantes).
 
 ## Limites connues

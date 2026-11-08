@@ -232,6 +232,8 @@ export const tickets = pgTable(
     // Decision 055 A: the tags are free text, normalised at the boundary.
     priority: text("priority").notNull().default("normal"),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    // Decision 057 E: the issue the ticket was imported from.
+    githubIssueNumber: integer("github_issue_number"),
     abandonedAt: timestamp("abandoned_at", {
       withTimezone: true,
       mode: "date",
@@ -252,6 +254,10 @@ export const tickets = pgTable(
     check(
       "tickets_priority_check",
       sql`${t.priority} in ('low', 'normal', 'high')`,
+    ),
+    uniqueIndex("tickets_project_issue_idx").on(
+      t.projectId,
+      t.githubIssueNumber,
     ),
   ],
 );
