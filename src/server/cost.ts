@@ -1,11 +1,25 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunches,
   history,
+  projectMembers,
+  projects,
   runs,
   userStories,
   users,
@@ -26,6 +40,20 @@ export async function budgetsOf(db: Db, userId: number) {
     .from(users)
     .where(eq(users.id, userId));
   return user ?? { runUsd: null, nightUsd: null, monthUsd: null };
+}
+
+/** What the user's launches of the month cost so far; the launch that decides the cap and the page « Coût » read the same sum (decision 060 E, F). */
+export async function monthSpent(db: Db, userId: number, at: Date) {
+  const [spent] = await db
+    .select({ usd: sql<number>`coalesce(sum(${cloudLaunches.costUsd}), 0)` })
+    .from(cloudLaunches)
+    .where(
+      and(
+        eq(cloudLaunches.userId, userId),
+        gte(cloudLaunches.createdAt, monthStart(at)),
+      ),
+    );
+  return Number(spent?.usd);
 }
 
 /** The first instant of the calendar month of `at`, in UTC (decision 060 E). */
@@ -73,8 +101,7 @@ const metricsBody = z.object({
 
 const MAX_COST_POINT = 1000;
 const MAX_TOKEN_POINT = 1e9;
-// shortcut: the first 1000 points of an export only (one UPDATE each, no secret on this route); raise if one export carries more.
-const MAX_POINTS = 1000;
+const MAX_SESSIONS = 100;
 
 /** The unauthenticated receiver of Claude Code's telemetry (decision 060 A, B, D): only a point of a session Cockpit launched counts; the answer is always `200 {}`. */
 export function metricsRoutes(db: Db) {
@@ -88,52 +115,74 @@ export function metricsRoutes(db: Db) {
         await c.req.json().catch(() => null),
       );
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
-      const points = parsed.data.resourceMetrics
-        .flatMap((r) =>
-          r.scopeMetrics.flatMap((s) =>
-            s.metrics.flatMap((m) =>
-              (m.sum?.dataPoints ?? []).map((p) => ({
-                kind:
-                  m.name === "claude_code.cost.usage"
-                    ? ("cost" as const)
-                    : m.name === "claude_code.token.usage"
-                      ? ("tokens" as const)
-                      : null,
-                cumulative: m.sum?.aggregationTemporality === 2,
-                value: Number(p.asDouble ?? p.asInt),
-                session: [
-                  ...(p.attributes ?? []),
-                  ...(r.resource?.attributes ?? []),
-                ].find((a) => a.key === "ccr.session.id")?.value.stringValue,
-              })),
-            ),
-          ),
-        )
-        .slice(0, MAX_POINTS);
-      for (const { kind, cumulative, value, session } of points) {
-        if (
-          !kind ||
-          !session ||
-          !(
-            value >= 0 &&
-            value <= (kind === "cost" ? MAX_COST_POINT : MAX_TOKEN_POINT)
-          )
-        )
-          continue;
+      // Per session and kind: the deltas added up, the biggest cumulative; applied as `greatest(column, max) + add` (060 B).
+      const groups = new Map<
+        string,
+        { session: string; kind: "cost" | "tokens"; add: number; max: number }
+      >();
+      for (const r of parsed.data.resourceMetrics)
+        for (const s of r.scopeMetrics)
+          for (const m of s.metrics) {
+            const kind =
+              m.name === "claude_code.cost.usage"
+                ? "cost"
+                : m.name === "claude_code.token.usage"
+                  ? "tokens"
+                  : null;
+            for (const p of m.sum?.dataPoints ?? []) {
+              const value = Number(p.asDouble ?? p.asInt);
+              const id = [
+                ...(p.attributes ?? []),
+                ...(r.resource?.attributes ?? []),
+              ].find((a) => a.key === "ccr.session.id")?.value.stringValue;
+              if (
+                !kind ||
+                !id ||
+                !(
+                  value >= 0 &&
+                  value <= (kind === "cost" ? MAX_COST_POINT : MAX_TOKEN_POINT)
+                )
+              )
+                continue;
+              // 054: Claude Code sends the session as `cse_…`, `/fire` gave `session_…`.
+              const session = id.replace(/^cse_/, "session_");
+              const group = groups.get(`${session} ${kind}`) ?? {
+                session,
+                kind,
+                add: 0,
+                max: 0,
+              };
+              if (m.sum?.aggregationTemporality === 2)
+                group.max = Math.max(group.max, value);
+              else group.add += value;
+              groups.set(`${session} ${kind}`, group);
+            }
+          }
+      const sessions = [
+        ...new Set([...groups.values()].map((g) => g.session)),
+      ].slice(0, MAX_SESSIONS);
+      if (sessions.length === 0) return c.json({});
+      const known = new Set(
+        (
+          await db
+            .select({ id: cloudLaunches.sessionId })
+            .from(cloudLaunches)
+            .where(inArray(cloudLaunches.sessionId, sessions))
+        ).map((l) => l.id),
+      );
+      for (const { session, kind, add, max } of groups.values()) {
+        if (!known.has(session) || !sessions.includes(session)) continue;
         const column =
           kind === "cost" ? cloudLaunches.costUsd : cloudLaunches.tokens;
-        const amount = kind === "cost" ? value : Math.round(value);
         const [launch] = await db
           .update(cloudLaunches)
           .set({
-            [kind === "cost" ? "costUsd" : "tokens"]: cumulative
-              ? sql`greatest(${column}, ${amount})`
-              : sql`${column} + ${amount}`,
+            [kind === "cost" ? "costUsd" : "tokens"]:
+              kind === "cost"
+                ? sql`greatest(${column}, ${max}) + ${add}`
+                : sql`greatest(${column}, ${Math.round(max)}) + ${Math.round(add)}`,
           })
-          // 054: Claude Code sends the session as `cse_…`, `/fire` gave `session_…`.
-          .where(
-            eq(cloudLaunches.sessionId, session.replace(/^cse_/, "session_")),
-          )
+          .where(eq(cloudLaunches.sessionId, session))
           .returning();
         if (
           kind === "cost" &&
@@ -194,4 +243,78 @@ async function stopForBudget(
   });
   if (stopped && projectId !== null)
     await publish(db, projectId, [`run:${runId}`, `story:${stopped.storyId}`]);
+}
+
+/** The page « Coût » (decision 060 F): the month of the user's launches, the average per run, the cost per merged PR, and per project. */
+export function costRoutes(db: Db, now: () => number) {
+  return new Hono().get("/api/claude/cost", async (c) => {
+    const user = await currentUser(db, c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const at = new Date(now());
+    const since = monthStart(at);
+    const mine = and(
+      eq(cloudLaunches.userId, user.userId),
+      gte(cloudLaunches.createdAt, since),
+    );
+    const [withRun] = await db
+      .select({
+        usd: sql<number>`coalesce(sum(${cloudLaunches.costUsd}), 0)`,
+        n: count(),
+      })
+      .from(cloudLaunches)
+      .where(and(mine, isNotNull(cloudLaunches.runId)));
+    const perProject = await db
+      .select({
+        id: projects.id,
+        name: projects.fullName,
+        costUsd: sql<number>`sum(${cloudLaunches.costUsd})`,
+      })
+      .from(cloudLaunches)
+      .innerJoin(projects, eq(projects.id, cloudLaunches.projectId))
+      .where(mine)
+      .groupBy(projects.id)
+      .orderBy(desc(sql`sum(${cloudLaunches.costUsd})`), asc(projects.id));
+    const merged = (
+      await db
+        .selectDistinct({ storyId: history.storyId })
+        .from(history)
+        .innerJoin(
+          projectMembers,
+          and(
+            eq(projectMembers.projectId, history.projectId),
+            eq(projectMembers.userId, user.userId),
+          ),
+        )
+        .where(
+          and(
+            eq(history.action, "pull_request_merged"),
+            gte(history.at, since),
+            isNotNull(history.storyId),
+          ),
+        )
+    ).flatMap((h) => (h.storyId === null ? [] : [h.storyId]));
+    const [ofMerged] = merged.length
+      ? await db
+          .select({
+            usd: sql<number>`coalesce(sum(${cloudLaunches.costUsd}), 0)`,
+          })
+          .from(cloudLaunches)
+          .where(
+            and(
+              eq(cloudLaunches.userId, user.userId),
+              inArray(cloudLaunches.storyId, merged),
+            ),
+          )
+      : [];
+    return c.json({
+      monthUsd: await monthSpent(db, user.userId, at),
+      runAverageUsd: withRun?.n ? Number(withRun.usd) / withRun.n : null,
+      perMergedPrUsd: merged.length
+        ? Number(ofMerged?.usd) / merged.length
+        : null,
+      // Pinned by cost.test.ts; the page reads the caps from /api/me/budgets, which a save refreshes.
+      budgets: await budgetsOf(db, user.userId),
+      projects: perProject.map((p) => ({ ...p, costUsd: Number(p.costUsd) })),
+    });
+  });
 }

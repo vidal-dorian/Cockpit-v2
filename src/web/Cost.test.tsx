@@ -40,9 +40,10 @@ function stub() {
           monthUsd: 12.5,
           runAverageUsd: 1.04,
           perMergedPrUsd: 3.1,
-          budgets: { runUsd: 2, nightUsd: null, monthUsd: 40 },
           projects: [{ id: 5, name: "octocat/hello", costUsd: 8 }],
         });
+      if (path === "/api/me/budgets" && method === "GET")
+        return Response.json({ runUsd: 2, nightUsd: null, monthUsd: 40 });
       if (path === "/api/me/budgets") {
         calls.push({
           method,

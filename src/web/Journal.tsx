@@ -74,6 +74,7 @@ export const ACTIONS: Record<string, string> = {
   pause_queue: "File en pause",
   resume_queue: "File reprise",
   set_auto_relaunch: "Relance automatique réglée",
+  set_budgets: "Plafonds réglés",
   get_launch: "Lancement lu par Claude",
   report_launch: "Repo absent de la tâche",
   change_public_url: "Adresse publique modifiée",

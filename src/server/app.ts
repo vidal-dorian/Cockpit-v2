@@ -5,7 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
-import { metricsRoutes } from "./cost.ts";
+import { costRoutes, metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
@@ -112,7 +112,8 @@ export function createApp(
       .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))
-      .route("/", claudeRoutes(db, now))
+      .route("/", claudeRoutes(db))
+      .route("/", costRoutes(db, now))
       .route("/", routineRoutes(db, fireDeps, now))
       .route("/", launcherRoutes(db, fireDeps, now))
       .route("/", queueRoutes(db))

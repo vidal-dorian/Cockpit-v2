@@ -58,14 +58,14 @@ export function Claude() {
       <StateSentence
         title={`Claude travaille sur ${running.length} ${running.length > 1 ? "runs" : "run"}.`}
         actions={
-          <>
+          <span className="flex gap-4">
             <Link to="/claude/cout" className="underline">
               Coût
-            </Link>{" "}
+            </Link>
             <Link to="/claude/taches" className="underline">
               Tâches programmées
             </Link>
-          </>
+          </span>
         }
       />
       <div className="grid gap-6 px-[26px] py-6">

@@ -3,19 +3,17 @@ import {
   eq,
   getTableColumns,
   gt,
-  gte,
   inArray,
   isNotNull,
   isNull,
   lte,
-  sql,
 } from "drizzle-orm";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser } from "./auth.ts";
-import { monthStart } from "./cost.ts";
+import { budgetsOf, monthSpent } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
@@ -602,25 +600,12 @@ export async function launchCloud(
     reserved = await db.transaction(async (tx) => {
       for (const id of projectIds) await assertActive(tx, id);
       const launcher = await readyLauncher(tx, entry.userId, projectIds);
-      const [budgets] = await tx
-        .select({ run: users.budgetRunUsd, month: users.budgetMonthUsd })
-        .from(users)
-        .where(eq(users.id, entry.userId));
-      if (budgets?.month != null) {
-        const [spent] = await tx
-          .select({
-            usd: sql<number>`coalesce(sum(${cloudLaunches.costUsd}), 0)`,
-          })
-          .from(cloudLaunches)
-          .where(
-            and(
-              eq(cloudLaunches.userId, entry.userId),
-              gte(cloudLaunches.createdAt, monthStart(at)),
-            ),
-          );
-        if (Number(spent?.usd) >= budgets.month)
-          throw new Refused("monthly_budget_reached");
-      }
+      const budgets = await budgetsOf(tx, entry.userId);
+      if (
+        budgets.monthUsd !== null &&
+        (await monthSpent(tx, entry.userId, at)) >= budgets.monthUsd
+      )
+        throw new Refused("monthly_budget_reached");
       const reserved = await reserve(tx);
       const [launch] = await tx
         .insert(cloudLaunches)
@@ -628,7 +613,7 @@ export async function launchCloud(
           userId: entry.userId,
           createdAt: at,
           ...reserved,
-          budgetUsd: reserved.budgetUsd ?? budgets?.run,
+          budgetUsd: reserved.budgetUsd ?? budgets.runUsd,
         })
         .returning({ id: cloudLaunches.id });
       if (!launch) throw new Error("launch not created");

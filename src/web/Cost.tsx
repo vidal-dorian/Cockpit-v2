@@ -15,7 +15,8 @@ const amount = new Intl.NumberFormat("fr-FR", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-export const dollars = (n: number) => `${amount.format(n)} $`;
+// A non-breaking space keeps the sign on the number's line.
+export const dollars = (n: number) => `${amount.format(n)}\u00a0$`;
 
 /** The caps of the user in dollars (decision 060 C), read by the page « Coût » and by the panel « Développer avec Claude ». */
 export async function fetchBudgets() {
@@ -71,10 +72,6 @@ function BudgetsForm({ initial }: { initial: Budgets }) {
         En dollars, facultatifs. Au plafond d'un run, Cockpit demande l'arrêt ;
         au plafond du mois, plus aucun lancement ne part.
       </p>
-      <p className="text-muted-foreground">
-        En dollars, facultatifs. Au plafond d'un run, Cockpit demande l'arrêt ;
-        au plafond du mois, plus aucun lancement ne part.
-      </p>
       {FIELDS.map(([key, label]) => (
         <label key={key}>
           {label}
@@ -108,7 +105,9 @@ function BudgetsForm({ initial }: { initial: Budgets }) {
 /** Decision 060 F: the page « Coût », what Claude cost this month and the caps. */
 export function Cost() {
   const cost = useQuery({ queryKey: ["cost"], queryFn: fetchCost });
+  const budgets = useQuery({ queryKey: ["budgets"], queryFn: fetchBudgets });
   const data = cost.data;
+  const month = budgets.data?.monthUsd ?? null;
   const cell = (label: string, value: number | null) => (
     <div className={`${listCard} px-[18px] py-3.5`}>
       <p className="text-muted-foreground">{label}</p>
@@ -148,16 +147,29 @@ export function Cost() {
                 <p className="text-lg font-semibold">
                   {dollars(data.monthUsd)}
                 </p>
-                {data.budgets.monthUsd !== null && (
+                {month !== null && (
                   <>
-                    <progress
-                      className="w-full"
+                    <div
+                      role="progressbar"
                       aria-label="Part du plafond par mois"
-                      max={data.budgets.monthUsd}
-                      value={Math.min(data.monthUsd, data.budgets.monthUsd)}
-                    />
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.min(
+                        100,
+                        Math.round((data.monthUsd / month) * 100),
+                      )}
+                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken"
+                    >
+                      <div
+                        className="h-full bg-foreground"
+                        style={{
+                          width: `${Math.min(100, (data.monthUsd / month) * 100)}%`,
+                        }}
+                      />
+                    </div>
                     <p className="text-[12.5px] text-muted-foreground">
-                      sur {dollars(data.budgets.monthUsd)}
+                      {Math.round((data.monthUsd / month) * 100)} % du plafond
+                      de {dollars(month)}
                     </p>
                   </>
                 )}
@@ -192,7 +204,7 @@ export function Cost() {
               <h2 id="plafonds" className={`${sectionLabel} mb-2`}>
                 Plafonds
               </h2>
-              <BudgetsForm initial={data.budgets} />
+              {budgets.data && <BudgetsForm initial={budgets.data} />}
             </section>
           </>
         )}

@@ -501,7 +501,8 @@ export function DevelopWindow({
             />
           </label>
           <p id="cap-hint" className={hint}>
-            En dollars, facultatif : au plafond, Cockpit demande l'arrêt du run.
+            En dollars, facultatif (vide : ton plafond par run). Au plafond,
+            Cockpit demande l'arrêt du run.
           </p>
         </div>
       )}

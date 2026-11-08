@@ -1,17 +1,6 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  gte,
-  inArray,
-  isNull,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { currentUser } from "./auth.ts";
-import { budgetsOf, monthStart } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
@@ -283,146 +272,94 @@ export function homeRoutes(db: Db) {
 }
 
 /** The page « Claude » (decision 058 F): the questions, the running runs, the runs finished today and the ready stories that can be queued. */
-export function claudeRoutes(db: Db, now: () => number) {
-  return new Hono()
-    .get("/api/claude/cost", async (c) => {
-      const user = await currentUser(db, c);
-      if (!user) return c.json({ error: "Unauthorized" }, 401);
-      const since = monthStart(new Date(now()));
-      const mine = and(
-        eq(cloudLaunches.userId, user.userId),
-        gte(cloudLaunches.createdAt, since),
-      );
-      const [total] = await db
-        .select({
-          usd: sql<number>`coalesce(sum(${cloudLaunches.costUsd}), 0)`,
-          runs: count(cloudLaunches.runId),
-        })
-        .from(cloudLaunches)
-        .where(mine);
-      const perProject = await db
-        .select({
-          id: projects.id,
-          name: projects.fullName,
-          costUsd: sql<number>`sum(${cloudLaunches.costUsd})`,
-        })
-        .from(cloudLaunches)
-        .innerJoin(projects, eq(projects.id, cloudLaunches.projectId))
-        .where(mine)
-        .groupBy(projects.id)
-        .orderBy(desc(sql`sum(${cloudLaunches.costUsd})`), asc(projects.id));
-      // shortcut: a story's last update stands for its merge date, as the merge is the last change of a story; upgrade when a story can change after its merge.
-      const [merged] = await db
-        .select({ n: count() })
-        .from(userStories)
-        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-        .innerJoin(
-          projectMembers,
-          eq(projectMembers.projectId, tickets.projectId),
-        )
-        .where(
-          and(
-            eq(projectMembers.userId, user.userId),
-            eq(userStories.status, "done"),
-            gte(userStories.updatedAt, since),
-          ),
-        );
-      const monthUsd = Number(total?.usd ?? 0);
-      return c.json({
-        monthUsd,
-        runAverageUsd: total?.runs ? monthUsd / total.runs : null,
-        perMergedPrUsd: merged?.n ? monthUsd / merged.n : null,
-        budgets: await budgetsOf(db, user.userId),
-        projects: perProject.map((p) => ({ ...p, costUsd: Number(p.costUsd) })),
-      });
-    })
-    .get("/api/claude", async (c) => {
-      const user = await currentUser(db, c);
-      if (!user) return c.json({ error: "Unauthorized" }, 401);
-      const mine = mineOf(user.userId);
-      const running = await runningRuns(db, user.userId);
-      const launches = running.length
-        ? await db
-            .select({ runId: cloudLaunches.runId })
-            .from(cloudLaunches)
-            .where(
-              inArray(
-                cloudLaunches.runId,
-                running.map((r) => r.runId),
-              ),
-            )
-        : [];
-      const inCloud = new Set(launches.map((l) => l.runId));
-      const finished = await db
-        .select({
-          ...storyColumns,
-          runId: runs.id,
-          status: runs.status,
-        })
-        .from(runs)
-        .innerJoin(userStories, eq(userStories.id, runs.storyId))
-        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-        .innerJoin(projects, eq(projects.id, tickets.projectId))
-        .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-        .where(
-          and(
-            mine,
-            // shortcut: midnight of the database's time zone (UTC on the Pi), not the user's; upgrade when users span time zones.
-            gte(runs.finishedAt, sql`date_trunc('day', now())`),
-          ),
-        )
-        .orderBy(desc(runs.id));
-      const ready = await db
-        .select(storyColumns)
-        .from(userStories)
-        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-        .innerJoin(projects, eq(projects.id, tickets.projectId))
-        .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-        .leftJoin(queueItems, eq(queueItems.storyId, userStories.id))
-        .where(
-          and(
-            mine,
-            eq(projectMembers.inLauncher, true),
-            eq(userStories.status, "ready"),
-            isNull(queueItems.id),
-          ),
-        )
-        .orderBy(asc(userStories.id));
-      return c.json({
-        questions: running.flatMap((r) =>
-          r.questionId === null || r.question === null
-            ? []
-            : [
-                {
-                  questionId: r.questionId,
-                  question: r.question,
-                  runId: r.runId,
-                  storyId: r.storyId,
-                  iWant: r.iWant,
-                  project: project(r),
-                },
-              ],
+export function claudeRoutes(db: Db) {
+  return new Hono().get("/api/claude", async (c) => {
+    const user = await currentUser(db, c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const mine = mineOf(user.userId);
+    const running = await runningRuns(db, user.userId);
+    const launches = running.length
+      ? await db
+          .select({ runId: cloudLaunches.runId })
+          .from(cloudLaunches)
+          .where(
+            inArray(
+              cloudLaunches.runId,
+              running.map((r) => r.runId),
+            ),
+          )
+      : [];
+    const inCloud = new Set(launches.map((l) => l.runId));
+    const finished = await db
+      .select({
+        ...storyColumns,
+        runId: runs.id,
+        status: runs.status,
+      })
+      .from(runs)
+      .innerJoin(userStories, eq(userStories.id, runs.storyId))
+      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+      .innerJoin(projects, eq(projects.id, tickets.projectId))
+      .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+      .where(
+        and(
+          mine,
+          // shortcut: midnight of the database's time zone (UTC on the Pi), not the user's; upgrade when users span time zones.
+          gte(runs.finishedAt, sql`date_trunc('day', now())`),
         ),
-        running: running.map((r) => ({
-          runId: r.runId,
-          storyId: r.storyId,
-          iWant: r.iWant,
-          project: project(r),
-          step: r.step,
-          cloud: inCloud.has(r.runId),
-        })),
-        finishedToday: finished.map((r) => ({
-          runId: r.runId,
-          storyId: r.storyId,
-          iWant: r.iWant,
-          project: project(r),
-          outcome: r.status === "succeeded" ? "succeeded" : "failed",
-        })),
-        readyStories: ready.map((r) => ({
-          storyId: r.storyId,
-          iWant: r.iWant,
-          project: project(r),
-        })),
-      });
+      )
+      .orderBy(desc(runs.id));
+    const ready = await db
+      .select(storyColumns)
+      .from(userStories)
+      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+      .innerJoin(projects, eq(projects.id, tickets.projectId))
+      .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+      .leftJoin(queueItems, eq(queueItems.storyId, userStories.id))
+      .where(
+        and(
+          mine,
+          eq(projectMembers.inLauncher, true),
+          eq(userStories.status, "ready"),
+          isNull(queueItems.id),
+        ),
+      )
+      .orderBy(asc(userStories.id));
+    return c.json({
+      questions: running.flatMap((r) =>
+        r.questionId === null || r.question === null
+          ? []
+          : [
+              {
+                questionId: r.questionId,
+                question: r.question,
+                runId: r.runId,
+                storyId: r.storyId,
+                iWant: r.iWant,
+                project: project(r),
+              },
+            ],
+      ),
+      running: running.map((r) => ({
+        runId: r.runId,
+        storyId: r.storyId,
+        iWant: r.iWant,
+        project: project(r),
+        step: r.step,
+        cloud: inCloud.has(r.runId),
+      })),
+      finishedToday: finished.map((r) => ({
+        runId: r.runId,
+        storyId: r.storyId,
+        iWant: r.iWant,
+        project: project(r),
+        outcome: r.status === "succeeded" ? "succeeded" : "failed",
+      })),
+      readyStories: ready.map((r) => ({
+        storyId: r.storyId,
+        iWant: r.iWant,
+        project: project(r),
+      })),
     });
+  });
 }
