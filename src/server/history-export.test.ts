@@ -142,7 +142,8 @@ describe("GET /api/history/export, the file (decision 053 H)", () => {
         ticketId: 7,
         storyId: 8,
         runId: 9,
-        args: { ticket_id: 7, draft: true },
+        // jsonb keeps its keys sorted (shorter first): the fixture is already in that order, so the cell can be compared as text.
+        args: { draft: true, ticket_id: 7 },
         detail: { reason: "criterion_incomplete" },
       },
     ]);
@@ -162,7 +163,7 @@ describe("GET /api/history/export, the file (decision 053 H)", () => {
         "7",
         "8",
         "9",
-        '{"ticket_id":7,"draft":true}',
+        '{"draft":true,"ticket_id":7}',
       ],
       [
         at(1).toISOString(),
