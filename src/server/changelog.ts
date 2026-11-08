@@ -47,14 +47,11 @@ function group(
   for (const pull of newest) {
     const release = oldestFirst.find((r) => r.publishedAt > pull.mergedAt);
     const day = new Date(pull.mergedAt).toISOString().slice(0, 10);
-    // With 100 releases the list may be cut, so the release before the oldest one read is unknown: a PR merged earlier than one release interval before it cannot be placed. shortcut: the interval is the gap between the two oldest releases read, a guess; no better rule without the commits of the releases.
-    const [first, second] = oldestFirst;
+    // With 100 releases the list may be cut: a PR merged before the oldest one read may belong to an older release that was not read, so it is not placed under any.
     const cut =
       releases.length >= RELEASES_MAX &&
-      first !== undefined &&
-      pull.mergedAt <
-        first.publishedAt -
-          ((second?.publishedAt ?? first.publishedAt) - first.publishedAt);
+      oldestFirst[0] !== undefined &&
+      pull.mergedAt < oldestFirst[0].publishedAt;
     const [key, made]: [string, Group] =
       releases.length === 0
         ? [day, { kind: "day", name: null, date: day, entries: [] }]

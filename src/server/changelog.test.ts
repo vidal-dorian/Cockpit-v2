@@ -118,7 +118,12 @@ describe("A: reading the changelog", () => {
 
   it("given nothing merged, when it is read, then there are no groups and no branches", async () => {
     const ctx = await changelogCtx();
-    expect(await read(ctx)).toEqual({ groups: [], branches: [] });
+    // Review of 11.5: the response also names the repo, for the PR links.
+    expect(await read(ctx)).toEqual({
+      groups: [],
+      branches: [],
+      repo: "user1000/app",
+    });
   });
 });
 
@@ -344,7 +349,7 @@ describe("review: more cases of the changelog", () => {
     },
   );
 
-  it("given 100 releases (GitHub may have more), when a PR was merged before the oldest one read, then it is not put under that release but in a last group { kind: older }, and a PR just before the oldest release is under it", async () => {
+  it("given 100 releases (GitHub may have more), when a PR was merged before the oldest one read, then it is not put under that release but in a last group { kind: older }: the release that holds it may not have been read", async () => {
     const ctx = await changelogCtx();
     for (let i = 99; i >= 0; i--)
       release(ctx, {
@@ -357,13 +362,10 @@ describe("review: more cases of the changelog", () => {
 
     const { groups } = await read(ctx);
 
-    expect(groups.map((g) => g.kind)).toEqual([
-      "unreleased",
-      "release",
-      "older",
-    ]);
-    expect(groups.map(numbers)).toEqual([[3], [2], [1]]);
-    expect(groups[2]).toMatchObject({ name: null, date: null });
+    // Review of 11.5: every PR merged before the oldest release read is unplaceable (the 101st release, unread, may hold it), so 2 is « older » too, not guessed.
+    expect(groups.map((g) => g.kind)).toEqual(["unreleased", "older"]);
+    expect(groups.map(numbers)).toEqual([[3], [2, 1]]);
+    expect(groups[1]).toMatchObject({ name: null, date: null });
   });
 
   it("given 99 releases (all of them are known), when a PR was merged before the oldest, then it is under the oldest release", async () => {
