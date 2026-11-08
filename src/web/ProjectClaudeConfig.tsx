@@ -31,6 +31,8 @@ import {
 export const FILES = ["claude-md", "regles", "skills", "mcp"] as const;
 export type ClaudeFile = (typeof FILES)[number];
 
+// The skills the catalogue keeps up to date: the server refuses them (decision 065 B).
+const CATALOG_SKILLS = ["dev-us", "write-us", "analyser"];
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 // The name must fit `.claude/skills/<name>/SKILL.md` in 255 characters (decision 026 D); a rule's path is shorter.
 const MAX_NAME = 231;
@@ -417,13 +419,15 @@ export function ProjectClaudeConfig({
             <button
               type="button"
               aria-label={`Ouvrir ${item.name}`}
+              // A file Cockpit cannot read (symlink, too large) is not rewritten.
+              disabled={item.text === ""}
               onClick={() => {
                 setProblem(null);
                 setDone(null);
                 setAdding(false);
                 setOpen({ kind, name: item.name, before: item.text });
               }}
-              className={`flex min-h-[50px] w-full items-center px-[18px] py-2 text-left font-semibold hover:bg-raised ${focusRing}`}
+              className={`flex min-h-[50px] w-full items-center px-[18px] py-2 text-left font-semibold hover:bg-raised disabled:opacity-50 ${focusRing}`}
             >
               {item.name}
             </button>
@@ -452,6 +456,9 @@ export function ProjectClaudeConfig({
       )}
     </>
   );
+  const unreadable =
+    (fichier === "claude-md" && data?.claudeMd === "") ||
+    (fichier === "mcp" && data?.mcpJson === "");
   const key = open && `${open.kind}\n${open.name}\n${open.before}`;
   return (
     <section className="mx-[26px] mt-4" aria-label="Ce que Claude lit">
@@ -466,6 +473,11 @@ export function ProjectClaudeConfig({
       {problem && (
         <div role="alert" className={`mt-3 ${alertBox}`}>
           <p>{refusal(problem)}</p>
+          {problem.settingsUrl && (
+            <a href={problem.settingsUrl} className={`underline ${focusRing}`}>
+              Réglages de l'App sur GitHub
+            </a>
+          )}
           {problem.status === 502 && last && (
             <button
               type="button"
@@ -478,7 +490,13 @@ export function ProjectClaudeConfig({
         </div>
       )}
       {done && <DoneBox done={done} />}
-      {data && fichier === "claude-md" && (
+      {data && unreadable && (
+        <p className="mt-3">
+          Ce fichier ne se lit pas depuis Cockpit (lien symbolique ou trop gros)
+          : modifie-le sur GitHub.
+        </p>
+      )}
+      {data && !unreadable && fichier === "claude-md" && (
         <TextEditor
           key={String(data.claudeMd)}
           {...common}
@@ -487,7 +505,7 @@ export function ProjectClaudeConfig({
           onCommit={sendTo({ kind: "claude_md", before: data.claudeMd })}
         />
       )}
-      {data && fichier === "mcp" && (
+      {data && !unreadable && fichier === "mcp" && (
         <TextEditor
           key={String(data.mcpJson)}
           {...common}
@@ -524,7 +542,7 @@ export function ProjectClaudeConfig({
             key={key}
             {...common}
             open={open}
-            taken={names}
+            taken={[...names, ...CATALOG_SKILLS]}
             onCommit={(after, name) => sendTo({ ...open, name })(after)}
           />
         ))}
@@ -540,7 +558,11 @@ export function ClaudeChips({
 }: {
   projectId: string;
   fichier: ClaudeFile | null;
-  counts: { rules: number; skills: number; agents: number | undefined };
+  counts: {
+    rules: number | undefined;
+    skills: number | undefined;
+    agents: number | undefined;
+  };
 }) {
   const chip = (file: ClaudeFile | null, label: string, n?: number) => (
     <Link

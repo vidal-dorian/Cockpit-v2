@@ -16,7 +16,7 @@ import {
 // - GET /api/projects/:id/claude-config answers 200 { claudeMd, rules, skills, mcpJson } (texts, `null` without file; rules and skills: [{ name, text }] sorted by name).
 // - POST /api/projects/:id/claude-config/apply takes { kind, name?, before, after } and answers 200 { commitSha, pullRequest?: { number, url } }.
 // - A 400 is a body that does not fit (nothing written, no history entry); a refusal is 409 { error: "<code>" } with one refused entry, detail { reason: <code> }
-//   (`secret_in_clear` also carries `at`, in the answer and in detail, never the value); a GitHub error is 502 { error: "github_unavailable" }.
+//   (`secret_in_clear` also carries `at`, in the answer only, never the value); a GitHub error is 502 { error: "github_unavailable" }.
 // - The entries (action save_claude_md, save_rule, delete_rule, save_skill, delete_skill, save_mcp_json): args { path }, github_effects { commitSha, pullRequest: <number | null> }.
 
 afterEach(() => {

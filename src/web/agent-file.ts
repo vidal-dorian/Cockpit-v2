@@ -101,13 +101,17 @@ export function parseSkill(text: string): SkillFields | null {
   };
 }
 
+// A plain YAML scalar when it is safe (`a : b` or `x #y` would not be one), else a JSON string, which YAML reads too.
+const scalar = (v: string) =>
+  /^[\p{L}\p{N}][^:#]*$/u.test(v) && v === v.trim() ? v : JSON.stringify(v);
+
 /** The file of a skill as decision 065 F writes it: `allowed-tools` only when not empty, a blank line before the instruction. */
 export const writeSkill = (name: string, f: SkillFields) =>
   [
     "---",
     `name: ${name}`,
-    `description: ${f.description}`,
-    ...(f.tools ? [`allowed-tools: ${f.tools}`] : []),
+    `description: ${scalar(f.description)}`,
+    ...(f.tools ? [`allowed-tools: ${scalar(f.tools)}`] : []),
     "---",
     "",
     f.body,

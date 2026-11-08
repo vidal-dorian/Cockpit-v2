@@ -409,13 +409,13 @@ export function ProjectAgents({
   const team = (list?.agents ?? []).filter(
     (a) => !ANALYSIS_AGENTS.includes(a.name),
   );
-  const chips = config.data?.data && (
+  const chips = (
     <ClaudeChips
       projectId={projectId}
       fichier={fichier}
       counts={{
-        rules: config.data.data.rules.length,
-        skills: config.data.data.skills.length,
+        rules: config.data?.data?.rules.length,
+        skills: config.data?.data?.skills.length,
         agents: list?.agents.length,
       }}
     />
@@ -425,6 +425,8 @@ export function ProjectAgents({
       <>
         {chips}
         <ProjectClaudeConfig
+          // Each chip starts from nothing: no open rule, form or message of the previous one.
+          key={fichier}
           projectId={projectId}
           fullName={fullName}
           archived={archived}

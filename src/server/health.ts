@@ -59,19 +59,22 @@ export function mcpRefusal(
     return { error: "invalid_json" };
   }
   if (!isObject(parsed)) return { error: "invalid_json" };
-  const servers = isObject(parsed.mcpServers) ? parsed.mcpServers : {};
-  for (const [name, server] of Object.entries(servers)) {
-    if (!isObject(server)) continue;
+  // What is present but not an object cannot be judged, so it could hide a secret: refused, at its own path.
+  const secret = (at: string) => ({ error: "secret_in_clear" as const, at });
+  if (parsed.mcpServers === undefined) return null;
+  if (!isObject(parsed.mcpServers)) return secret("mcpServers");
+  for (const [name, server] of Object.entries(parsed.mcpServers)) {
     const at = `mcpServers.${name}`;
+    if (!isObject(server)) return secret(at);
     const url = typeof server.url === "string" ? URL.parse(server.url) : null;
-    if (url?.username || url?.password)
-      return { error: "secret_in_clear", at: `${at}.url` };
+    if (url?.username || url?.password) return secret(`${at}.url`);
     for (const key of ["headers", "env"]) {
       const values = server[key];
-      if (!isObject(values)) continue;
+      if (values === undefined) continue;
+      if (!isObject(values)) return secret(`${at}.${key}`);
       for (const [field, value] of Object.entries(values))
         if (typeof value !== "string" || !ONLY_REFERENCES.test(value))
-          return { error: "secret_in_clear", at: `${at}.${key}.${field}` };
+          return secret(`${at}.${key}.${field}`);
     }
   }
   return null;

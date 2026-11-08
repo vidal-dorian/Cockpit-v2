@@ -29,3 +29,18 @@ describe("parseSkill and writeSkill", () => {
     expect(parseSkill("no header\n")).toBeNull();
   });
 });
+
+describe("writeSkill quoting (review of slice 12.1)", () => {
+  it("given a description with a colon, when it is written and read back, then it is a quoted string and comes back as typed", () => {
+    const fields = {
+      description: "Analyse : trouve les bugs",
+      tools: "",
+      body: "b",
+    };
+
+    const text = writeSkill("a", fields);
+
+    expect(text).toContain('description: "Analyse : trouve les bugs"');
+    expect(parseSkill(text)).toEqual(fields);
+  });
+});
