@@ -68,7 +68,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S28](S28_Claude_Runs.png) | Tous les runs, la file d'attente | 9.3, 14.3 | 033 | la file (14.3) |
+| [S28](S28_Claude_Runs.png) | Tous les runs, la file d'attente | 9.3, 14.3 (existent) | 033, 058 | une seule US de la file à la fois par utilisateur, pas par projet (058) |
 | [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | |
 | [S30](S30_Run_Fini.png) | Un run fini : le verdict, les critères, le coût | 7.7 (existe), 14.5 | 035, 039 | le coût (14.5) |
 | [S31](S31_Run_Fermer.png) | Fermer un run muet | 7.5 (existe) | 037 | |

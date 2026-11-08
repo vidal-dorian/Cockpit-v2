@@ -27,6 +27,7 @@ import {
   writeUsRoutines,
 } from "./db/schema.ts";
 import { memberProject } from "./projects.ts";
+import { runQueues } from "./queue.ts";
 import { decrypt, encrypt } from "./secrets.ts";
 import { storyToRewrite, ticketNeedsStories } from "./stories.ts";
 import { assertActive, body, refusal } from "./tickets.ts";
@@ -306,6 +307,7 @@ async function hasWork(db: Db, projectId: number) {
  */
 export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
   await runDueCustomRoutines(db, deps, now);
+  await runQueues(db, deps, now);
   try {
     // A blocked scheduling user (012 G) is skipped, without an entry.
     const due = await db

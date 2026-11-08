@@ -253,7 +253,7 @@ export function Sidebar() {
             </>
           )}
         </NavLink>
-        <NavLink to="/claude/taches" className={navItem}>
+        <NavLink to="/claude" className={navItem}>
           Claude
         </NavLink>
         {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}

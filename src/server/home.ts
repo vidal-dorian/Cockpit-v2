@@ -1,12 +1,14 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
+  cloudLaunches,
   projectMembers,
   projects,
   questions,
+  queueItems,
   runSteps,
   runs,
   tickets,
@@ -25,41 +27,63 @@ const project = (r: { projectId: number; projectName: string }) => ({
   name: r.projectName,
 });
 
+const mineOf = (userId: number) =>
+  and(eq(projectMembers.userId, userId), isNull(projects.archivedAt));
+
+/** The running runs of the user's projects, each with its pending question and its open step; shared by the home and the page « Claude » (decision 058 F). */
+async function runningRuns(db: Db, userId: number) {
+  const running = await db
+    .select({
+      ...storyColumns,
+      runId: runs.id,
+      questionId: questions.id,
+      question: questions.question,
+      suggestedAnswers: questions.suggestedAnswers,
+      askedAt: questions.askedAt,
+    })
+    .from(runs)
+    .innerJoin(userStories, eq(userStories.id, runs.storyId))
+    .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+    .innerJoin(projects, eq(projects.id, tickets.projectId))
+    .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+    .leftJoin(
+      questions,
+      and(eq(questions.runId, runs.id), isNull(questions.answer)),
+    )
+    .where(and(mineOf(userId), eq(runs.status, "running")))
+    .orderBy(asc(runs.id));
+  const steps = running.length
+    ? await db
+        .select({ runId: runSteps.runId, agent: runSteps.agent })
+        .from(runSteps)
+        .where(
+          and(
+            inArray(
+              runSteps.runId,
+              running.map((r) => r.runId),
+            ),
+            eq(runSteps.status, "running"),
+          ),
+        )
+        .orderBy(asc(runSteps.id))
+    : [];
+  const stepOf = new Map(steps.map((s) => [s.runId, s.agent]));
+  return running.map((r) => ({ ...r, step: stepOf.get(r.runId) ?? null }));
+}
+
 /** The home of the user (decision 040 A to D): what waits for them, what Claude does, the state of each project; read in a few set-based queries, nothing stored. */
 export function homeRoutes(db: Db) {
   return new Hono().get("/api/home", async (c) => {
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
-    const mine = and(
-      eq(projectMembers.userId, user.userId),
-      isNull(projects.archivedAt),
-    );
+    const mine = mineOf(user.userId);
     const list = await db
       .select({ id: projects.id, name: projects.fullName })
       .from(projectMembers)
       .innerJoin(projects, eq(projects.id, projectMembers.projectId))
       .where(mine)
       .orderBy(asc(projects.id));
-    const running = await db
-      .select({
-        ...storyColumns,
-        runId: runs.id,
-        questionId: questions.id,
-        question: questions.question,
-        suggestedAnswers: questions.suggestedAnswers,
-        askedAt: questions.askedAt,
-      })
-      .from(runs)
-      .innerJoin(userStories, eq(userStories.id, runs.storyId))
-      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-      .innerJoin(projects, eq(projects.id, tickets.projectId))
-      .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-      .leftJoin(
-        questions,
-        and(eq(questions.runId, runs.id), isNull(questions.answer)),
-      )
-      .where(and(mine, eq(runs.status, "running")))
-      .orderBy(asc(runs.id));
+    const running = await runningRuns(db, user.userId);
     // A story Claude works on has only its pending question to show: no review or check meanwhile.
     const working = new Set(running.map((r) => r.storyId));
     const waiting = (
@@ -101,23 +125,6 @@ export function homeRoutes(db: Db) {
           ),
         ))
         criteriaCount.set(k.storyId, (criteriaCount.get(k.storyId) ?? 0) + 1);
-
-    const steps = running.length
-      ? await db
-          .select({ runId: runSteps.runId, agent: runSteps.agent })
-          .from(runSteps)
-          .where(
-            and(
-              inArray(
-                runSteps.runId,
-                running.map((r) => r.runId),
-              ),
-              eq(runSteps.status, "running"),
-            ),
-          )
-          .orderBy(asc(runSteps.id))
-      : [];
-    const stepOf = new Map(steps.map((s) => [s.runId, s.agent]));
 
     // The latest run (highest id) of each ready story; one to check needs its criteria, read together.
     const ready = waiting.filter((w) => w.status === "ready");
@@ -228,7 +235,7 @@ export function homeRoutes(db: Db) {
         storyId: r.storyId,
         iWant: r.iWant,
         project: project(r),
-        step: stepOf.get(r.runId) ?? null,
+        step: r.step,
       })),
       projects: list.map((p) => ({
         ...p,
@@ -237,6 +244,99 @@ export function homeRoutes(db: Db) {
           : claudeIn.has(p.id)
             ? ("claude" as const)
             : ("idle" as const),
+      })),
+    });
+  });
+}
+
+/** The page « Claude » (decision 058 F): the questions, the running runs, the runs finished today and the ready stories that can be queued. */
+export function claudeRoutes(db: Db) {
+  return new Hono().get("/api/claude", async (c) => {
+    const user = await currentUser(db, c);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const mine = mineOf(user.userId);
+    const running = await runningRuns(db, user.userId);
+    const launches = running.length
+      ? await db
+          .select({ runId: cloudLaunches.runId })
+          .from(cloudLaunches)
+          .where(
+            inArray(
+              cloudLaunches.runId,
+              running.map((r) => r.runId),
+            ),
+          )
+      : [];
+    const inCloud = new Set(launches.map((l) => l.runId));
+    const finished = await db
+      .select({
+        ...storyColumns,
+        runId: runs.id,
+        status: runs.status,
+      })
+      .from(runs)
+      .innerJoin(userStories, eq(userStories.id, runs.storyId))
+      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+      .innerJoin(projects, eq(projects.id, tickets.projectId))
+      .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+      .where(
+        and(
+          mine,
+          // shortcut: midnight of the database's time zone (UTC on the Pi), not the user's; upgrade when users span time zones.
+          gte(runs.finishedAt, sql`date_trunc('day', now())`),
+        ),
+      )
+      .orderBy(desc(runs.id));
+    const ready = await db
+      .select(storyColumns)
+      .from(userStories)
+      .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+      .innerJoin(projects, eq(projects.id, tickets.projectId))
+      .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+      .leftJoin(queueItems, eq(queueItems.storyId, userStories.id))
+      .where(
+        and(
+          mine,
+          eq(projectMembers.inLauncher, true),
+          eq(userStories.status, "ready"),
+          isNull(queueItems.id),
+        ),
+      )
+      .orderBy(asc(userStories.id));
+    return c.json({
+      questions: running.flatMap((r) =>
+        r.questionId === null || r.question === null
+          ? []
+          : [
+              {
+                questionId: r.questionId,
+                question: r.question,
+                runId: r.runId,
+                storyId: r.storyId,
+                iWant: r.iWant,
+                project: project(r),
+              },
+            ],
+      ),
+      running: running.map((r) => ({
+        runId: r.runId,
+        storyId: r.storyId,
+        iWant: r.iWant,
+        project: project(r),
+        step: r.step,
+        cloud: inCloud.has(r.runId),
+      })),
+      finishedToday: finished.map((r) => ({
+        runId: r.runId,
+        storyId: r.storyId,
+        iWant: r.iWant,
+        project: project(r),
+        outcome: r.status === "succeeded" ? "succeeded" : "failed",
+      })),
+      readyStories: ready.map((r) => ({
+        storyId: r.storyId,
+        iWant: r.iWant,
+        project: project(r),
       })),
     });
   });

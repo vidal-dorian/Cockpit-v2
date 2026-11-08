@@ -39,6 +39,8 @@ import {
 } from "./launcher.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
+import { queueAfterRun } from "./queue.ts";
+import type { Fire } from "./routines.ts";
 import {
   activeRunId,
   finishRun,
@@ -80,7 +82,13 @@ const MAX_RESULTS = 20;
 const MAX_STORIES = 100;
 
 /** The caller of a tool and what the call writes to the history. `entry` is filled in as the call learns the ids it concerns. */
-type Call = { db: Db; userId: number; entry: Entry; readGitHub: ReadGitHub };
+type Call = {
+  db: Db;
+  userId: number;
+  entry: Entry;
+  readGitHub: ReadGitHub;
+  deps: Fire;
+};
 
 /** Arguments that do not fit the schema of the tool; `fields` names the faulty ones, for Claude only (the history gets the fixed code). */
 class InvalidArguments extends Refused {
@@ -942,8 +950,17 @@ const tools = {
       outcome: z.enum(["succeeded", "failed"]),
       summary: z.string().min(1).max(10_000).refine(noNul),
     }),
-    (call, args) =>
-      finishRun(call.db, call.userId, call.readGitHub, call.entry, args),
+    async (call, args) => {
+      const finished = await finishRun(
+        call.db,
+        call.userId,
+        call.readGitHub,
+        call.entry,
+        args,
+      );
+      await queueAfterRun(call.db, call.deps, args.run_id, new Date());
+      return finished;
+    },
   ),
 };
 
@@ -1069,6 +1086,7 @@ export function mcpRoutes(
   readGitHub: ReadGitHub,
   readInstance: ReadInstance,
   version: string,
+  deps: Fire,
 ) {
   return (
     new Hono()
@@ -1120,7 +1138,7 @@ export function mcpRoutes(
         }));
         server.setRequestHandler(CallToolRequestSchema, ({ params }) =>
           callTool(
-            { db, userId: caller.userId, readGitHub },
+            { db, userId: caller.userId, readGitHub, deps },
             caller.tokenId,
             params.name,
             params.arguments,
