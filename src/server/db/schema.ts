@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -261,6 +262,27 @@ export const tickets = pgTable(
     ),
   ],
 );
+
+// The drivers give bytea as a Buffer or a bare Uint8Array: always a Buffer here.
+const bytea = customType<{ data: Buffer; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+  fromDriver: (value) => Buffer.from(value),
+});
+
+// Decision 058 A: the files of a ticket, stored next to it. Listing never selects `content`.
+export const attachments = pgTable("attachments", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  ticketId: integer("ticket_id")
+    .notNull()
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  mediaType: text("media_type").notNull(),
+  size: integer("size").notNull(),
+  content: bytea("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
 
 export const STORY_STATUSES = [
   "to_validate",

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
+import { attachmentRoutes } from "./attachments.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
@@ -52,6 +53,9 @@ export type AppOptions = {
 const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
 // The agent and team editors send a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
 const agentsBodyLimit = bodyLimit({ maxSize: 4 * 1024 * 1024 });
+// An upload: the file (20 MiB at most) and the envelope of the form (decision 058 C).
+const uploadBodyLimit = bodyLimit({ maxSize: 21 * 1024 * 1024 });
+const UPLOAD_PATH = /^\/api\/tickets\/[^/]+\/attachments$/;
 const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/(agents|team)\/apply$/;
 
 export function createApp(
@@ -75,7 +79,12 @@ export function createApp(
       // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
       .use("*", async (c, next) => {
         await next();
-        c.res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+        // A route may add a directive of its own (the sandbox of an attachment): frame-ancestors joins it.
+        const policy = c.res.headers.get("Content-Security-Policy");
+        c.res.headers.set(
+          "Content-Security-Policy",
+          `${policy ? `${policy}; ` : ""}frame-ancestors 'none'`,
+        );
         c.res.headers.set("X-Frame-Options", "DENY");
       })
       // A JSON body is read whole in memory: 256 KiB at most on every API route (the apply routes of the agent and team editors have a larger one), before the session and the validation (decision 014). GitHub's webhook has its own limit (decision 024 A).
@@ -84,7 +93,9 @@ export function createApp(
           ? next()
           : (AGENTS_APPLY_PATH.test(c.req.path)
               ? agentsBodyLimit
-              : apiBodyLimit)(c, next),
+              : c.req.method === "POST" && UPLOAD_PATH.test(c.req.path)
+                ? uploadBodyLimit
+                : apiBodyLimit)(c, next),
       )
       .get("/api/health", async (c) => {
         await db.execute(sql`select 1`);
@@ -104,6 +115,7 @@ export function createApp(
       .route("/", versionRoutes(db, fetchEndOfLife, now))
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
+      .route("/", attachmentRoutes(db))
       .route("/", issueImportRoutes(db, readGitHub))
       .route("/", storyRoutes(db, readGitHub))
       .route("/", runRoutes(db, readGitHub))
