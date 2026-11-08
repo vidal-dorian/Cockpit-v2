@@ -266,7 +266,7 @@ export const tickets = pgTable(
 // The drivers give bytea as a Buffer or a bare Uint8Array: always a Buffer here.
 const bytea = customType<{ data: Buffer; driverData: Uint8Array }>({
   dataType: () => "bytea",
-  fromDriver: (value) => Buffer.from(value),
+  fromDriver: (value) => (Buffer.isBuffer(value) ? value : Buffer.from(value)),
 });
 
 // Decision 058 A: the files of a ticket, stored next to it. Listing never selects `content`.

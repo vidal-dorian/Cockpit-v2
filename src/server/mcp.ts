@@ -8,7 +8,6 @@ import {
 import { and, asc, count, eq, ilike, isNull, type SQL, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
-import { extractText } from "unpdf";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { memberAttachment } from "./attachments.ts";
@@ -40,6 +39,7 @@ import {
   getLaunch,
   reportLaunch,
 } from "./launcher.ts";
+import { pdfText } from "./pdf-text.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
 import {
@@ -433,38 +433,39 @@ const tools = {
       if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
       call.entry.projectId = found.project.id;
       call.entry.ticketId = found.ticket.id;
-      return act(call.db, call.entry, async (tx) => {
-        const [row] = await tx
-          .select({ content: attachments.content })
-          .from(attachments)
-          .where(eq(attachments.id, attachment_id));
-        // Deleted since we read it.
-        if (!row) throw new Refused("not_found");
-        const { mediaType } = found.attachment;
-        if (mediaType.startsWith("image/"))
-          return new Rendered([
-            {
-              type: "image",
-              data: row.content.toString("base64"),
-              mimeType: mediaType,
-            },
-          ]);
+      // The file is read, and a PDF's text extracted, outside the transaction: neither holds a connection.
+      const [row] = await call.db
+        .select({ content: attachments.content })
+        .from(attachments)
+        .where(eq(attachments.id, attachment_id));
+      // Deleted since we read it.
+      if (!row) return refuse(call.db, call.entry, new Refused("not_found"));
+      const { mediaType } = found.attachment;
+      let rendered: Rendered;
+      if (mediaType.startsWith("image/"))
+        rendered = new Rendered([
+          {
+            type: "image",
+            data: row.content.toString("base64"),
+            mimeType: mediaType,
+          },
+        ]);
+      else {
         const isPdf = mediaType === "application/pdf";
         const text = isPdf
-          ? (
-              await extractText(new Uint8Array(row.content), {
-                mergePages: true,
-              })
-            ).text
+          ? await pdfText(row.content, MAX_TEXT)
           : row.content.toString("utf8");
         const shown =
-          isPdf && !text.trim()
-            ? "Ce PDF ne contient pas de texte lisible (probablement scanné)."
-            : text.length > MAX_TEXT
-              ? `${text.slice(0, MAX_TEXT)}\n(tronqué)`
-              : text;
-        return new Rendered([{ type: "text", text: shown }]);
-      });
+          text === undefined
+            ? "Ce PDF n'a pas pu être lu (trop lourd ou endommagé)."
+            : isPdf && !text.trim()
+              ? "Ce PDF ne contient pas de texte lisible (probablement scanné)."
+              : text.length > MAX_TEXT
+                ? `${text.slice(0, MAX_TEXT)}\n(tronqué)`
+                : text;
+        rendered = new Rendered([{ type: "text", text: shown }]);
+      }
+      return act(call.db, call.entry, async () => rendered);
     },
   ),
 

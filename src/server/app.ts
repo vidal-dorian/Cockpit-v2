@@ -1,6 +1,6 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { sql } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { attachmentRoutes } from "./attachments.ts";
@@ -54,7 +54,17 @@ const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
 // The agent and team editors send a file of up to 1 MiB, twice (decision 030 E), which covers realistic agent files (JSON escaping could inflate a worst-case one past it).
 const agentsBodyLimit = bodyLimit({ maxSize: 4 * 1024 * 1024 });
 // An upload: the file (20 MiB at most) and the envelope of the form (decision 058 C).
-const uploadBodyLimit = bodyLimit({ maxSize: 21 * 1024 * 1024 });
+const UPLOAD_MAX = 21 * 1024 * 1024;
+const uploadBodyLimit = bodyLimit({ maxSize: UPLOAD_MAX });
+// Judged on the headers alone, before the session and before any byte is read: a chunked body has no known size, and a declared one over the limit is not worth reading.
+const uploadHeaders: MiddlewareHandler = (c, next) => {
+  const length = c.req.header("content-length");
+  if (c.req.header("transfer-encoding") || length === undefined)
+    return Promise.resolve(c.json({ error: "Length required" }, 411));
+  if (!(Number(length) <= UPLOAD_MAX))
+    return Promise.resolve(c.json({ error: "Payload too large" }, 413));
+  return uploadBodyLimit(c, next);
+};
 const UPLOAD_PATH = /^\/api\/tickets\/[^/]+\/attachments$/;
 const AGENTS_APPLY_PATH = /^\/api\/projects\/[^/]+\/(agents|team)\/apply$/;
 
@@ -94,7 +104,7 @@ export function createApp(
           : (AGENTS_APPLY_PATH.test(c.req.path)
               ? agentsBodyLimit
               : c.req.method === "POST" && UPLOAD_PATH.test(c.req.path)
-                ? uploadBodyLimit
+                ? uploadHeaders
                 : apiBodyLimit)(c, next),
       )
       .get("/api/health", async (c) => {

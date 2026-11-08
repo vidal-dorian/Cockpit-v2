@@ -9,7 +9,8 @@ import { assertActive, memberTicket, refusal } from "./tickets.ts";
 
 // Decision 058: files attached to a ticket, kept in PostgreSQL.
 const MIB = 1024 * 1024;
-export const MAX_IMAGE = 5 * MIB;
+// 3.75 MiB: 5 MB once base64-encoded for Claude (decision 058 B).
+export const MAX_IMAGE = 3_932_160;
 export const MAX_FILE = 20 * MIB;
 export const MAX_PER_TICKET = 20;
 
@@ -44,10 +45,13 @@ export function detectType(bytes: Buffer, name: string) {
   return TEXT_TYPES[name.split(".").at(-1)?.toLowerCase() ?? ""];
 }
 
-/** No path separator, no control character, 200 characters at most. */
+/** No path separator, no control character (C0, C1, and the bidi ones that can disguise an extension). */
 export const cleanName = (name: string) =>
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what is removed
-  name.replace(/[/\\\u0000-\u001f\u007f]/g, "");
+  name.replace(
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what is removed
+    /[/\\\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g,
+    "",
+  );
 
 /** A fixed code when the file is refused. */
 export function check(bytes: Buffer, name: string) {
