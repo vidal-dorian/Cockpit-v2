@@ -75,14 +75,22 @@ describe("GET /api/history", () => {
     expect(body.entries.map((e) => e.action)).toEqual(["logout", "login"]);
     const [first] = body.entries;
     assert(first);
+    // Decision 053 B adds the ids, `args`, `detail` and, on a refused or error entry, `retry`; the user and token stay on the server.
     expect(Object.keys(first).sort()).toEqual([
       "action",
       "actor",
+      "args",
       "at",
+      "detail",
       "id",
       "origin",
       "project",
+      "projectId",
       "result",
+      "retry",
+      "runId",
+      "storyId",
+      "ticketId",
     ]);
     expect(first).toMatchObject({
       actor: "human",
