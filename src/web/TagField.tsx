@@ -60,7 +60,10 @@ export function TagField({
         className={`w-28 bg-transparent text-[13px] placeholder:text-dim ${focusRing}`}
       />
       {full && (
-        <span className="basis-full text-[12.5px] text-muted-foreground">
+        <span
+          role="status"
+          className="basis-full text-[12.5px] text-muted-foreground"
+        >
           {MAX_TAGS} étiquettes au plus.
         </span>
       )}

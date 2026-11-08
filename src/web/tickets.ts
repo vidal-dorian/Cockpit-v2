@@ -108,6 +108,7 @@ export const normalizeTag = (text: string) =>
   text.trim().replace(/\s+/g, " ").toLowerCase();
 
 /** The tags with the one typed and not yet added (« Noter » and « Enregistrer » do not lose it). */
+// shortcut: an 11th pending tag is dropped silently on save, show « 10 étiquettes au plus. » if people hit it.
 export function withPending(tags: string[], text: string) {
   const tag = normalizeTag(text);
   return tag === "" || tags.includes(tag) || tags.length >= MAX_TAGS
