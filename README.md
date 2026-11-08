@@ -151,6 +151,8 @@ La page « Claude » → « Tâches programmées » (`/claude/taches`) ajoute te
 
 La page « Claude » (`/claude`) montre ce que Claude fait : tes questions en attente, les runs en cours, ceux finis aujourd'hui. Sur une US prête, « Mettre en file » (à côté de « Lancer dans le cloud ») l'ajoute à la file d'attente : Cockpit lance les US une par une, saute celles qui ne sont pas prêtes ou qui attendent une dépendance, et met la file en pause si un lancement échoue (« Reprendre » la relance). Décision [058](docs/decisions/058-file-d-attente.md).
 
+Sur la carte « Lanceur Cockpit », la case « Relancer Claude quand la CI d'une PR échoue » (décochée par défaut) relance Claude sur la même branche quand la CI d'une PR passe au rouge, 3 fois d'affilée au plus ; ensuite l'accueil affiche « Relances épuisées ». Décision [059](docs/decisions/059-relance-automatique.md).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :
