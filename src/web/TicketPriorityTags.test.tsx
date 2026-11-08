@@ -29,10 +29,12 @@ afterEach(() => {
   window.history.replaceState({}, "", "/");
 });
 
-const T = rich(7, "Ajouter la recherche", {
-  priority: "high",
-  tags: ["export", "compta"],
-});
+// A fresh ticket per call: the fake API edits the tickets it is given, so a shared object would carry a PATCH into the next test.
+const fresh = () =>
+  rich(7, "Ajouter la recherche", {
+    priority: "high",
+    tags: ["export", "compta"],
+  });
 const main = () => screen.getByRole("main");
 const waitForTitle = () =>
   screen.findByRole("heading", { level: 1, name: /^Ajouter la recherche/ });
@@ -44,7 +46,7 @@ const addTag = (text: string) => {
 
 describe("054 H: reading", () => {
   it("given a high ticket with tags, when /tickets/:id loads, then « priorité haute » and the tags are written under the title", async () => {
-    stubTicketApi([T]);
+    stubTicketApi([fresh()]);
     renderAt("/tickets/7");
 
     const heading = await waitForTitle();
@@ -75,7 +77,7 @@ describe("054 H: reading", () => {
 
 describe("054 H: editing", () => {
   it("given a ticket, when Modifier is clicked, then the form offers Priorité preset to the ticket's and its tags as chips", async () => {
-    stubTicketApi([T]);
+    stubTicketApi([fresh()]);
     renderAt("/tickets/7");
     await waitForTitle();
 
@@ -103,7 +105,7 @@ describe("054 H: editing", () => {
   });
 
   it("given the form, when the priority changes, a tag is removed and another added, and Enregistrer is clicked, then PATCH carries them and the page shows them", async () => {
-    const api = stubTicketApi([T]);
+    const api = stubTicketApi([fresh()]);
     renderAt("/tickets/7");
     await waitForTitle();
     fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
@@ -129,7 +131,7 @@ describe("054 H: editing", () => {
   });
 
   it("given a tag already there and an empty one, when Enter is pressed in the field, then no chip is added and the form is not submitted", async () => {
-    const api = stubTicketApi([T]);
+    const api = stubTicketApi([fresh()]);
     renderAt("/tickets/7");
     await waitForTitle();
     fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
@@ -144,7 +146,7 @@ describe("054 H: editing", () => {
   });
 
   it("given /tickets/7?modifier=1, when the page loads, then the edit form is already open", async () => {
-    stubTicketApi([T]);
+    stubTicketApi([fresh()]);
     renderAt("/tickets/7?modifier=1");
 
     expect(await screen.findByLabelText("Titre")).toBeDefined();
@@ -159,7 +161,7 @@ describe("054 H: editing", () => {
 
 describe("review 4 and 7: the form of the ticket page", () => {
   it("given a tag typed without Enter, when Enregistrer is clicked, then the PATCH holds it", async () => {
-    const api = stubTicketApi([T]);
+    const api = stubTicketApi([fresh()]);
     renderAt("/tickets/7");
     await waitForTitle();
     fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
@@ -176,7 +178,7 @@ describe("review 4 and 7: the form of the ticket page", () => {
   });
 
   it("given the server answers 400 after a tag was edited, when Enregistrer is clicked, then the alert talks about tags", async () => {
-    const api = stubTicketApi([T]);
+    const api = stubTicketApi([fresh()]);
     api.failNext.patch = fail(400, "Bad request");
     renderAt("/tickets/7");
     await waitForTitle();
@@ -191,7 +193,7 @@ describe("review 4 and 7: the form of the ticket page", () => {
   });
 
   it("given the page opened on ?modifier=1, when Enregistrer succeeds, then the address has no modifier any more", async () => {
-    stubTicketApi([T]);
+    stubTicketApi([fresh()]);
     renderAt("/tickets/7?modifier=1");
     await screen.findByLabelText("Titre");
 
