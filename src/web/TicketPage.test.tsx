@@ -269,7 +269,11 @@ describe("Ticket page, deleting", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/projets/5"));
     // The project page opens on its Kanban, whose heading is a sentence (045 D): its Tickets tab says it has loaded.
     // Decision 028 G: the tickets are listed in the Tickets tab, not on the Kanban tab the project opens on.
-    fireEvent.click(await screen.findByRole("link", { name: "Tickets" }));
+    // The tab of the project page, never the breadcrumb « Tickets » of the ticket page still on screen while the navigation commits.
+    const tabs = await screen.findByRole("navigation", {
+      name: "Sections du projet",
+    });
+    fireEvent.click(within(tabs).getByRole("link", { name: /^Tickets/ }));
     // Decision 055 F: a row is a button that opens the panel.
     await screen.findByRole("button", { name: "Survit" });
     expect(screen.queryByRole("button", { name: "Disparaît" })).toBeNull();

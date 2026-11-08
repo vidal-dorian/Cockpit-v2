@@ -1409,6 +1409,7 @@ describe("criterion 6: list_tickets_needing_us", () => {
 
     const data = await list(w);
 
+    // Decision 058 H adds attachments_count.
     expect(data.tickets).toEqual([
       {
         id: w.t.needsA,
@@ -1417,6 +1418,7 @@ describe("criterion 6: list_tickets_needing_us", () => {
         title: "Sans US A",
         description_md: "description-A",
         stories_written: 0,
+        attachments_count: 0,
       },
       {
         id: w.t.needsB,
@@ -1425,6 +1427,7 @@ describe("criterion 6: list_tickets_needing_us", () => {
         title: "Sans US B",
         description_md: "description-B",
         stories_written: 0,
+        attachments_count: 0,
       },
       {
         id: w.t.partial,
@@ -1433,6 +1436,7 @@ describe("criterion 6: list_tickets_needing_us", () => {
         title: "À moitié écrit",
         description_md: "reste",
         stories_written: 2,
+        attachments_count: 0,
       },
     ]);
     expect(data.stories_to_rewrite).toEqual([

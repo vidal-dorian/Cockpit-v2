@@ -29,7 +29,7 @@ import { makeTicket } from "./test-tickets.ts";
 // - Another user's attachment, an unknown id and arguments that do not fit are refused ("Refused: ..."), without any content of the file in the answer.
 //   An archived project's attachment is read normally.
 // - The call leaves ONE history entry: origin mcp, actor claude, action get_attachment, args exactly { attachmentId }, project_id and ticket_id of the attachment's ticket, result ok.
-// - tools/list shows 23 tools: get_attachment has an input schema requiring `attachment_id`.
+// - tools/list shows 24 tools (23 before this slice, with the launcher's): get_attachment has an input schema requiring `attachment_id`.
 
 const ctxOf = async () => {
   const ctx = await withProject();
@@ -323,7 +323,7 @@ describe("058 H: tools/list", () => {
 
     const tools = await listedTools(app, alice.secret);
 
-    expect(tools).toHaveLength(23);
+    expect(tools).toHaveLength(24);
     const tool = tools.find((t) => t.name === "get_attachment");
     expect(tool?.inputSchema?.required).toEqual(["attachment_id"]);
     expect(tool?.description).toMatch(/100[, ]?000/);
