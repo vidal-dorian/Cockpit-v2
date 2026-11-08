@@ -258,8 +258,12 @@ function Shell() {
               element={<Settings tab="utilisateurs" />}
             />
             <Route
+              path="/reglages/taches-cloud"
+              element={<Settings tab="taches-cloud" />}
+            />
+            <Route
               path="/reglages/ecriture-us"
-              element={<Settings tab="ecriture-us" />}
+              element={<Navigate to="/reglages/taches-cloud" replace />}
             />
             <Route path="/bienvenue" element={<Welcome />} />
             {/* The wizard's address: once it is done, nothing to show there. */}

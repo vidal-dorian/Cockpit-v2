@@ -13,6 +13,7 @@ import { alertRoutes } from "./github-alerts.ts";
 import { historyRoutes } from "./history.ts";
 import { homeRoutes } from "./home.ts";
 import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
+import { launcherRoutes } from "./launcher.ts";
 import { mcpRoutes } from "./mcp.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
@@ -106,6 +107,7 @@ export function createApp(
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
+      .route("/", launcherRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))

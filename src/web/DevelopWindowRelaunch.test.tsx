@@ -96,7 +96,7 @@ describe("criterion 8: the window for an in_review story", () => {
     const panel = await screen.findByRole("complementary", {
       name: "Développer avec Claude",
     });
-    expect(within(panel).queryByRole("radio")).toBeNull();
+    expect(within(panel).queryByRole("radio", { name: /branche/i })).toBeNull();
     expect(panel.textContent).toContain("us/42-me-connecter");
     const folder = within(panel).getByLabelText("Dossier du clone");
     fireEvent.change(folder, { target: { value: "/home/dorian/code/hello" } });

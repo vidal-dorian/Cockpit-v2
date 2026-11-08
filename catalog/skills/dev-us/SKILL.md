@@ -5,7 +5,7 @@ description: Develop one user story of Cockpit from start to pull request. Use w
 
 # Develop a user story
 
-The message is `/dev-us <story_id> [--branch <name>] [--team <name>]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
+The message is `/dev-us <story_id> [--branch <name>] [--team <name>] [--launch <id>]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
 
 The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, the `cockpit` MCP server is not connected: tell the user and stop.
 
@@ -26,7 +26,7 @@ If a check fails, stop and say why. Change nothing.
 
 ## Start the run
 
-Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why. If the user gave an extra prompt after the options, pass it to `start_run` as `comment`.
+Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why. If the user gave an extra prompt after the options, pass it to `start_run` as `comment`. With `--launch <id>`, pass the value as it is to `start_run` in `launch_id`.
 
 From now on, whenever you stop before the pull request is linked with `link_pull_request` (a refused tool, a step that fails for good, a test you must not change), first call `mcp__cockpit__finish_run` with `outcome` `failed` and the reason in the `summary`: otherwise the story stays "in progress" and cannot be started again.
 

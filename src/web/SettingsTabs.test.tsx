@@ -113,7 +113,7 @@ const TABS = {
 const HREFS: Record<string, string> = {
   [TABS.claude]: "/reglages",
   [TABS.users]: "/reglages/utilisateurs",
-  [TABS.routine]: "/reglages/ecriture-us",
+  [TABS.routine]: "/reglages/taches-cloud",
 };
 const SECTIONS: Record<string, string> = {
   [TABS.claude]: "Connecter Claude",
@@ -152,7 +152,7 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
 
   it.each([
     [TABS.users, "/reglages/utilisateurs"],
-    [TABS.routine, "/reglages/ecriture-us"],
+    [TABS.routine, "/reglages/taches-cloud"],
   ])(
     "given an administrator, when %s is the route %s, then that tab alone is marked open",
     async (open, path) => {
@@ -187,7 +187,7 @@ describe("Réglages, the four tabs (decision 028 H)", () => {
 
   it.each([
     [TABS.users, "/reglages/utilisateurs"],
-    [TABS.routine, "/reglages/ecriture-us"],
+    [TABS.routine, "/reglages/taches-cloud"],
   ])(
     "given an administrator, when %s is open at %s, then only its own section is shown",
     async (tab, path) => {
@@ -244,9 +244,9 @@ describe("Réglages, no more public address (decision 028 I)", () => {
   it.each([
     ["an administrator", true, "/reglages"],
     ["an administrator", true, "/reglages/utilisateurs"],
-    ["an administrator", true, "/reglages/ecriture-us"],
+    ["an administrator", true, "/reglages/taches-cloud"],
     ["a user who is not an administrator", false, "/reglages"],
-    ["a user who is not an administrator", false, "/reglages/ecriture-us"],
+    ["a user who is not an administrator", false, "/reglages/taches-cloud"],
   ])(
     "given %s (administrator: %s), when %s is opened, then there is no section Adresse publique and /api/settings/public-url is never requested",
     async (_who, isAdmin, path) => {

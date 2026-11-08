@@ -59,7 +59,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S21](S21_Ticket.png) | Un ticket, ses US, ses pièces jointes | 3.1 (existe), 11.4 | 014 | |
 | [S22](S22_US_AValider.png) | Une US à valider, la décision à droite | 4.4 (existe) | 018 | |
 | [S23](S23_US_Renvoyer.png) | Renvoyer une US à Claude, avec un commentaire obligatoire | 4.4 (existe) | 018 | |
-| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2 (existe), 14.1, 14.6 | 034, 044 | le choix du cloud (14.1) |
+| [S24](S24_US_Developper.png) | Développer avec Claude : cloud, ce PC ou cette nuit | 7.2, 14.1 (existent), 14.6 | 034, 044, 054 | |
 | [S25](S25_US_EnRevue.png) | Une US en revue : la PR, la CI, le verdict | 7.6, 7.7 (existent) | 038, 039 | |
 | [S26](S26_IssueModifiee.png) | Issue modifiée sur GitHub : choisir la version | 5.2 (existe) | 025 | |
 | [S27](S27_ImporterIssues.png) | Importer les issues GitHub | 11.3 | 020 | |
@@ -106,7 +106,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | |
-| [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8 (existe), 14.6 | 022, 044 | |
+| [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1 (existent), 14.6 | 022, 044, 054 | |
 | [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | le thème clair |
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | **les rôles** |
 | [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | **les prix** ([offres](../offres.md)) |
