@@ -84,6 +84,8 @@ async function handleIssueEdited(db: Db, deps: Deps, delivery: Delivery) {
     );
   if (!found) return;
   const { story, ticket, userId } = found;
+  // An imported story (decision 056 D) has no render of Cockpit on GitHub to differ from before its first publication.
+  if (story.issueBodyHash === null) return;
   const rendered = renderStory(story, await storyParts(db, story.id));
   // GitHub's web editor sends CRLF line endings; Cockpit's render only has LF.
   const body = (issue.body ?? "").replaceAll("\r\n", "\n");
