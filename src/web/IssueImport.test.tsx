@@ -11,7 +11,7 @@ import { issue, stubImport } from "./test-issue-import.tsx";
 import { renderAt } from "./test-tickets.tsx";
 import { rich } from "./test-tickets-full.tsx";
 
-// Slice 11.3, decision 056 F (S27): the import screen, at /projets/:id/tickets/importer.
+// Slice 11.3, decision 057 F (S27): the import screen, at /projets/:id/tickets/importer.
 //
 // Pinned choices (the decision and the screen leave them open):
 // - The link « Importer les issues » of the Tickets tab (a link, href /projets/5/tickets/importer) opens it; the breadcrumb is Projets (/projets) › the repo name without its owner (/projets/5) › Tickets (/projets/5/tickets).
@@ -54,7 +54,7 @@ const box = (li: HTMLElement) =>
   li.querySelector<HTMLInputElement>('input[type="checkbox"]');
 const button = (name: string) => screen.findByRole("button", { name });
 
-describe("056 F: how the screen is reached", () => {
+describe("057 F: how the screen is reached", () => {
   it("given the Tickets tab, when it loads, then a link Importer les issues leads to /projets/5/tickets/importer and opens the screen", async () => {
     stubImport(ISSUES, { tickets: [rich(11, "Exporter en CSV")] });
     renderAt("/projets/5/tickets");
@@ -87,7 +87,7 @@ describe("056 F: how the screen is reached", () => {
   });
 });
 
-describe("056 F: the sentences and the chips", () => {
+describe("057 F: the sentences and the chips", () => {
   it("given 6 open issues, when the screen loads, then the h1 says how many are open and that nothing is written on GitHub", async () => {
     await open();
 
@@ -114,7 +114,7 @@ describe("056 F: the sentences and the chips", () => {
   });
 });
 
-describe("056 F: the rows", () => {
+describe("057 F: the rows", () => {
   it("given the default chip, when the screen loads, then the four importable issues are rows with a checked box and their subtitle, and the others are not listed", async () => {
     await open();
 
@@ -165,7 +165,7 @@ describe("056 F: the rows", () => {
   });
 });
 
-describe("056 F: the checkboxes and the button", () => {
+describe("057 F: the checkboxes and the button", () => {
   it("given every row checked, when the screen loads, then the button reads Importer 4 issues with the sentence of the two kinds", async () => {
     await open();
 
@@ -211,7 +211,7 @@ describe("056 F: the checkboxes and the button", () => {
   });
 });
 
-describe("056 F: the import", () => {
+describe("057 F: the import", () => {
   it("given #55 is unchecked, when Importer 3 issues is clicked, then the POST sends the three checked numbers only", async () => {
     const api = await open();
     fireEvent.click(
@@ -247,7 +247,7 @@ describe("056 F: the import", () => {
   });
 });
 
-describe("056 F: singular forms", () => {
+describe("057 F: singular forms", () => {
   it("given one story and one ticket checked, when the screen reads, then the button says Importer 2 issues and the sentence uses the singular of both", async () => {
     await open();
     for (const text of [
@@ -280,7 +280,7 @@ describe("056 F: singular forms", () => {
   });
 });
 
-describe("056 F: an archived project", () => {
+describe("057 F: an archived project", () => {
   it("given an archived project, when the Tickets tab loads, then there is no link Importer les issues", async () => {
     stubImport(ISSUES, {
       archived: true,
@@ -308,7 +308,7 @@ describe("056 F: an archived project", () => {
   });
 });
 
-describe("056 F: GitHub is down on the list", () => {
+describe("057 F: GitHub is down on the list", () => {
   it("given the list answers 502, when the screen loads, then it says GitHub est injoignable, réessaie. and offers no import", async () => {
     await open(ISSUES, { listStatus: 502 });
 

@@ -19,7 +19,7 @@ import {
 } from "./test-issue-import.ts";
 import { seedStory, seedTicket, withProject } from "./test-mcp.ts";
 
-// Decision 056 D (slice 11.3): the import writes nothing on GitHub; the issue of an imported story is the issue of that story from its next publication on,
+// Decision 057 D (slice 11.3): the import writes nothing on GitHub; the issue of an imported story is the issue of that story from its next publication on,
 // and an edit made on GitHub before that publication is no divergence. The shapes are pinned at the top of test-issue-import.ts.
 
 afterEach(() => {
@@ -44,7 +44,7 @@ async function imported() {
 const publish = (s: Ctx, id: number) =>
   send(s.app, s.alice.cookie, "POST", `/api/stories/${id}/publish`);
 
-describe("056 D: the import writes nothing on GitHub", () => {
+describe("057 D: the import writes nothing on GitHub", () => {
   it("given an import of a story and a bug, when it is done, then no write call was made, the issues are as they were and no sync entry exists", async () => {
     const s = await imported();
 
@@ -63,7 +63,7 @@ describe("056 D: the import writes nothing on GitHub", () => {
   });
 });
 
-describe("056 D: the next publication reuses the issue", () => {
+describe("057 D: the next publication reuses the issue", () => {
   it("given an imported story, when it is published, then issue 58 is rewritten with the template and the label cockpit: prête, and no second issue is created", async () => {
     const s = await imported();
 
@@ -118,7 +118,7 @@ describe("056 D: the next publication reuses the issue", () => {
   });
 });
 
-describe("056 D: an edit on GitHub before the first publication", () => {
+describe("057 D: an edit on GitHub before the first publication", () => {
   it("given an imported story (its ticket comes from the issue 58, the story has issue 58, no body hash), when the issue is edited on GitHub, then the story is not marked diverged and no issue_diverged entry is written", async () => {
     const s = await withProject();
     const ticket = await seedTicket(s.db, s.projectId, "Importé");

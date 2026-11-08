@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { send } from "./test-decisions.ts";
 import { type App, rows, type TestDb } from "./test-mcp.ts";
 
-// Shared by the tests of slice 11.3 (decision 056): the routes called the way the page calls them, and the tables read with raw SQL.
+// Shared by the tests of slice 11.3 (decision 057): the routes called the way the page calls them, and the tables read with raw SQL.
 //
 // Pinned shapes (the decision leaves them open):
 // - GET /api/projects/:id/issues -> 200 { issues: [{ number, title, state: "open" | "closed", kind: "story" | "ticket",

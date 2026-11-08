@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story } from "./test-tickets.tsx";
 import { rich, stubTab } from "./test-tickets-full.tsx";
 
-// Slice 11.3, decision 056 G and H: a ticket imported from an issue says so, and its text comes from a third party.
+// Slice 11.3, decision 057 G and H: a ticket imported from an issue says so, and its text comes from a third party.
 //
 // Pinned choices (the decision leaves them open):
 // - A ticket carries `githubIssueNumber: number | null`. When it is a number, the ticket page (/tickets/:id) and the panel of the Tickets tab show « Importé de l'issue #57 ↗ »
@@ -34,7 +34,7 @@ function expectIssueLink(root: HTMLElement) {
   expect(link.getAttribute("rel")).toContain("noopener");
 }
 
-describe("056 G: the ticket page", () => {
+describe("057 G: the ticket page", () => {
   it("given a ticket imported from the issue 57, when its page loads, then it says Importé de l'issue #57 with a link to the issue on GitHub", async () => {
     stubTab([imported(7, "Le bouton ne répond pas", "Du texte")] as never, []);
 
@@ -60,7 +60,7 @@ describe("056 G: the ticket page", () => {
   });
 });
 
-describe("056 G: the panel of the Tickets tab", () => {
+describe("057 G: the panel of the Tickets tab", () => {
   it("given an imported ticket and a ticket made by hand, when each row is opened, then the panel of the imported one links to the issue and the other says nothing", async () => {
     stubTab(
       [
@@ -83,7 +83,7 @@ describe("056 G: the panel of the Tickets tab", () => {
   });
 });
 
-describe("056 H: the text that comes from GitHub", () => {
+describe("057 H: the text that comes from GitHub", () => {
   const body = [
     'Avant <img src=x onerror=alert(1)> milieu <script>window.__pwned = 1</script> <b onclick="alert(2)">gras HTML</b>',
     "",

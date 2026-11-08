@@ -24,7 +24,7 @@ class GithubDown extends Error {
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
-/** « Importé de l'issue #57 ↗ »: the link of an imported ticket to its issue (decision 056 G). */
+/** « Importé de l'issue #57 ↗ »: the link of an imported ticket to its issue (decision 057 G). */
 export function ImportedFrom({
   fullName,
   number,
@@ -65,7 +65,7 @@ const subtitle = (issue: Issue) =>
         ? "écrite comme une US · deviendra une US validée"
         : "deviendra un ticket « Nouveau »";
 
-/** The import screen (decision 056 F, S27): the open issues of the repo, those to import checked by default. */
+/** The import screen (decision 057 F, S27): the open issues of the repo, those to import checked by default. */
 export function IssueImport() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();

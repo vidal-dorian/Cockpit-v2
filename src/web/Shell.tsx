@@ -253,6 +253,9 @@ export function Sidebar() {
             </>
           )}
         </NavLink>
+        <NavLink to="/claude/taches" className={navItem}>
+          Claude
+        </NavLink>
         {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}
         {projects.map((p) => {
           const count = forYou.filter(

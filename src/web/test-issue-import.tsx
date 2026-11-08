@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { type RichTicket, stubTab } from "./test-tickets-full.tsx";
 
-// Shared by the acceptance tests of slice 11.3 (decision 056, S27): the import screen over the fake of project 5 (octocat/hello).
+// Shared by the acceptance tests of slice 11.3 (decision 057, S27): the import screen over the fake of project 5 (octocat/hello).
 //
 // Pinned shapes (the decision leaves them open), the same as the server's (see src/server/test-issue-import.ts):
 // - GET /api/projects/5/issues -> { issues: [{ number, title, state, kind, inCockpit }] }, or 502 { error: "github_unavailable" }.

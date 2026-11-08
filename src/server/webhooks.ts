@@ -84,7 +84,7 @@ async function handleIssueEdited(db: Db, deps: Deps, delivery: Delivery) {
     );
   if (!found) return;
   const { story, ticket, userId } = found;
-  // An imported story (decision 056 D) has no render of Cockpit on GitHub to differ from before its first publication.
+  // An imported story (decision 057 D) has no render of Cockpit on GitHub to differ from before its first publication.
   if (
     story.issueBodyHash === null &&
     ticket.githubIssueNumber === story.issueNumber

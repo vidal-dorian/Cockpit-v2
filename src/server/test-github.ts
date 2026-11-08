@@ -236,7 +236,7 @@ export function failOnUnexpectedFetch() {
  * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
  * with 500 every call it returns true for (or with the status it returns), to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
  * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
- * Reading the issues (slice 11.3, decision 056 A): `GET /repos/{o}/{r}/issues?state=open|closed|all&per_page&page` (state defaults to open, `per_page` at most 100, newest number first, pull requests included with a
+ * Reading the issues (slice 11.3, decision 057 A): `GET /repos/{o}/{r}/issues?state=open|closed|all&per_page&page` (state defaults to open, `per_page` at most 100, newest number first, pull requests included with a
  * `pull_request` key, a `Link: <next>; rel="next"` header when more pages exist; `issuesStatus` and `failOn` apply). `seedIssues(fullName, [{ number, title, body?, state?, pull?, labels? }])` puts issues
  * (or pull requests) in a repo under the numbers a test chooses (a created issue takes the number after the highest); the calls made are in `githubCalls`, so "no write" is
  * `issueCalls(mock).filter((c) => c.method !== "GET")` equal to `[]`.

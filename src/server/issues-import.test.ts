@@ -27,7 +27,7 @@ import {
   withProject,
 } from "./test-mcp.ts";
 
-// Decision 056 C and E (slice 11.3): POST /api/projects/:id/issues/import. The shapes are pinned at the top of test-issue-import.ts.
+// Decision 057 C and E (slice 11.3): POST /api/projects/:id/issues/import. The shapes are pinned at the top of test-issue-import.ts.
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -38,7 +38,7 @@ const run = (s: Ctx, numbers: unknown) =>
   importIssues(s.app, s.alice.cookie, s.projectId, numbers);
 const counts = async (res: Response) => (await res.json()) as Counts;
 
-describe("056 C: who may import, and what is refused", () => {
+describe("057 C: who may import, and what is refused", () => {
   it("given no session, when an import is sent, then 401, nothing is created and GitHub is not called", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [{ number: 1, title: "Une" }]);
@@ -134,7 +134,7 @@ describe("056 C: who may import, and what is refused", () => {
   });
 });
 
-describe("056 C: the ticket made from an issue", () => {
+describe("057 C: the ticket made from an issue", () => {
   it("given an issue that is not a story, when it is imported, then a ticket is made from its title and body, with the normal priority, no tag, its issue number and no story", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [
@@ -282,7 +282,7 @@ describe("056 C: the ticket made from an issue", () => {
   });
 });
 
-describe("056 C: the story made from an issue written as one", () => {
+describe("057 C: the story made from an issue written as one", () => {
   it("given an issue written as a user story, when it is imported, then a ticket and one ready story are made, with the narrative, the criteria in order, the issue number, no body hash, and the ticket is marked as written", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [
@@ -366,7 +366,7 @@ describe("056 C: the story made from an issue written as one", () => {
   });
 });
 
-describe("056 C: Cockpit reads GitHub again", () => {
+describe("057 C: Cockpit reads GitHub again", () => {
   it("given the title and the body changed on GitHub after the list was shown, when the import is sent, then the ticket has what GitHub holds now, and a bug turned into a story is a story", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [
@@ -421,7 +421,7 @@ describe("056 C: Cockpit reads GitHub again", () => {
   });
 });
 
-describe("056 C: the history", () => {
+describe("057 C: the history", () => {
   it("given an import of a story, a bug and a closed issue, when it is done, then ONE import_issues entry (human, ui, the user, the project) holds the three counts and no text", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [
@@ -452,7 +452,7 @@ describe("056 C: the history", () => {
   });
 });
 
-describe("056 E: no duplicate", () => {
+describe("057 E: no duplicate", () => {
   it("given an import already done, when the same numbers are imported again, then nothing is created and every number is skipped", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [
@@ -490,7 +490,7 @@ describe("056 E: no duplicate", () => {
   });
 });
 
-describe("056 E: a concurrent import wins between the read and the insert", () => {
+describe("057 E: a concurrent import wins between the read and the insert", () => {
   // Review of 11.3: a ticket for the issue 57 appears while the server reads GitHub: the import answers 200 and skips it, never a 500.
   // shortcut: the ticket lands before the transaction, so it is skipped as already known; PGlite runs one transaction at a time, so the `onConflictDoNothing` branch itself is only covered by the unique index test above, test it on a real PostgreSQL if imports ever race.
   it("given a ticket from the issue 57 is created while the import reads GitHub, when the import of 57 and 58 ends, then 200 with 57 skipped and 58 imported", async () => {
@@ -530,7 +530,7 @@ describe("056 E: a concurrent import wins between the read and the insert", () =
   });
 });
 
-describe("056 E: the unique index", () => {
+describe("057 E: the unique index", () => {
   const insert = (s: Ctx, projectId: number, number: number | null) =>
     s.db.execute(
       sql`insert into tickets (project_id, title, description_md, github_issue_number) values (${projectId}, 'T', '', ${number})`,

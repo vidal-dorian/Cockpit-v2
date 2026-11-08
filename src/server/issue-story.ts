@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { criterionText, narrative } from "./tickets.ts";
 
-// Decision 056 B: is an issue written as a user story? Pure; every search below is a linear scan (no nested lazy regex), the body is a stranger's text.
+// Decision 057 B: is an issue written as a user story? Pure; every search below is a linear scan (no nested lazy regex), the body is a stranger's text.
 
 const BULLET = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/u;
 
@@ -97,7 +97,7 @@ function readCriteria(lines: string[]) {
   return criteria;
 }
 
-/** The user story an issue body is written as (decision 056 B), or null when it is a ticket: no narrative, no criterion, or over the limits of `create_user_stories`. */
+/** The user story an issue body is written as (decision 057 B), or null when it is a ticket: no narrative, no criterion, or over the limits of `create_user_stories`. */
 export function readStoryIssue(body: string) {
   // Runs of whitespace are collapsed first, so `\s+` never scans a long run again and again.
   const lines = body

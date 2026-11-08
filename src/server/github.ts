@@ -1199,7 +1199,7 @@ export function githubClient(config: GitHubAppConfig) {
       return { ...done, changed: changes.map((change) => change.path) };
     },
 
-    /** The issues of a repo, open and closed, pull requests left out (decision 056 A). Shortcut: 10 pages of 100 at most, the oldest are not listed. Errors are left to the caller. */
+    /** The issues of a repo, open and closed, pull requests left out (decision 057 A). Shortcut: 10 pages of 100 at most, the oldest are not listed. Errors are left to the caller. */
     async listIssues(installationId: number, fullName: string) {
       const [owner, repo] = fullName.split("/") as [string, string];
       const octokit = await app.getInstallationOctokit(installationId);

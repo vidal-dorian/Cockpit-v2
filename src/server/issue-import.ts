@@ -10,7 +10,7 @@ import { readStoryIssue } from "./issue-story.ts";
 import { memberProject } from "./projects.ts";
 import { assertActive, body, refusal } from "./tickets.ts";
 
-// Decisions 056 A, C and E (slice 11.3): the open issues of a repo become tickets, or ready stories when they are written as one.
+// Decisions 057 A, C and E (slice 11.3): the open issues of a repo become tickets, or ready stories when they are written as one.
 
 const MENTION = "(tronqué : la suite est sur GitHub)";
 const TITLE_MAX = 200;

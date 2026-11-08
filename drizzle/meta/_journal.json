@@ -222,8 +222,15 @@
     {
       "idx": 31,
       "version": "7",
-      "when": 1794142416714,
-      "tag": "0031_vengeful_cyclops",
+      "when": 1794142797306,
+      "tag": "0031_absent_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794144170247,
+      "tag": "0032_dark_white_tiger",
       "breakpoints": true
     }
   ]

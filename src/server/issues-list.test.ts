@@ -13,7 +13,7 @@ import {
 } from "./test-issue-import.ts";
 import { seedStory, seedTicket, withProject } from "./test-mcp.ts";
 
-// Decision 056 A (slice 11.3): GET /api/projects/:id/issues. The shapes are pinned at the top of test-issue-import.ts.
+// Decision 057 A (slice 11.3): GET /api/projects/:id/issues. The shapes are pinned at the top of test-issue-import.ts.
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -24,7 +24,7 @@ const read = async (res: Response) =>
 const byNumber = (list: Listed[]) =>
   [...list].sort((a, b) => a.number - b.number);
 
-describe("056 A: who may read", () => {
+describe("057 A: who may read", () => {
   it("given no session, when the issues are listed, then 401 and GitHub is not called", async () => {
     const s = await withProject();
 
@@ -46,7 +46,7 @@ describe("056 A: who may read", () => {
   });
 });
 
-describe("056 A: what is listed", () => {
+describe("057 A: what is listed", () => {
   it("given open and closed issues and a pull request among them, when the issues are listed, then each issue has number, title, state, kind and inCockpit, and the pull request is absent", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(REPO, [
@@ -142,7 +142,7 @@ describe("056 A: what is listed", () => {
   });
 });
 
-describe("056 A: the pages", () => {
+describe("057 A: the pages", () => {
   it("given 250 issues, when the issues are listed, then the three pages are followed and all 250 are listed", async () => {
     const s = await withProject();
     s.fetchMock.seedIssues(
@@ -205,7 +205,7 @@ describe("056 A: the pages", () => {
   });
 });
 
-describe("056 A: GitHub is down, and what the read leaves", () => {
+describe("057 A: GitHub is down, and what the read leaves", () => {
   it("given GitHub answers 500, when the issues are listed, then 502 github_unavailable and no history entry", async () => {
     const s = await withProject({ issuesStatus: 500 });
 

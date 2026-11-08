@@ -5,6 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { authRoutes } from "./auth.ts";
 import { codeMapRoutes } from "./code-map.ts";
+import { customRoutineRoutes } from "./custom-routines.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
 import { findingRoutes } from "./findings.ts";
@@ -110,6 +111,7 @@ export function createApp(
       .route("/", homeRoutes(db))
       .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", launcherRoutes(db, { encryptionKey, fireRoutine }, now))
+      .route("/", customRoutineRoutes(db, { encryptionKey, fireRoutine }, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))

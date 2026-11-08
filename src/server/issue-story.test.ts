@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { renderIssue } from "./issue-render.ts";
 
-// Decision 056 B (slice 11.3): is an issue written as a user story? A pure function, tested alone.
+// Decision 057 B (slice 11.3): is an issue written as a user story? A pure function, tested alone.
 //
 // Pinned here (the decision leaves them open):
 // - `readStoryIssue(body: string)` is exported by the new module src/server/issue-story.ts. It returns
@@ -35,7 +35,7 @@ const readStoryIssue = async (body: string) =>
   (await import("./issue-story.ts")).readStoryIssue(body);
 const read = (...lines: string[]) => readStoryIssue(lines.join("\n"));
 
-describe("056 B: the narrative", async () => {
+describe("057 B: the narrative", async () => {
   it.each([
     ["French with commas", NARRATIVE],
     [
@@ -124,7 +124,7 @@ describe("056 B: the narrative", async () => {
   });
 });
 
-describe("056 B: the criteria", async () => {
+describe("057 B: the criteria", async () => {
   const withCriteria = (...lines: string[]) => read(NARRATIVE, "", ...lines);
 
   it.each([
@@ -257,7 +257,7 @@ describe("056 B: the criteria", async () => {
   });
 });
 
-describe("056 B: the template of Cockpit (decision 020 B)", async () => {
+describe("057 B: the template of Cockpit (decision 020 B)", async () => {
   it("given the body Cockpit renders for a story, when it is read, then the same story comes back, whatever its notes and dependencies", async () => {
     const { body } = renderIssue({
       id: 42,
@@ -293,7 +293,7 @@ describe("056 B: the template of Cockpit (decision 020 B)", async () => {
   });
 });
 
-describe("056 B: what is not a story", async () => {
+describe("057 B: what is not a story", async () => {
   it.each([
     ["an empty body", ""],
     [
@@ -324,7 +324,7 @@ describe("056 B: what is not a story", async () => {
 
 // Review of 11.3 (B1): a body is third-party text of up to 65,536 characters; reading it must never take long, whatever the separators between the keywords
 // (a regex with nested or adjacent whitespace quantifiers backtracks quadratically on such text). Each case must answer (a story or null) in under 200 ms.
-describe("056 B: adversarial bodies stay fast", () => {
+describe("057 B: adversarial bodies stay fast", () => {
   const N = 65_000;
   const SEPARATORS = [
     ["space", " "],

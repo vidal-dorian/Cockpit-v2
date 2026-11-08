@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
@@ -6,9 +6,9 @@ import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
   cloudLaunches,
-  history,
   projectMembers,
   projects,
+  routines,
   runs,
   userStories,
 } from "./db/schema.ts";
@@ -17,8 +17,7 @@ import {
   connectBody,
   entryOf,
   type Fire,
-  fire,
-  refuseEntry,
+  launchCloud,
   removeTask,
   saveTask,
   signedIn,
@@ -50,7 +49,7 @@ const launchBody = z.object({
   comment: z.string().max(10_000).refine(noNul).optional(),
 });
 
-/** `get_launch` (decision 054 F): the launch of the caller, with what Claude needs to start `/dev-us`. Nobody else's. */
+/** `get_launch` (decision 054 F, 056 C): the launch of the caller, with what Claude needs to start `/dev-us` or to run the routine. Nobody else's. */
 export function getLaunch(
   db: Db,
   userId: number,
@@ -60,9 +59,10 @@ export function getLaunch(
   entry.args = { launchId: args.launch_id };
   return act(db, entry, async (tx) => {
     const [row] = await tx
-      .select({ launch: cloudLaunches, project: projects })
+      .select({ launch: cloudLaunches, project: projects, routine: routines })
       .from(cloudLaunches)
-      .innerJoin(projects, eq(projects.id, cloudLaunches.projectId))
+      .leftJoin(projects, eq(projects.id, cloudLaunches.projectId))
+      .leftJoin(routines, eq(routines.id, cloudLaunches.routineId))
       .where(
         and(
           eq(cloudLaunches.id, args.launch_id),
@@ -70,18 +70,33 @@ export function getLaunch(
         ),
       );
     if (!row) throw new Refused("not_found");
-    const { launch, project } = row;
+    const { launch, project, routine } = row;
+    const asProject = (p: typeof projects.$inferSelect) => ({
+      id: p.id,
+      full_name: p.fullName,
+      default_branch: p.defaultBranch,
+    });
+    if (routine) {
+      const list = await tx
+        .select()
+        .from(projects)
+        .where(inArray(projects.id, routine.projectIds));
+      return {
+        launch_id: launch.id,
+        kind: "routine" as const,
+        projects: list.map(asProject),
+        instructions: `Run the routine "${routine.name}" of the user in the repositories ${list.map((p) => p.fullName).join(", ")}: ${routine.instruction}.${routine.agents.length ? ` Use the agents ${routine.agents.join(", ")} of .claude/agents.` : ""} When done, call finish_launch.`,
+      };
+    }
+    if (!project || launch.storyId === null) throw new Refused("not_found");
     entry.projectId = project.id;
     entry.storyId = launch.storyId;
     const command = `/dev-us ${launch.storyId} --branch ${launch.branch}${launch.team ? ` --team ${launch.team}` : ""} --launch ${launch.id}`;
     return {
       launch_id: launch.id,
+      kind: "story" as const,
       instructions: `In the repository ${project.fullName}, run \`${command}\`${launch.comment ? ", with the `comment` as its extra prompt" : ""}. Push only to the branch ${launch.branch} and work only on that story.`,
-      project: {
-        id: project.id,
-        full_name: project.fullName,
-        default_branch: project.defaultBranch,
-      },
+      project: asProject(project),
       story_id: launch.storyId,
       branch: launch.branch,
       team: launch.team,
@@ -110,8 +125,23 @@ export function reportLaunch(
       )
       .for("update");
     if (!launch) throw new Refused("not_found");
+    // A routine has no single repository to untick: the passage fails.
+    if (launch.routineId !== null) {
+      if (launch.finishedAt) throw new Refused("launch_finished");
+      await tx
+        .update(cloudLaunches)
+        .set({
+          reason: args.reason,
+          finishedAt: new Date(),
+          outcome: "failed",
+          summary: args.reason,
+        })
+        .where(eq(cloudLaunches.id, launch.id));
+      return { launch_id: launch.id, reason: args.reason };
+    }
+    if (launch.projectId === null) throw new Refused("not_found");
     entry.projectId = launch.projectId;
-    entry.storyId = launch.storyId;
+    entry.storyId = launch.storyId ?? undefined;
     if (launch.runId !== null) throw new Refused("launch_started");
     await tx
       .update(cloudLaunches)
@@ -130,11 +160,48 @@ export function reportLaunch(
   });
 }
 
+/** `finish_launch` (decision 056 D): Claude says how a routine passage ended, once. A story ends with `finish_run`. */
+export function finishLaunch(
+  db: Db,
+  userId: number,
+  entry: Entry,
+  args: {
+    launch_id: number;
+    outcome: "succeeded" | "failed";
+    summary: string;
+  },
+) {
+  entry.args = { launchId: args.launch_id, outcome: args.outcome };
+  return act(db, entry, async (tx) => {
+    const [launch] = await tx
+      .select()
+      .from(cloudLaunches)
+      .where(
+        and(
+          eq(cloudLaunches.id, args.launch_id),
+          eq(cloudLaunches.userId, userId),
+        ),
+      )
+      .for("update");
+    if (!launch) throw new Refused("not_found");
+    if (launch.routineId === null) throw new Refused("not_a_routine");
+    if (launch.finishedAt) throw new Refused("launch_finished");
+    await tx
+      .update(cloudLaunches)
+      .set({
+        finishedAt: new Date(),
+        outcome: args.outcome,
+        summary: args.summary,
+      })
+      .where(eq(cloudLaunches.id, launch.id));
+    return { launch_id: launch.id, outcome: args.outcome };
+  });
+}
+
 /** The launcher of the user (decision 054 C), the projects ticked for it (D) and the launch of a story (E). */
 export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
   const signed = signedIn(db);
-  const launcherOf = (tx: Db, userId: number) =>
-    taskOf(tx, cloudLaunchers, userId);
+  const launcherOf = (userId: number) => taskOf(db, cloudLaunchers, userId);
   // `missingProjectIds`: projects whose last launch reported `repository_not_in_task` and that are still unticked (decision 054 D).
   const present = async (
     userId: number,
@@ -161,6 +228,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
     const missingProjectIds = last
       .filter(
         (l) =>
+          l.projectId !== null &&
           l.reason === "repository_not_in_task" &&
           !projectIds.includes(l.projectId),
       )
@@ -180,7 +248,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
     .use("/api/stories/:id/launch", signed)
     .get("/api/me/launcher", async (c) => {
       const userId = c.get("userId");
-      return c.json(await present(userId, await launcherOf(db, userId)));
+      return c.json(await present(userId, await launcherOf(userId)));
     })
     .put("/api/me/launcher", body(connectBody), async (c) => {
       const userId = c.get("userId");
@@ -244,35 +312,22 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
       const { branch, team, comment } = c.req.valid("json");
-      const entry: Entry = {
+      const entry = {
         ...entryOf(userId, "launch_story"),
+        userId,
         projectId: project.id,
         ticketId: ticket.id,
         storyId: story.id,
         args: { storyId: story.id },
       };
-      let reserved: {
-        launchId: number;
-        launcher: { fireUrl: string; token: string };
-      };
-      try {
-        // Reserved before `/fire` (which has no idempotence key): a second click meets `launch_pending`. Not `act`, whose `ok` entry comes after the call.
-        reserved = await db.transaction(async (tx) => {
-          await assertActive(tx, project.id);
-          const launcher = await launcherOf(tx, userId);
-          if (!launcher) throw new Refused("launcher_not_connected");
-          if (launcher.needsReconnect)
-            throw new Refused("launcher_needs_reconnect");
-          const [member] = await tx
-            .select({ inLauncher: projectMembers.inLauncher })
-            .from(projectMembers)
-            .where(
-              and(
-                eq(projectMembers.projectId, project.id),
-                eq(projectMembers.userId, userId),
-              ),
-            );
-          if (!member?.inLauncher) throw new Refused("project_not_in_launcher");
+      const at = new Date(now());
+      const launched = await launchCloud(
+        db,
+        deps,
+        entry,
+        at,
+        [project.id],
+        async (tx) => {
           const [locked] = await tx
             .select()
             .from(userStories)
@@ -294,7 +349,10 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
             .where(
               and(
                 eq(cloudLaunches.storyId, story.id),
-                gt(cloudLaunches.createdAt, new Date(now() - PENDING_MS)),
+                gt(
+                  cloudLaunches.createdAt,
+                  new Date(at.getTime() - PENDING_MS),
+                ),
                 isNull(cloudLaunches.runId),
                 isNull(cloudLaunches.reason),
                 or(
@@ -304,66 +362,17 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
               ),
             );
           if (pending) throw new Refused("launch_pending");
-          const [launch] = await tx
-            .insert(cloudLaunches)
-            .values({
-              userId,
-              projectId: project.id,
-              storyId: story.id,
-              branch,
-              team,
-              comment,
-              createdAt: new Date(now()),
-            })
-            .returning({ id: cloudLaunches.id });
-          if (!launch) throw new Error("launch not created");
-          return { launchId: launch.id, launcher };
-        });
-      } catch (error) {
-        if (!(error instanceof Refused)) throw error;
-        return c.json(
-          { error: await refuseEntry(db, entry, error.message) },
-          409,
-        );
-      }
-      const { launchId, launcher } = reserved;
-      const fired = await fire(deps, launcher, `launch_id: ${launchId}`);
-      await db.transaction(async (tx) => {
-        await tx
-          .update(cloudLaunches)
-          .set(
-            fired.ok
-              ? {
-                  result: "ok",
-                  sessionId: fired.sessionId,
-                  sessionUrl: fired.sessionUrl,
-                }
-              : { result: "error" },
-          )
-          .where(eq(cloudLaunches.id, launchId));
-        if (!fired.ok && fired.reconnect)
-          await tx
-            .update(cloudLaunchers)
-            .set({ needsReconnect: true })
-            .where(
-              and(
-                eq(cloudLaunchers.userId, userId),
-                eq(cloudLaunchers.token, fired.token),
-              ),
-            );
-        await tx.insert(history).values({
-          ...entry,
-          args: {
+          return {
+            projectId: project.id,
             storyId: story.id,
-            launchId,
-            sessionId: fired.ok ? fired.sessionId : null,
-          },
-          result: fired.ok ? "ok" : "error",
-          detail: fired.ok ? null : { reason: "error" },
-        });
-      });
-      return fired.ok
-        ? c.json({ launchId, sessionUrl: fired.sessionUrl }, 201)
-        : c.json({ error: "fire_failed" }, 502);
+            branch,
+            team,
+            comment,
+          };
+        },
+      );
+      return "error" in launched
+        ? c.json({ error: launched.error }, launched.status)
+        : c.json(launched, 201);
     });
 }
