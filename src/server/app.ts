@@ -5,6 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
 import { attachmentRoutes } from "./attachments.ts";
 import { authRoutes } from "./auth.ts";
+import { changelogRoutes } from "./changelog.ts";
 import { codeMapRoutes } from "./code-map.ts";
 import { costRoutes, metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
@@ -131,6 +132,7 @@ export function createApp(
       .route("/", attachmentRoutes(db))
       .route("/", issueImportRoutes(db, readGitHub))
       .route("/", storyRoutes(db, readGitHub, fireDeps))
+      .route("/", changelogRoutes(db, readGitHub))
       .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))
