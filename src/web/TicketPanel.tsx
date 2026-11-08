@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { fetchAttachments } from "./attachments.ts";
 import { ImportedFrom } from "./IssueImport.tsx";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Panel, useHome } from "./Shell.tsx";
@@ -23,6 +24,7 @@ type Ticket = {
   title: string;
   descriptionMd: string;
   githubIssueNumber?: number | null;
+  attachmentsCount?: number;
 };
 type Story = { id: number; iWant: string; status: string };
 
@@ -48,6 +50,13 @@ export function TicketPanel({
     (p) => p.id === ticket.projectId,
   )?.name;
   const [confirming, setConfirming] = useState(false);
+  // The count of the row says there are files before their names are read.
+  const hasFiles = (ticket.attachmentsCount ?? 0) > 0;
+  const files = useQuery({
+    queryKey: ["attachments", String(ticket.id)],
+    queryFn: () => fetchAttachments(ticket.id),
+    enabled: hasFiles,
+  }).data;
   const remove = useMutation({
     mutationFn: async () => {
       const res = await client.api.tickets[":id"].$delete({
@@ -154,6 +163,23 @@ export function TicketPanel({
                 <span className="text-[12.5px] text-muted-foreground">
                   {STORY_STATUSES[story.status] ?? story.status}
                 </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {hasFiles && (
+        <>
+          <h3 className={sectionLabel}>Pièces jointes</h3>
+          <ul className="flex flex-col gap-1">
+            {(files ?? []).map((file) => (
+              <li key={file.id}>
+                <a
+                  href={`/api/attachments/${file.id}`}
+                  className={`underline ${focusRing}`}
+                >
+                  {file.name}
+                </a>
               </li>
             ))}
           </ul>

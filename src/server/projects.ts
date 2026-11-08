@@ -336,6 +336,7 @@ export function projectRoutes(
   return new Hono<Env>()
     .use("/api/projects/*", gate)
     .use("/api/tickets/*", gate)
+    .use("/api/attachments/*", gate)
     .use("/api/stories/*", gate)
     .use("/api/github/*", gate)
     .use("/api/installation", gate)
