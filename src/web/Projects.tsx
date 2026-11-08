@@ -3,10 +3,12 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
+import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
   alertBox,
   badge,
   button,
+  card,
   dangerButton,
   focusRing,
   ghostButton,
@@ -195,9 +197,12 @@ function Importable() {
     queryKey: ["repositories"],
     queryFn: fetchRepositories,
   });
+  const [starterTeam, setStarterTeam] = useState<StarterLevel>("standard");
   const importRepo = useMutation({
     mutationFn: async (githubRepoId: number) => {
-      const res = await client.api.projects.$post({ json: { githubRepoId } });
+      const res = await client.api.projects.$post({
+        json: { githubRepoId, starterTeam },
+      });
       if (!res.ok) throw await failure(res);
     },
     onSettled: () =>
@@ -248,6 +253,37 @@ function Importable() {
             Choisir des repos
           </a>
         </p>
+      )}
+      {repos.length > 0 && (
+        <div
+          role="radiogroup"
+          aria-label="Quelle équipe pour ce projet ?"
+          className="mb-4 grid gap-2 sm:grid-cols-4"
+        >
+          <p className="font-semibold sm:col-span-4">
+            Quelle équipe pour ce projet ?
+          </p>
+          {STARTER_LEVELS.map((level) => (
+            <label
+              key={level.id}
+              className={`${card} flex cursor-pointer items-start gap-2 p-3 has-[:checked]:border-foreground`}
+            >
+              <input
+                type="radio"
+                name="starter-team"
+                checked={starterTeam === level.id}
+                onChange={() => setStarterTeam(level.id)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-semibold">{level.name}</span>
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {level.sentence}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
       )}
       {repos.length > 0 && (
         <ul className={listCard}>
