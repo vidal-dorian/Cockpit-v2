@@ -57,6 +57,12 @@ const KINDS = {
     group: "À relire",
     hint: "tes PR sur GitHub",
   },
+  relaunch_exhausted: {
+    glyph: "✕",
+    badge: "Relances épuisées",
+    group: "Relances épuisées",
+    hint: "la CI échoue encore",
+  },
   check: {
     glyph: "!",
     badge: "À vérifier",
@@ -87,6 +93,8 @@ function subLine(item: Item, withKind = true) {
         ? `À relire · PR #${item.prNumber} · ${ci} · ${project}`
         : `${ci} · ${project}`;
     }
+    case "relaunch_exhausted":
+      return `Relances épuisées : la CI échoue encore après 3 essais · PR #${item.prNumber} · ${project}`;
     case "check":
       return `Run ${item.runId} · ${project}`;
   }
@@ -172,6 +180,12 @@ function RowActions({
           </Link>
         </>
       );
+    case "relaunch_exhausted":
+      return (
+        <Link to={`/us/${item.storyId}`} className={rowAction}>
+          Ouvrir l'US
+        </Link>
+      );
     case "check":
       return (
         <Link to={`/runs/${item.runId}`} className={rowAction}>
@@ -232,6 +246,12 @@ function ItemPanel({
           Ouvrir l'US
         </Link>
       </>
+    );
+  else if (item.kind === "relaunch_exhausted")
+    footer = (
+      <Link to={`/us/${item.storyId}`} className={panelPrimaryButton}>
+        Ouvrir l'US
+      </Link>
     );
   else
     footer = (
@@ -454,6 +474,11 @@ export function HomePage() {
               <span className="text-[12.5px] text-muted-foreground">
                 {subLine(first)}
               </span>
+              {first.kind === "relaunch_exhausted" && (
+                <Link to={`/us/${first.storyId}`} className={`block ${link}`}>
+                  Ouvrir l'US
+                </Link>
+              )}
             </span>
             <span className="hidden text-[12.5px] text-muted-foreground lg:block">
               ouverte à droite →

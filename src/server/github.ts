@@ -71,7 +71,11 @@ const pullStateSchema = z.object({
 });
 const checkRunsSchema = z.object({
   check_runs: z.array(
-    z.object({ status: z.string(), conclusion: z.string().nullable() }),
+    z.object({
+      name: z.string(),
+      status: z.string(),
+      conclusion: z.string().nullable(),
+    }),
   ),
 });
 const reviewsSchema = z.array(

@@ -36,6 +36,7 @@ type Launcher = {
   prompt: string;
   projectIds: number[];
   missingProjectIds: number[];
+  autoRelaunch?: boolean;
 };
 
 function renderAt(path: string) {
@@ -148,6 +149,10 @@ function stubApi(launcher: Partial<Launcher> = {}) {
           state.connected = false;
           return new Response(null, { status: 204 });
         }
+      }
+      if (path === "/api/me/launcher/auto-relaunch" && method === "PUT") {
+        state.autoRelaunch = (JSON.parse(body) as { enabled: boolean }).enabled;
+        return Response.json({ enabled: state.autoRelaunch });
       }
       const project = /^\/api\/projects\/(\d+)\/launcher$/.exec(path);
       if (project && method === "PUT") {
@@ -287,8 +292,10 @@ describe("criterion 9: the projects of the launcher", () => {
     ).toEqual([
       expect.stringContaining("octocat/hello"),
       expect.stringContaining("octocat/world"),
+      // Slice 14.4: the setting of the relaunch shares the card.
+      expect.stringContaining("Relancer Claude"),
     ]);
-    expect(boxes.map((b) => b.checked)).toEqual([false, true]);
+    expect(boxes.map((b) => b.checked)).toEqual([false, true, false]);
     expect(section.textContent).not.toContain("octocat/old");
   });
 
@@ -335,5 +342,28 @@ describe("criterion 9: a repo missing from the task (D)", () => {
       /Le repo n'est pas dans la tâche/,
     );
     expect(label(/octocat\/hello/)?.textContent).not.toMatch(/repo absent/);
+  });
+});
+
+describe("slice 14.4 (decision 059 A): the automatic relaunch", () => {
+  it("given the launcher card, when « Relancer Claude quand la CI d'une PR échoue » is ticked, then PUT /api/me/launcher/auto-relaunch { enabled: true }", async () => {
+    const calls = stubApi({ autoRelaunch: false });
+    renderAt("/reglages/taches-cloud");
+    const section = await launcherCard();
+
+    fireEvent.click(
+      within(section).getByRole("checkbox", {
+        name: "Relancer Claude quand la CI d'une PR échoue",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        calls.find(
+          (c) =>
+            c.method === "PUT" && c.path === "/api/me/launcher/auto-relaunch",
+        )?.body,
+      ).toBe(JSON.stringify({ enabled: true })),
+    );
   });
 });

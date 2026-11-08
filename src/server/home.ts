@@ -14,6 +14,7 @@ import {
   tickets,
   userStories,
 } from "./db/schema.ts";
+import { MAX_RELAUNCHES } from "./pr-follow.ts";
 import { runVerdict } from "./verdict.ts";
 
 const storyColumns = {
@@ -93,6 +94,7 @@ export function homeRoutes(db: Db) {
           status: userStories.status,
           prNumber: userStories.prNumber,
           prCiState: userStories.prCiState,
+          relaunchCount: userStories.relaunchCount,
           prReviewState: userStories.prReviewState,
           kind: userStories.kind,
           prAppFiles: userStories.prAppFiles,
@@ -183,7 +185,25 @@ export function homeRoutes(db: Db) {
           ];
     });
 
+    // Claude cannot fix the CI by itself any more (decision 059 D): first, before the questions.
+    const exhausted = waiting.flatMap((w) =>
+      w.status === "in_review" &&
+      w.prNumber !== null &&
+      w.prCiState === "failure" &&
+      w.relaunchCount >= MAX_RELAUNCHES
+        ? [
+            {
+              kind: "relaunch_exhausted" as const,
+              storyId: w.storyId,
+              iWant: w.iWant,
+              prNumber: w.prNumber,
+              project: project(w),
+            },
+          ]
+        : [],
+    );
     const forYou = [
+      ...exhausted,
       ...running.flatMap((r) =>
         r.questionId === null || r.question === null
           ? []
@@ -210,7 +230,9 @@ export function homeRoutes(db: Db) {
         project: project(w),
       })),
       ...waiting.flatMap((w) =>
-        w.status === "in_review" && w.prNumber !== null
+        w.status === "in_review" &&
+        w.prNumber !== null &&
+        !exhausted.some((e) => e.storyId === w.storyId)
           ? [
               {
                 kind: "review" as const,

@@ -252,3 +252,60 @@ export async function finishLaunched(
   );
   return run_id;
 }
+
+// Slice 14.4 (decision 059). Pinned where the decision leaves room:
+// - GET /api/me/launcher also gives `autoRelaunch`; PUT /api/me/launcher/auto-relaunch { enabled } answers 200;
+// - columns `users.auto_relaunch`, `user_stories.relaunch_count`, `cloud_launches.relaunch`;
+// - the item of « À toi de jouer » for exhausted relaunches is { kind: "relaunch_exhausted", storyId, iWant, prNumber, project }.
+export const setAutoRelaunch = (ctx: Ctx, enabled = true) =>
+  send(ctx.app, ctx.alice.cookie, "PUT", "/api/me/launcher/auto-relaunch", {
+    enabled,
+  });
+/** The story launched, run and finished with a PR (in_review), its CI pending, the launcher ready and the setting on unless said. */
+export async function inReview(ctx: Ctx, autoRelaunch = true) {
+  if (autoRelaunch)
+    expect((await setAutoRelaunch(ctx)).status, "setting").toBe(200);
+  expect((await launch(ctx)).status, "launching").toBe(201);
+  await finishLaunched(ctx, "succeeded");
+  await setStory(ctx, "pr_ci_state = 'pending'");
+  return 100 + ctx.storyId;
+}
+export const setStory = (ctx: Ctx, assignments: string) =>
+  ctx.db.execute(
+    sql.raw(`update user_stories set ${assignments} where id = ${ctx.storyId}`),
+  );
+/** The CI of the PR now has these check runs (name, conclusion), and Alice refreshes the PR. */
+export async function refreshCi(
+  ctx: Ctx,
+  pr: number,
+  checks: [string, "success" | "failure"][],
+) {
+  ctx.fetchMock.setCheckRuns(
+    "user1000/app",
+    `sha-${pr}`,
+    checks.map(([name, conclusion]) => ({
+      name,
+      status: "completed" as const,
+      conclusion,
+    })),
+  );
+  const res = await send(
+    ctx.app,
+    ctx.alice.cookie,
+    "POST",
+    `/api/stories/${ctx.storyId}/pr/refresh`,
+  );
+  expect(res.status, "refreshing the PR").toBe(200);
+}
+export const storyCounts = async (ctx: Ctx) =>
+  (
+    await sqlRows<{ relaunch_count: number }>(
+      ctx,
+      sql`select relaunch_count from user_stories where id = ${ctx.storyId}`,
+    )
+  )[0]?.relaunch_count;
+export const relaunches = (ctx: Ctx) =>
+  sqlRows<{ branch: string; comment: string; relaunch: boolean }>(
+    ctx,
+    sql`select branch, comment, relaunch from cloud_launches where relaunch order by id`,
+  );

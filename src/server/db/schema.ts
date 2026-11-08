@@ -32,6 +32,8 @@ export const users = pgTable("users", {
   queuePausedReason: text("queue_paused_reason", {
     enum: ["launch_failed", "run_failed", "no_session"],
   }),
+  // Cockpit relaunches Claude when the CI of a PR fails (decision 059 A).
+  autoRelaunch: boolean("auto_relaunch").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -327,6 +329,8 @@ export const userStories = pgTable(
     // The paths of a takeover PR outside the tests, 20 at most, and their total (decision 050 E): null until read.
     prAppFiles: text("pr_app_files").array(),
     prAppFilesCount: integer("pr_app_files_count"),
+    // The automatic relaunches in a row since the CI last was not failing (decision 059 D).
+    relaunchCount: integer("relaunch_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -446,6 +450,8 @@ export const cloudLaunches = pgTable(
     summary: text("summary"),
     // Launched by the queue, not by hand (decision 058 C).
     fromQueue: boolean("from_queue").notNull().default(false),
+    // Launched by the automatic relaunch after a failed CI (decision 059 C).
+    relaunch: boolean("relaunch").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

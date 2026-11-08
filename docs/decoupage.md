@@ -65,6 +65,7 @@
 - **Fait** : tranche 14.3 (la file d'attente, [décision 058](decisions/058-file-d-attente.md)).
 - **Fait** : tranche 11.2 (les tickets complets, [décision 055](decisions/055-tickets-complets.md)).
 - **Fait** : tranche 11.3 (importer les issues GitHub, [décision 057](decisions/057-importer-les-issues.md)).
+- **Fait** : tranche 14.4 (la relance automatique, [décision 059](decisions/059-relance-automatique.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

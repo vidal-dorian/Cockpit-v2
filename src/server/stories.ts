@@ -28,6 +28,7 @@ import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
+import type { Fire } from "./routines.ts";
 import { storyRuns } from "./runs.ts";
 import {
   assertActive,
@@ -288,7 +289,7 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
 });
 
 /** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/stories/*. */
-export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
+export function storyRoutes(db: Db, readGitHub: ReadGitHub, fire: Fire) {
   /** The story as it is now (after the sync of its issue), for the answer of a decision. */
   const reread = async (id: number, fullName: string) => {
     const [story] = await db
@@ -450,7 +451,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub) {
       if (found.story.prNumber === null)
         return c.json({ error: "no_pull_request" }, 409);
       try {
-        await followPullRequest(db, readGitHub, found, user.userId, "ui");
+        await followPullRequest(db, readGitHub, found, user.userId, "ui", fire);
       } catch (error) {
         console.error(`Refresh of the PR of story ${found.story.id}:`, error);
         return c.json({ error: "github_unavailable" }, 502);
