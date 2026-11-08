@@ -66,7 +66,7 @@ const starterQuery = {
 type AgentChange = { name: string; before: string | null; after: string };
 
 const MODEL = /^model:.*$/m;
-const FRONT = /^---\n(?:[\s\S]*?\n)?---(?:\n|$)/;
+const FRONT = /^---\r?\n(?:[\s\S]*?\r?\n)?---(?:\r?\n|$)/;
 // Only the front matter counts: a `model:` line in the body is text.
 const modelOf = (text: string) =>
   /^model:\s*(.*?)\s*$/m.exec(FRONT.exec(text)?.[0] ?? "")?.[1];
@@ -86,14 +86,16 @@ function starterChanges(
       const line = `model: ${modelOf(text)}`;
       // No `model:` line: it goes last in the front matter; no front matter: one is added.
       const head = FRONT.exec(before)?.[0];
+      const eol = /\r?\n/.exec(head ?? before)?.[0] ?? "\n";
+      // Function replacers: the file's text is never a replacement pattern.
       const after = !head
-        ? `---\n${line}\n---\n${before}`
-        : before.replace(
-            head,
-            MODEL.test(head)
-              ? head.replace(MODEL, line)
-              : head.replace(/---(\n|$)$/, `${line}\n---$1`),
-          );
+        ? `---${eol}${line}${eol}---${eol}${before}`
+        : (MODEL.test(head)
+            ? head.replace(MODEL, () => line)
+            : head.replace(
+                /---(\r?\n|$)$/,
+                (fence) => `${line}${eol}${fence}`,
+              )) + before.slice(head.length);
       changes.push({ name, before, after });
     }
   }
