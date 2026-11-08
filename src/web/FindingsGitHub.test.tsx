@@ -213,6 +213,13 @@ describe("decision 052 H: the gray lines after a refresh", () => {
       "Secret scanning alerts",
     ])
       expect(said, word).toContain(word);
+    // Review O5: it also names the three events to tick (« alert » not followed by an s, so not the permissions above).
+    for (const event of [
+      /Dependabot alert(?!s)/,
+      /Code scanning alert(?!s)/,
+      /Secret scanning alert(?!s)/,
+    ])
+      expect(said, String(event)).toMatch(event);
     expect(
       screen
         .getByRole("link", { name: "Modifier l'App sur GitHub ↗" })

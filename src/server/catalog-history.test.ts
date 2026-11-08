@@ -23,17 +23,11 @@ afterEach(() => {
 const REPO = "user1000/app";
 const sha256 = (text: string) =>
   createHash("sha256").update(text, "utf8").digest("hex");
-// A missing file is a marker text, not an exception: until slice R6 adds agents/upgrade-advisor.md (decision 052 K), only the tests that count the catalogue fail.
-const fromCatalog = (relative: string) => {
-  try {
-    return readFileSync(
-      fileURLToPath(new URL(`../../catalog/${relative}`, import.meta.url)),
-      "utf8",
-    );
-  } catch {
-    return `missing catalog/${relative}`;
-  }
-};
+const fromCatalog = (relative: string) =>
+  readFileSync(
+    fileURLToPath(new URL(`../../catalog/${relative}`, import.meta.url)),
+    "utf8",
+  );
 const CATALOG: Record<string, string> = {
   ".claude/agents/test-writer.md": fromCatalog("agents/test-writer.md"),
   ".claude/agents/developer.md": fromCatalog("agents/developer.md"),

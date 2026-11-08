@@ -208,6 +208,13 @@ describe("decision 052 B: the line « Alertes GitHub »", () => {
       "Secret scanning alerts",
     ])
       expect(row.textContent, word).toContain(word);
+    // Review O5: it also names the three events to tick (« alert » not followed by an s, so not the permissions above).
+    for (const event of [
+      /Dependabot alert(?!s)/,
+      /Code scanning alert(?!s)/,
+      /Secret scanning alert(?!s)/,
+    ])
+      expect(row.textContent, String(event)).toMatch(event);
     expect(
       within(row)
         .getByRole("link", { name: "Modifier l'App sur GitHub ↗" })

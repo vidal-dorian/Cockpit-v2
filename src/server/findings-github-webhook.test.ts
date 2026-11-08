@@ -247,6 +247,56 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
     },
   );
 
+  // Review O3: to close a finding only `number` and `state` of the alert are needed; GitHub may send null for the instance and the tool of a closed alert.
+  it.each([
+    ["fixed", "fixed"],
+    ["closed_by_user", "dismissed"],
+  ])(
+    "given a code scanning finding, when GitHub sends the action %s (state %s) with most_recent_instance and tool null, then the finding is closed on GitHub",
+    async (action, state) => {
+      const ctx = await withAlerts((a, c) =>
+        a.code_scanning.push(codeScanning(1, { commit: c.sha })),
+      );
+      await refreshed(ctx);
+
+      await deliver(ctx, "code_scanning", action, {
+        ...codeScanning(1, { state }),
+        most_recent_instance: null,
+        tool: null,
+      });
+
+      const [row] = await githubRows(ctx.db);
+      expect(row?.github_closed_at).not.toBeNull();
+      expect(row?.status).toBe("open");
+    },
+  );
+
+  it("given a code scanning alert reduced to its number and its state, when GitHub sends it fixed, then the finding is closed on GitHub", async () => {
+    const ctx = await withAlerts((a, c) =>
+      a.code_scanning.push(codeScanning(1, { commit: c.sha })),
+    );
+    await refreshed(ctx);
+
+    await deliver(ctx, "code_scanning", "fixed", { number: 1, state: "fixed" });
+
+    expect((await githubRows(ctx.db))[0]?.github_closed_at).not.toBeNull();
+  });
+
+  it("given a code scanning alert whose latest occurrence is on a pull request ref, when GitHub sends it created, then no finding is created (the default branch only, like the refresh)", async () => {
+    const ctx = await withAlerts();
+    const alert = codeScanning(5, { commit: "c".repeat(40) });
+
+    await deliver(ctx, "code_scanning", "created", {
+      ...alert,
+      most_recent_instance: {
+        ...alert.most_recent_instance,
+        ref: "refs/pull/12/merge",
+      },
+    });
+
+    expect(await githubRows(ctx.db)).toEqual([]);
+  });
+
   it("given a code scanning finding closed on GitHub, when GitHub sends it reopened, then github_closed_at is null again and the status is the same", async () => {
     const ctx = await withAlerts((a, c) =>
       a.code_scanning.push(codeScanning(1, { commit: c.sha })),

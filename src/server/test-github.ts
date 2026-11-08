@@ -79,6 +79,11 @@ export const BASE_PERMISSIONS: Record<string, string> = {
   statuses: "read",
   actions: "read",
 };
+export const ALERT_EVENTS = [
+  "dependabot_alert",
+  "code_scanning_alert",
+  "secret_scanning_alert",
+];
 export const ALERT_PERMISSIONS: Record<string, string> = {
   dependabot_alerts: "read",
   security_events: "read",
@@ -103,6 +108,8 @@ export type FakeAlerts = {
   /** The locations of a secret scanning alert, by alert number (`GET .../secret-scanning/alerts/{n}/locations`). */
   locations: Record<number, Record<string, unknown>[]>;
   locationsStatus?: number;
+  /** Awaited after a list is built and before it is answered: a change landing between the read and the store (a webhook). */
+  afterRead?: () => Promise<void>;
 };
 
 /** A check run as GitHub's API serves it (slice 7.6, decision 038 E). */
@@ -284,7 +291,12 @@ export function stubGitHub(initial: {
   failOn?: (call: { method: string; path: string }) => boolean | number;
   webhook?: Partial<FakeWebhook>;
   gitRepos?: Record<string, FakeGitRepoOptions>;
-  appInfo?: { permissions?: Record<string, string>; status?: number };
+  appInfo?: {
+    permissions?: Record<string, string>;
+    /** The webhook events the App listens to, as `GET /app` serves them (default: the three alert events). */
+    events?: string[];
+    status?: number;
+  };
   installationInfo?: { permissions?: Record<string, string>; status?: number };
   alerts?: Record<string, Partial<FakeAlerts>>;
 }) {
@@ -623,6 +635,7 @@ export function stubGitHub(initial: {
             id: Number(githubAppConfig.githubAppId),
             slug: githubAppConfig.githubAppSlug,
             permissions,
+            events: options.appInfo?.events ?? ALERT_EVENTS,
           });
         if (!installations.includes(Number(appRoute[1])))
           return Response.json({ message: "Not Found" }, { status: 404 });
@@ -660,6 +673,7 @@ export function stubGitHub(initial: {
         );
         const page = Number(url.searchParams.get("page") ?? 1);
         const matching = alerts[key].filter((a) => !state || a.state === state);
+        await alerts.afterRead?.();
         const next = new URL(url);
         next.searchParams.set("page", String(page + 1));
         return Response.json(matching.slice((page - 1) * size, page * size), {

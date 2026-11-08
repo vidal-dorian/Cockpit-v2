@@ -391,6 +391,59 @@ describe("decision 052 L: writing .github/dependabot.yml", () => {
     expect(ctx.git.head).toBe(p.baseSha);
   });
 
+  // Review B1: a plan whose file says `update` was never offered by this route (only `create` is written, decision 052 L); the client may not invent it.
+  it("given a forged plan with a file of status update, when it is applied on a repo without .github/dependabot.yml, then 400 and nothing is written", async () => {
+    const ctx = await ready1();
+    const p = await planOf(ctx);
+    const forged = {
+      baseSha: p.baseSha,
+      files: [
+        {
+          path: ".github/dependabot.yml",
+          status: "update",
+          content: "PWNED\n",
+        },
+      ],
+    };
+
+    const res = await apply(ctx, { plan: forged });
+
+    expect(res.status).toBe(400);
+    expect(ctx.git.created.commits).toEqual([]);
+    expect(ctx.git.head).toBe(p.baseSha);
+    expect(
+      ctx.git.filesAt(ctx.git.head)?.[".github/dependabot.yml"],
+    ).toBeUndefined();
+  });
+
+  it("given a forged plan with status update and the real current text of an existing .github/dependabot.yml, when it is applied, then 400 and the file is left as it is", async () => {
+    const real = "version: 2\nupdates: []\n";
+    const ctx = await ready({
+      "package.json": "{}\n",
+      ".github/dependabot.yml": real,
+    });
+    const p = await planOf(ctx);
+    const forged = {
+      baseSha: p.baseSha,
+      files: [
+        {
+          path: ".github/dependabot.yml",
+          status: "update",
+          content: "PWNED\n",
+          current: real,
+        },
+      ],
+    };
+
+    const res = await apply(ctx, { plan: forged });
+
+    expect(res.status).toBe(400);
+    expect(ctx.git.created.commits).toEqual([]);
+    expect(ctx.git.filesAt(ctx.git.head)?.[".github/dependabot.yml"]).toBe(
+      real,
+    );
+  });
+
   it("given a body that is not a plan, when it is applied, then 400 and nothing is written", async () => {
     const ctx = await ready1();
 

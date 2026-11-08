@@ -134,6 +134,12 @@ describe("decision 052 C: the permissions and the tools", () => {
       "dependabot",
       "secret-scanning",
     ]);
+    // Review: secret scanning is asked with hide_secret=true so GitHub does not even send the value.
+    expect(
+      reads
+        .find((r) => r.tool === "secret-scanning")
+        ?.params.get("hide_secret"),
+    ).toBe("true");
     for (const read of reads) {
       expect(read.params.get("state")).toBe("open");
       expect(read.params.get("per_page")).toBe("100");
@@ -619,6 +625,44 @@ describe("decision 052 D: an alert becomes a finding", () => {
     const body = await refreshed(ctx);
 
     expect(body.created).toBe(1);
+  });
+});
+
+describe("review O1: the same alert twice, or created meanwhile", () => {
+  it("given a read that returns the same alert number twice (a page shift), when it is refreshed, then 200 and the alert is stored once", async () => {
+    const ctx = await withAlerts((a) =>
+      a.dependabot.push(dependabot(1), dependabot(1), dependabot(2)),
+    );
+
+    const res = await refresh(ctx);
+
+    expect(res.status).toBe(200);
+    expect(
+      (await githubRows(ctx.db)).map((r) => r.github_alert_number),
+    ).toEqual([1, 2]);
+  });
+
+  it("given a finding for the same tool and number created between the read and the store (a webhook), when it is refreshed, then 200 and there is still one finding for it", async () => {
+    let landed = false;
+    const ctx = await withAlerts((a) => {
+      a.dependabot.push(dependabot(1));
+      a.afterRead = async () => {
+        a.afterRead = undefined;
+        landed = true;
+        await ctx.db.execute(
+          sql`insert into findings (project_id, kind, source, title, body_md, severity, github_alert_type, github_alert_number)
+              values (${ctx.projectId}, 'security', 'github', 'par webhook', 'b', 'high', 'dependabot', 1)`,
+        );
+      };
+    });
+
+    const res = await refresh(ctx);
+
+    expect(landed, "the webhook landed after the read").toBe(true);
+    expect(res.status).toBe(200);
+    const rowsNow = await githubRows(ctx.db);
+    expect(rowsNow).toHaveLength(1);
+    expect(rowsNow[0]?.title).toBe("vendor/pkg-1 : Fuite de cookie 1");
   });
 });
 

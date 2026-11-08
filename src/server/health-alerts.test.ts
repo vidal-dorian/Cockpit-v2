@@ -128,6 +128,26 @@ describe("decision 052 B: the line « Alertes GitHub »", () => {
     },
   );
 
+  // Review O5: the App must also listen to the three events, or the webhooks of the alerts never come: `GET /app` `events` is judged like its permissions.
+  it.each(["dependabot_alert", "code_scanning_alert", "secret_scanning_alert"])(
+    "given an App that has the three permissions but does not listen to %s, when the health is read, then github_alerts is red app_missing_permissions with the permissions page of the App",
+    async (event) => {
+      const events = [
+        "dependabot_alert",
+        "code_scanning_alert",
+        "secret_scanning_alert",
+      ].filter((e) => e !== event);
+      const { health } = await lines({}, { appInfo: { events } });
+
+      expect(lineOf(await health(), "github_alerts")).toEqual({
+        key: "github_alerts",
+        ok: false,
+        detail: "app_missing_permissions",
+        url: "https://github.com/settings/apps/cockpit-test/permissions",
+      });
+    },
+  );
+
   it("given an App and an installation that both lack a permission, when the health is read, then the App is blamed first: app_missing_permissions", async () => {
     const { health } = await lines(
       {},
