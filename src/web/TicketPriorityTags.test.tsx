@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { redClasses } from "./test-journal.tsx";
-import { renderAt, stubTicketApi } from "./test-tickets.tsx";
+import { fail, renderAt, stubTicketApi } from "./test-tickets.tsx";
 import { rich } from "./test-tickets-full.tsx";
 
 // Slice 11.2, decision 054 H (and J): the priority and the tags on the ticket page.
@@ -17,7 +17,7 @@ import { rich } from "./test-tickets-full.tsx";
 // - Under the title (after the <h1>, inside <main>) the page writes the tags as words and, for a ticket that is not normal, « priorité haute » or « priorité basse »;
 //   a normal ticket says nothing about its priority.
 // - « Modifier » adds to the form of the title and the description: a select « Priorité » (options « Priorité : basse », « Priorité : normale », « Priorité : haute », values low, normal, high),
-//   preset to the ticket's priority, and a textbox « Étiquette » (placeholder « + étiquette ») with the chips of the ticket, each with a button « Retirer l'étiquette <tag> ».
+//   preset to the ticket's priority, and a combobox « Étiquette » (an <input> with a datalist: ARIA in HTML forbids overriding the combobox role) (placeholder « + étiquette ») with the chips of the ticket, each with a button « Retirer l'étiquette <tag> ».
 //   Enter in that field adds a chip (trim, inner spaces to one, lowercase, no duplicate, nothing for an empty one) and never submits the form.
 // - « Enregistrer » PATCHes /api/tickets/:id with at least { priority, tags } (tags as shown by the chips); the page then shows the new ones.
 // - The page opens straight in edit mode on /tickets/:id?modifier=1 (the link « Modifier » of the panel of the Tickets tab).
@@ -37,7 +37,7 @@ const main = () => screen.getByRole("main");
 const waitForTitle = () =>
   screen.findByRole("heading", { level: 1, name: /^Ajouter la recherche/ });
 const addTag = (text: string) => {
-  const input = screen.getByRole("textbox", { name: "Étiquette" });
+  const input = screen.getByRole("combobox", { name: "Étiquette" });
   fireEvent.change(input, { target: { value: text } });
   fireEvent.keyDown(input, { key: "Enter" });
 };
@@ -97,7 +97,7 @@ describe("054 H: editing", () => {
       screen.getByRole("button", { name: "Retirer l'étiquette compta" }),
     ).toBeDefined();
     expect(
-      (screen.getByRole("textbox", { name: "Étiquette" }) as HTMLInputElement)
+      (screen.getByRole("combobox", { name: "Étiquette" }) as HTMLInputElement)
         .placeholder,
     ).toBe("+ étiquette");
   });
@@ -149,5 +149,56 @@ describe("054 H: editing", () => {
 
     expect(await screen.findByLabelText("Titre")).toBeDefined();
     expect(screen.getByRole("combobox", { name: "Priorité" })).toBeDefined();
+  });
+});
+
+// Review of slice 11.2. Pinned:
+// - A tag typed and not yet added is added when « Enregistrer » is clicked (it is in the PATCH).
+// - A 400 of the server while tags were edited shows « Une étiquette n'est pas valide (30 caractères au plus). » in the alert.
+// - After a successful save of the page opened with ?modifier=1, the address no longer has that parameter.
+
+describe("review 4 and 7: the form of the ticket page", () => {
+  it("given a tag typed without Enter, when Enregistrer is clicked, then the PATCH holds it", async () => {
+    const api = stubTicketApi([T]);
+    renderAt("/tickets/7");
+    await waitForTitle();
+    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Étiquette" }), {
+      target: { value: " Dernière " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(api.writes()).toHaveLength(1));
+    expect(api.writes()[0]?.body).toMatchObject({
+      tags: ["export", "compta", "dernière"],
+    });
+  });
+
+  it("given the server answers 400 after a tag was edited, when Enregistrer is clicked, then the alert talks about tags", async () => {
+    const api = stubTicketApi([T]);
+    api.failNext.patch = fail(400, "Bad request");
+    renderAt("/tickets/7");
+    await waitForTitle();
+    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
+    addTag("x");
+
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Une étiquette n'est pas valide (30 caractères au plus).",
+    );
+  });
+
+  it("given the page opened on ?modifier=1, when Enregistrer succeeds, then the address has no modifier any more", async () => {
+    stubTicketApi([T]);
+    renderAt("/tickets/7?modifier=1");
+    await screen.findByLabelText("Titre");
+
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await within(main()).findByText("priorité haute");
+    await waitFor(() => expect(window.location.search).toBe(""));
+    expect(window.location.pathname).toBe("/tickets/7");
   });
 });

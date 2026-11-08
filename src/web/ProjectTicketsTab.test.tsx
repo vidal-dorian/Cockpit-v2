@@ -379,3 +379,105 @@ describe("054 J: the colour of the tab", () => {
     expect(redClasses(screen.getByRole("main"))).toEqual([]);
   });
 });
+
+// Review of slice 11.2. Pinned:
+// - The search request waits 300 ms after the last keystroke (real timers: nothing 100 ms after typing, one request a little after), and `q` is the trimmed text (« lien » for « lien␠ »).
+// - While the new results load, the previous results stay and « Chargement… » is not shown in their place.
+// - The detail counts stories in review: « 3 US · 3 en revue ».
+// - After « Écrire les US maintenant » succeeds, the tab shows the link « Voir la session » to the session URL the run route answers (the wording of ProjectRoutine).
+
+const searchBox = () =>
+  screen.getByRole("textbox", { name: "Chercher dans les tickets et les US" });
+
+describe("review 1: the search is calm", () => {
+  it("given three characters typed quickly, when 100 ms pass then the pause ends, then nothing was sent at first and exactly one request is sent", async () => {
+    const api = stubTab(TICKETS, STORIES);
+    renderAt("/projets/5/tickets");
+    await rowButton("Exporter en CSV");
+
+    for (const value of ["l", "li", "lie"])
+      fireEvent.change(searchBox(), { target: { value } });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(api.searches).toEqual([]);
+
+    await waitFor(() => expect(api.searches).toEqual(["lie"]));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(api.searches).toEqual(["lie"]);
+  });
+
+  it("given a text with a trailing space, when the search is sent, then q is trimmed", async () => {
+    const api = stubTab(TICKETS, STORIES);
+    renderAt("/projets/5/tickets");
+    await rowButton("Exporter en CSV");
+
+    fireEvent.change(searchBox(), { target: { value: " lien " } });
+
+    await waitFor(() => expect(api.searches).toEqual(["lien"]));
+  });
+
+  it("given results shown, when a new search is still loading, then the previous results stay and Chargement… is not shown", async () => {
+    let release: (a: { tickets: never[]; stories: never[] }) => void = () => {};
+    const slow = new Promise<{ tickets: never[]; stories: never[] }>(
+      (resolve) => {
+        release = resolve;
+      },
+    );
+    const api = stubTab(TICKETS, STORIES, {
+      search: (q) =>
+        q === "lien"
+          ? {
+              tickets: [],
+              stories: [
+                {
+                  id: 42,
+                  ticketId: 12,
+                  title: "Lien par e-mail",
+                  status: "to_validate",
+                },
+              ],
+            }
+          : slow,
+    });
+    renderAt("/projets/5/tickets");
+    await rowButton("Exporter en CSV");
+    fireEvent.change(searchBox(), { target: { value: "lien" } });
+    await screen.findByRole("link", { name: /Lien par e-mail/ });
+
+    fireEvent.change(searchBox(), { target: { value: "lien exp" } });
+    await waitFor(() => expect(api.searches).toEqual(["lien", "lien exp"]));
+
+    expect(screen.getByRole("link", { name: /Lien par e-mail/ })).toBeDefined();
+    expect(screen.queryByText(/Chargement/)).toBeNull();
+    release({ tickets: [], stories: [] });
+  });
+});
+
+describe("review 7: details of the tab", () => {
+  it("given a ticket whose three stories are in review, when the tab loads, then its detail reads « 3 US · 3 en revue »", async () => {
+    stubTab(
+      [rich(12, "En revue")],
+      [1, 2, 3].map((n) =>
+        story(60 + n, 12, `US ${n}`, { status: "in_review", position: n }),
+      ),
+    );
+    renderAt("/projets/5/tickets");
+
+    const row = await rowOf("En revue");
+
+    expect(row.textContent).toContain("3 US · 3 en revue");
+  });
+
+  it("given a routine, when Écrire les US maintenant succeeds, then the tab links to the session", async () => {
+    stubTab(TICKETS, STORIES, { routineConnected: true });
+    renderAt("/projets/5/tickets");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Écrire les US maintenant" }),
+    );
+
+    const link = await screen.findByRole("link", { name: "Voir la session" });
+    expect(link.getAttribute("href")).toBe(
+      "https://claude.ai/code/session_NEW",
+    );
+  });
+});

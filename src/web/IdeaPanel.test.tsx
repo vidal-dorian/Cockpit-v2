@@ -19,7 +19,7 @@ import { projects, rich, stubBar, stubTab } from "./test-tickets-full.tsx";
 //   It is not a form (the bar already is the form of that name). It is absent until opened.
 // - Fields of the panel: textbox « Titre » (the typed title, editable), textarea « Description » (markdown), select « Projet » (the page's project,
 //   else the first one; every project of the user), select « Priorité » whose options read « Priorité : basse », « Priorité : normale » (default),
-//   « Priorité : haute » (values low, normal, high), textbox « Étiquette » (placeholder « + étiquette »).
+//   « Priorité : haute » (values low, normal, high), combobox « Étiquette » (an <input> with a datalist: ARIA in HTML forbids overriding the combobox role) (placeholder « + étiquette »).
 // - A tag typed then Enter becomes a chip: the tag is normalised on the page like the server does (trim, inner spaces to one, lowercase), an empty tag
 //   or one already there adds nothing, the field is emptied. A chip is its text and a button « Retirer l'étiquette <tag> ». Enter in that field never sends the idea.
 // - Suggestions are the <option>s of the <datalist> of the tag field: the distinct tags of GET /api/projects/:id/tickets of the chosen project.
@@ -40,17 +40,20 @@ const bar = async () =>
   within(await screen.findByRole("form", { name: "Noter une idée" }));
 const barField = async () =>
   (await bar()).getByRole("textbox", { name: "Idée" }) as HTMLInputElement;
+// Both the key and the submit are fired on elements fetched once: the bar may be hidden as soon as the panel opens (B1 of the review).
 const open = async (title = "ranger le Kanban") => {
-  fireEvent.change(await barField(), { target: { value: title } });
-  fireEvent.keyDown(await barField(), { key: "Enter" });
-  fireEvent.submit(await screen.findByRole("form", { name: "Noter une idée" }));
+  const field = await barField();
+  const form = await screen.findByRole("form", { name: "Noter une idée" });
+  fireEvent.change(field, { target: { value: title } });
+  fireEvent.keyDown(field, { key: "Enter" });
+  fireEvent.submit(form);
 };
 const dialog = () => screen.findByRole("dialog", { name: "Noter une idée" });
 const inPanel = async () => within(await dialog());
 const noter = async () =>
   (await inPanel()).getByRole("button", { name: /^Noter/ });
 const tag = async (text: string) => {
-  const input = (await inPanel()).getByRole("textbox", { name: "Étiquette" });
+  const input = (await inPanel()).getByRole("combobox", { name: "Étiquette" });
   fireEvent.change(input, { target: { value: text } });
   fireEvent.keyDown(input, { key: "Enter" });
 };
@@ -111,7 +114,7 @@ describe("054 D: Enter opens the panel", () => {
     ]);
     expect(priority.selectedOptions[0]?.textContent).toBe("Priorité : normale");
     expect(
-      (panel.getByRole("textbox", { name: "Étiquette" }) as HTMLInputElement)
+      (panel.getByRole("combobox", { name: "Étiquette" }) as HTMLInputElement)
         .placeholder,
     ).toBe("+ étiquette");
     expect(
@@ -203,7 +206,7 @@ describe("054 D: the tags of the panel", () => {
       panel.getByRole("button", { name: "Retirer l'étiquette export mensuel" }),
     ).toBeDefined();
     expect(
-      (panel.getByRole("textbox", { name: "Étiquette" }) as HTMLInputElement)
+      (panel.getByRole("combobox", { name: "Étiquette" }) as HTMLInputElement)
         .value,
     ).toBe("");
     expect(posts(api)).toEqual([]);
@@ -255,7 +258,7 @@ describe("054 D: the tags of the panel", () => {
     renderAt("/");
     await open();
     const panel = await inPanel();
-    const input = panel.getByRole("textbox", { name: "Étiquette" });
+    const input = panel.getByRole("combobox", { name: "Étiquette" });
     const suggestions = () => {
       const list = document.getElementById(input.getAttribute("list") ?? "");
       return [...(list?.querySelectorAll("option") ?? [])]
@@ -421,5 +424,264 @@ describe("054 D: Annuler and Escape", () => {
     fireEvent.keyDown(document.body, { key: "n" });
 
     expect(document.activeElement).toBe(await barField());
+  });
+});
+
+// Review of slice 11.2. Pinned (amends 054 D where it says only the title is kept):
+// - While the panel is open the bar replaces itself by the panel (S09): the bar's « Idée » field is gone from the accessibility tree, or disabled, readOnly or inert,
+//   and `n` does not focus it.
+// - After a successful « Noter » the bar field is empty and focused (never <body>).
+// - While « Noter » is in flight: « Annuler » and « Noter » are disabled, Escape and Ctrl+Enter do nothing, only one POST is sent; the panel closes when the answer comes.
+// - « Annuler » and Escape keep the WHOLE draft (title, description, priority, tags, project): the title is back in the bar, and Enter in the bar reopens the panel with all of it.
+//   A successful « Noter » clears the draft.
+// - A tag typed and not yet added (no Enter) is added when « Noter » is clicked.
+// - At 10 chips another tag is refused with the visible sentence « 10 étiquettes au plus. » (the field keeps what was typed, no chip is added).
+// - A 400 of the server when tags were sent shows « Une étiquette n'est pas valide (30 caractères au plus). » in the alert.
+
+const inertBarField = (field: HTMLElement | null) =>
+  field === null ||
+  (field as HTMLInputElement).disabled ||
+  (field as HTMLInputElement).readOnly ||
+  field.closest("[inert]") !== null;
+
+describe("review B1: the bar steps aside while the panel is open", () => {
+  it("given the panel is open, when the bar is looked at and n is pressed, then its field is not editable and does not take the focus", async () => {
+    stubBar();
+    renderAt("/");
+    const field = await barField();
+    await open("brouillon");
+    await dialog();
+
+    expect(inertBarField(screen.queryByRole("textbox", { name: "Idée" }))).toBe(
+      true,
+    );
+    fireEvent.keyDown(document.body, { key: "n" });
+    expect(document.activeElement).not.toBe(field);
+  });
+
+  it("given a successful Noter, when the panel has closed, then the bar field is empty and focused", async () => {
+    stubBar();
+    renderAt("/");
+    await open("à envoyer");
+
+    fireEvent.click(await noter());
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Noter une idée" }),
+      ).toBeNull(),
+    );
+    const field = await barField();
+    expect(field.value).toBe("");
+    await waitFor(() => expect(document.activeElement).toBe(field));
+  });
+});
+
+describe("review B2: Noter in flight", () => {
+  const inFlight = async () => {
+    let release: () => void = () => {};
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const api = stubBar({ hold });
+    renderAt("/");
+    await open("lent");
+    fireEvent.click(await noter());
+    await waitFor(() => expect(api.held).toHaveLength(1));
+    return { api, release };
+  };
+
+  it("given Noter was clicked and the server has not answered, when Annuler, Escape, Noter and Ctrl+Enter are tried, then the panel stays and only one POST is sent", async () => {
+    const { api, release } = await inFlight();
+    const panel = await inPanel();
+
+    expect(
+      panel.getByRole("button", { name: "Annuler" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect((await noter()).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(panel.getByRole("button", { name: "Annuler" }));
+    fireEvent.keyDown(panel.getByRole("textbox", { name: "Description" }), {
+      key: "Escape",
+    });
+    fireEvent.keyDown(panel.getByRole("textbox", { name: "Description" }), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    fireEvent.click(await noter());
+
+    expect(await dialog()).toBeDefined();
+    expect(api.held).toHaveLength(1);
+    release();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Noter une idée" }),
+      ).toBeNull(),
+    );
+    expect(api.held).toHaveLength(1);
+  });
+});
+
+describe("review 6: the draft survives Annuler and Escape", () => {
+  const fill = async () => {
+    await open("Exporter");
+    const panel = await inPanel();
+    fireEvent.change(panel.getByRole("textbox", { name: "Description" }), {
+      target: { value: "un **texte**" },
+    });
+    fireEvent.change(panel.getByRole("combobox", { name: "Priorité" }), {
+      target: { value: "high" },
+    });
+    fireEvent.change(panel.getByRole("combobox", { name: "Projet" }), {
+      target: { value: "8" },
+    });
+    await tag("export");
+  };
+  const expectDraft = async () => {
+    const panel = await inPanel();
+    expect(
+      (panel.getByRole("textbox", { name: "Titre" }) as HTMLInputElement).value,
+    ).toBe("Exporter");
+    expect(
+      (
+        panel.getByRole("textbox", {
+          name: "Description",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe("un **texte**");
+    expect(
+      (panel.getByRole("combobox", { name: "Priorité" }) as HTMLSelectElement)
+        .value,
+    ).toBe("high");
+    expect(
+      (panel.getByRole("combobox", { name: "Projet" }) as HTMLSelectElement)
+        .value,
+    ).toBe("8");
+    expect(panel.getByText("export")).toBeDefined();
+  };
+
+  it.each([
+    [
+      "Annuler",
+      async () =>
+        fireEvent.click(
+          (await inPanel()).getByRole("button", { name: "Annuler" }),
+        ),
+    ],
+    [
+      "Escape",
+      async () =>
+        fireEvent.keyDown(
+          (await inPanel()).getByRole("textbox", { name: "Description" }),
+          { key: "Escape" },
+        ),
+    ],
+  ])(
+    "given a filled panel, when %s closes it and Enter is pressed in the bar, then the panel comes back with the whole draft",
+    async (_name, close) => {
+      stubBar();
+      renderAt("/");
+      await fill();
+
+      await close();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Noter une idée" }),
+        ).toBeNull(),
+      );
+      expect((await barField()).value).toBe("Exporter");
+      fireEvent.keyDown(await barField(), { key: "Enter" });
+      fireEvent.submit(
+        await screen.findByRole("form", { name: "Noter une idée" }),
+      );
+
+      await expectDraft();
+    },
+  );
+
+  it("given a filled panel, when Noter succeeds and the bar is used again, then the new panel is empty", async () => {
+    stubBar();
+    renderAt("/");
+    await fill();
+    fireEvent.click(await noter());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Noter une idée" }),
+      ).toBeNull(),
+    );
+
+    await open("Autre idée");
+
+    const panel = await inPanel();
+    expect(
+      (
+        panel.getByRole("textbox", {
+          name: "Description",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe("");
+    expect(
+      (panel.getByRole("combobox", { name: "Priorité" }) as HTMLSelectElement)
+        .value,
+    ).toBe("normal");
+    expect(
+      (panel.getByRole("combobox", { name: "Projet" }) as HTMLSelectElement)
+        .value,
+    ).toBe("5");
+    expect(
+      panel.queryByRole("button", { name: /^Retirer l'étiquette / }),
+    ).toBeNull();
+  });
+});
+
+describe("review 4: the tags of the panel, the edge cases", () => {
+  it("given a tag typed without Enter, when Noter is clicked, then it is sent with the others", async () => {
+    const api = stubBar();
+    renderAt("/");
+    await open("Tag oublié");
+    await tag("premier");
+    fireEvent.change(
+      (await inPanel()).getByRole("combobox", { name: "Étiquette" }),
+      {
+        target: { value: "  Second " },
+      },
+    );
+
+    fireEvent.click(await noter());
+
+    await waitFor(() => expect(posts(api)).toHaveLength(1));
+    expect(posts(api)[0]?.body).toMatchObject({ tags: ["premier", "second"] });
+  });
+
+  it("given ten chips, when an eleventh tag is typed and Enter pressed, then « 10 étiquettes au plus. » is shown, no chip is added and the text stays", async () => {
+    stubBar();
+    renderAt("/");
+    await open();
+    for (let i = 0; i < 10; i++) await tag(`t${i}`);
+
+    await tag("onze");
+
+    const panel = await inPanel();
+    expect(panel.getByText("10 étiquettes au plus.")).toBeDefined();
+    expect(
+      panel.getAllByRole("button", { name: /^Retirer l'étiquette / }),
+    ).toHaveLength(10);
+    expect(
+      (panel.getByRole("combobox", { name: "Étiquette" }) as HTMLInputElement)
+        .value,
+    ).toBe("onze");
+  });
+
+  it("given tags sent and a 400 answer, when Noter is clicked, then the alert talks about tags", async () => {
+    stubBar({ ticketStatus: 400 });
+    renderAt("/");
+    await open("Refus");
+    await tag("x");
+
+    fireEvent.click(await noter());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(
+      "Une étiquette n'est pas valide (30 caractères au plus).",
+    );
   });
 });

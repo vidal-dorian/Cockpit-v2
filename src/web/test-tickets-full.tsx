@@ -44,14 +44,17 @@ type Options = {
   routineConnected?: boolean;
   /** GET /api/projects/:id/tickets for the projects named here (the suggestions of tags read them); project 8 answers an empty list by default. */
   ticketsOf?: Record<number, RichTicket[]>;
-  /** The answer of GET /api/projects/5/search?q=. */
-  search?: (q: string) => SearchAnswer;
+  /** While set, a POST of a ticket waits for it before answering 201 (a Noter in flight); the POSTs seen are in `held`. */
+  hold?: Promise<void>;
+  /** The answer of GET /api/projects/5/search?q= (may be a promise: a slow search). */
+  search?: (q: string) => SearchAnswer | Promise<SearchAnswer>;
 };
 
 /** Lays what 054 adds over the current fetch fake. Returns the searches asked and the runs fired. */
 export function layer(options: Options = {}) {
   const inner = globalThis.fetch;
   const searches: string[] = [];
+  const held: { path: string; body: unknown }[] = [];
   /** The projects whose « Écrire les US maintenant » was fired. */
   const runs: string[] = [];
   vi.stubGlobal(
@@ -72,8 +75,20 @@ export function layer(options: Options = {}) {
         const q = url.searchParams.get("q") ?? "";
         searches.push(q);
         return Response.json(
-          options.search?.(q) ?? { tickets: [], stories: [] },
+          (await options.search?.(q)) ?? { tickets: [], stories: [] },
         );
+      }
+      if (
+        options.hold &&
+        method === "POST" &&
+        /^\/api\/projects\/\d+\/tickets$/.test(path)
+      ) {
+        held.push({
+          path,
+          body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
+        });
+        await options.hold;
+        return Response.json({ ticket: { id: 100 } }, { status: 201 });
       }
       const listed = /^\/api\/projects\/(\d+)\/tickets$/.exec(path);
       if (listed && method === "GET") {
@@ -94,7 +109,9 @@ export function layer(options: Options = {}) {
       const run = /^\/api\/projects\/(\d+)\/routine\/run$/.exec(path);
       if (run && method === "POST") {
         runs.push(run[1] ?? "");
-        return Response.json({ ok: true });
+        return Response.json({
+          sessionUrl: "https://claude.ai/code/session_NEW",
+        });
       }
       if (path === "/api/me/routine" && method === "GET")
         return Response.json({
@@ -106,7 +123,7 @@ export function layer(options: Options = {}) {
       return inner(input, init);
     }),
   );
-  return { searches, runs };
+  return { searches, runs, held };
 }
 
 /** The project 5 pages (tickets, stories) with the shell, plus 054's additions. */
@@ -133,3 +150,15 @@ export function stubBar(
     ...layer({ ...options, ticketsOf: { 5: [], 8: [], ...options.ticketsOf } }),
   };
 }
+
+/** How many times the page asked GET `path` (any fetch stubbed so far). */
+export const hits = (path: string) =>
+  vi
+    .mocked(globalThis.fetch)
+    .mock.calls.filter(
+      ([input]) =>
+        new URL(
+          input instanceof Request ? input.url : String(input),
+          "http://localhost",
+        ).pathname === path,
+    ).length;

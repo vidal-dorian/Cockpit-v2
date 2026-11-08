@@ -8,8 +8,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { redClasses } from "./test-journal.tsx";
-import { renderAt, story } from "./test-tickets.tsx";
-import { rich, stubTab } from "./test-tickets-full.tsx";
+import { type FakeStory, fail, renderAt, story } from "./test-tickets.tsx";
+import { hits, rich, stubTab } from "./test-tickets-full.tsx";
 
 // Slice 11.2, decision 054 G (S14): the panel of a ticket on the Tickets tab.
 //
@@ -213,5 +213,63 @@ describe("054 J: the colour of the panel", () => {
       "Exporter en CSV",
     );
     expect(redClasses(aside)).toEqual([]);
+  });
+});
+
+// Review of slice 11.2. Pinned:
+// - Delete refused with 409 ticket_has_stories (Claude wrote stories meanwhile): the panel shows « Ce ticket a des user stories : il ne se supprime plus. »,
+//   the stories query is read again so the stories appear, and « Supprimer » is gone.
+// - After a successful delete the home (/api/home) and the tickets list are read again.
+
+describe("review 5: deleting from the panel", () => {
+  it("given the server refuses with ticket_has_stories, when the deletion is confirmed, then the panel says so, shows the new stories and offers no Supprimer", async () => {
+    const stories: FakeStory[] = [];
+    const api = stubTab([T1, T2, T3], stories);
+    renderAt("/projets/5/tickets");
+    await click("Exporter en CSV");
+    fireEvent.click(
+      within(await panel()).getByRole("button", { name: "Supprimer" }),
+    );
+    stories.push(story(50, 11, "Écrite entre-temps"));
+    api.failNext.delete = fail(409, "ticket_has_stories");
+
+    fireEvent.click(
+      within(await panel()).getByRole("button", {
+        name: "Confirmer la suppression",
+      }),
+    );
+
+    const aside = within(await panel());
+    expect(
+      await aside.findByText(/Ce ticket a des user stories/),
+    ).toBeDefined();
+    expect(await aside.findByText(/US 50 · Écrite entre-temps/)).toBeDefined();
+    expect(aside.queryByRole("button", { name: "Supprimer" })).toBeNull();
+    expect(
+      aside.queryByRole("button", { name: "Confirmer la suppression" }),
+    ).toBeNull();
+  });
+
+  it("given a successful deletion, when it is done, then the home and the tickets list are read again", async () => {
+    stubTab([T1, T2, T3], STORIES);
+    renderAt("/projets/5/tickets");
+    await click("Exporter en CSV");
+    await panel();
+    const home = hits("/api/home");
+    const list = hits("/api/projects/5/tickets");
+    fireEvent.click(
+      within(await panel()).getByRole("button", { name: "Supprimer" }),
+    );
+
+    fireEvent.click(
+      within(await panel()).getByRole("button", {
+        name: "Confirmer la suppression",
+      }),
+    );
+
+    await waitFor(() => expect(hits("/api/home")).toBeGreaterThan(home));
+    await waitFor(() =>
+      expect(hits("/api/projects/5/tickets")).toBeGreaterThan(list),
+    );
   });
 });
