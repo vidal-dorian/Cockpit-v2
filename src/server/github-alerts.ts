@@ -442,14 +442,14 @@ export async function receiveAlert(
         number: z.int(),
         state: z.string().nullish(),
         resolution: z.string().nullish(),
-        resolved_at: z.string().nullish(),
       }),
       repository: z.object({ default_branch: z.string().nullish() }).nullish(),
     })
     .parse(delivery.payload);
   const closed =
     tool === "secret_scanning"
-      ? Boolean(head.resolution || head.resolved_at) ||
+      ? // `resolution` alone: GitHub's schema does not say `resolved_at` is cleared on reopen.
+        Boolean(head.resolution) ||
         (head.state != null && head.state !== "open")
       : head.state != null && head.state !== "open";
   if (closed) {
