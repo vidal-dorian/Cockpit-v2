@@ -367,3 +367,26 @@ describe("slice 14.4 (decision 059 A): the automatic relaunch", () => {
     );
   });
 });
+
+// Slice 14.5 (decision 060 F): the line « Coût » of the launcher card gives the variables of the cloud environment.
+describe("criterion 14.5: the telemetry variables", () => {
+  it("given the launcher card, when « Copier » is clicked, then the four variables are shown and copied, the endpoint on this origin", async () => {
+    const writeText = stubClipboard();
+    stubApi();
+    renderAt("/reglages/taches-cloud");
+    const section = await launcherCard();
+    const lines = [
+      "CLAUDE_CODE_ENABLE_TELEMETRY=1",
+      "OTEL_METRICS_EXPORTER=otlp",
+      "OTEL_EXPORTER_OTLP_PROTOCOL=http/json",
+      `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=${window.location.origin}/v1/metrics`,
+    ];
+    for (const line of lines) expect(section.textContent).toContain(line);
+
+    fireEvent.click(within(section).getByRole("button", { name: "Copier" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    for (const line of lines)
+      expect(writeText.mock.calls[0]?.[0]).toContain(line);
+  });
+});

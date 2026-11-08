@@ -62,7 +62,9 @@ const stepOf = (id: number, agent: string, over = {}) => ({
   ...over,
 });
 
-function stubApi(initial: { run: object; steps: object[] }) {
+function stubApi(
+  initial: { run: object; steps: object[] } & Record<string, unknown>,
+) {
   const state = { ...initial };
   let runReads = 0;
   vi.stubGlobal("EventSource", FakeEventSource);
@@ -179,5 +181,43 @@ describe("criterion 8: the run page", () => {
 
     await waitFor(() => expect(main().textContent).toContain("reviewer"));
     expect(api.reads()).toBeGreaterThan(before);
+  });
+});
+
+// Slice 14.5 (decision 060 B, D, F): GET /api/runs/:id also gives, beside `cloud`, `costUsd` (number or null) and
+// `stopReason` ("budget" or null).
+describe("criterion 14.5: the cost on the run page", () => {
+  const text = () => (main().textContent ?? "").replace(/\s/g, " ");
+
+  it("given a cloud run that cost 0.84, when the page loads, then it reads « Coût du run : 0,84 $ »", async () => {
+    stubApi({ run: run(), steps: [], costUsd: 0.84 });
+
+    renderAt("/runs/12");
+
+    await loaded();
+    expect(text()).toContain("Coût du run : 0,84 $");
+  });
+
+  it("given a run with no cost, when the page loads, then it reads « coût inconnu »", async () => {
+    stubApi({ run: run(), steps: [], costUsd: null });
+
+    renderAt("/runs/12");
+
+    await loaded();
+    expect(text()).toContain("coût inconnu");
+  });
+
+  it("given a stop requested for the budget, when the page loads, then it reads « Plafond atteint : arrêt demandé »", async () => {
+    stubApi({
+      run: run({ stopRequestedAt: "2026-11-05T10:20:00.000Z" }),
+      steps: [],
+      costUsd: 1.1,
+      stopReason: "budget",
+    });
+
+    renderAt("/runs/12");
+
+    await loaded();
+    expect(text()).toContain("Plafond atteint : arrêt demandé");
   });
 });

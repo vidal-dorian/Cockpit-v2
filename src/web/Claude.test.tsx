@@ -267,3 +267,18 @@ describe("criterion 5: the page Claude", () => {
     expect(link.getAttribute("href")).toBe("/claude/taches");
   });
 });
+
+// Slice 14.5 (decision 060 F): the page « Claude » links to the page « Coût ».
+describe("criterion 14.5: the link to the cost", () => {
+  it("given the page Claude, when it loads, then a link « Coût » goes to /claude/cout", async () => {
+    stub();
+    renderAt("/claude");
+
+    const link = await within(await screen.findByRole("main")).findByRole(
+      "link",
+      { name: /Coût/ },
+    );
+
+    expect(link.getAttribute("href")).toBe("/claude/cout");
+  });
+});
