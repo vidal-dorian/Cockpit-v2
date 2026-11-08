@@ -37,7 +37,10 @@ function sentence(entry: Entry) {
 /** The two views of the Historique tab (decision 062 F): the journal, and what was delivered. */
 export function HistoryChips({ projectId }: { projectId: string }) {
   return (
-    <nav className="mt-4 flex gap-2 px-[26px]">
+    <nav
+      aria-label="Vues de l'historique"
+      className="mt-4 flex gap-2 px-[26px]"
+    >
       <NavLink to={`/projets/${projectId}/historique`} end className={chipLink}>
         Journal
       </NavLink>

@@ -16,6 +16,11 @@ export async function fetchHistory(
 }
 
 export const ACTIONS: Record<string, string> = {
+  delete_branch: "Branche supprimée",
+  import_issues: "Issues importées",
+  add_attachment: "Pièce jointe ajoutée",
+  delete_attachment: "Pièce jointe retirée",
+  get_attachment: "Pièce jointe lue",
   login: "Connexion",
   logout: "Déconnexion",
   create_ticket: "Ticket créé",

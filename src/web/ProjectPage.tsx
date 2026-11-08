@@ -514,7 +514,7 @@ export function ProjectPage({
         />
       )}
       {!notFound && tab === "historique" && view === "delivered" && (
-        <ProjectDelivered projectId={id} fullName={project?.fullName} />
+        <ProjectDelivered projectId={id} archived={project?.archived} />
       )}
       {!notFound && tab === "historique" && view !== "delivered" && (
         <ProjectHistory projectId={id} />

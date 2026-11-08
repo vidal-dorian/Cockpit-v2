@@ -11,13 +11,17 @@ type Entry = {
   storyId: number | null;
 };
 type Group = {
-  kind: "unreleased" | "release" | "day";
+  kind: "unreleased" | "release" | "older" | "day";
   name: string | null;
   date: string | null;
   entries: Entry[];
 };
 type Branch = { storyId: number; branch: string; prNumber: number };
-type Changelog = { groups: Group[]; branches: Branch[] };
+type Changelog = {
+  repo: string;
+  groups: Group[];
+  branches: Branch[];
+};
 
 // Decision 062 E: why the server refused to delete the branch.
 const REFUSALS: Record<string, string> = {
@@ -29,7 +33,8 @@ const REFUSALS: Record<string, string> = {
     "La branche a des commits que la PR mergée n'a pas : rien n'est supprimé.",
   branch_has_open_pr: "Une PR ouverte part de cette branche.",
   project_archived: "Ce projet est archivé.",
-  github_unavailable: "GitHub ne répond pas : rien n'a été supprimé.",
+  github_unavailable:
+    "GitHub ne répond pas : vérifie sur GitHub si la branche a été supprimée.",
 };
 
 const dayOf = (offset: number) =>
@@ -44,6 +49,7 @@ const frenchDate = (date: string) =>
 
 function groupTitle(group: Group) {
   if (group.kind === "unreleased") return "Pas encore publiée";
+  if (group.kind === "older") return "Versions plus anciennes";
   if (group.kind === "release")
     return `Version ${group.name} · ${group.date ? frenchDate(group.date) : ""}`;
   const day = group.date?.slice(0, 10) ?? "";
@@ -55,9 +61,11 @@ function groupTitle(group: Group) {
 function BranchLine({
   branch,
   projectId,
+  archived,
 }: {
   branch: Branch;
   projectId: string;
+  archived: boolean;
 }) {
   const queryClient = useQueryClient();
   const [asking, setAsking] = useState(false);
@@ -86,7 +94,7 @@ function BranchLine({
         {`PR #${branch.prNumber} mergée · plus utilisée`}
       </span>
       <span className="ml-auto flex flex-wrap items-center gap-2">
-        {asking ? (
+        {archived ? null : asking ? (
           <>
             <span className="text-[13px]">
               {`Supprimer la branche ${branch.branch} ? Rien ne sera perdu : elle est déjà mergée.`}
@@ -132,10 +140,10 @@ function BranchLine({
 /** « Ce qui a été livré » (decision 062 F, S17): one line per merged PR by version or day, then the merged branches to clean. */
 export function ProjectDelivered({
   projectId,
-  fullName,
+  archived,
 }: {
   projectId: string;
-  fullName: string | undefined;
+  archived: boolean | undefined;
 }) {
   const changelog = useQuery({
     queryKey: ["changelog", projectId],
@@ -145,7 +153,7 @@ export function ProjectDelivered({
       return res.json();
     },
   });
-  const { groups = [], branches = [] } = changelog.data ?? {};
+  const { repo, groups = [], branches = [] } = changelog.data ?? {};
   return (
     <>
       <HistoryChips projectId={projectId} />
@@ -155,7 +163,9 @@ export function ProjectDelivered({
           <p className="text-muted-foreground">Rien de livré pour l'instant.</p>
         )}
         {groups.map((group) => (
-          <section key={`${group.kind}-${group.name ?? group.date}`}>
+          <section
+            key={`${group.kind}-${group.name}-${group.date}-${group.entries[0]?.number}`}
+          >
             <h2 className={sectionLabel}>{groupTitle(group)}</h2>
             <ul className={`${listCard} mt-2`}>
               {group.entries.map((entry) => (
@@ -171,7 +181,7 @@ export function ProjectDelivered({
                   </span>
                   <span className="text-[12.5px] text-muted-foreground">
                     <a
-                      href={`https://github.com/${fullName}/pull/${entry.number}`}
+                      href={`https://github.com/${repo}/pull/${entry.number}`}
                       className="underline"
                     >{`PR #${entry.number}`}</a>
                     {entry.storyId !== null && (
@@ -199,6 +209,7 @@ export function ProjectDelivered({
                   key={branch.storyId}
                   branch={branch}
                   projectId={projectId}
+                  archived={archived === true}
                 />
               ))}
             </ul>
