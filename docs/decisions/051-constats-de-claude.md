@@ -46,7 +46,7 @@ La 007 laissait ouvert le **modèle de chaque agent d'analyse** (point 4). Le 20
 
 ## Ce qui est repoussé
 
-- **Les constats venus de GitHub** (Dependabot, code scanning, secret scanning), la fin de vie des runtimes et la puce « Versions » : R6.
+- **Les constats venus de GitHub** (Dependabot, code scanning, secret scanning), la fin de vie des runtimes et la puce « Versions » : R6 (fait, [052](052-constats-de-github-et-versions.md)).
 - **Un réglage global des modèles** (un profil « Pro » ou « Max » qui choisit pour tous les projets d'un coup) : on change le modèle projet par projet (L) ; un profil viendra si le besoin se montre.
 - **Les doublons** entre deux analyses (point 5 de la 007) : `list_findings` les évite sans le garantir.
 

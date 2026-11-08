@@ -286,6 +286,7 @@ Les citations des objets de la carte restent dans son `data` : elles sont rempla
 
 - **Prérequis** : l'app reprise doit pouvoir lancer des tests en CI. Sinon, le bilan de santé (2.2) le signale, et la CI de départ (brief §6.10) devient le premier pas.
 - **GitHub App** : R6 demande trois permissions en lecture de plus (*Dependabot alerts*, *Code scanning alerts*, *Secret scanning alerts*) et leurs webhooks. C'est le cas du point ouvert de la [012](012-configuration-automatique.md) : modification de l'App existante, puis approbation par chaque utilisateur.
+  *Tranché par la [052](052-constats-de-github-et-versions.md) A et B : Cockpit guide, il ne modifie pas l'App.*
 - **Tests** : la vérification des citations, l'import des alertes et endoflife.date passent par de faux services (principe 9 du brief).
 - **Documentation métier** : les règles validées d'un projet, regroupées par fonctionnalité, en forment une, chaque règle avec son test. L'export Markdown de l'écran « Conception » la rend lisible hors de Cockpit. Aucune table de plus n'est nécessaire.
 
