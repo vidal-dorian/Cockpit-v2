@@ -43,6 +43,7 @@ describe("the launch of the queue", () => {
     expect((await readQueue(ctx)).paused).toBe(false);
     expect(await ids(ctx)).toEqual([ctx.storyId]);
     expect(ctx.calls).toHaveLength(1);
+    expect(await rows(ctx.db, sql`result = 'refused'`)).toEqual([]);
   });
 
   it("given two passes at once, when they both run, then the first story is fired once (the lock itself needs a real database to show)", async () => {

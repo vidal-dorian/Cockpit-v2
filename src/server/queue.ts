@@ -35,6 +35,15 @@ import { assertActive, body } from "./tickets.ts";
 
 const PENDING_MS = 15 * 60_000;
 
+/** A launch still waiting for its run: the `launch_pending` rule of 054 E. */
+const pendingSince = (at: Date) =>
+  and(
+    gt(cloudLaunches.createdAt, new Date(at.getTime() - PENDING_MS)),
+    isNull(cloudLaunches.runId),
+    isNull(cloudLaunches.reason),
+    or(isNull(cloudLaunches.result), eq(cloudLaunches.result, "ok")),
+  );
+
 // Here, not in launcher.ts: queue.ts is loaded through routines.ts, and launcher.ts uses `noNul` of tickets.ts when it loads, which may not be loaded yet.
 /** What a launch of a story checks and writes (054 E), in the transaction of `launchCloud`; shared by the route and the queue (057 C). */
 export async function reserveStory(
@@ -66,15 +75,7 @@ export async function reserveStory(
   const [pending] = await tx
     .select({ id: cloudLaunches.id })
     .from(cloudLaunches)
-    .where(
-      and(
-        eq(cloudLaunches.storyId, storyId),
-        gt(cloudLaunches.createdAt, new Date(at.getTime() - PENDING_MS)),
-        isNull(cloudLaunches.runId),
-        isNull(cloudLaunches.reason),
-        or(isNull(cloudLaunches.result), eq(cloudLaunches.result, "ok")),
-      ),
-    );
+    .where(and(eq(cloudLaunches.storyId, storyId), pendingSince(at)));
   if (pending) throw new Refused("launch_pending");
   return { projectId, storyId, branch, team, comment };
 }
@@ -130,10 +131,7 @@ async function readItems(db: Db, userId: number, at: Date) {
               cloudLaunches.storyId,
               items.map((i) => i.storyId),
             ),
-            gt(cloudLaunches.createdAt, new Date(at.getTime() - PENDING_MS)),
-            isNull(cloudLaunches.runId),
-            isNull(cloudLaunches.reason),
-            or(isNull(cloudLaunches.result), eq(cloudLaunches.result, "ok")),
+            pendingSince(at),
           ),
         )
     : [];
@@ -406,12 +404,7 @@ export function queueRoutes(db: Db) {
                 ),
               );
             if (!ticked) throw new Refused("project_not_in_launcher");
-            const [queued] = await tx
-              .select({ id: queueItems.id })
-              .from(queueItems)
-              .where(eq(queueItems.storyId, story.id));
-            if (queued) throw new Refused("already_queued");
-            // Two requests at once both pass the check above: the unique key stops the second.
+            // The unique key refuses a story already queued, even two requests at once.
             await tx
               .insert(queueItems)
               .values({
