@@ -13,7 +13,14 @@ import {
   readyStory,
   tick,
 } from "./test-launcher.ts";
-import { userWithToken } from "./test-mcp.ts";
+import {
+  archiveProject,
+  rows,
+  seedProject,
+  seedStory,
+  seedTicket,
+  userWithToken,
+} from "./test-mcp.ts";
 import { runRoute } from "./test-run-controls.ts";
 
 // Slice 14.3 (decision 057 B, C, E): what the acceptance tests leave out: a refusal that is not a failure, the one slot, the owner of a run, who may touch a queue, the data of GET /api/claude.
@@ -38,7 +45,7 @@ describe("the launch of the queue", () => {
     expect(ctx.calls).toHaveLength(1);
   });
 
-  it("given two passes at once, when they both launch, then the first story is fired once", async () => {
+  it("given two passes at once, when they both run, then the first story is fired once (the lock itself needs a real database to show)", async () => {
     const ctx = await ready();
     await queued(ctx, 2);
 
@@ -81,6 +88,27 @@ describe("the launch of the queue", () => {
       await (await queueCall(ctx, "GET", "", undefined, bob.cookie)).json(),
     ).toMatchObject({ paused: true, pausedReason: "run_failed" });
     expect(await readQueue(ctx)).toMatchObject({ paused: false });
+  });
+});
+
+describe("the skips", () => {
+  it("given a story of an archived project at the head, when the pass runs, then the next story fires and no refusal is written", async () => {
+    const ctx = await ready();
+    const project2 = await seedProject(ctx.db, ctx.alice.id, {
+      githubRepoId: 2,
+      fullName: "user1000/other",
+    });
+    const ticket2 = await seedTicket(ctx.db, project2, "Autre", "x");
+    const second = await seedStory(ctx.db, ticket2, { status: "ready" });
+    await tick(ctx, project2);
+    await queued(ctx, 1);
+    await queueCall(ctx, "POST", "", { storyId: second });
+    await archiveProject(ctx.db, ctx.projectId);
+
+    await pass(ctx, NOW);
+
+    expect((await launches(ctx)).map((l) => l.story_id)).toEqual([second]);
+    expect(await rows(ctx.db, sql`result = 'refused'`)).toEqual([]);
   });
 });
 

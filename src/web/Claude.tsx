@@ -120,7 +120,7 @@ export function Claude() {
                     </span>
                   </li>
                 ))}
-                {claude.data && running.length === 0 && (
+                {running.length === 0 && (
                   <li className={`${row} text-muted-foreground`}>
                     Aucun run en cours.
                   </li>
@@ -242,7 +242,7 @@ export function Claude() {
                     </span>
                   </li>
                 ))}
-                {queue.data && items.length === 0 && (
+                {items.length === 0 && (
                   <li className={`${row} text-muted-foreground`}>
                     La file est vide.
                   </li>

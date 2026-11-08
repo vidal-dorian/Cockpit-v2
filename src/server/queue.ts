@@ -29,12 +29,13 @@ import {
 } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 import { entryOf, type Fire, launchCloud, signedIn } from "./routines.ts";
+import { isUniqueViolation } from "./runs.ts";
 import { memberStory } from "./stories.ts";
 import { assertActive, body } from "./tickets.ts";
 
-// Here, not in launcher.ts: queue.ts is loaded through routines.ts, and launcher.ts uses `noNul` of tickets.ts when it loads, which may not be loaded yet.
 const PENDING_MS = 15 * 60_000;
 
+// Here, not in launcher.ts: queue.ts is loaded through routines.ts, and launcher.ts uses `noNul` of tickets.ts when it loads, which may not be loaded yet.
 /** What a launch of a story checks and writes (054 E), in the transaction of `launchCloud`; shared by the route and the queue (057 C). */
 export async function reserveStory(
   tx: Tx,
@@ -79,7 +80,7 @@ export async function reserveStory(
 }
 
 /** The queue of the user in order; `waiting` says why a story is skipped (decision 057 B, D). */
-async function readItems(db: Db, userId: number) {
+async function readItems(db: Db, userId: number, at: Date) {
   const items = await db
     .select({
       storyId: userStories.id,
@@ -88,6 +89,7 @@ async function readItems(db: Db, userId: number) {
       branch: userStories.branch,
       projectId: tickets.projectId,
       projectName: projects.fullName,
+      archived: projects.archivedAt,
     })
     .from(queueItems)
     .innerJoin(userStories, eq(userStories.id, queueItems.storyId))
@@ -117,12 +119,33 @@ async function readItems(db: Db, userId: number) {
         )
         .orderBy(asc(storyDependencies.dependsOnId))
     : [];
+  // A launch still waiting for its run (the `launch_pending` rule of 054 E) holds its story back too.
+  const pending = items.length
+    ? await db
+        .select({ storyId: cloudLaunches.storyId })
+        .from(cloudLaunches)
+        .where(
+          and(
+            inArray(
+              cloudLaunches.storyId,
+              items.map((i) => i.storyId),
+            ),
+            gt(cloudLaunches.createdAt, new Date(at.getTime() - PENDING_MS)),
+            isNull(cloudLaunches.runId),
+            isNull(cloudLaunches.reason),
+            or(isNull(cloudLaunches.result), eq(cloudLaunches.result, "ok")),
+          ),
+        )
+    : [];
   return items.map((i) => {
     const dependency = undone.find((d) => d.storyId === i.storyId);
     return {
       ...i,
       waiting:
-        i.status !== "ready"
+        // shortcut: an archived project or a pending launch shows as « not ready », the shape pinned by 057 B; add a reason if users ask why.
+        i.status !== "ready" ||
+        i.archived ||
+        pending.some((p) => p.storyId === i.storyId)
           ? { reason: "not_ready" as const }
           : dependency
             ? { reason: "dependency" as const, storyId: dependency.awaited }
@@ -202,7 +225,7 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
       );
     if (!user) return;
     if (await slotBusy(db, userId, at)) return;
-    const next = (await readItems(db, userId)).find((i) => !i.waiting);
+    const next = (await readItems(db, userId, at)).find((i) => !i.waiting);
     if (!next) return;
     const launched = await launchCloud(
       db,
@@ -335,7 +358,7 @@ export function queueRoutes(db: Db) {
         })
         .from(users)
         .where(eq(users.id, userId));
-      const items = await readItems(db, userId);
+      const items = await readItems(db, userId, new Date());
       return c.json({
         paused: user?.at != null,
         pausedReason: user?.reason ?? null,
@@ -388,11 +411,19 @@ export function queueRoutes(db: Db) {
               .from(queueItems)
               .where(eq(queueItems.storyId, story.id));
             if (queued) throw new Refused("already_queued");
-            await tx.insert(queueItems).values({
-              userId,
-              storyId: story.id,
-              position: sql`(select coalesce(max(position), 0) + 1 from queue_items where user_id = ${userId})`,
-            });
+            // Two requests at once both pass the check above: the unique key stops the second.
+            await tx
+              .insert(queueItems)
+              .values({
+                userId,
+                storyId: story.id,
+                position: sql`(select coalesce(max(position), 0) + 1 from queue_items where user_id = ${userId})`,
+              })
+              .catch((error) => {
+                throw isUniqueViolation(error)
+                  ? new Refused("already_queued")
+                  : error;
+              });
             return { storyId: story.id };
           },
           201,
