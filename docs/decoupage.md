@@ -62,6 +62,7 @@
 - **Fait** : tranche 11.1 (le Journal filtrable et l'historique par projet, [décision 053](decisions/053-journal-filtrable.md)).
 - **Fait** : tranche 14.1 (lancer dans le cloud, [décision 054](decisions/054-lancer-dans-le-cloud.md)).
 - **Fait** : tranche 11.2 (les tickets complets, [décision 055](decisions/055-tickets-complets.md)).
+- **Fait** : tranche 11.3 (importer les issues GitHub, [décision 056](decisions/056-importer-les-issues.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

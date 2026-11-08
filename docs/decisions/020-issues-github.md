@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [009 — Connexion à GitHub](009-connexion-github.md), [010 — Historique](010-historique.md), [012 — Configuration automatique](012-configuration-automatique.md), [018 — Les décisions humaines](018-decisions-humaines.md)
 - **Modifiée par** : [025 — Une issue modifiée sur GitHub](025-issue-modifiee-sur-github.md) : la synchronisation n'écrit plus sur GitHub tant que l'issue modifiée là-bas n'a pas été tranchée (D) ; « Garder la version de Cockpit » et « Reprendre la version de GitHub » republient sans tenir compte du hash gardé
+- **Modifiée par** : [056 — Importer les issues GitHub](056-importer-les-issues.md) : l'issue d'une US importée est adoptée (D) ; à sa première publication, le corps est réécrit avec le gabarit et le label est posé, sans seconde issue
 - **Tranche** : 4.6 du [découpage](../decoupage.md)
 
 ## Contexte
