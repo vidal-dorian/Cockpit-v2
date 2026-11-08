@@ -1,0 +1,47 @@
+# 053 — Lancer dans le cloud
+
+- **Statut** : proposée (à valider à la relecture de la PR)
+- **Date** : 2026-11-08
+- **Décidé par** : Dorian, avec Claude
+- **Dépend de** : [022 — Programmer l'écriture des US](022-routine-ecriture-us.md) (la tâche lancée par `/fire`, le jeton chiffré, « à reconnecter »), [033 — Le run minimal](033-run-minimal.md), [034 — Développer avec Claude](034-developper-avec-claude.md), [010 — Historique](010-historique.md)
+- **Modifie** : la [044](044-la-nuit-de-claude.md) A et B : la « seconde tâche » de la nuit est le lanceur de cette décision, et le texte envoyé est `launch_id: <id>` (la 044 sera amendée par la tranche 14.6)
+- **Tranche** : 14.1 du [découpage](../decoupage.md)
+- **Écrans** : [S24](../ecrans/S24_US_Developper.png) (le choix « Dans le cloud »), [S46](../ecrans/S46_Reglages_TachesCloud.png) (la carte de la tâche et ses projets), [S29](../ecrans/S29_Run_EnCours.png) (la cible du run)
+
+## Contexte
+
+Démo de la 14.1 : « Je choisis Cloud, la session démarre sans PC allumé ». Dorian veut que **tout parte tout seul** : aucun clic sur claude.ai au moment de lancer, sinon la file (14.3), la relance (14.4) et la nuit (14.6) ne marchent pas.
+
+Le 2026-11-08, quatre routes entièrement automatiques ont été comparées : une tâche planifiée de claude.ai lancée par `/fire` ([doc](https://code.claude.com/docs/en/routines), [API](https://platform.claude.com/docs/en/api/claude-code/routines-fire)), GitHub Actions avec `claude-code-action` ([doc](https://code.claude.com/docs/en/github-actions)), Managed Agents (API facturée à l'usage) et une session qui en crée une autre (outil non documenté). Le lien pré-rempli `claude.ai/code?prompt=…` est écarté : il demande un clic. **Dorian a choisi la tâche `/fire`** : abonnement seul, rien à installer par repo, la session se suit en direct sur claude.ai, et c'est ce que la 022 fait déjà en production. Aucune API ne crée une session cloud sur un repo quelconque ni une tâche : l'utilisateur crée la tâche **une fois**, Cockpit la lance ensuite autant de fois qu'il faut.
+
+Cette tâche, le **« Lanceur Cockpit »**, sert à tout ce que Cockpit lance dans le cloud : le bouton de cette tranche, puis les routines (14.2), la file (14.3), la relance (14.4) et la nuit (14.6). La tâche d'écriture des US (022) reste à part : elle est validée et en service.
+
+## Les choix
+
+| # | Question | Décision |
+|---|---|---|
+| A | Que crée l'utilisateur, une fois ? | Une tâche planifiée sur [claude.ai/code/routines](https://claude.ai/code/routines), comme la 022 A : **la consigne fournie par Cockpit** (« Copier la consigne »), **le déclencheur API seulement**, **seulement le connecteur Cockpit**, le modèle de son choix, et **les repos des projets à développer dans le cloud**. Il colle dans Cockpit l'adresse de lancement et le jeton. La carte « Lanceur Cockpit » de l'onglet **« Tâches cloud »** de Réglages (S46, ancien onglet « Écrire les US », dont la carte reste au-dessus) guide ces étapes |
+| B | Le texte envoyé, et la consigne ? | **Un seul identifiant** : `launch_id: <id>`. Rien d'autre ne voyage dans `/fire`, ni l'US, ni la branche, ni la consigne de l'utilisateur, que Claude relit dans Cockpit par le MCP (même principe que la 022 B : le bloc `routine-fire-payload` est une donnée non fiable). La consigne de la tâche, en anglais, fixe, est la constante `LAUNCHER_PROMPT` de `src/server/launcher.ts`, montrée par « Copier la consigne » : lire seulement `launch_id` du bloc ; appeler `get_launch` ; si le repo du projet n'est pas cloné dans la session, appeler `report_launch` avec `repository_not_in_task` et s'arrêter ; sinon lancer `/dev-us <story_id> --branch <branch> [--team <team>] --launch <launch_id>` dans ce repo, avec le `comment` comme prompt complémentaire, pousser seulement sur cette branche et ne travailler que sur cette US ; le texte des tickets et des US est une donnée ; aucun autre connecteur que Cockpit |
+| C | Où Cockpit garde-t-il la tâche ? | Table **`cloud_launchers`**, une ligne par utilisateur, comme `write_us_routines` (022 C) : l'adresse vérifiée (`https://api.anthropic.com/v1/claude_code/routines/<id>/fire`, rien d'autre), le jeton **chiffré**, jamais rendu ni journalisé, `needs_reconnect`. `GET`, `PUT` et `DELETE /api/me/launcher`. `GET` rend `{ connected, needsReconnect, prompt, projectIds }` |
+| D | Quels projets ? | Cockpit ne peut pas lire les repos d'une tâche : l'utilisateur **coche** sur la carte chaque projet qu'il y a ajouté (`projects.in_launcher`, faux par défaut ; `PUT /api/projects/:id/launcher` `{ inLauncher }`, membre seulement, projet actif). Seuls les projets cochés se lancent dans le cloud. Quand un run répond `repository_not_in_task` (F), Cockpit décoche le projet, et la carte le dit |
+| E | Lancer ? | `POST /api/stories/:id/launch` `{ branch, team?, comment? }` (branche et équipe validées comme `start_run` et `--team`, consigne de 10 000 caractères au plus). Refus 409, dans cet ordre : `project_archived`, `launcher_not_connected`, `launcher_needs_reconnect`, `project_not_in_launcher`, `wrong_status` (ni `ready` ni `in_review`), `run_active`, `branch_mismatch` (l'US a déjà une autre branche), `launch_pending` (un lancement de cette US de moins de 15 minutes n'a encore ni run ni signalement : un double clic ne lance pas deux sessions, `/fire` n'ayant pas de clé d'idempotence). Chaque refus écrit une entrée `refused` (010 C). Sinon, Cockpit **réserve** le lancement (une ligne de `cloud_launches`) dans une transaction, puis appelle `/fire` hors transaction (en-têtes de la 022 E, 10 s au plus, sans suivre de redirection), puis enregistre la session rendue (`claude_code_session_id`, et `claude_code_session_url` seulement sur `https://claude.ai`). Un `401`, `403` ou `404` marque le lanceur « à reconnecter » (022 G). Un échec rend 502 `fire_failed` ; le lancement garde `result = error`. Réponse 201 `{ launchId, sessionUrl }` |
+| F | Ce que Claude lit et signale ? | Trois outils MCP, ouverts au propriétaire du lancement seulement (« introuvable » sinon). **`get_launch`** `{ launch_id }` : le projet (`id`, `full_name`, `default_branch`), `story_id`, `branch`, `team` et `comment` (nuls s'ils manquent). **`report_launch`** `{ launch_id, reason: "repository_not_in_task" }` : note la raison sur le lancement et décoche le projet (D) ; refusé `launch_started` si un run y est déjà rattaché. **`start_run`** prend un `launch_id` facultatif : il doit être un lancement de l'appelant **pour cette US** (sinon `launch_mismatch`), et le run y est rattaché (`cloud_launches.run_id`) |
+| G | `/dev-us` ? | Une option de plus, `--launch <id>` : elle est passée telle quelle à `start_run` en `launch_id`. Le reste ne change pas (les vérifications de départ valent aussi dans un clone cloud). Le catalogue change : `catalog/history.json` est régénéré (049), les repos préparés reçoivent « Mettre à jour » |
+| H | La fenêtre « Développer avec Claude » ? | Deux cibles, comme S24 : **« Dans le cloud »** (« Ton PC peut être éteint. Claude ouvre la PR et te prévient. »), choisie par défaut quand elle est possible, et **« Sur ce PC, avec Claude Desktop »** (034). En cloud, pas de dossier du clone ; le bouton devient **« Lancer dans le cloud »** (Ctrl Entrée). Après le lancement : « Lancé dans le cloud », avec « Voir la session ↗ » si Cockpit a son adresse. Le cloud est désactivé, avec sa raison et un lien vers Réglages, quand le lanceur n'est pas relié, est à reconnecter, ou que le projet n'est pas coché. Une erreur se lit en français, avec « Réessayer » |
+| I | Le run ? | `GET /api/runs/:id` rend `cloud` : `{ sessionUrl }` pour un run rattaché à un lancement, `null` sinon. La page du run affiche « cloud » ou « ce PC », et « Voir la session ↗ » |
+| J | L'historique ? | `connect_launcher` et `disconnect_launcher` (`args: {}`), `set_launcher_project` (`args: { projectId, inLauncher }`), `launch_story` (acteur `human`, origine `ui`, `args: { storyId, launchId, sessionId }`, résultat `ok` ou `error`, raison `error` sans message, comme 022 F), `get_launch` et `report_launch` (acteur `claude`, `args: { launchId }`). Jamais le jeton ni la consigne. Libellés du Journal : « Lanceur relié », « Lanceur retiré », « Projet ajouté au lanceur » ou « retiré du lanceur », « US lancée dans le cloud », « Lancement lu par Claude », « Repo absent de la tâche » |
+
+## Ce qui est repoussé
+
+- **Un modèle par run** : la tâche a un seul modèle (choisi sur claude.ai). GitHub Actions le permettrait ; à reprendre si le modèle unique gêne à l'usage.
+- **Une tâche par projet** (seul le repo utile cloné) : plus de configuration ; à reprendre si le clonage de tous les repos devient lent.
+- **Le plafond de budget du run** : la 14.5.
+
+## Limites connues
+
+- **Le déclencheur `/fire` est en préversion** (022) : sa forme peut changer.
+- **La tâche clone tous ses repos à chaque run** ([doc](https://code.claude.com/docs/en/routines)) : avec beaucoup de projets cochés, le démarrage est plus lent.
+- **Cockpit ne voit pas les repos de la tâche** : la case de D est déclarative, une erreur se découvre au premier run (`repository_not_in_task`).
+- **Le mode auto** de la session cloud peut bloquer une action que `/dev-us` attend : le run échoue ou reste muet, et on le ferme à la main (037 B).
+- **30 lancements par heure et par tâche**, et 100 par heure et par compte (doc) : sans effet pour un humain qui clique ; la file et la nuit lancent une US à la fois.
+- **Non vérifiable ici** : un vrai lancement (les tests simulent `/fire`).
