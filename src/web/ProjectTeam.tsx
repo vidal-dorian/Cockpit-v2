@@ -51,10 +51,25 @@ type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
 type StarterAgent = { name: string; text: string };
+type StarterTeams = {
+  teams: { id: string; team: string; agents: StarterAgent[] }[];
+};
+const STARTER_KEY = ["starter-teams"];
+const starterQuery = {
+  queryKey: STARTER_KEY,
+  queryFn: async (): Promise<StarterTeams> => {
+    const res = await client.api["starter-teams"].$get();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  },
+};
 type AgentChange = { name: string; before: string | null; after: string };
 
 const MODEL = /^model:.*$/m;
-const modelOf = (text: string) => /^model:\s*(.*?)\s*$/m.exec(text)?.[1];
+const FRONT = /^---\n(?:[\s\S]*?\n)?---(?:\n|$)/;
+// Only the front matter counts: a `model:` line in the body is text.
+const modelOf = (text: string) =>
+  /^model:\s*(.*?)\s*$/m.exec(FRONT.exec(text)?.[0] ?? "")?.[1];
 
 /** The agent files a starter team adds (its catalogue text) or changes (only the `model:` line, decision 063 F). */
 function starterChanges(
@@ -69,10 +84,16 @@ function starterChanges(
     if (before === undefined) changes.push({ name, before: null, after: text });
     else if (before !== null && modelOf(before) !== modelOf(text)) {
       const line = `model: ${modelOf(text)}`;
-      // No `model:` line: it goes last in the front matter.
-      const after = MODEL.test(before)
-        ? before.replace(MODEL, line)
-        : before.replace(/\n---(\n|$)/, `\n${line}\n---$1`);
+      // No `model:` line: it goes last in the front matter; no front matter: one is added.
+      const head = FRONT.exec(before)?.[0];
+      const after = !head
+        ? `---\n${line}\n---\n${before}`
+        : before.replace(
+            head,
+            MODEL.test(head)
+              ? head.replace(MODEL, line)
+              : head.replace(/---(\n|$)$/, `${line}\n---$1`),
+          );
       changes.push({ name, before, after });
     }
   }
@@ -636,6 +657,11 @@ export function ProjectTeam({
     agents: StarterAgent[];
   } | null>(null);
   const [choosing, setChoosing] = useState(false);
+  useEffect(() => {
+    void queryClient.prefetchQuery(starterQuery);
+  }, [queryClient]);
+  // The level asked for over unsaved changes, until « Confirmer le changement » or « Annuler ».
+  const [levelSwitch, setLevelSwitch] = useState<string | null>(null);
   // Another team or a new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
   if (seen !== key) {
     setSeen(key);
@@ -696,11 +722,14 @@ export function ProjectTeam({
     onError: () => setProblem({ code: "", status: 0 }),
   });
 
+  const agentChanges =
+    starter && draft ? starterChanges(starter.agents, draft.steps, agents) : [];
   const dirty =
-    draft !== null &&
-    initial !== null &&
-    writeTeam(draft.steps, draft.body) !==
-      writeTeam(initial.steps, initial.body);
+    agentChanges.length > 0 ||
+    (draft !== null &&
+      initial !== null &&
+      writeTeam(draft.steps, draft.body) !==
+        writeTeam(initial.steps, initial.body));
   const goTo = (next: string | null) => {
     setName(next);
     setSwitchTo(null);
@@ -710,6 +739,26 @@ export function ProjectTeam({
     setDone(null);
     setStarter(null);
     setChoosing(false);
+  };
+  const chooseLevel = async (id: string) => {
+    setLevelSwitch(null);
+    setProblem(null);
+    setDone(null);
+    try {
+      // Read ahead (below): the draft changes at once when the answer is already there.
+      const { teams } =
+        queryClient.getQueryData<StarterTeams>(STARTER_KEY) ??
+        (await queryClient.fetchQuery(starterQuery));
+      const chosen = teams.find((t) => t.id === id);
+      const read = chosen && readTeam(chosen.team);
+      if (!chosen || !read) throw new Error("starter team");
+      setDraft(read);
+      setStarter({ id: chosen.id, agents: chosen.agents });
+      setShowDiff(false);
+      setChoosing(false);
+    } catch {
+      setProblem({ code: "", status: 0 });
+    }
   };
   const viewSwitch = (
     <span className="ml-auto flex gap-1.5">
@@ -747,6 +796,7 @@ export function ProjectTeam({
                 if (!dirty) return goTo(n);
                 setCreating(null);
                 setDeleting(false);
+                setLevelSwitch(null);
                 setSwitchTo(n ?? "");
               }}
               className={chip(name === n)}
@@ -790,28 +840,10 @@ export function ProjectTeam({
                   type="button"
                   disabled={archived || commit.isPending}
                   title={level.sentence}
-                  onClick={async () => {
-                    setProblem(null);
-                    setDone(null);
-                    try {
-                      const { teams } = await queryClient.fetchQuery({
-                        queryKey: ["starter-teams"],
-                        queryFn: async () => {
-                          const res = await client.api["starter-teams"].$get();
-                          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                          return res.json();
-                        },
-                      });
-                      const chosen = teams.find((t) => t.id === level.id);
-                      const read = chosen && readTeam(chosen.team);
-                      if (!chosen || !read) throw new Error("starter team");
-                      setDraft(read);
-                      setStarter({ id: chosen.id, agents: chosen.agents });
-                      setShowDiff(false);
-                      setChoosing(false);
-                    } catch {
-                      setProblem({ code: "", status: 0 });
-                    }
+                  onClick={() => {
+                    if (!dirty) return void chooseLevel(level.id);
+                    setSwitchTo(null);
+                    setLevelSwitch(level.id);
                   }}
                   className={chip(false)}
                 >
@@ -822,7 +854,7 @@ export function ProjectTeam({
           )}
         </div>
       )}
-      {switchTo !== null && (
+      {(switchTo !== null || levelSwitch !== null) && (
         <div className="mt-3">
           <p id="switch-team-warning">
             Les changements non enregistrés seront perdus
@@ -831,7 +863,11 @@ export function ProjectTeam({
             type="button"
             aria-describedby="switch-team-warning"
             disabled={commit.isPending}
-            onClick={() => goTo(switchTo || null)}
+            onClick={() =>
+              levelSwitch !== null
+                ? void chooseLevel(levelSwitch)
+                : goTo(switchTo || null)
+            }
             className={`mt-2 ${button}`}
           >
             Confirmer le changement
@@ -842,7 +878,10 @@ export function ProjectTeam({
             // The select that asked keeps its value: focus goes to the safe choice.
             // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
             autoFocus
-            onClick={() => setSwitchTo(null)}
+            onClick={() => {
+              setSwitchTo(null);
+              setLevelSwitch(null);
+            }}
             className={`mt-2 ml-2 ${button}`}
           >
             Annuler
@@ -940,9 +979,6 @@ export function ProjectTeam({
   const { steps, body } = draft;
   const after = writeTeam(steps, body);
   // Compared with the draft as opened, not the file text: a file Cockpit would only reformat is not a change. Without a file the default steps are still worth a commit.
-  const agentChanges = starter
-    ? starterChanges(starter.agents, steps, agents)
-    : [];
   const unchanged =
     current !== null &&
     initial !== null &&
