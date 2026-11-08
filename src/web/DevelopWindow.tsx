@@ -27,6 +27,7 @@ const validBranch = (name: string) =>
 type Story = {
   id: number;
   iWant: string;
+  status: string;
   branch: string | null;
   dependsOn: { id: number; iWant: string; status: string }[];
 };
@@ -59,6 +60,10 @@ const LAUNCH_ERRORS: Record<string, string> = {
   branch_mismatch:
     "Cette US a déjà une autre branche : recharge la page pour la retrouver.",
   fire_failed: "Claude n'a pas pu être lancé : réessaie dans un instant.",
+  already_queued: "Cette US est déjà dans la file.",
+  project_not_in_launcher:
+    "Ce projet n'est plus coché dans le lanceur : coche-le dans Réglages.",
+  project_archived: "Ce projet est archivé.",
 };
 
 /** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
@@ -132,7 +137,7 @@ export function DevelopWindow({
         const answer: { error?: string } = await res.json().catch(() => ({}));
         throw new Error(
           LAUNCH_ERRORS[answer.error ?? ""] ??
-            "Cette US ne peut pas être mise en file : vérifie le lanceur dans Réglages.",
+            "Cette US ne peut pas être mise en file : recharge la page.",
         );
       }
     },
@@ -208,14 +213,16 @@ export function DevelopWindow({
                   Ctrl Entrée
                 </span>
               </button>
-              <button
-                type="button"
-                className={ghostButton}
-                disabled={queue.isPending || queue.isSuccess}
-                onClick={() => queue.mutate()}
-              >
-                Mettre en file
-              </button>
+              {story.status === "ready" && (
+                <button
+                  type="button"
+                  className={ghostButton}
+                  disabled={queue.isPending || queue.isSuccess}
+                  onClick={() => queue.mutate()}
+                >
+                  Mettre en file
+                </button>
+              )}
             </>
           ) : (
             <>

@@ -12,7 +12,7 @@ import { findingRoutes } from "./findings.ts";
 import { githubReader } from "./github.ts";
 import { alertRoutes } from "./github-alerts.ts";
 import { historyRoutes } from "./history.ts";
-import { homeRoutes } from "./home.ts";
+import { claudeRoutes, homeRoutes } from "./home.ts";
 import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { launcherRoutes } from "./launcher.ts";
 import { mcpRoutes } from "./mcp.ts";
@@ -106,13 +106,14 @@ export function createApp(
       // After projectRoutes: its gate covers the ticket and story routes.
       .route("/", ticketRoutes(db, readGitHub, issueSyncBudgetMs))
       .route("/", storyRoutes(db, readGitHub))
-      .route("/", runRoutes(db, readGitHub, fireDeps))
+      .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db))
       .route("/", homeRoutes(db))
-      .route("/", routineRoutes(db, { encryptionKey, fireRoutine }, now))
-      .route("/", launcherRoutes(db, { encryptionKey, fireRoutine }, now))
+      .route("/", claudeRoutes(db))
+      .route("/", routineRoutes(db, fireDeps, now))
+      .route("/", launcherRoutes(db, fireDeps, now))
       .route("/", queueRoutes(db))
-      .route("/", customRoutineRoutes(db, { encryptionKey, fireRoutine }, now))
+      .route("/", customRoutineRoutes(db, fireDeps, now))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version, fireDeps))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))

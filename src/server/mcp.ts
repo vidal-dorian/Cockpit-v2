@@ -958,7 +958,7 @@ const tools = {
         call.entry,
         args,
       );
-      await queueAfterRun(call.db, call.deps, call.userId, args.run_id);
+      await queueAfterRun(call.db, call.deps, args.run_id, new Date());
       return finished;
     },
   ),

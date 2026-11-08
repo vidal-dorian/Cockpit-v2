@@ -63,7 +63,7 @@ export function Claude() {
           </Link>
         }
       />
-      <div className="grid gap-6 px-[26px] py-6" aria-live="polite">
+      <div className="grid gap-6 px-[26px] py-6">
         {(claude.isError || queue.isError) && (
           <p role="alert" className={alertBox}>
             Impossible de lire la page. Recharge-la ; si cela continue, réessaie
@@ -85,7 +85,7 @@ export function Claude() {
                 Maintenant
               </h2>
               <ul className={`mt-2 ${listCard}`}>
-                {claude.data?.questions.map((q) => (
+                {claude.data.questions.map((q) => (
                   <li key={q.questionId} className={row}>
                     <b>{q.iWant}</b>
                     <span className="text-muted-foreground">{q.question}</span>
@@ -94,7 +94,7 @@ export function Claude() {
                     </Link>
                   </li>
                 ))}
-                {claude.data?.questions.length === 0 && (
+                {claude.data.questions.length === 0 && (
                   <li className={`${row} text-muted-foreground`}>
                     Aucune question en attente.
                   </li>
@@ -145,29 +145,29 @@ export function Claude() {
                     className={button}
                     onClick={() =>
                       change.mutate(() =>
-                        queue.data?.paused
+                        queue.data.paused
                           ? client.api.queue.resume.$post()
                           : client.api.queue.pause.$post(),
                       )
                     }
                   >
-                    {queue.data?.paused ? "Reprendre" : "Mettre en pause"}
+                    {queue.data.paused ? "Reprendre" : "Mettre en pause"}
                   </button>
                 </span>
               </div>
-              {queue.data?.paused && (
-                <p className="mt-2 text-muted-foreground">
+              {queue.data.paused && (
+                <p role="status" className="mt-2 text-muted-foreground">
                   La file est en pause. {pausedFor && (PAUSES[pausedFor] ?? "")}
                 </p>
               )}
               {adding && (
                 <div className={`mt-2 grid gap-1 ${listCard}`}>
-                  {claude.data?.readyStories.length === 0 && (
+                  {claude.data.readyStories.length === 0 && (
                     <p className={`${row} text-muted-foreground`}>
                       Aucune US prête dans les projets cochés du lanceur.
                     </p>
                   )}
-                  {claude.data?.readyStories.map((s) => (
+                  {claude.data.readyStories.map((s) => (
                     <button
                       key={s.storyId}
                       type="button"
@@ -192,7 +192,7 @@ export function Claude() {
               <ul className={`mt-2 ${listCard}`}>
                 {items.map((i, at) => (
                   <li key={i.storyId} className={row}>
-                    <b>{i.iWant}</b>
+                    <b id={`queue-${i.storyId}`}>{i.iWant}</b>
                     <span className="text-muted-foreground">
                       {i.projectName}
                     </span>
@@ -207,6 +207,7 @@ export function Claude() {
                       <button
                         type="button"
                         aria-label="Monter"
+                        aria-describedby={`queue-${i.storyId}`}
                         disabled={at === 0}
                         className={iconButton}
                         onClick={() => move(at, -1)}
@@ -216,6 +217,7 @@ export function Claude() {
                       <button
                         type="button"
                         aria-label="Descendre"
+                        aria-describedby={`queue-${i.storyId}`}
                         disabled={at === items.length - 1}
                         className={iconButton}
                         onClick={() => move(at, 1)}
@@ -225,6 +227,7 @@ export function Claude() {
                       <button
                         type="button"
                         aria-label="Retirer"
+                        aria-describedby={`queue-${i.storyId}`}
                         className={iconButton}
                         onClick={() =>
                           change.mutate(() =>
@@ -251,7 +254,7 @@ export function Claude() {
                 Finis aujourd'hui
               </h2>
               <ul className={`mt-2 ${listCard}`}>
-                {claude.data?.finishedToday.map((r) => (
+                {claude.data.finishedToday.map((r) => (
                   <li key={r.runId} className={row}>
                     <Link to={`/runs/${r.runId}`} className="font-semibold">
                       {r.iWant}
@@ -264,7 +267,7 @@ export function Claude() {
                     </span>
                   </li>
                 ))}
-                {claude.data?.finishedToday.length === 0 && (
+                {claude.data.finishedToday.length === 0 && (
                   <li className={`${row} text-muted-foreground`}>
                     Rien de fini aujourd'hui.
                   </li>

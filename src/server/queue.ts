@@ -32,7 +32,9 @@ import { entryOf, type Fire, launchCloud, signedIn } from "./routines.ts";
 import { memberStory } from "./stories.ts";
 import { assertActive, body } from "./tickets.ts";
 
-// Here, not in launcher.ts, so that queue.ts needs nothing of it (an import cycle through routines.ts).
+// Here, not in launcher.ts: queue.ts is loaded through routines.ts, and launcher.ts uses `noNul` of tickets.ts when it loads, which may not be loaded yet.
+const PENDING_MS = 15 * 60_000;
+
 /** What a launch of a story checks and writes (054 E), in the transaction of `launchCloud`; shared by the route and the queue (057 C). */
 export async function reserveStory(
   tx: Tx,
@@ -76,11 +78,6 @@ export async function reserveStory(
   return { projectId, storyId, branch, team, comment };
 }
 
-const NO_SESSION_MS = 15 * 60_000;
-const PENDING_MS = NO_SESSION_MS;
-
-type Reason = NonNullable<typeof users.$inferSelect.queuePausedReason>;
-
 /** The queue of the user in order; `waiting` says why a story is skipped (decision 057 B, D). */
 async function readItems(db: Db, userId: number) {
   const items = await db
@@ -97,7 +94,7 @@ async function readItems(db: Db, userId: number) {
     .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
     .innerJoin(projects, eq(projects.id, tickets.projectId))
     .where(eq(queueItems.userId, userId))
-    .orderBy(asc(queueItems.position));
+    .orderBy(asc(queueItems.position), asc(queueItems.id));
   const undone = items.length
     ? await db
         .select({
@@ -135,7 +132,12 @@ async function readItems(db: Db, userId: number) {
 }
 
 /** Pauses the queue of a user for a reason of its own (057 E), once: a queue already paused keeps its first reason. */
-async function pauseQueue(db: Db, userId: number, reason: Reason, at: Date) {
+async function pauseQueue(
+  db: Db,
+  userId: number,
+  reason: NonNullable<typeof users.$inferSelect.queuePausedReason>,
+  at: Date,
+) {
   await db.transaction(async (tx) => {
     const paused = await tx
       .update(users)
@@ -153,6 +155,38 @@ async function pauseQueue(db: Db, userId: number, reason: Reason, at: Date) {
   });
 }
 
+// The refusals of `launchCloud` that mean the launcher cannot launch (057 E).
+const STOPS_QUEUE = [
+  "fire_failed",
+  "launcher_not_connected",
+  "launcher_needs_reconnect",
+  "project_not_in_launcher",
+];
+
+/** A launch of the queue is in progress while its run runs or, with no run yet, for 15 minutes (057 C). */
+async function slotBusy(db: Db, userId: number, at: Date) {
+  const [inProgress] = await db
+    .select({ id: cloudLaunches.id })
+    .from(cloudLaunches)
+    .leftJoin(runs, eq(runs.id, cloudLaunches.runId))
+    .where(
+      and(
+        eq(cloudLaunches.userId, userId),
+        eq(cloudLaunches.fromQueue, true),
+        or(
+          eq(runs.status, "running"),
+          and(
+            isNull(cloudLaunches.runId),
+            isNull(cloudLaunches.finishedAt),
+            isNull(cloudLaunches.reason),
+            gt(cloudLaunches.createdAt, new Date(at.getTime() - PENDING_MS)),
+          ),
+        ),
+      ),
+    );
+  return inProgress !== undefined;
+}
+
 /** Launches the first story of the queue that is not skipped, unless the queue is paused or a launch of the queue is in progress (057 C). Never throws. */
 async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
   try {
@@ -167,29 +201,7 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
         ),
       );
     if (!user) return;
-    const [inProgress] = await db
-      .select({ id: cloudLaunches.id })
-      .from(cloudLaunches)
-      .leftJoin(runs, eq(runs.id, cloudLaunches.runId))
-      .where(
-        and(
-          eq(cloudLaunches.userId, userId),
-          eq(cloudLaunches.fromQueue, true),
-          or(
-            eq(runs.status, "running"),
-            and(
-              isNull(cloudLaunches.runId),
-              isNull(cloudLaunches.finishedAt),
-              isNull(cloudLaunches.reason),
-              gt(
-                cloudLaunches.createdAt,
-                new Date(at.getTime() - NO_SESSION_MS),
-              ),
-            ),
-          ),
-        ),
-      );
-    if (inProgress) return;
+    if (await slotBusy(db, userId, at)) return;
     const next = (await readItems(db, userId)).find((i) => !i.waiting);
     if (!next) return;
     const launched = await launchCloud(
@@ -206,18 +218,29 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
       },
       at,
       [next.projectId],
-      async (tx) => ({
-        ...(await reserveStory(tx, at, next.storyId, next.projectId, {
-          branch:
-            next.branch ??
-            proposedBranch({ id: next.storyId, iWant: next.iWant }),
-        })),
-        fromQueue: true,
-      }),
+      async (tx) => {
+        // The user's row is the lock that gives the queue one slot, whatever launches at the same time (pass, end of a run).
+        await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, userId))
+          .for("update");
+        if (await slotBusy(tx, userId, at)) throw new Refused("queue_busy");
+        return {
+          ...(await reserveStory(tx, at, next.storyId, next.projectId, {
+            branch:
+              next.branch ??
+              proposedBranch({ id: next.storyId, iWant: next.iWant }),
+          })),
+          fromQueue: true,
+        };
+      },
     );
-    if ("error" in launched) await pauseQueue(db, userId, "launch_failed", at);
-    else
+    if (!("error" in launched))
       await db.delete(queueItems).where(eq(queueItems.storyId, next.storyId));
+    // Only a launcher that cannot launch pauses the queue; any other refusal leaves the story for a later pass (a manual launch, a pending one).
+    else if (STOPS_QUEUE.includes(`${launched.error}`))
+      await pauseQueue(db, userId, "launch_failed", at);
   } catch (error) {
     console.error(`Queue of user ${userId} failed:`, error);
   }
@@ -236,7 +259,7 @@ export async function runQueues(db: Db, deps: Fire, now: Date) {
           isNull(cloudLaunches.runId),
           isNull(cloudLaunches.finishedAt),
           isNull(cloudLaunches.reason),
-          lte(cloudLaunches.createdAt, new Date(now.getTime() - NO_SESSION_MS)),
+          lte(cloudLaunches.createdAt, new Date(now.getTime() - PENDING_MS)),
         ),
       )
       .returning({ userId: cloudLaunches.userId });
@@ -251,29 +274,25 @@ export async function runQueues(db: Db, deps: Fire, now: Date) {
   }
 }
 
-/** After a run ends (057 C, E): the end of a queue run that did not succeed pauses the queue, a success starts the next story at once. Never throws. */
+/** After a run ends (057 C, E): the end of a queue run that did not succeed pauses the queue of the owner of the launch, a success starts their next story at once. Never throws. */
 export async function queueAfterRun(
   db: Db,
   deps: Fire,
-  userId: number,
   runId: number,
+  at: Date,
 ) {
   try {
     const [ended] = await db
-      .select({ status: runs.status })
+      .select({ status: runs.status, userId: cloudLaunches.userId })
       .from(cloudLaunches)
       .innerJoin(runs, eq(runs.id, cloudLaunches.runId))
       .where(
-        and(
-          eq(cloudLaunches.runId, runId),
-          eq(cloudLaunches.userId, userId),
-          eq(cloudLaunches.fromQueue, true),
-        ),
+        and(eq(cloudLaunches.runId, runId), eq(cloudLaunches.fromQueue, true)),
       );
     if (!ended) return;
-    const at = new Date();
-    if (ended.status === "succeeded") await launchNext(db, deps, userId, at);
-    else await pauseQueue(db, userId, "run_failed", at);
+    if (ended.status === "succeeded")
+      await launchNext(db, deps, ended.userId, at);
+    else await pauseQueue(db, ended.userId, "run_failed", at);
   } catch (error) {
     console.error(`Queue after run ${runId} failed:`, error);
   }
@@ -291,9 +310,10 @@ export function queueRoutes(db: Db) {
     c: Context,
     entry: ReturnType<typeof entryOf>,
     work: Parameters<typeof act>[2],
+    status: 200 | 201 = 200,
   ) => {
     try {
-      return c.json(await act(db, entry, work), 200);
+      return c.json(await act(db, entry, work), status);
     } catch (error) {
       if (!(error instanceof Refused)) throw error;
       return error.message === "not_found"
@@ -328,50 +348,57 @@ export function queueRoutes(db: Db) {
         })),
       });
     })
-    .post("/api/queue", body(z.object({ storyId: z.number() })), async (c) => {
-      const userId = c.get("userId");
-      const found = await memberStory(db, userId, c.req.valid("json").storyId);
-      if (!found) return c.json({ error: "Not found" }, 404);
-      const { story, ticket, project } = found;
-      const entry = {
-        ...entryOf(userId, "queue_story"),
-        projectId: project.id,
-        ticketId: ticket.id,
-        storyId: story.id,
-        args: { storyId: story.id },
-      };
-      try {
-        await act(db, entry, async (tx) => {
-          await assertActive(tx, project.id);
-          if (story.status !== "ready") throw new Refused("wrong_status");
-          const [ticked] = await tx
-            .select({ id: projectMembers.projectId })
-            .from(projectMembers)
-            .where(
-              and(
-                eq(projectMembers.userId, userId),
-                eq(projectMembers.projectId, project.id),
-                eq(projectMembers.inLauncher, true),
-              ),
-            );
-          if (!ticked) throw new Refused("project_not_in_launcher");
-          const [queued] = await tx
-            .select({ id: queueItems.id })
-            .from(queueItems)
-            .where(eq(queueItems.storyId, story.id));
-          if (queued) throw new Refused("already_queued");
-          await tx.insert(queueItems).values({
-            userId,
+    .post(
+      "/api/queue",
+      body(z.object({ storyId: z.number().int().positive() })),
+      async (c) => {
+        const userId = c.get("userId");
+        const found = await memberStory(
+          db,
+          userId,
+          c.req.valid("json").storyId,
+        );
+        if (!found) return c.json({ error: "Not found" }, 404);
+        const { story, ticket, project } = found;
+        return change(
+          c,
+          {
+            ...entryOf(userId, "queue_story"),
+            projectId: project.id,
+            ticketId: ticket.id,
             storyId: story.id,
-            position: sql`(select coalesce(max(position), 0) + 1 from queue_items where user_id = ${userId})`,
-          });
-        });
-        return c.json({ storyId: story.id }, 201);
-      } catch (error) {
-        if (!(error instanceof Refused)) throw error;
-        return c.json({ error: error.message }, 409);
-      }
-    })
+            args: { storyId: story.id },
+          },
+          async (tx) => {
+            await assertActive(tx, project.id);
+            if (story.status !== "ready") throw new Refused("wrong_status");
+            const [ticked] = await tx
+              .select({ id: projectMembers.projectId })
+              .from(projectMembers)
+              .where(
+                and(
+                  eq(projectMembers.userId, userId),
+                  eq(projectMembers.projectId, project.id),
+                  eq(projectMembers.inLauncher, true),
+                ),
+              );
+            if (!ticked) throw new Refused("project_not_in_launcher");
+            const [queued] = await tx
+              .select({ id: queueItems.id })
+              .from(queueItems)
+              .where(eq(queueItems.storyId, story.id));
+            if (queued) throw new Refused("already_queued");
+            await tx.insert(queueItems).values({
+              userId,
+              storyId: story.id,
+              position: sql`(select coalesce(max(position), 0) + 1 from queue_items where user_id = ${userId})`,
+            });
+            return { storyId: story.id };
+          },
+          201,
+        );
+      },
+    )
     .put("/api/queue", body(reorderBody), (c) => {
       const userId = c.get("userId");
       const { storyIds } = c.req.valid("json");

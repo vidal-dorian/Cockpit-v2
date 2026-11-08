@@ -385,7 +385,12 @@ export const storyRuns = (db: Db, storyId: number) =>
     .where(eq(runs.storyId, storyId))
     .orderBy(desc(runs.id));
 
-export function runRoutes(db: Db, readGitHub: ReadGitHub, deps: Fire) {
+export function runRoutes(
+  db: Db,
+  readGitHub: ReadGitHub,
+  deps: Fire,
+  now: () => number,
+) {
   /** The human controls of a running run (decision 037 A, B): one `act`, then the members and the issue are told. */
   const control =
     (action: "request_stop" | "close_run") => async (c: Context) => {
@@ -441,7 +446,7 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub, deps: Fire) {
         if (moved) await syncIssue(db, readGitHub, user.userId, found.story.id);
         await announce(db, found, id);
         if (action === "close_run")
-          await queueAfterRun(db, deps, user.userId, id);
+          await queueAfterRun(db, deps, id, new Date(now()));
         return c.json({ run: { id, status, stopRequestedAt } });
       } catch (error) {
         if (!(error instanceof Refused)) throw error;
