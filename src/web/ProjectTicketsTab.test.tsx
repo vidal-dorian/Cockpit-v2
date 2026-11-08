@@ -13,7 +13,7 @@ import { ago, rich, stubTab } from "./test-tickets-full.tsx";
 // Slice 11.2, decision 055 E and F (S14): the Tickets tab.
 //
 // Pinned choices (the decision leaves them open):
-// - No form to create a ticket (no « Nouveau ticket », no « Titre » field, no « Créer »), no « Importer les issues » (slice 11.3).
+// - No form to create a ticket (no « Nouveau ticket », no « Titre » field, no « Créer »). The link « Importer les issues » arrived with slice 11.3 (IssueImport.test.tsx).
 // - The state sentence is the <h1> « N tickets, M attendent leurs user stories. » (M = tickets at step new). The routine sentence under it,
 //   « Claude les écrira à 7 h, ou maintenant si tu veux. », only when the project's routine is scheduled daily at 7; with the schedule off there is no second sentence at all.
 // - A row of the list is an <li> with one <button> named exactly the title (it opens the panel, see TicketsPanel.test.tsx); next to it, outside the button:
@@ -73,7 +73,7 @@ const listed = (title: string) => screen.findByText(title);
 const chip = (name: string) => screen.findByRole("button", { name });
 
 describe("055 E: no creation form on the tab", () => {
-  it("given the Tickets tab, when it loads, then it has no Nouveau ticket form, no Créer button and no Importer les issues", async () => {
+  it("given the Tickets tab, when it loads, then it has no Nouveau ticket form and no Créer button", async () => {
     stubTab(TICKETS, STORIES);
     renderAt("/projets/5/tickets");
 
@@ -82,7 +82,6 @@ describe("055 E: no creation form on the tab", () => {
     expect(screen.queryByText("Nouveau ticket")).toBeNull();
     expect(screen.queryByLabelText("Titre")).toBeNull();
     expect(screen.queryByRole("button", { name: "Créer" })).toBeNull();
-    expect(screen.queryByText("Importer les issues")).toBeNull();
   });
 });
 

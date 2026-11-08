@@ -138,13 +138,18 @@ type FakeIssue = {
   state: "open" | "closed";
   stateReason: string | null;
   html_url: string;
+  /** Slice 11.3: a pull request, which GitHub lists among the issues (served with a `pull_request` key). */
+  pull?: boolean;
 };
 
 /** An issue as GitHub's REST API serves it. */
-const serve = ({ labels, stateReason, ...issue }: FakeIssue) => ({
+const serve = ({ labels, stateReason, pull, ...issue }: FakeIssue) => ({
   ...issue,
   labels: labels.map((name) => ({ name })),
   state_reason: stateReason,
+  ...(pull && {
+    pull_request: { url: issue.html_url.replace("/issues/", "/pull/") },
+  }),
 });
 
 /** A file as GitHub's Contents API serves it: base64 cut into lines of 60 characters. */
@@ -231,6 +236,10 @@ export function failOnUnexpectedFetch() {
  * `issuesDelay` makes each of them wait that many milliseconds; `failOn(call)` (call = `{ method, path }`, the path being the URL's) fails
  * with 500 every call it returns true for (or with the status it returns), to break one step of a sync (`(c) => c.method === "PATCH"`); set or clear them with `update(...)`.
  * Like GitHub, an issue created or patched with a title over 256 characters or a body over 65,536 is refused with 422.
+ * Reading the issues (slice 11.3, decision 056 A): `GET /repos/{o}/{r}/issues?state=open|closed|all&per_page&page` (state defaults to open, `per_page` at most 100, newest number first, pull requests included with a
+ * `pull_request` key, a `Link: <next>; rel="next"` header when more pages exist; `issuesStatus` and `failOn` apply). `seedIssues(fullName, [{ number, title, body?, state?, pull?, labels? }])` puts issues
+ * (or pull requests) in a repo under the numbers a test chooses (a created issue takes the number after the highest); the calls made are in `githubCalls`, so "no write" is
+ * `issueCalls(mock).filter((c) => c.method !== "GET")` equal to `[]`.
  *
  * The webhook of the App (decisions 002 and 024), read as the App itself (a JWT, never an installation token: 401 otherwise):
  * `GET /app/hook/config` (`{ url, content_type, insecure_ssl }`, plus `active` when the test set it) and `GET /app/hook/deliveries?per_page=n` (the `n` newest
@@ -1267,6 +1276,28 @@ export function stubGitHub(initial: {
                 errors: [{ resource: "Issue", code: "custom" }],
               })
             : undefined;
+        if (verb === "GET" && !repoLabels && rawNumber === undefined) {
+          const state = url.searchParams.get("state") ?? "open";
+          const size = Math.min(
+            Number(url.searchParams.get("per_page") ?? 30),
+            100,
+          );
+          const page = Number(url.searchParams.get("page") ?? 1);
+          const matching = repo.issues
+            .filter((i) => state === "all" || i.state === state)
+            .sort((a, b) => b.number - a.number);
+          const next = new URL(url);
+          next.searchParams.set("page", String(page + 1));
+          return Response.json(
+            matching.slice((page - 1) * size, page * size).map(serve),
+            {
+              headers:
+                matching.length > page * size
+                  ? { link: `<${next.href}>; rel="next"` }
+                  : {},
+            },
+          );
+        }
         const labelNames = () =>
           Array.isArray(sent.labels)
             ? (sent.labels as unknown[]).map((l) =>
@@ -1299,7 +1330,7 @@ export function stubGitHub(initial: {
           if (absent !== undefined) return missing(absent);
           const refused = tooLong();
           if (refused) return refused;
-          const number = repo.issues.length + 1;
+          const number = Math.max(0, ...repo.issues.map((i) => i.number)) + 1;
           const issue: FakeIssue = {
             number,
             title: String(sent.title ?? ""),
@@ -1358,6 +1389,31 @@ export function stubGitHub(initial: {
     webhook,
     /** The issues of a repo, as GitHub holds them now (live objects: read them after the call under test). */
     issues: (fullName: string) => repoOf(fullName).issues,
+    /** Slice 11.3: puts issues (or pull requests, `pull: true`) in a repo under the given numbers, as people would have opened them. */
+    seedIssues(
+      fullName: string,
+      list: {
+        number: number;
+        title: string;
+        body?: string;
+        state?: "open" | "closed";
+        pull?: boolean;
+        labels?: string[];
+      }[],
+    ) {
+      const repo = repoOf(fullName);
+      for (const i of list)
+        repo.issues.push({
+          number: i.number,
+          title: i.title,
+          body: i.body ?? "",
+          labels: i.labels ?? [],
+          state: i.state ?? "open",
+          stateReason: null,
+          html_url: `https://github.com/${fullName}/issues/${i.number}`,
+          pull: i.pull,
+        });
+    },
     /** The names of the labels that exist in a repo. */
     labels: (fullName: string) => [...repoOf(fullName).labels],
     /** Makes a label exist in a repo, as a person would have created it. */
