@@ -1,18 +1,14 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
 import { client } from "./api.ts";
-import { StateSentence } from "./Shell.tsx";
-import {
-  alertBox,
-  button,
-  listCard,
-  primaryButton,
-  sectionLabel,
-} from "./ui.ts";
+import { focusRing } from "./ui.ts";
 
-/** A page of the caller's entries (25), the one after the entry `before`; null when the server answers 401. */
-export async function fetchHistory(before: number | undefined) {
+/** A page of the caller's entries (25), the one after the entry `before`, narrowed by the filters (decision 053 A); null when the server answers 401. */
+export async function fetchHistory(
+  before: number | undefined,
+  filters: Record<string, string> = {},
+) {
   const res = await client.api.history.$get({
-    query: before === undefined ? {} : { before: String(before) },
+    query:
+      before === undefined ? filters : { ...filters, before: String(before) },
   });
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -105,7 +101,7 @@ export const RESULTS: Record<string, { label: string; style: string }> = {
   },
 };
 
-type Entry = NonNullable<
+export type Entry = NonNullable<
   Awaited<ReturnType<typeof fetchHistory>>
 >["entries"][number];
 
@@ -117,27 +113,24 @@ const GLYPHS: Record<string, string> = {
   system: "⟳",
 };
 
-const dayLabel = (at: string) => {
-  const day = (d: Date) => d.toLocaleDateString("fr-FR");
-  const date = new Date(at);
-  const now = new Date();
-  if (day(date) === day(now)) return "Aujourd'hui";
-  if (day(date) === day(new Date(now.getTime() - 86_400_000))) return "Hier";
-  return day(date);
-};
+const rowGrid =
+  "grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-[18px] py-2";
 
 /** A row of the journal: in a `listCard` on the journal page, laid down as its own card in a `grid` list (the home). The page shows the time only: its day group has the date. */
 export function JournalEntry({
   entry,
   timeOnly = false,
+  onOpen,
 }: {
   entry: Entry;
   timeOnly?: boolean;
+  /** Makes the whole row a button that opens the entry in the panel (decision 053 G). */
+  onOpen?: () => void;
 }) {
   const result = RESULTS[entry.result];
   const at = new Date(entry.at);
-  return (
-    <li className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-[18px] py-2 [.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card">
+  const cells = (
+    <>
       <div
         aria-hidden="true"
         className="text-center text-[13px] font-bold text-dim"
@@ -177,104 +170,23 @@ export function JournalEntry({
             })
           : at.toLocaleString("fr-FR")}
       </time>
-    </li>
+    </>
   );
-}
-
-export function Journal() {
-  const pages = useInfiniteQuery({
-    queryKey: ["history"],
-    queryFn: ({ pageParam }) => fetchHistory(pageParam),
-    initialPageParam: undefined as number | undefined,
-    // The next page starts after the last entry shown (decision 028 F).
-    getNextPageParam: (last) =>
-      last?.hasMore ? last.entries.at(-1)?.id : undefined,
-  });
-  const entries = pages.data?.pages.flatMap((page) => page?.entries ?? []);
-  // Grouped by day from the dates already read, in the order of the journal.
-  const grouped = new Map<string, NonNullable<typeof entries>>();
-  for (const entry of entries ?? []) {
-    const day = dayLabel(entry.at);
-    const rows = grouped.get(day) ?? [];
-    rows.push(entry);
-    grouped.set(day, rows);
-  }
-  const days = [...grouped.entries()];
-  const signedOut = pages.data?.pages[0] === null;
-
-  return (
-    <main>
-      <StateSentence
-        title="Tout ce qui s'est passé, par qui."
-        rest="Rien ne s'efface ; chaque appel de Claude y est."
-      />
-      <div className="mt-5 px-[26px] pb-8" aria-live="polite">
-        {pages.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
-        )}
-        {pages.isError && !pages.data && (
-          <div role="alert" className={alertBox}>
-            <p>Impossible de lire le journal : {pages.error.message}</p>
-            <button
-              type="button"
-              onClick={() => pages.refetch()}
-              className={`mt-3 ${button}`}
-            >
-              Réessayer
-            </button>
-          </div>
-        )}
-        {signedOut && (
-          <a href="/api/auth/login" className={primaryButton}>
-            Se connecter avec GitHub
-          </a>
-        )}
-        {pages.isSuccess && entries?.length === 0 && !signedOut && (
-          <p className="text-muted-foreground">Aucune entrée pour l'instant.</p>
-        )}
-        {entries && entries.length > 0 && (
-          <>
-            <h2 className="sr-only">Journal</h2>
-            {days.map(([day, rows]) => (
-              <section key={day} className="mb-5" aria-label={day}>
-                <div className="mb-2 flex items-center gap-2">
-                  <h3 className={sectionLabel}>{day}</h3>
-                  <span className="text-[12.5px] text-muted-foreground">
-                    · {rows.length} {rows.length === 1 ? "entrée" : "entrées"}
-                  </span>
-                </div>
-                <ul className={listCard}>
-                  {rows.map((entry) => (
-                    <JournalEntry key={entry.id} entry={entry} timeOnly />
-                  ))}
-                </ul>
-              </section>
-            ))}
-            {pages.isFetchNextPageError && (
-              <div role="alert" className={`mt-3 ${alertBox}`}>
-                <p>Impossible de lire la suite du journal.</p>
-                <button
-                  type="button"
-                  onClick={() => pages.fetchNextPage()}
-                  className={`mt-3 ${button}`}
-                >
-                  Réessayer
-                </button>
-              </div>
-            )}
-            {pages.hasNextPage && !pages.isFetchNextPageError && (
-              <button
-                type="button"
-                onClick={() => pages.fetchNextPage()}
-                disabled={pages.isFetchingNextPage}
-                className={`mt-3 ${button}`}
-              >
-                {pages.isFetchingNextPage ? "Chargement…" : "Afficher plus"}
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    </main>
+  return onOpen ? (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`${rowGrid} w-full text-left hover:bg-raised ${focusRing}`}
+      >
+        {cells}
+      </button>
+    </li>
+  ) : (
+    <li
+      className={`${rowGrid} [.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card`}
+    >
+      {cells}
+    </li>
   );
 }

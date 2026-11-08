@@ -10,6 +10,7 @@ import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { FeaturesExport } from "./ProjectFeatures.tsx";
+import { ProjectHistory } from "./ProjectHistory.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
@@ -83,6 +84,7 @@ type ProjectTab =
   | "conception"
   | "sante"
   | "agents"
+  | "historique"
   | "reglages";
 
 const TABS: { tab: ProjectTab; to: string; label: string }[] = [
@@ -91,6 +93,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "conception", to: "/conception", label: "Conception" },
   { tab: "sante", to: "/sante", label: "Santé" },
   { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "historique", to: "/historique", label: "Historique" },
   { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
 
@@ -108,6 +111,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
   agents: "Chacun lit le repo, puis passe la main au suivant.",
+  historique: "",
   reglages: "",
 };
 
@@ -270,7 +274,9 @@ export function ProjectPage({
                               ? `Réglages de ${name}.`
                               : tab === "agents"
                                 ? `Les agents et les équipes de ${name}.`
-                                : name,
+                                : tab === "historique"
+                                  ? `Ce qui s'est passé sur ${name}.`
+                                  : name,
                           rest: TAB_REST[tab],
                         };
 
@@ -501,6 +507,7 @@ export function ProjectPage({
           archived={project.archived}
         />
       )}
+      {!notFound && tab === "historique" && <ProjectHistory projectId={id} />}
       {!notFound && tab === "reglages" && (
         <ProjectRoutine projectId={id} archived={project?.archived ?? false} />
       )}

@@ -59,6 +59,7 @@
 - **Fait** : tranche R4 (figer l'existant, [décision 050](decisions/050-figer-l-existant.md)).
 - **Fait** : tranche R5 (les constats de Claude, [décision 051](decisions/051-constats-de-claude.md)).
 - **Fait** : tranche R6 (les constats de GitHub et les versions, [décision 052](decisions/052-constats-de-github-et-versions.md)).
+- **Fait** : tranche 11.1 (le Journal filtrable et l'historique par projet, [décision 053](decisions/053-journal-filtrable.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 

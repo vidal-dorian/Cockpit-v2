@@ -53,7 +53,7 @@ const showList = async () => {
 };
 
 describe("decision 045 H and 043 I: the tab Conception", () => {
-  it("given a project, when /projets/5/conception loads, then the tabs are Kanban, Tickets, Conception, Santé, Agents, Réglages in that order, and Conception is the open one", async () => {
+  it("given a project, when /projets/5/conception loads, then the tabs are Kanban, Tickets, Conception, Santé, Agents, Historique (053 I), Réglages in that order, and Conception is the open one", async () => {
     stubConception();
     renderAt("/projets/5/conception");
 
@@ -61,7 +61,7 @@ describe("decision 045 H and 043 I: the tab Conception", () => {
       name: "Sections du projet",
     });
     await waitFor(() =>
-      expect(within(nav).getAllByRole("link")).toHaveLength(6),
+      expect(within(nav).getAllByRole("link")).toHaveLength(7),
     );
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent ?? "")).toEqual([
@@ -70,6 +70,7 @@ describe("decision 045 H and 043 I: the tab Conception", () => {
       expect.stringMatching(/^Conception/),
       expect.stringMatching(/^Santé/),
       expect.stringMatching(/^Agents/),
+      expect.stringMatching(/^Historique/),
       expect.stringMatching(/^Réglages/),
     ]);
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
@@ -78,12 +79,14 @@ describe("decision 045 H and 043 I: the tab Conception", () => {
       "/projets/5/conception",
       "/projets/5/sante",
       "/projets/5/agents",
+      "/projets/5/historique",
       "/projets/5/reglages",
     ]);
     expect(links.map((l) => l.getAttribute("aria-current"))).toEqual([
       null,
       null,
       "page",
+      null,
       null,
       null,
       null,

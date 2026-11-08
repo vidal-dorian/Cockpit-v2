@@ -11,6 +11,7 @@
   - la [010](010-historique.md) pour `GET /api/history` (par pages) ;
   - la [012](012-configuration-automatique.md), choix C, et la [023](023-reglages-adresse-https.md), choix B : l'assistant ne demande plus de confirmer l'adresse (choix J).
 - **Répond à** : la demande du 2026-11-03 : « les maquettes appelées "crème sombre" sont les maquettes retenues » ; « le journal des logs est bien trop grand […] permettre à l'utilisateur d'afficher plus de logs » ; « dans la page des projets […] il faudrait des onglets, bilan de santé, kanbans, tickets, paramétrage pour l'écriture automatique des US » ; « dans la page des réglages, on a pas d'onglets » ; « la fonctionnalité d'adresse publique […] devrait disparaître ».
+- **Modifiée par** : [053](053-journal-filtrable.md) : F (`GET /api/history` accepte des filtres, rend `args`, `detail` et `retry`, et `before` marche avec eux)
 - **Modifiée par** : [045](045-interface-quatre-temps.md) : style, valeurs, formes, barre du haut et largeur des pages (A à E), onglets d'un projet (G) et de Réglages (H) ; F, I et J restent
 - **Modifiée par** : [046](046-logo-la-boucle.md) : le logo (D), qui devient la boucle
 
@@ -76,7 +77,7 @@ Les écrans ont été construits avec le style clair de la 003. Les maquettes Cr
 
 - L'Accueil des maquettes (« 5 choses t'attendent », Répondre, Valider, Claude travaille) : tranche 8.1.
 - La recherche (`/`), « Nouveau ticket » (`N`), le panneau de validation et l'écran de run : avec leurs tranches.
-- L'onglet « Historique » d'un projet (planches 7 et 8) : quand le journal pourra se filtrer par projet.
+- L'onglet « Historique » d'un projet (planches 7 et 8) : quand le journal pourra se filtrer par projet. *Fait par la [053](053-journal-filtrable.md) en 11.1 (`/projets/:id/historique`).*
 - Un thème clair : le brief (§6.20) le garde pour l'ergonomie ; les jetons permettent de le redéfinir.
 
 ## Limites connues

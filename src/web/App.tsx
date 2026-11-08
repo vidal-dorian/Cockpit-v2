@@ -12,7 +12,7 @@ import { Autoriser } from "./Autoriser.tsx";
 import { client } from "./api.ts";
 import { HomePage } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
-import { Journal } from "./Journal.tsx";
+import { Journal } from "./JournalPage.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { Logo } from "./Logo.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
@@ -213,6 +213,10 @@ function Shell() {
             <Route
               path="/projets/:id/agents"
               element={<ProjectPage tab="agents" />}
+            />
+            <Route
+              path="/projets/:id/historique"
+              element={<ProjectPage tab="historique" />}
             />
             <Route
               path="/projets/:id/reglages"

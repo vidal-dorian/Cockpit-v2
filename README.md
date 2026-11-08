@@ -27,13 +27,17 @@ La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « 
 
 ### La page d'un projet
 
-La page d'un projet a six onglets : « Kanban » (`/projets/:id`, six colonnes dont « Idées », les tickets qui attendent leurs US), « Tickets », « Conception » (voir plus bas), « Santé » (le bilan, « Revérifier », « Préparer pour Claude »), « Agents » et « Réglages » (l'écriture automatique des US, l'ancien onglet « Écriture des US » ; « Sur ce PC · Dossier du clone », le même que celui de « Développer avec Claude », retenu par le navigateur ; « Archiver le projet »). L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décisions [028](docs/decisions/028-creme-sombre-onglets-journal.md) et [045](docs/decisions/045-interface-quatre-temps.md).
+La page d'un projet a sept onglets : « Kanban » (`/projets/:id`, six colonnes dont « Idées », les tickets qui attendent leurs US), « Tickets », « Conception » (voir plus bas), « Santé » (le bilan, « Revérifier », « Préparer pour Claude »), « Agents », « Historique » (voir « Le Journal ») et « Réglages » (l'écriture automatique des US, l'ancien onglet « Écriture des US » ; « Sur ce PC · Dossier du clone », le même que celui de « Développer avec Claude », retenu par le navigateur ; « Archiver le projet »). L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décisions [028](docs/decisions/028-creme-sombre-onglets-journal.md) et [045](docs/decisions/045-interface-quatre-temps.md).
 
 L'onglet « Agents » (`/projets/:id/agents`) modifie les agents de `.claude/agents/` du repo et ses équipes (`.claude/team.md` et `.claude/teams/<nom>.md`, au choix « Graphe » ou « Liste » ; l'éditeur d'un agent s'ouvre à côté de son fichier) : chaque changement montre son diff, puis fait un seul commit. Une section « Agents d'analyse » liste ceux de `/analyser` (`cartographer`, `rules-analyst`, `bug-hunter`, `security-reviewer`, `architect`, `upgrade-advisor`) : tu peux changer le modèle de chacun pour ce projet (plus petit sur l'abonnement Pro, `opus` partout sur Max) sans perdre les mises à jour du catalogue, car la ligne `model:` n'est pas comparée et « Mettre à jour » garde celle du repo. Décisions [030](docs/decisions/030-editeur-d-agent.md), [031](docs/decisions/031-equipe-en-graphe.md), [032](docs/decisions/032-plusieurs-equipes.md) et [042](docs/decisions/042-nouvelle-equipe-fenetre.md).
 
 ### Le Journal
 
 Le Journal est groupé par jour et affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+Il se filtre : une case « Chercher… » (un numéro de ticket, d'US, de run ou de PR, avec ou sans `#`, ou un bout de nom d'action ou de code de refus ; pas de texte libre, le journal n'en garde pas) et des puces Auteur, Résultat, Projet, Outil, Origine et période (Aujourd'hui, Cette semaine depuis lundi, Ce mois-ci, Tout). Les filtres sont dans l'adresse (`/journal?auteur=claude&resultat=refuse&periode=semaine`) : une vue filtrée se recharge et se partage. Un clic sur une ligne ouvre l'entrée à droite (quand, acteur, origine, projet, résultat, arguments ; ↑ et ↓ pour passer à la suivante) ; pour un refus ou une erreur, le panneau dit si l'acteur a réessayé dans l'heure et ouvre ce réessai. « Exporter » télécharge un CSV des entrées filtrées (les 10 000 plus récentes).
+
+L'onglet « Historique » d'un projet (`/projets/:id/historique`) est ce même journal limité au projet, en phrases (« Claude a fini l'étape reviewer »), avec les puces Tout, Toi, Claude, GitHub, Refus et erreurs, une période et un lien « Exporter ». Décision [053](docs/decisions/053-journal-filtrable.md).
 
 ### Webhooks GitHub
 
