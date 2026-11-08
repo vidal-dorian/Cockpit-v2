@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { parseTeam } from "../server/team.ts";
@@ -66,6 +66,10 @@ const LAUNCH_ERRORS: Record<string, string> = {
   launch_pending:
     "Un lancement de cette US est déjà en cours : attends quelques minutes avant de réessayer.",
   run_active: "Cette US a déjà un run en cours.",
+  wrong_status:
+    "Cette US n'est plus à développer (ni prête, ni en relecture) : recharge la page.",
+  branch_mismatch:
+    "Cette US a déjà une autre branche : recharge la page pour la retrouver.",
   fire_failed: "Claude n'a pas pu être lancé : réessaie dans un instant.",
 };
 
@@ -114,7 +118,10 @@ export function DevelopWindow({
     launcher.data.projectIds.includes(project.id);
   const [chosen, setChosen] = useState<"cloud" | "pc">();
   const cloud = (chosen ?? (cloudPossible ? "cloud" : "pc")) === "cloud";
+  const queryClient = useQueryClient();
   const launch = useMutation({
+    // A refusal may mean the launcher changed (a token refused): the next read decides if the cloud is still possible.
+    onError: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
     mutationFn: async () => {
       const res = await client.api.stories[":id"].launch.$post({
         param: { id: String(story.id) },
@@ -146,6 +153,7 @@ export function DevelopWindow({
     .trim();
   const extra = prompt.trim();
   const valid = branchValid && promptValid && (cloud || cleanFolder !== "");
+  const canLaunch = valid && !launch.isPending && !launch.isSuccess;
   const message = `/dev-us ${story.id} --branch ${branch}${team ? ` --team ${team}` : ""}${extra ? `\n\n${extra}` : ""}`;
   const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(message)}`;
   const choices = (branches.data ?? []).filter(
@@ -160,9 +168,10 @@ export function DevelopWindow({
       label="Développer avec Claude"
       // Ctrl+Enter launches from the panel, as decision 003 (7) lists and the button shows.
       onKeyDown={(e) => {
-        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid)
-          if (cloud) launch.mutate();
-          else launchRef.current?.click();
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid) {
+          if (!cloud) launchRef.current?.click();
+          else if (canLaunch) launch.mutate();
+        }
       }}
       badge={
         <span className={badge}>
@@ -187,7 +196,7 @@ export function DevelopWindow({
             <button
               type="button"
               className={panelPrimaryButton}
-              disabled={!valid || launch.isPending || launch.isSuccess}
+              disabled={!canLaunch}
               onClick={() => launch.mutate()}
             >
               <span>Lancer dans le cloud</span>
@@ -292,9 +301,15 @@ export function DevelopWindow({
         ))}
         {!cloudPossible && !launcher.isPending && (
           <p className={hint}>
-            Le cloud n'est pas disponible :{" "}
+            {launcher.isError
+              ? "Impossible de lire le lanceur."
+              : !launcher.data?.connected
+                ? "Le lanceur n'est pas relié."
+                : launcher.data.needsReconnect
+                  ? "Le lanceur est à reconnecter."
+                  : "Ce projet n'est pas coché dans le lanceur."}{" "}
             <Link to="/reglages/taches-cloud" className="underline">
-              relie le lanceur et coche ce projet dans Réglages
+              régler le lanceur dans Réglages
             </Link>
             .
           </p>

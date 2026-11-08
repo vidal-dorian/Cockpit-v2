@@ -316,7 +316,7 @@ describe("criterion 4: the refusals and the failures of /fire (E)", () => {
     await expectRefusal(ctx, "wrong_status");
   });
 
-  it.each(["ready"] as const)(
+  it.each(["ready", "in_review"] as const)(
     "given a %s story with a running run, when the user launches, then 409 run_active",
     async (status) => {
       const ctx = await ready();

@@ -1,12 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { client } from "./api.ts";
 import { fetchProjects } from "./Projects.tsx";
+import { ConnectStep, failure, PromptStep, useTask } from "./TaskCard.tsx";
 import {
   alertBox,
-  badge,
-  button,
-  field,
   focusRing,
   listCard,
   primaryButton,
@@ -20,44 +17,16 @@ export async function fetchLauncher() {
   return res.json();
 }
 
-const failure = (res: Response) =>
-  new Error(
-    res.status === 400
-      ? "L'adresse de lancement ou le jeton n'est pas valide : colle-les tels que claude.ai les affiche."
-      : "L'opération a échoué, réessaie.",
-  );
-
 /** Decision 053 A and D: the user creates the « Lanceur Cockpit » task once, pastes its address and token, and ticks the projects whose repo they added to it. */
 export function LauncherSettings() {
-  const queryClient = useQueryClient();
   const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
-  const [fireUrl, setFireUrl] = useState("");
-  const [token, setToken] = useState("");
-  const [copy, setCopy] = useState<"idle" | "done" | "failed">("idle");
-  const settled = {
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
-  };
-
-  const save = useMutation({
-    mutationFn: async () => {
-      const res = await client.api.me.launcher.$put({
-        json: { fireUrl, token },
-      });
-      if (!res.ok) throw failure(res);
-      // The token only lives in the field, and not any longer than the save.
-      setToken("");
-      setFireUrl("");
-    },
-    ...settled,
-  });
-  const remove = useMutation({
-    mutationFn: async () => {
-      const res = await client.api.me.launcher.$delete();
-      if (!res.ok) throw failure(res);
-    },
-    ...settled,
-  });
+  const queryClient = useQueryClient();
+  const task = useTask(
+    "launcher",
+    (json) => client.api.me.launcher.$put({ json }),
+    () => client.api.me.launcher.$delete(),
+  );
   const tick = useMutation({
     mutationFn: async (v: { id: number; inLauncher: boolean }) => {
       const res = await client.api.projects[":id"].launcher.$put({
@@ -66,16 +35,19 @@ export function LauncherSettings() {
       });
       if (!res.ok) throw failure(res);
     },
-    ...settled,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
   });
-
   const data = launcher.data;
-  const connected = data?.connected && !data.needsReconnect;
-  const error = save.error ?? remove.error ?? tick.error;
+  const error = task.error ?? tick.error;
 
   return (
     <section aria-labelledby="lanceur">
-      <h2 id="lanceur" className={sectionLabel}>
+      <h2
+        id="lanceur"
+        ref={task.heading}
+        tabIndex={-1}
+        className={`${sectionLabel} ${focusRing}`}
+      >
         Lanceur Cockpit
       </h2>
       <p className="mt-1 text-[12.5px] text-muted-foreground">
@@ -111,98 +83,13 @@ export function LauncherSettings() {
                 Ouvrir les tâches de claude.ai
               </a>
             </li>
-            <li className="px-[18px] py-3.5">
-              <p className="font-semibold">2. Copier la consigne</p>
-              <p className="mt-1">Colle-la comme consigne de la tâche.</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigator.clipboard.writeText(data.prompt).then(
-                      () => setCopy("done"),
-                      () => setCopy("failed"),
-                    )
-                  }
-                  className={button}
-                >
-                  Copier la consigne
-                </button>
-                <span
-                  className={copy === "failed" ? "text-destructive" : undefined}
-                >
-                  {copy === "done" && "Copiée."}
-                  {copy === "failed" && "Copie impossible, réessaie."}
-                </span>
-              </div>
-            </li>
-            <li className="px-[18px] py-3.5">
-              <p className="font-semibold">3. Coller l'adresse et le jeton</p>
-              {connected ? (
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <span className={badge}>Connecté</span>
-                  <button
-                    type="button"
-                    onClick={() => remove.mutate()}
-                    disabled={remove.isPending}
-                    className={button}
-                  >
-                    Retirer
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {data.needsReconnect && (
-                    <p className={`mt-2 ${alertBox}`}>
-                      Le lanceur est à reconnecter : claude.ai a refusé le
-                      jeton. Clique « Régénérer » sur la tâche, puis colle le
-                      nouveau jeton ici.{" "}
-                      <button
-                        type="button"
-                        onClick={() => remove.mutate()}
-                        disabled={remove.isPending}
-                        className={button}
-                      >
-                        Retirer
-                      </button>
-                    </p>
-                  )}
-                  <form
-                    className="mt-2 grid gap-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      save.mutate();
-                    }}
-                  >
-                    <label>
-                      Adresse de lancement
-                      <input
-                        value={fireUrl}
-                        onChange={(e) => setFireUrl(e.target.value)}
-                        autoComplete="off"
-                        className={`${field} font-mono`}
-                      />
-                    </label>
-                    <label>
-                      Jeton
-                      <input
-                        type="password"
-                        value={token}
-                        onChange={(e) => setToken(e.target.value)}
-                        autoComplete="off"
-                        className={`${field} font-mono`}
-                      />
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={save.isPending}
-                      className={`justify-self-start ${primaryButton}`}
-                    >
-                      Enregistrer
-                    </button>
-                  </form>
-                </>
-              )}
-            </li>
+            <PromptStep n={2} prompt={data.prompt} />
+            <ConnectStep
+              n={3}
+              task={task}
+              connected={data.connected}
+              needsReconnect={data.needsReconnect}
+            />
             <li className="px-[18px] py-3.5">
               <p className="font-semibold">4. Cocher les projets de la tâche</p>
               <p className="mt-1">
@@ -214,7 +101,7 @@ export function LauncherSettings() {
                   .filter((p) => !p.archived)
                   .map((p) => (
                     <li key={p.id}>
-                      <label className={`flex items-center gap-2 ${focusRing}`}>
+                      <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={data.projectIds.includes(p.id)}
@@ -227,6 +114,12 @@ export function LauncherSettings() {
                           }
                         />
                         {p.fullName}
+                        {data.missingProjectIds?.includes(p.id) && (
+                          <span className="text-destructive">
+                            · repo absent de la tâche : ajoute-le sur claude.ai,
+                            puis coche à nouveau
+                          </span>
+                        )}
                       </label>
                     </li>
                   ))}

@@ -72,9 +72,9 @@ export async function startRun(
           });
         if (!run) throw new Error("run not created");
         if (args.launch_id !== undefined) {
-          const [attached] = await tx
-            .update(cloudLaunches)
-            .set({ runId: run.id })
+          const [launch] = await tx
+            .select()
+            .from(cloudLaunches)
             .where(
               and(
                 eq(cloudLaunches.id, args.launch_id),
@@ -82,8 +82,13 @@ export async function startRun(
                 eq(cloudLaunches.storyId, locked.id),
               ),
             )
-            .returning({ id: cloudLaunches.id });
-          if (!attached) throw new Refused("launch_mismatch");
+            .for("update");
+          if (!launch) throw new Refused("launch_mismatch");
+          if (launch.runId !== null) throw new Refused("launch_started");
+          await tx
+            .update(cloudLaunches)
+            .set({ runId: run.id })
+            .where(eq(cloudLaunches.id, launch.id));
         }
         runId = run.id;
         entry.runId = run.id;

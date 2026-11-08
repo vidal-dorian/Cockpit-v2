@@ -101,8 +101,6 @@ export const projects = pgTable(
     }),
     // Only a https://claude.ai address: the page makes it a link.
     routineLastRunSessionUrl: text("routine_last_run_session_url"),
-    // Ticked by the user once the repo is added to their cloud launcher (decision 053 D).
-    inLauncher: boolean("in_launcher").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -153,6 +151,8 @@ export const projectMembers = pgTable(
       .notNull()
       .references(() => users.id),
     role: text("role", { enum: ["owner"] }).notNull(),
+    // Ticked by this user once the repo is added to their cloud launcher (decision 053 D).
+    inLauncher: boolean("in_launcher").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

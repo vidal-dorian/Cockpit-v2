@@ -31,7 +31,7 @@ import {
 } from "./findings.ts";
 import type { ReadGitHub } from "./github.ts";
 import type { ReadInstance } from "./instance.ts";
-import { BRANCH, getLaunch, reportLaunch } from "./launcher.ts";
+import { branchName, getLaunch, reportLaunch } from "./launcher.ts";
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
 import {
@@ -737,13 +737,9 @@ const tools = {
       story_id: id.describe(
         "Id of a ready or in_review story, from get_user_story",
       ),
-      branch: z
-        .string()
-        .min(1)
-        .max(255)
-        .regex(BRANCH)
-        .refine((b) => !b.includes(".."))
-        .describe("The git branch of the story, e.g. us/42-login"),
+      branch: branchName.describe(
+        "The git branch of the story, e.g. us/42-login",
+      ),
       model: z
         .string()
         .min(1)

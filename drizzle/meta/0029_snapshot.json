@@ -1,5 +1,5 @@
 {
-  "id": "b26c0028-7439-427d-8d2b-bc79da4af6f6",
+  "id": "086dd929-3f04-4ea8-ac25-6152bdfbc87f",
   "prevId": "87159eb0-fec6-4f71-97f1-242116d9b0d4",
   "version": "7",
   "dialect": "postgresql",
@@ -1305,6 +1305,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "in_launcher": {
+          "name": "in_launcher",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1483,13 +1490,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "in_launcher": {
-          "name": "in_launcher",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",

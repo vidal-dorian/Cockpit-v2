@@ -35,6 +35,7 @@ type Launcher = {
   needsReconnect: boolean;
   prompt: string;
   projectIds: number[];
+  missingProjectIds?: number[];
 };
 
 function renderAt(path: string) {
@@ -317,5 +318,21 @@ describe("criterion 9: the projects of the launcher", () => {
         ).checked,
       ).toBe(true),
     );
+  });
+});
+
+describe("criterion 9: a repo missing from the task (D)", () => {
+  it("given a project whose repo Claude did not find, when the card loads, then it says so next to that project only", async () => {
+    stubApi({ connected: true, missingProjectIds: [6] });
+    renderAt("/reglages/taches-cloud");
+
+    const section = await launcherCard();
+
+    const label = (name: RegExp) =>
+      within(section).getByRole("checkbox", { name }).closest("label");
+    expect(label(/octocat\/world/)?.textContent).toMatch(
+      /repo absent de la tâche/,
+    );
+    expect(label(/octocat\/hello/)?.textContent).not.toMatch(/repo absent/);
   });
 });

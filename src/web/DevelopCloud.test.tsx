@@ -203,6 +203,19 @@ describe("criterion 8: the launch in the cloud", () => {
     expect(link.getAttribute("href")).toBe(SESSION);
   });
 
+  it("given a launch that was sent, when Ctrl Entrée is pressed again, then nothing is sent twice", async () => {
+    const { ui, posts } = await open();
+    await cloudRadio(ui);
+    const field = ui.getByLabelText("Prompt complémentaire");
+
+    fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
+    await ui.findByText(/Lancé dans le cloud/);
+    fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(posts).toHaveLength(1);
+  });
+
   it.each([
     [409, { error: "launch_pending" }],
     [502, { error: "fire_failed" }],

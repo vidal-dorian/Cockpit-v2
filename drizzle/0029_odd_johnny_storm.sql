@@ -22,7 +22,7 @@ CREATE TABLE "cloud_launches" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "projects" ADD COLUMN "in_launcher" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "project_members" ADD COLUMN "in_launcher" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "cloud_launchers" ADD CONSTRAINT "cloud_launchers_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "cloud_launches" ADD CONSTRAINT "cloud_launches_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "cloud_launches" ADD CONSTRAINT "cloud_launches_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
