@@ -15,6 +15,7 @@ const FILES = [
   "agents/bug-hunter.md",
   "agents/security-reviewer.md",
   "agents/architect.md",
+  "agents/upgrade-advisor.md",
   "skills/analyser/SKILL.md",
 ];
 const git = (...args) =>

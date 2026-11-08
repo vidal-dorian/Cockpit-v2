@@ -21,13 +21,14 @@ export const CATALOG_FILES = [
   "skills/dev-us/SKILL.md",
   "skills/write-us/SKILL.md",
 ].map(catalogFile);
-/** `/analyser` and its agents (decisions 043 M, 047 M and 051 K): prepared with the rest, but no team agent. */
+/** `/analyser` and its agents (decisions 043 M, 047 M, 051 K and 052 K): prepared with the rest, but no team agent. */
 export const ANALYSER_FILES = [
   "agents/cartographer.md",
   "agents/rules-analyst.md",
   "agents/bug-hunter.md",
   "agents/security-reviewer.md",
   "agents/architect.md",
+  "agents/upgrade-advisor.md",
   "skills/analyser/SKILL.md",
 ].map(catalogFile);
 

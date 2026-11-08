@@ -95,6 +95,76 @@ const hookConfigSchema = z.object({
   active: z.boolean().optional(),
 });
 const hookDeliveriesSchema = z.array(z.object({ status_code: z.number() }));
+const permissionsSchema = z.record(z.string(), z.string()).default({});
+const appAccessSchema = z.object({ permissions: permissionsSchema });
+const installationAccessSchema = z.object({
+  html_url: z.string(),
+  permissions: permissionsSchema,
+});
+
+// Decision 052 D: what is read of an alert of GitHub, named field by field. zod drops the rest, so the `secret` of a secret scanning alert never goes any further.
+const alertBase = { number: z.number().int(), state: z.string() };
+export const dependabotAlert = z.object({
+  ...alertBase,
+  dependency: z.object({ manifest_path: z.string().optional() }),
+  security_advisory: z.object({
+    ghsa_id: z.string(),
+    cve_id: z.string().nullish(),
+    summary: z.string(),
+    severity: z.string(),
+  }),
+  security_vulnerability: z.object({
+    package: z.object({ ecosystem: z.string(), name: z.string() }),
+    vulnerable_version_range: z.string().nullish(),
+    first_patched_version: z.object({ identifier: z.string() }).nullish(),
+  }),
+});
+export const codeScanningAlert = z.object({
+  ...alertBase,
+  rule: z.object({
+    id: z.string().nullish(),
+    name: z.string().nullish(),
+    severity: z.string().nullish(),
+    security_severity_level: z.string().nullish(),
+    description: z.string().nullish(),
+  }),
+  tool: z.object({ name: z.string().nullish() }),
+  most_recent_instance: z.object({
+    commit_sha: z.string().nullish(),
+    message: z.object({ text: z.string().nullish() }).nullish(),
+    location: z
+      .object({
+        path: z.string().nullish(),
+        start_line: z.number().int().nullish(),
+        end_line: z.number().int().nullish(),
+      })
+      .nullish(),
+  }),
+});
+export const secretScanningAlert = z.object({
+  ...alertBase,
+  secret_type: z.string(),
+  secret_type_display_name: z.string().nullish(),
+});
+export const ALERT_TOOLS = {
+  dependabot: { path: "dependabot", schema: dependabotAlert },
+  code_scanning: { path: "code-scanning", schema: codeScanningAlert },
+  secret_scanning: { path: "secret-scanning", schema: secretScanningAlert },
+} as const;
+export type AlertTool = keyof typeof ALERT_TOOLS;
+const locationsSchema = z.array(
+  z.object({
+    type: z.string(),
+    details: z.record(z.string(), z.unknown()).default({}),
+  }),
+);
+const commitLocationSchema = z.object({
+  path: z.string(),
+  start_line: z.number().int().min(1),
+  end_line: z.number().int().min(1),
+  commit_sha: z.string(),
+});
+const MAX_ALERT_PAGES = 10;
 
 /** What the cache (decision 013) remembers of a repo: the commit (the `sha` GitHub returns for `HEAD`) it was computed from. */
 type KnownRoot = { etag: string; commitSha: string };
@@ -114,6 +184,10 @@ export type RepoFiles = {
   agents: string[];
   /** Names of the files directly in .claude/skills/dev-us. */
   devUsSkill: string[];
+  /** Names of the files directly at the root (decision 052 L). */
+  rootFiles: string[];
+  /** Names of the files directly in .github, not in its sub-folders (decision 052 L). */
+  githubFiles: string[];
 };
 
 const isNotFound = (error: unknown) =>
@@ -541,12 +615,15 @@ export function githubClient(config: GitHubAppConfig) {
           throw error;
         }
       };
-      const [claude, workflows, mcpJson] = await Promise.all([
+      const [claude, workflows, github, mcpJson] = await Promise.all([
         rootTrees.includes(".claude") ? readClaude() : ([] as string[]),
         rootTrees.includes(".github")
           ? readTree(at(".github/workflows")).then((t) =>
               blobs(t, ".github/workflows/"),
             )
+          : [],
+        rootTrees.includes(".github")
+          ? readTree(at(".github")).then((t) => blobs(t, ".github/"))
           : [],
         rootBlobs.includes(".mcp.json") ? readFile(".mcp.json") : null,
       ]);
@@ -565,7 +642,7 @@ export function githubClient(config: GitHubAppConfig) {
           async (name) => (await readFile(`.claude/teams/${name}.md`)) ?? "",
         ),
       ]);
-      const paths = [...rootBlobs, ...claude, ...workflows];
+      const paths = [...rootBlobs, ...claude, ...workflows, ...github];
       const filesIn = (dir: string) =>
         paths
           .filter(
@@ -581,6 +658,8 @@ export function githubClient(config: GitHubAppConfig) {
         teams,
         agents: filesIn(".claude/agents"),
         devUsSkill: filesIn(".claude/skills/dev-us"),
+        rootFiles: rootBlobs,
+        githubFiles: filesIn(".github"),
       };
       return {
         unchanged: false as const,
@@ -592,8 +671,112 @@ export function githubClient(config: GitHubAppConfig) {
 
     /** The reading of decision 026 (`inspect`) on its own, as the installation: the files of one repo at a commit (decision 043 C). */
     async fileReader(installationId: number, fullName: string) {
-      const { inspect, head } = await writeAccess(installationId, fullName);
-      return { inspect, head };
+      const { inspect, head, octokit, owner, name } = await writeAccess(
+        installationId,
+        fullName,
+      );
+      return {
+        inspect,
+        head,
+        /** The names of the regular files directly in a directory of a commit (`""` for the root), none when it does not exist (decision 052 L). */
+        async listFiles(dir: string, sha: string) {
+          try {
+            const { data } = await octokit.request(
+              "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+              {
+                owner,
+                repo: name,
+                tree_sha: dir ? `${sha}:${dir}` : sha,
+              },
+            );
+            return treeSchema
+              .parse(data)
+              .tree.filter((entry) => entry.type === "blob")
+              .map((entry) => entry.path);
+          } catch (error) {
+            const status = (error as { status?: number }).status;
+            if (status === 404 || status === 422) return [];
+            throw error;
+          }
+        },
+      };
+    },
+
+    /** The permissions of the App and of one installation, read as the App (decision 052 B), with the page where the installation is approved. Errors are left to the caller. */
+    async readAppAccess(installationId: number) {
+      // Both are awaited before anything is thrown, so no request outlives the call.
+      const [asApp, asInstallation] = await Promise.allSettled([
+        app.octokit.request("GET /app"),
+        app.octokit.request("GET /app/installations/{installation_id}", {
+          installation_id: installationId,
+        }),
+      ]);
+      if (asApp.status === "rejected") throw asApp.reason;
+      if (asInstallation.status === "rejected") throw asInstallation.reason;
+      const installed = installationAccessSchema.parse(
+        asInstallation.value.data,
+      );
+      return {
+        app: appAccessSchema.parse(asApp.value.data).permissions,
+        installation: installed.permissions,
+        installationUrl: installed.html_url,
+      };
+    },
+
+    /** The open alerts of a tool, as the installation, 100 per page and ten pages at most (decision 052 C). `disabled` when GitHub answers 403 or 404 (the tool is not on for this repo); `complete` is false when the last page was full, so more may exist. Other errors are left to the caller. */
+    async readAlerts<T extends AlertTool>(
+      installationId: number,
+      fullName: string,
+      tool: T,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const { path, schema } = ALERT_TOOLS[tool];
+      const alerts: z.infer<(typeof ALERT_TOOLS)[T]["schema"]>[] = [];
+      for (let page = 1; page <= MAX_ALERT_PAGES; page++) {
+        let data: unknown;
+        try {
+          ({ data } = await octokit.request(
+            `GET /repos/{owner}/{repo}/${path}/alerts`,
+            { owner, repo, state: "open", per_page: PAGE_SIZE, page },
+          ));
+        } catch (error) {
+          const status = (error as { status?: number }).status;
+          if (status === 403 || status === 404)
+            return { disabled: true as const };
+          throw error;
+        }
+        const found = z.array(schema).parse(data) as typeof alerts;
+        alerts.push(...found);
+        if (found.length < PAGE_SIZE)
+          return { alerts, complete: true as const };
+      }
+      return { alerts, complete: false as const };
+    },
+
+    /** The first place in a commit where a secret scanning alert found its secret (decision 052 D), null when it has none. Never the secret itself. Errors are left to the caller. */
+    async readSecretLocation(
+      installationId: number,
+      fullName: string,
+      number: number,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}/locations",
+        { owner, repo, alert_number: number },
+      );
+      for (const location of locationsSchema.parse(data)) {
+        const found = commitLocationSchema.safeParse(location.details);
+        if (location.type === "commit" && found.success)
+          return {
+            path: found.data.path,
+            startLine: found.data.start_line,
+            endLine: found.data.end_line,
+            commitSha: found.data.commit_sha,
+          };
+      }
+      return null;
     },
 
     /** How many commits `branch` has that `sha` has not (the `ahead_by` of GitHub's compare), null when GitHub does not know the commit any more (a force-push, decision 043 G). Other errors are left to the caller. */

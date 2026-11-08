@@ -438,6 +438,7 @@ export const FINDING_KINDS = [
   "security",
   "architecture",
   "stack",
+  "upgrade",
 ] as const;
 export const FINDING_SEVERITIES = [
   "critical",
@@ -446,6 +447,11 @@ export const FINDING_SEVERITIES = [
   "low",
 ] as const;
 export const FINDING_EFFORTS = ["small", "medium", "large"] as const;
+export const GITHUB_ALERT_TYPES = [
+  "dependabot",
+  "code_scanning",
+  "secret_scanning",
+] as const;
 export const FINDING_STATUSES = [
   "open",
   "ticketed",
@@ -462,8 +468,7 @@ export const findings = pgTable(
       .notNull()
       .references(() => projects.id),
     kind: text("kind", { enum: FINDING_KINDS }).notNull(),
-    // `claude` only until R6 brings the findings of GitHub.
-    source: text("source", { enum: ["claude"] })
+    source: text("source", { enum: ["claude", "github"] })
       .notNull()
       .default("claude"),
     title: text("title").notNull(),
@@ -475,12 +480,33 @@ export const findings = pgTable(
       .default("open"),
     ticketId: integer("ticket_id").references(() => tickets.id),
     dismissReason: text("dismiss_reason"),
-    commitSha: text("commit_sha").notNull(),
+    // Null for a finding of GitHub that cites no commit (a Dependabot alert).
+    commitSha: text("commit_sha"),
+    // Decision 052 G: the alert a finding of GitHub comes from; `githubClosedAt` is when it was found closed on GitHub (the status never moves).
+    githubAlertType: text("github_alert_type", { enum: GITHUB_ALERT_TYPES }),
+    githubAlertNumber: integer("github_alert_number"),
+    githubClosedAt: timestamp("github_closed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
   },
   (t) => [
+    check(
+      "findings_github_check",
+      sql`(${t.source} = 'github') = (${t.githubAlertType} is not null and ${t.githubAlertNumber} is not null) and (${t.githubAlertType} is null) = (${t.githubAlertNumber} is null)`,
+    ),
+    check(
+      "findings_commit_check",
+      sql`${t.source} = 'github' or ${t.commitSha} is not null`,
+    ),
+    uniqueIndex("findings_github_alert_idx").on(
+      t.projectId,
+      t.githubAlertType,
+      t.githubAlertNumber,
+    ),
     check(
       "findings_ticket_check",
       sql`(${t.status} = 'ticketed') = (${t.ticketId} is not null)`,

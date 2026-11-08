@@ -30,9 +30,11 @@ import {
   type WriteFile,
 } from "./github.ts";
 import {
+  alertsLine,
   catalogLine,
   type HealthLine,
   healthLines,
+  updatesLine,
   webhookLine,
 } from "./health.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
@@ -44,7 +46,7 @@ const GITHUB_DOWN =
 const importBody = z.object({ githubRepoId: z.number().int() });
 
 // The plan as `planRepoWrite` served it and the page hands it back (decision 027 D); the paths are checked by `checkWriteFiles`.
-const prepareBody = z.object({
+export const prepareBody = z.object({
   plan: z.object({
     // A commit sha only: it ends up in the history, which is never edited (010 D).
     baseSha: z.string().regex(/^[0-9a-f]{40}$/),
@@ -203,6 +205,8 @@ export function projectRoutes(
     /** The address the lines were judged against (decision 023 C). */
     publicUrl: string;
     lines: HealthLine[];
+    /** Kept apart: it comes after the lines that are read on each display (decision 052). */
+    updates: HealthLine;
   };
   const healthCache = new Map<string, HealthEntry>();
   const remember = (key: string, entry: HealthEntry) => {
@@ -468,6 +472,22 @@ export function projectRoutes(
       const found = healthCache.get(key);
       // Lines judged against another address are not valid any more.
       const cached = found?.publicUrl === publicUrl ? found : undefined;
+      // The lines that are not part of the cache: what GitHub says now (decisions 024 F and 052 B).
+      const alerts = async () => {
+        try {
+          return alertsLine(
+            await c.get("github").readAppAccess(project.installationId),
+            c.get("appSettingsUrl"),
+          );
+        } catch (error) {
+          console.error("GitHub permissions read failed:", error);
+          return alertsLine(null, c.get("appSettingsUrl"));
+        }
+      };
+      const live = async () => {
+        const [hook, access] = await Promise.all([webhook(), alerts()]);
+        return [hook, access];
+      };
       const webhook = async () =>
         webhookLine(await readWebhook(c.get("github")), publicUrl);
       try {
@@ -479,9 +499,12 @@ export function projectRoutes(
           // Only asked for with a cached entry, so there is one.
           const entry = { ...(cached as HealthEntry), etag: read.etag };
           remember(key, entry);
-          return c.json({ lines: [...entry.lines, await webhook()] });
+          return c.json({
+            lines: [...entry.lines, ...(await live()), entry.updates],
+          });
         }
         const lines = healthLines(read.files, publicUrl);
+        const updates = updatesLine(read.files);
         // Only a prepared repo has the line (decision 049 E); its files are read at the commit the health was computed from (H).
         if (read.files.devUsSkill.includes("SKILL.md")) {
           const { inspect } = await c
@@ -500,8 +523,9 @@ export function projectRoutes(
             commitSha: read.commitSha,
             publicUrl,
             lines,
+            updates,
           });
-        return c.json({ lines: [...lines, await webhook()] });
+        return c.json({ lines: [...lines, ...(await live()), updates] });
       } catch (error) {
         console.error("GitHub request failed:", error);
         return c.json({ error: "github_unavailable" }, 502);
