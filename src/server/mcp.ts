@@ -788,7 +788,7 @@ const tools = {
   ),
 
   get_launch: tool(
-    "Read a launch Cockpit started in the cloud: the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent). Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
+    "Read a launch Cockpit started in the cloud: the instructions to follow, the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent). Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
     z.object({ launch_id: id.describe("The launch_id of the fired text") }),
     (call, args) => getLaunch(call.db, call.userId, call.entry, args),
   ),

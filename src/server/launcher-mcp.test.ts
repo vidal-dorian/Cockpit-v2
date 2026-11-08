@@ -84,6 +84,18 @@ describe("criterion 5: get_launch", () => {
     });
   });
 
+  it("given a launch, when get_launch is read, then its instructions give the /dev-us command with --launch, so the prompt of the task never changes", async () => {
+    const s = await launched();
+
+    const data = dataOf<{ instructions: string }>(
+      await tool(s, "get_launch", { launch_id: s.launchId }),
+    );
+
+    expect(data.instructions).toBe(
+      `In the repository user1000/app, run \`/dev-us ${s.storyId} --branch ${BRANCH} --team fast --launch ${s.launchId}\`, with the \`comment\` as its extra prompt. Push only to the branch ${BRANCH} and work only on that story.`,
+    );
+  });
+
   it("given a call, when the history is read, then get_launch is claude / mcp with args { launchId } and no comment", async () => {
     const s = await launched();
     dataOf(await tool(s, "get_launch", { launch_id: s.launchId }));
