@@ -362,6 +362,63 @@ describe("Project history, Exporter and the panel (decision 053 I, G)", () => {
   });
 });
 
+describe("Project history, review findings (decision 053 I, G)", () => {
+  it("given a step finished by the user, when the tab loads, then the row reads « Tu as fini l'étape reviewer » (not « Tu a »)", async () => {
+    stubJournal(() => ({
+      entries: [{ ...STEP, actor: "human", origin: "ui" }],
+    }));
+
+    renderAt("/projets/5/historique");
+
+    expect(
+      await screen.findByText("Tu as fini l'étape reviewer"),
+    ).toBeDefined();
+  });
+
+  // Same pin as in JournalPanel.test.tsx: the retry is shown from `retry` even when the chip « Refus et erreurs » hides it.
+  it("given Refus et erreurs chosen and a refusal whose retry is not listed, when its retry sentence is clicked, then the panel shows the retry (title create_user_stories réussi)", async () => {
+    const refused = entry(3, {
+      actor: "claude",
+      origin: "mcp",
+      action: "create_user_stories",
+      result: "refused",
+      project: "octocat/hello",
+      projectId: 5,
+      detail: { reason: "criterion_incomplete" },
+      retry: { id: 4, at: STEP.at, result: "ok" },
+    });
+    stubJournal((params) => ({
+      entries: params.get("result") ? [refused] : [],
+    }));
+    renderAt("/projets/5/historique");
+    await screen.findByRole("button", { name: "Refus et erreurs" });
+    fireEvent.click(chip("Refus et erreurs"));
+    const row = await waitFor(() => {
+      const li = rows()[0];
+      expect(li).toBeDefined();
+      return li as HTMLElement;
+    });
+    fireEvent.click(within(row).getByRole("button"));
+    const panel = screen.getByRole("complementary", {
+      name: "Entrée du journal",
+    });
+    const time = new Date(STEP.at).toLocaleTimeString("fr-FR", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    fireEvent.click(
+      within(panel).getByRole("button", {
+        name: `Claude a réessayé à ${time} : réussi.`,
+      }),
+    );
+
+    expect(
+      within(panel).getByRole("heading", { level: 2 }).textContent?.trim(),
+    ).toBe("create_user_stories réussi");
+  });
+});
+
 describe("Project history, the colour (decision 053 J)", () => {
   it("given refused entries, when the tab shows them on Refus et erreurs with the panel open, then nothing is red", async () => {
     stubJournal(() => ({

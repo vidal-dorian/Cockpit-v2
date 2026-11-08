@@ -47,9 +47,17 @@ export const entry = (
 });
 
 type Answer = Response | { entries: FakeEntry[]; hasMore?: boolean };
+type Project = { id: number; fullName: string };
+const PROJECTS: Project[] = [
+  { id: 5, fullName: "octocat/hello" },
+  { id: 6, fullName: "octocat/api-facturation" },
+];
 
 export function stubJournal(
-  history: (params: URLSearchParams) => Answer = () => ({ entries: [] }),
+  history: (params: URLSearchParams) => Answer | Promise<Answer> = () => ({
+    entries: [],
+  }),
+  projects: Project[] = PROJECTS,
 ) {
   const requests: URLSearchParams[] = [];
   const paths: string[] = [];
@@ -80,27 +88,19 @@ export function stubJournal(
         return Response.json({
           forYou: [],
           claudeWorks: [],
-          projects: [
-            { id: 5, name: "octocat/hello", state: "idle" },
-            { id: 6, name: "octocat/api-facturation", state: "idle" },
-          ],
+          projects: projects.map((p) => ({
+            id: p.id,
+            name: p.fullName,
+            state: "idle",
+          })),
         });
       if (url.pathname === "/api/projects")
         return Response.json({
-          projects: [
-            {
-              id: 5,
-              fullName: "octocat/hello",
-              defaultBranch: "main",
-              archived: false,
-            },
-            {
-              id: 6,
-              fullName: "octocat/api-facturation",
-              defaultBranch: "main",
-              archived: false,
-            },
-          ],
+          projects: projects.map((p) => ({
+            ...p,
+            defaultBranch: "main",
+            archived: false,
+          })),
         });
       if (/^\/api\/projects\/\d+\/health$/.test(url.pathname))
         return Response.json({
@@ -112,7 +112,7 @@ export function stubJournal(
         });
       if (url.pathname === "/api/history") {
         requests.push(url.searchParams);
-        const answer = history(url.searchParams);
+        const answer = await history(url.searchParams);
         return answer instanceof Response
           ? answer
           : Response.json({ hasMore: false, ...answer });

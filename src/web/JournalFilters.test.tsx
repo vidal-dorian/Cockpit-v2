@@ -497,3 +497,173 @@ describe("Journal, Exporter (decision 053 H)", () => {
     });
   });
 });
+
+describe("Journal, the search is calmer (decision 053 F, review)", () => {
+  // Pinned: the request waits 300 ms after the last keystroke (real timers: nothing is sent 100 ms after typing, one request is sent a little after 300 ms);
+  // while the new results load, the previous list and an open panel stay (no « Chargement… » in place of the list).
+  it("given three characters typed quickly, when 100 ms pass then the pause ends, then no request was sent at first and exactly one is sent, with the whole text", async () => {
+    const { requests } = stubJournal(() => ({ entries: [entry(1)] }));
+    renderAt("/journal");
+    await loaded();
+    await waitFor(() => expect(requests).toHaveLength(1));
+    const box = within(main()).getByPlaceholderText("Chercher…");
+
+    for (const value of ["t", "ti", "tic"])
+      fireEvent.change(box, { target: { value } });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(requests).toHaveLength(1);
+
+    await waitFor(() => expect(last(requests)?.get("q")).toBe("tic"));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(requests.filter((r) => r.has("q"))).toHaveLength(1);
+  });
+
+  it("given a panel open and a search typed, when the new results are still loading, then the previous rows and the panel stay and Chargement… is not shown", async () => {
+    let release: (answer: { entries: ReturnType<typeof entry>[] }) => void =
+      () => {};
+    const slow = new Promise<{ entries: ReturnType<typeof entry>[] }>(
+      (resolve) => {
+        release = resolve;
+      },
+    );
+    const { requests } = stubJournal((params) =>
+      params.has("q") ? slow : { entries: [entry(1, { action: "login" })] },
+    );
+    renderAt("/journal");
+    fireEvent.click(
+      within(
+        (await screen.findByText("Connexion")).closest("li") as HTMLElement,
+      ).getByRole("button"),
+    );
+
+    fireEvent.change(within(main()).getByPlaceholderText("Chercher…"), {
+      target: { value: "ticket" },
+    });
+    await waitFor(() => expect(last(requests)?.get("q")).toBe("ticket"));
+
+    expect(screen.getByText("Connexion")).toBeDefined();
+    expect(screen.queryByText("Chargement…")).toBeNull();
+    expect(
+      screen.getByRole("complementary", { name: "Entrée du journal" }),
+    ).toBeDefined();
+    release({ entries: [entry(2, { action: "create_ticket" })] });
+    expect(await screen.findByText("Ticket créé")).toBeDefined();
+  });
+});
+
+describe("Journal, the chip menus with the keyboard (decision 053 F, review)", () => {
+  // Pinned: opening a menu focuses its first item; ArrowDown / ArrowUp move the focus between items (no wrap needed);
+  // Escape closes the menu and focuses its chip; choosing returns the focus to the chip (for a filter chip that is now its « Retirer le filtre <chip> » button);
+  // the keys of an open menu never reach the panel's ArrowUp / ArrowDown.
+  const items = () => screen.getAllByRole("menuitem");
+
+  it("given a chip, when its menu opens, then the first item has the focus and ArrowDown then ArrowUp move between items", async () => {
+    stubJournal(() => ({ entries: [entry(1)] }));
+    renderAt("/journal");
+    await loaded();
+
+    fireEvent.click(chip("Auteur"));
+
+    await waitFor(() => expect(document.activeElement).toBe(items()[0]));
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items()[1]);
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[0]);
+  });
+
+  it("given an open menu, when Escape is pressed, then it closes and the chip has the focus", async () => {
+    stubJournal(() => ({ entries: [entry(1)] }));
+    renderAt("/journal");
+    await loaded();
+    fireEvent.click(chip("Auteur"));
+    await waitFor(() => expect(document.activeElement).toBe(items()[0]));
+
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(chip("Auteur"));
+  });
+
+  it("given an open menu, when an item is chosen, then the focus goes back to the chip (the period chip stays, a filter chip gives its remove button)", async () => {
+    stubJournal(() => ({ entries: [entry(1)] }));
+    renderAt("/journal");
+    await choose("Auteur", "Claude");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(main()).getByRole("button", {
+          name: "Retirer le filtre Auteur",
+        }),
+      ),
+    );
+
+    fireEvent.click(chip("Tout"));
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Ce mois-ci" }),
+    );
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(chip("Ce mois-ci")),
+    );
+  });
+
+  it("given an entry open in the panel and a menu open, when ArrowDown is pressed in the menu, then the focus moves in the menu and the panel stays on the same entry", async () => {
+    stubJournal(() => ({
+      entries: [entry(3), entry(2), entry(1)],
+    }));
+    renderAt("/journal");
+    await loaded();
+    fireEvent.click(
+      within(
+        (await screen.findAllByRole("listitem"))[0] as HTMLElement,
+      ).getByRole("button", { name: /Connexion/ }),
+    );
+    const counter = () =>
+      within(
+        screen.getByRole("complementary", { name: "Entrée du journal" }),
+      ).getByText(/^\d+ sur \d+$/).textContent;
+    expect(counter()).toBe("1 sur 3");
+    fireEvent.click(chip("Auteur"));
+    await waitFor(() => expect(document.activeElement).toBe(items()[0]));
+
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
+
+    expect(document.activeElement).toBe(items()[1]);
+    expect(counter()).toBe("1 sur 3");
+  });
+});
+
+describe("Journal, two projects with the same repo name (decision 053 F, review)", () => {
+  // Pinned: when two repo names collide the Projet menu (and the chosen chip) shows the full owner/name of both; otherwise the repo name alone.
+  const twins = [
+    { id: 7, fullName: "alice/app" },
+    { id: 8, fullName: "bob/app" },
+  ];
+
+  it("given alice/app and bob/app, when the Projet menu opens, then both show their owner and neither is the bare « app »", async () => {
+    stubJournal(() => ({ entries: [entry(1)] }), twins);
+    renderAt("/journal");
+    await loaded();
+
+    fireEvent.click(chip("Projet"));
+
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent?.trim()),
+    ).toEqual(["alice/app", "bob/app"]);
+  });
+
+  it("given alice/app and bob/app, when bob/app is chosen, then project 8 is requested and the chip reads bob/app", async () => {
+    const { requests } = stubJournal(() => ({ entries: [entry(1)] }), twins);
+    renderAt("/journal");
+
+    await choose("Projet", "bob/app");
+
+    await waitFor(() => expect(last(requests)?.get("project")).toBe("8"));
+    expect(
+      within(main()).getByRole("button", { name: "Retirer le filtre Projet" })
+        .parentElement?.textContent,
+    ).toContain("bob/app");
+  });
+});

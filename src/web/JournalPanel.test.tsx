@@ -272,6 +272,32 @@ describe("Journal, the panel of an entry (decision 053 G)", () => {
   });
 });
 
+describe("Journal, a retry hidden by the filter (decision 053 G, review)", () => {
+  // Pinned: the retry need not be in the list. The panel never depends on it being shown: the sentence and its click use the `retry` of the entry
+  // ({ id, at, result }) and the click shows the retry in the panel built from `retry` (title « <action> <result> », Quand with seconds of retry.at)
+  // plus the original entry's actor, origin, action and project (the retry has the same actor, action and project by decision 053 D). The filter stays as it is.
+  it("given the view filtered on Refusé (the retry, ok, is not listed), when the refusal is open and its retry sentence clicked, then the sentence names Claude and the panel shows the retry without changing the filter or the list", async () => {
+    await open([REFUSED], "/journal?resultat=refuse");
+    await screen.findByText("Refusée");
+
+    fireEvent.click(within(rows()[0] as HTMLElement).getByRole("button"));
+    fireEvent.click(
+      within(panel()).getByRole("button", {
+        name: `Claude a réessayé à ${clock(at(41, 5))} : réussi.`,
+      }),
+    );
+
+    expect(title()).toBe("create_user_stories réussi");
+    expect(field("Quand")?.textContent).toContain(
+      new Date(RETRY.at).toLocaleTimeString("fr-FR"),
+    );
+    expect(field("Acteur")?.textContent).toContain("Claude");
+    expect(field("Projet")?.textContent).toContain("octocat/api-facturation");
+    expect(window.location.search).toBe("?resultat=refuse");
+    expect(rows()).toHaveLength(1);
+  });
+});
+
 describe("Journal, the colour (decision 053 J)", () => {
   it("given a refused and an ok entry, when the journal loads, then the two result words carry the same classes (gray), and the refused row has no red", async () => {
     await open([

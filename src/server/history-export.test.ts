@@ -112,6 +112,18 @@ describe("GET /api/history/export, the file (decision 053 H)", () => {
     );
   });
 
+  it("given a session, when the export is requested, then the answer says Cache-Control: no-store (a private journal is never cached)", async () => {
+    const { app, db } = await setup();
+    const a = await userWithSession(db, 1);
+
+    const res = await app.request("/api/history/export", {
+      headers: { cookie: a.cookie },
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
   it("given no entry, when the export is requested, then the file is the header line alone", async () => {
     const { app, db } = await setup();
     const a = await userWithSession(db, 1);
