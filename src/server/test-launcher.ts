@@ -309,3 +309,101 @@ export const relaunches = (ctx: Ctx) =>
     ctx,
     sql`select branch, comment, relaunch from cloud_launches where relaunch order by id`,
   );
+
+// Slice 14.5 (decision 060). Pinned where the decision leaves room:
+// - the launch of FIRE_ANSWER has the session "session_01ABCDEFGHIJ", sent by Claude Code as "cse_01ABCDEFGHIJ";
+// - columns `cloud_launches.cost_usd`, `.tokens`, `.budget_usd`; GET /api/runs/:id gives, beside `cloud`, `costUsd` (number or
+//   null) and `stopReason` ("budget" or null); GET /api/me/budgets and PUT (200, same shape) give { runUsd, nightUsd, monthUsd };
+// - a refused launch answers 409 { error: "monthly_budget_reached" }.
+export const CSE = "cse_01ABCDEFGHIJ";
+type PointOptions = {
+  name?: string;
+  temporality?: number;
+  session?: string;
+  inResource?: boolean;
+  tokens?: boolean;
+};
+/** An OTLP/HTTP JSON body with one point; `tokens` makes it an integer point of claude_code.token.usage. */
+export const otlp = (value: number, o: PointOptions = {}) => {
+  const attribute = {
+    key: "ccr.session.id",
+    value: { stringValue: o.session ?? CSE },
+  };
+  return {
+    resourceMetrics: [
+      {
+        resource: { attributes: o.inResource ? [attribute] : [] },
+        scopeMetrics: [
+          {
+            metrics: [
+              {
+                name:
+                  o.name ??
+                  (o.tokens
+                    ? "claude_code.token.usage"
+                    : "claude_code.cost.usage"),
+                unit: o.tokens ? "tokens" : "USD",
+                sum: {
+                  aggregationTemporality: o.temporality ?? 1,
+                  dataPoints: [
+                    {
+                      ...(o.tokens
+                        ? { asInt: String(value) }
+                        : { asDouble: value }),
+                      attributes: o.inResource ? [] : [attribute],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+};
+export const postMetrics = (
+  ctx: Ctx,
+  body: unknown,
+  contentType = "application/json",
+) =>
+  ctx.app.request("/v1/metrics", {
+    method: "POST",
+    headers: { "content-type": contentType },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+/** Claude Code reports a point, the answer checked. */
+export async function pay(ctx: Ctx, value: number, o: PointOptions = {}) {
+  const res = await postMetrics(ctx, otlp(value, o));
+  expect(res.status, "receiving a point").toBe(200);
+}
+/** The last launch's cost, tokens and cap. */
+export async function costOf(ctx: Ctx) {
+  const [row] = await sqlRows<{
+    cost_usd: string | number | null;
+    tokens: string | number | null;
+    budget_usd: string | number | null;
+  }>(
+    ctx,
+    sql`select cost_usd, tokens, budget_usd from cloud_launches order by id desc limit 1`,
+  );
+  return {
+    cost: Number(row?.cost_usd ?? 0),
+    tokens: Number(row?.tokens ?? 0),
+    budget: row?.budget_usd == null ? null : Number(row.budget_usd),
+  };
+}
+export const setBudgets = (
+  ctx: Ctx,
+  body: {
+    runUsd?: number | null;
+    nightUsd?: number | null;
+    monthUsd?: number | null;
+  },
+) =>
+  send(ctx.app, ctx.alice.cookie, "PUT", "/api/me/budgets", {
+    runUsd: null,
+    nightUsd: null,
+    monthUsd: null,
+    ...body,
+  });

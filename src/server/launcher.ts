@@ -2,6 +2,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
+import { budgetsOf, usd } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
@@ -45,6 +46,13 @@ const launchBody = z.object({
   branch: branchName,
   team: z.string().max(MAX_TEAM_NAME).regex(AGENT_NAME).optional(),
   comment: z.string().max(10_000).refine(noNul).optional(),
+  budgetUsd: usd.optional(),
+});
+
+const budgetsBody = z.object({
+  runUsd: usd.nullable(),
+  nightUsd: usd.nullable(),
+  monthUsd: usd.nullable(),
 });
 
 /** `get_launch` (decision 054 F, 056 C): the launch of the caller, with what Claude needs to start `/dev-us` or to run the routine. Nobody else's. */
@@ -248,6 +256,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/me/launcher", signed)
     .use("/api/me/launcher/auto-relaunch", signed)
+    .use("/api/me/budgets", signed)
     .use("/api/projects/:id/launcher", signed)
     .use("/api/stories/:id/launch", signed)
     .get("/api/me/launcher", async (c) => {
@@ -289,6 +298,24 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
         return c.json({ enabled });
       },
     )
+    .get("/api/me/budgets", async (c) =>
+      c.json(await budgetsOf(db, c.get("userId"))),
+    )
+    .put("/api/me/budgets", body(budgetsBody), async (c) => {
+      const userId = c.get("userId");
+      const { runUsd, nightUsd, monthUsd } = c.req.valid("json");
+      await act(db, entryOf(userId, "set_budgets"), (tx) =>
+        tx
+          .update(users)
+          .set({
+            budgetRunUsd: runUsd,
+            budgetNightUsd: nightUsd,
+            budgetMonthUsd: monthUsd,
+          })
+          .where(eq(users.id, userId)),
+      );
+      return c.json({ runUsd, nightUsd, monthUsd });
+    })
     .put(
       "/api/projects/:id/launcher",
       body(z.object({ inLauncher: z.boolean() })),
@@ -333,7 +360,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       const found = await memberStory(db, userId, Number(c.req.param("id")));
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
-      const { branch, team, comment } = c.req.valid("json");
+      const { branch, team, comment, budgetUsd } = c.req.valid("json");
       const entry = {
         ...entryOf(userId, "launch_story"),
         userId,
@@ -350,7 +377,12 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
         at,
         [project.id],
         (tx) =>
-          reserveStory(tx, at, story.id, project.id, { branch, team, comment }),
+          reserveStory(tx, at, story.id, project.id, {
+            branch,
+            team,
+            comment,
+            budgetUsd,
+          }),
       );
       return "error" in launched
         ? c.json({ error: launched.error }, launched.status)

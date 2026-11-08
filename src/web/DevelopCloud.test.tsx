@@ -50,6 +50,7 @@ type Options = {
   launcher?: Launcher;
   launch?: { status: number; body: unknown };
   teams?: { name: string; text: string }[];
+  runUsd?: number | null;
 };
 
 function stub(options: Options = {}) {
@@ -87,6 +88,12 @@ function stub(options: Options = {}) {
         return Response.json({
           prompt: "p",
           ...(options.launcher ?? READY),
+        });
+      if (path === "/api/me/budgets")
+        return Response.json({
+          runUsd: options.runUsd ?? null,
+          nightUsd: null,
+          monthUsd: null,
         });
       if (path === "/api/stories/42/launch" && method === "POST") {
         posts.push({ path, body: JSON.parse(String(init?.body)) });
@@ -273,4 +280,20 @@ describe("criterion 8: when the cloud is not possible", () => {
       ).toBeNull();
     },
   );
+});
+
+// Slice 14.5 (decision 060 D): the field « Plafond », prefilled from GET /api/me/budgets (runUsd), sent as budgetUsd.
+describe("criterion 14.5: the cap of the run", () => {
+  it("given a run budget of 2.5, when the panel opens and the user sets 4, then « Plafond » was prefilled with 2.5 and the launch carries budgetUsd 4", async () => {
+    const { ui, posts } = await open({ runUsd: 2.5 });
+    await cloudRadio(ui);
+    const field = (await ui.findByLabelText("Plafond")) as HTMLInputElement;
+    await waitFor(() => expect(field.value).toBe("2.5"));
+
+    fireEvent.change(field, { target: { value: "4" } });
+    fireEvent.click(ui.getByRole("button", { name: /Lancer dans le cloud/ }));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]?.body).toMatchObject({ branch: BRANCH, budgetUsd: 4 });
+  });
 });

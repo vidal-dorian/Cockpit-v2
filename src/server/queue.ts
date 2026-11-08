@@ -55,7 +55,8 @@ export async function reserveStory(
     branch,
     team,
     comment,
-  }: { branch: string; team?: string; comment?: string },
+    budgetUsd,
+  }: { branch: string; team?: string; comment?: string; budgetUsd?: number },
 ) {
   const [locked] = await tx
     .select()
@@ -77,7 +78,7 @@ export async function reserveStory(
     .from(cloudLaunches)
     .where(and(eq(cloudLaunches.storyId, storyId), pendingSince(at)));
   if (pending) throw new Refused("launch_pending");
-  return { projectId, storyId, branch, team, comment };
+  return { projectId, storyId, branch, team, comment, budgetUsd };
 }
 
 /** The queue of the user in order; `waiting` says why a story is skipped (decision 058 B, D). */
@@ -182,6 +183,7 @@ const STOPS_QUEUE = [
   "launcher_not_connected",
   "launcher_needs_reconnect",
   "project_not_in_launcher",
+  "monthly_budget_reached",
 ];
 
 /** A launch of the queue is in progress while its run runs or, with no run yet, for 15 minutes (058 C). */

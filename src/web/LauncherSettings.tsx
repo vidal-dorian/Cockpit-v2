@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { client } from "./api.ts";
 import { fetchProjects } from "./Projects.tsx";
 import { ConnectStep, failure, PromptStep, useTask } from "./TaskCard.tsx";
 import {
   alertBox,
+  button,
   focusRing,
   listCard,
   primaryButton,
@@ -15,6 +17,49 @@ export async function fetchLauncher() {
   const res = await client.api.me.launcher.$get();
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
+}
+
+/** Decision 060 F: the variables that make Claude Code report its cost to this Cockpit; they go on the cloud environment, not on the task. */
+function CostStep() {
+  const [copy, setCopy] = useState<"idle" | "done" | "failed">("idle");
+  const variables = [
+    "CLAUDE_CODE_ENABLE_TELEMETRY=1",
+    "OTEL_METRICS_EXPORTER=otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL=http/json",
+    `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=${window.location.origin}/v1/metrics`,
+  ].join("\n");
+  return (
+    <li className="px-[18px] py-3.5">
+      <p className="font-semibold">Coût</p>
+      <p className="mt-1">
+        Pour que Cockpit affiche le coût des runs, ajoute ces variables à
+        l'environnement cloud de la tâche, et autorise l'hôte{" "}
+        <code>{window.location.host}</code> dans son accès réseau.
+      </p>
+      <pre className="mt-2 overflow-x-auto font-mono text-[12.5px]">
+        {variables}
+      </pre>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className={button}
+          onClick={() =>
+            navigator.clipboard.writeText(variables).then(
+              () => setCopy("done"),
+              () => setCopy("failed"),
+            )
+          }
+        >
+          Copier
+        </button>
+        <span className={copy === "failed" ? "text-destructive" : undefined}>
+          {copy === "done" && "Copiées."}
+          {copy === "failed" &&
+            "Copie impossible : sélectionne les variables à la main."}
+        </span>
+      </div>
+    </li>
+  );
 }
 
 /** Decision 054 A and D: the user creates the « Lanceur Cockpit » task once, pastes its address and token, and ticks the projects whose repo they added to it. */
@@ -149,6 +194,7 @@ export function LauncherSettings() {
                 d'affilée, pour les projets cochés ci-dessus.
               </p>
             </li>
+            <CostStep />
           </ol>
         )}
         {error && (
