@@ -1,4 +1,4 @@
-import type { SQL } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import { expect } from "vitest";
 import { createApp } from "./app.ts";
 import { openTestDatabase } from "./db/test-db.ts";
@@ -11,6 +11,8 @@ import {
   testAppOptions,
 } from "./test-instance.ts";
 import {
+  callTool,
+  dataOf,
   seedProject,
   seedStory,
   seedTicket,
@@ -40,7 +42,7 @@ export const answerStatus =
 
 /** Alice with a project and a ready story, a fake clock, a fake `/fire`; the launcher is not connected yet. */
 export async function setup(handler: Handler = answerOk) {
-  stubGitHub({ account: 1000 });
+  const fetchMock = stubGitHub({ account: 1000 });
   const db = await openTestDatabase();
   await configureTestInstance(db, TEST_KEY);
   const clock = { now: NOW.getTime() };
@@ -69,6 +71,7 @@ export async function setup(handler: Handler = answerOk) {
   return {
     db,
     app,
+    fetchMock,
     calls,
     clock,
     fireRoutine,
@@ -162,3 +165,90 @@ export const pass = (ctx: Ctx, at: Date) =>
   );
 export const sqlRows = async <T>(ctx: Ctx, query: SQL) =>
   ((await ctx.db.execute(query)) as unknown as { rows: T[] }).rows;
+
+// Slice 14.3 (decision 057): the queue. Pinned where the decision leaves room:
+// - the routes answer like the others: POST /api/queue 201 { storyId } (409 { error: <code> }), DELETE and PUT 200, POST /pause and
+//   /resume 200; `waiting` of an item is null or { reason: "not_ready" } or { reason: "dependency", storyId } (the awaited story).
+// - tables `queue_items(story_id, position)`, `cloud_launches.from_queue`; `queue_paused_reason` is read through GET /api/queue.
+export type QueueItem = {
+  storyId: number;
+  iWant: string;
+  projectId: number;
+  projectName: string;
+  waiting: { reason: string; storyId?: number } | null;
+};
+export const queueCall = (
+  ctx: Ctx,
+  method: string,
+  suffix = "",
+  body?: unknown,
+  cookie = ctx.alice.cookie,
+) => send(ctx.app, cookie, method, `/api/queue${suffix}`, body);
+export const readQueue = async (ctx: Ctx) =>
+  (await (await queueCall(ctx, "GET")).json()) as {
+    paused: boolean;
+    pausedReason: string | null;
+    items: QueueItem[];
+  };
+/** A story of the project's ticket, ready unless said otherwise. */
+export const readyStory = (ctx: Ctx, over: Record<string, unknown> = {}) =>
+  seedStory(ctx.db, ctx.ticketId, { status: "ready", ...over });
+/** The stories (the first is ctx.storyId, plus n - 1 new ones) put in the queue through the route, each step checked. */
+export async function queued(ctx: Ctx, n: number) {
+  const ids = [ctx.storyId];
+  while (ids.length < n) ids.push(await readyStory(ctx));
+  for (const id of ids)
+    expect(
+      (await queueCall(ctx, "POST", "", { storyId: id })).status,
+      "queueing",
+    ).toBe(201);
+  return ids;
+}
+/** The launches made so far, oldest first. */
+export const launches = (ctx: Ctx) =>
+  sqlRows<{
+    id: number;
+    story_id: number;
+    branch: string;
+    from_queue: boolean;
+  }>(
+    ctx,
+    sql`select id, story_id, branch, from_queue from cloud_launches order by id`,
+  );
+/** What Claude does in the cloud once a launch is fired: start_run with the launch_id; then, for "succeeded", a linked PR; then finish_run. */
+export async function finishLaunched(
+  ctx: Ctx,
+  outcome: "succeeded" | "failed" | null,
+) {
+  const launch = (await launches(ctx)).at(-1);
+  expect(launch, "a launch to run").toBeDefined();
+  const { id, story_id, branch } = launch as Awaited<
+    ReturnType<typeof launches>
+  >[number];
+  const { run_id } = dataOf<{ run_id: number }>(
+    await callTool(ctx.app, ctx.alice.secret, "start_run", {
+      story_id,
+      branch,
+      model: "claude-x",
+      launch_id: id,
+    }),
+  );
+  if (outcome === null) return run_id;
+  if (outcome === "succeeded") {
+    ctx.fetchMock.addPull("user1000/app", 100 + story_id, branch);
+    dataOf(
+      await callTool(ctx.app, ctx.alice.secret, "link_pull_request", {
+        run_id,
+        pr_number: 100 + story_id,
+      }),
+    );
+  }
+  dataOf(
+    await callTool(ctx.app, ctx.alice.secret, "finish_run", {
+      run_id,
+      outcome,
+      summary: "fini",
+    }),
+  );
+  return run_id;
+}
