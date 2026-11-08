@@ -214,7 +214,10 @@ describe("decision 052 L: the plan of .github/dependabot.yml", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "no_ecosystem" });
     expect(
-      githubCalls(ctx.fetchMock).filter((c) => c.method !== "GET"),
+      // Nothing is written to the repo; minting the installation token (POST /app/installations/<id>/access_tokens) is not a write.
+      githubCalls(ctx.fetchMock).filter(
+        (c) => c.method !== "GET" && c.path.startsWith("/repos/"),
+      ),
     ).toEqual([]);
   });
 

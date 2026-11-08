@@ -2087,8 +2087,8 @@ describe("GET /api/projects/:id/health", () => {
     fetchMock.mockClear();
 
     await show("r2");
-    // The four reads of the health and those of the catalogue line.
-    expect(callsOn("r2")).toHaveLength(4 + CATALOG_READS.length);
+    // Decision 052 L (slice R6): five reads of the health (root, .claude, workflows, .github, .mcp.json) and those of the catalogue line.
+    expect(callsOn("r2")).toHaveLength(5 + CATALOG_READS.length);
   });
 
   // Decision 029 (slice E1): a project may describe its own team in .claude/team.md.

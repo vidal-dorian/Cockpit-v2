@@ -197,7 +197,18 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
       body,
     });
     expect(res.status).toBe(202);
-    await pass(ctx.db);
+    // The route starts its own pass after its 202: wait until the delivery is processed instead of racing it with ours.
+    await vi.waitFor(
+      async () => {
+        await pass(ctx.db);
+        const { rows } = (await ctx.db.execute(
+          sql`select processed_at from webhook_deliveries`,
+        )) as unknown as { rows: { processed_at: Date | null }[] };
+        expect(rows[0]?.processed_at).not.toBeNull();
+        expect(await githubRows(ctx.db)).toHaveLength(1);
+      },
+      { timeout: 5_000, interval: 50 },
+    );
 
     const recorded = JSON.stringify(
       (

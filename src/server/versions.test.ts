@@ -378,13 +378,15 @@ describe("decision 052 I: one read per product, kept 24 hours", () => {
 
   it("given the cache of a product, when time passes, then the state is judged against the clock of now, not frozen at the first read", async () => {
     const ctx = await withVersions([mod([{ name: "node", version: "22" }])], {
-      nodejs: [rel("22", "2027-04-30", false)],
+      nodejs: [rel("22", "2027-05-09", false)],
     });
+    // Just over 6 months from NOW (the 6 months end on 2027-05-08 at noon): ok.
+    expect((await ctx.runtimes())[0]?.state).toBe("ok");
+
+    // Changed to hold with the 24 hour cache: 23 hours later (still cached) the date is inside the 6 months, so the state follows the clock.
+    ctx.clock.now += 23 * 3_600_000;
+
     expect((await ctx.runtimes())[0]?.state).toBe("soon");
-
-    ctx.clock.now = Date.parse("2027-05-01T12:00:00Z");
-
-    expect((await ctx.runtimes())[0]?.state).toBe("eol");
     expect(ctx.asked).toHaveLength(1);
   });
 
