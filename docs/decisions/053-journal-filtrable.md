@@ -4,6 +4,7 @@
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [010 — Historique](010-historique.md) (D : ce que gardent `args` et `detail` ; G : chacun ne voit que ses entrées ; H : la page Journal), [028 — Journal par pages](028-creme-sombre-onglets-journal.md) (F), [045 — Quatre temps](045-interface-quatre-temps.md)
+- **Modifiée par** : [062](062-apres-le-merge.md) : l'onglet Historique gagne deux puces-liens, « Journal » et « Ce qui a été livré » (`/projets/:id/historique/livre`), au-dessus des puces de S16 (I)
 - **Modifie** : la [028](028-creme-sombre-onglets-journal.md) F (`GET /api/history` accepte des filtres et rend aussi `args`, `detail` et le réessai d'une entrée)
 - **Tranche** : 11.1 du [découpage](../decoupage.md)
 - **Écrans** : [S40](../ecrans/S40_Journal.png) (le journal), [S16](../ecrans/S16_Historique.png) (l'onglet Historique d'un projet)
