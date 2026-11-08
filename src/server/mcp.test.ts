@@ -578,7 +578,7 @@ describe("criterion 1: authentication of POST /mcp", () => {
 });
 
 describe("criterion 2: tools/list", () => {
-  it("given a valid token, when tools/list is posted, then exactly the 22 tools, each with an English description and an input schema naming its arguments", async () => {
+  it("given a valid token, when tools/list is posted, then exactly the 23 tools, each with an English description and an input schema naming its arguments", async () => {
     const { app, alice } = await withProject();
 
     const res = await rpc(app, "tools/list", {}, `Bearer ${alice.secret}`);
@@ -599,7 +599,7 @@ describe("criterion 2: tools/list", () => {
     };
     const tools = body.result.tools;
     // Slice 4.3 (decision 017) adds create_user_stories, get_user_story and list_tickets_needing_us;
-    // slice 4.4 (decision 018 E) adds update_user_story; slice 7.1 (decision 033) adds start_run, report_step, finish_run; slice 7.3 (decision 035) adds report_criterion and link_pull_request; slice 7.4 (decision 036) adds ask_user and get_answer; slice R1 (decision 043) adds submit_code_map; slice R2 (decision 047) adds create_takeover_stories; slice R5 (decision 051) adds submit_findings and list_findings.
+    // slice 4.4 (decision 018 E) adds update_user_story; slice 7.1 (decision 033) adds start_run, report_step, finish_run; slice 7.3 (decision 035) adds report_criterion and link_pull_request; slice 7.4 (decision 036) adds ask_user and get_answer; slice R1 (decision 043) adds submit_code_map; slice R2 (decision 047) adds create_takeover_stories; slice R5 (decision 051) adds submit_findings and list_findings; slice 11.4 (decision 058 H) adds get_attachment.
     expect(tools.map((t) => t.name).sort()).toEqual([
       "ask_user",
       "create_takeover_stories",
@@ -608,6 +608,7 @@ describe("criterion 2: tools/list", () => {
       "finish_launch",
       "finish_run",
       "get_answer",
+      "get_attachment",
       "get_launch",
       "get_project",
       "get_ticket",
