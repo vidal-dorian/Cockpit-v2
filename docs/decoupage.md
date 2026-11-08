@@ -69,7 +69,8 @@
 - **Fait** : tranche 14.5 (le coût et le budget, [décision 060](decisions/060-cout-et-budget.md)).
 - **Fait** : tranche 11.4 (les pièces jointes, [décision 061](decisions/061-pieces-jointes.md)).
 - **Fait** : tranche 14.6 (la nuit de Claude, [décision 044](decisions/044-la-nuit-de-claude.md)) ; la phase 14 est terminée.
-- **Fait** : tranche 11.5 (après le merge : le changelog et les branches à nettoyer, [décision 062](decisions/062-apres-le-merge.md)). La phase 11 est faite, sauf la 11.6, qui attend Dorian.
+- **Fait** : tranche 11.5 (après le merge : le changelog et les branches à nettoyer, [décision 062](decisions/062-apres-le-merge.md)).
+- **Fait** : tranche 11.6 (les équipes de départ Éco, Standard, Premium et Max, [décision 063](decisions/063-equipes-de-depart.md)) ; la phase 11 est terminée.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -237,7 +238,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 11.3 | **Importer les issues GitHub** : une issue déjà écrite comme une US devient un ticket avec son US validée, les autres des tickets « Nouveau » ; rien n'est écrit sur GitHub, et on peut relancer sans doublon | J'importe les issues d'un repo, je les retrouve en tickets ; je relance, rien n'est dupliqué |
 | 11.4 | **Pièces jointes** : images, PDF et texte sur un ticket, que Claude lit quand il écrit les US | J'ajoute une capture à un ticket, Claude en tient compte dans les US |
 | 11.5 | **Après le merge** : supprimer la branche d'une US mergée (sur clic, après vérification) ; changelog par projet (brief §6.8) | Je merge, je clique « Supprimer la branche » ; le projet affiche son changelog |
-| 11.6 | **E5, profils d'équipe** : à redéfinir avec Dorian. Le besoin sera réexpliqué, puis une décision l'écrira | À définir avec la décision |
+| 11.6 | **E5, équipes de départ** ([063](decisions/063-equipes-de-depart.md)) : quatre niveaux Éco, Standard, Premium et Max, choisis à l'import, écrits par « Préparer pour Claude » ou repris dans l'onglet Agents | J'importe un projet en Premium, je le prépare : les agents et `team.md` du niveau sont dans le plan ; plus tard, « Repartir d'une équipe de départ » change l'équipe en un commit |
 
 ## Phase 12 — Configurer Claude depuis Cockpit (brief §6.9 et §6.10)
 
@@ -291,7 +292,7 @@ Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, m
 | E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
 | E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle attendent leur décision | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
 
-Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les profils de départ selon l'abonnement Claude (E5) sont à redéfinir, voir la tranche 11.6.
+Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6.
 
 ## Après la V1
 

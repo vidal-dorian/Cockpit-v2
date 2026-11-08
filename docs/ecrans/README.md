@@ -40,7 +40,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | les favoris |
-| [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1 | 011, 007 | |
+| [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063 | |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | |
@@ -84,7 +84,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S35](S35_Equipes.png) | Les équipes de chaque projet, le catalogue | E4 (existe), 12.2 | 029, 032 | |
-| [S36](S36_EquipeGraphe.png) | Onglet Agents : l'équipe en graphe, les agents du repo | E3 (existe) | 031, 042 B | |
+| [S36](S36_EquipeGraphe.png) | Onglet Agents : l'équipe en graphe, les agents du repo | E3 (existe), 11.6 (existe) | 031, 042 B, 063 | |
 | [S37](S37_EditeurAgent.png) | Éditeur d'agent | E2 (existe) | 030 | |
 | [S38](S38_NouvelleEquipe.png) | Nouvelle équipe en canevas plein écran : une boucle sélectionnée | E6 | 042 (modifiée par 045) | **les branches en parallèle** |
 | [S38b](S38b_Equipe_Intercaler.png) | Intercaler un agent oublié sur un lien | E6 | 045 | |
