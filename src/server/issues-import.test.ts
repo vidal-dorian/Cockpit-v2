@@ -199,6 +199,41 @@ describe("056 C: the ticket made from an issue", () => {
     expect(text.startsWith(body.slice(0, 49_900))).toBe(true);
   });
 
+  // Review of 11.3: a cut in the middle of an emoji (a surrogate pair) must not leave half of it.
+  it("given a title and a body whose cut falls in the middle of an emoji, when they are imported, then the stored texts hold no lone surrogate and no U+FFFD", async () => {
+    const s = await withProject();
+    const keep = 50_000 - MENTION.length;
+    const body = `${"a".repeat(keep - 1)}😀${"b".repeat(100)}`;
+    s.fetchMock.seedIssues(REPO, [
+      { number: 5, title: `${"T".repeat(199)}😀${"u".repeat(20)}`, body },
+    ]);
+
+    await run(s, [5]);
+
+    const [ticket] = await ticketRows(s.db, s.projectId);
+    for (const text of [ticket?.title ?? "", ticket?.description_md ?? ""]) {
+      expect(text.isWellFormed()).toBe(true);
+      expect(text).not.toContain("\uFFFD");
+    }
+    expect(ticket?.title).toBe("T".repeat(199));
+    expect(ticket?.description_md.length).toBeLessThanOrEqual(50_000);
+    expect(ticket?.description_md.endsWith(MENTION)).toBe(true);
+  });
+
+  it("given a title with spaces around it and 250 characters after them, when it is imported, then it is trimmed before the cut to 200", async () => {
+    const s = await withProject();
+    s.fetchMock.seedIssues(REPO, [
+      { number: 5, title: `  ${"T".repeat(250)}` },
+      { number: 6, title: "   Un titre   " },
+    ]);
+
+    await run(s, [5, 6]);
+
+    expect(
+      (await ticketRows(s.db, s.projectId)).map((t) => t.title).sort(),
+    ).toEqual(["T".repeat(200), "Un titre"].sort());
+  });
+
   it("given a body of exactly 50,000 characters, when it is imported, then it is kept whole, without the mention", async () => {
     const s = await withProject();
     const body = "abcdefghij".repeat(5_000);
@@ -452,6 +487,45 @@ describe("056 E: no duplicate", () => {
     const tickets = await ticketRows(s.db, s.projectId);
     expect(tickets.map((t) => t.github_issue_number).sort()).toEqual([1, 2, 3]);
     expect(await storyRows(s.db, s.projectId)).toHaveLength(1);
+  });
+});
+
+describe("056 E: a concurrent import wins between the read and the insert", () => {
+  // Review of 11.3: the conflict branch. A ticket for the issue 57 appears while the server reads GitHub: the import answers 200 and skips it, never a 500.
+  it("given a ticket from the issue 57 is created while the import reads GitHub, when the import of 57 and 58 ends, then 200 with 57 skipped and 58 imported", async () => {
+    const holder: { db?: Ctx["db"]; projectId?: number } = {};
+    let done = false;
+    const s = await withProject({
+      beforeIssuesRead: async () => {
+        if (done || !holder.db) return;
+        done = true;
+        await linkTicket(
+          holder.db,
+          await seedTicket(
+            holder.db,
+            holder.projectId as number,
+            "Arrivé entre-temps",
+          ),
+          57,
+        );
+      },
+    });
+    holder.db = s.db;
+    holder.projectId = s.projectId;
+    s.fetchMock.seedIssues(REPO, [
+      { number: 57, title: "Perdue", body: BUG_BODY },
+      { number: 58, title: "Gagnée", body: BUG_BODY },
+    ]);
+
+    const res = await run(s, [57, 58]);
+
+    expect(res.status).toBe(200);
+    expect(await counts(res)).toEqual({ tickets: 1, stories: 0, skipped: 1 });
+    expect(
+      (await ticketRows(s.db, s.projectId))
+        .map((t) => t.github_issue_number)
+        .sort(),
+    ).toEqual([57, 58]);
   });
 });
 

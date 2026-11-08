@@ -11,6 +11,7 @@ import {
   BUG_BODY,
   importIssues,
   linkStory,
+  linkTicket,
   REPO,
   REPO_ID,
   STORY_BODY,
@@ -118,9 +119,10 @@ describe("056 D: the next publication reuses the issue", () => {
 });
 
 describe("056 D: an edit on GitHub before the first publication", () => {
-  it("given a story linked to its issue with no body hash, when the issue is edited on GitHub, then the story is not marked diverged and no issue_diverged entry is written", async () => {
+  it("given an imported story (its ticket comes from the issue 58, the story has issue 58, no body hash), when the issue is edited on GitHub, then the story is not marked diverged and no issue_diverged entry is written", async () => {
     const s = await withProject();
     const ticket = await seedTicket(s.db, s.projectId, "Importé");
+    await linkTicket(s.db, ticket, 58);
     const storyId = await seedStory(s.db, ticket, { status: "ready" });
     await linkStory(s.db, storyId, 58);
 
@@ -136,6 +138,46 @@ describe("056 D: an edit on GitHub before the first publication", () => {
       issue_body_hash: null,
     });
     expect(await entriesOf(s.db, "issue_diverged")).toEqual([]);
+  });
+
+  // Review of 11.3 (B2): only an imported story is exempt. A story Cockpit created the issue of has a null hash too when the last step of its sync failed
+  // (the number is saved at once, the hash only at the end): an edit on GitHub must still diverge it (decision 025).
+  it("given a story published by Cockpit whose hash stayed null (the end of its sync failed), whose ticket is not from an issue, when the issue is edited on GitHub, then the story diverges", async () => {
+    const s = await withProject();
+    const ticket = await seedTicket(s.db, s.projectId, "Écrit dans Cockpit");
+    const storyId = await seedStory(s.db, ticket, { status: "ready" });
+    await linkStory(s.db, storyId, 58);
+
+    await editOnGitHub(s.db, {
+      number: 58,
+      title: "Un autre titre",
+      body: "Un autre corps, écrit à la main.",
+      repoId: REPO_ID,
+    });
+
+    expect(
+      (await divergenceOf(s.db, storyId)).issue_diverged_at,
+    ).not.toBeNull();
+    expect(await entriesOf(s.db, "issue_diverged")).toHaveLength(1);
+  });
+
+  it("given a ticket imported from the issue 57 and a story of it published by Cockpit as issue 58 with a null hash, when the issue 58 is edited on GitHub, then the story diverges (the numbers differ, so it is not an imported story)", async () => {
+    const s = await withProject();
+    const ticket = await seedTicket(s.db, s.projectId, "Importé");
+    await linkTicket(s.db, ticket, 57);
+    const storyId = await seedStory(s.db, ticket, { status: "ready" });
+    await linkStory(s.db, storyId, 58);
+
+    await editOnGitHub(s.db, {
+      number: 58,
+      title: "Un autre titre",
+      body: "Un autre corps",
+      repoId: REPO_ID,
+    });
+
+    expect(
+      (await divergenceOf(s.db, storyId)).issue_diverged_at,
+    ).not.toBeNull();
   });
 
   it("given an imported story published once, when the issue is edited on GitHub afterwards, then the story diverges as any published story does (decision 025)", async () => {

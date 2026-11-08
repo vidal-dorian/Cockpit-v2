@@ -22,6 +22,8 @@ import { rich } from "./test-tickets-full.tsx";
 //   the other rows (« déjà dans Cockpit (US 43) », « déjà dans Cockpit (ticket 12) », « fermée ») have no checkbox.
 // - The button is « Importer N issues » (N = the checked rows; disabled at 0) and next to it « X deviendront des US validées, Y des tickets que Claude transformera en US. » (X the checked rows of kind story).
 // - The click POSTs /api/projects/5/issues/import with { numbers } (the checked numbers only); then « N issues importées. » (N = tickets of the answer), a link « Voir les tickets » to /projets/5/tickets, and the list is read again.
+// - Singular forms (review of 11.3): « Importer 1 issue », « 1 deviendra une US validée » for one story, « 1 un ticket que Claude transformera en US » for one ticket (plural: « N deviendront des US validées », « N des tickets que Claude transformera en US »), « 1 issue importée. ».
+// - An archived project (GET /api/projects says archived): no link « Importer les issues » on the Tickets tab, and a 409 project_archived on the import shows « Ce projet est archivé : l'import n'est pas possible. ».
 // - GitHub unreachable (a 502 on the list or on the import) shows « GitHub est injoignable, réessaie. ».
 
 afterEach(() => {
@@ -184,7 +186,7 @@ describe("056 F: the checkboxes and the button", () => {
     await button("Importer 3 issues");
     expect(
       screen.getByText(
-        "2 deviendront des US validées, 1 des tickets que Claude transformera en US.",
+        "2 deviendront des US validées, 1 un ticket que Claude transformera en US.",
       ),
     ).toBeDefined();
   });
@@ -242,6 +244,67 @@ describe("056 F: the import", () => {
 
     await screen.findByText("GitHub est injoignable, réessaie.");
     expect(screen.queryByText(/issues importées/)).toBeNull();
+  });
+});
+
+describe("056 F: singular forms", () => {
+  it("given one story and one ticket checked, when the screen reads, then the button says Importer 2 issues and the sentence uses the singular of both", async () => {
+    await open();
+    for (const text of [
+      "#59 · Filtrer par étiquette",
+      "#55 · Ajouter un mode sombre",
+    ])
+      fireEvent.click(box(await rowOf(text)) as HTMLInputElement);
+
+    await button("Importer 2 issues");
+    expect(
+      screen.getByText(
+        "1 deviendra une US validée, 1 un ticket que Claude transformera en US.",
+      ),
+    ).toBeDefined();
+  });
+
+  it("given a single row checked, when the button is clicked, then it reads Importer 1 issue and the result 1 issue importée.", async () => {
+    await open();
+    await chip("À importer · 4");
+    fireEvent.click(screen.getByRole("button", { name: "Tout décocher" }));
+    fireEvent.click(
+      box(
+        await rowOf("#57 · Le bouton Enregistrer ne répond pas sur Safari"),
+      ) as HTMLInputElement,
+    );
+
+    fireEvent.click(await button("Importer 1 issue"));
+
+    await screen.findByText("1 issue importée.");
+  });
+});
+
+describe("056 F: an archived project", () => {
+  it("given an archived project, when the Tickets tab loads, then there is no link Importer les issues", async () => {
+    stubImport(ISSUES, {
+      archived: true,
+      tickets: [rich(11, "Exporter en CSV")],
+    });
+    renderAt("/projets/5/tickets");
+
+    await screen.findByRole("button", { name: "Exporter en CSV" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("link", { name: "Importer les issues" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("given the import answers 409 project_archived, when the button is clicked, then the screen says Ce projet est archivé : l'import n'est pas possible.", async () => {
+    await open(ISSUES, { importStatus: 409, importError: "project_archived" });
+
+    fireEvent.click(await button("Importer 4 issues"));
+
+    await screen.findByText(
+      "Ce projet est archivé : l'import n'est pas possible.",
+    );
+    expect(screen.queryByText("GitHub est injoignable, réessaie.")).toBeNull();
   });
 });
 

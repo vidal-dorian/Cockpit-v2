@@ -297,6 +297,8 @@ export function stubGitHub(initial: {
   installations?: number[];
   issuesStatus?: number;
   issuesDelay?: number;
+  /** Slice 11.3: awaited at the start of every `GET .../issues` list read (a person acting while the server reads: insert rows, change issues). */
+  beforeIssuesRead?: () => Promise<void>;
   failOn?: (call: { method: string; path: string }) => boolean | number;
   webhook?: Partial<FakeWebhook>;
   gitRepos?: Record<string, FakeGitRepoOptions>;
@@ -1277,6 +1279,7 @@ export function stubGitHub(initial: {
               })
             : undefined;
         if (verb === "GET" && !repoLabels && rawNumber === undefined) {
+          await options.beforeIssuesRead?.();
           const state = url.searchParams.get("state") ?? "open";
           const size = Math.min(
             Number(url.searchParams.get("per_page") ?? 30),

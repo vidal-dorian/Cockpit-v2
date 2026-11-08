@@ -321,3 +321,50 @@ describe("056 B: what is not a story", async () => {
     },
   );
 });
+
+// Review of 11.3 (B1): a body is third-party text of up to 65,536 characters; reading it must never take long, whatever the separators between the keywords
+// (a regex with nested or adjacent whitespace quantifiers backtracks quadratically on such text). Each case must answer (a story or null) in under 200 ms.
+describe("056 B: adversarial bodies stay fast", () => {
+  const N = 65_000;
+  const SEPARATORS = [
+    ["space", " "],
+    ["tab", "\t"],
+    ["no-break space", "\u00a0"],
+    ["vertical tab", "\v"],
+    ["form feed", "\f"],
+    ["line separator U+2028", "\u2028"],
+    ["ideographic space", "\u3000"],
+  ] as const;
+  const bodies = (sep: string) => [
+    `En tant que x${sep.repeat(N)}je veux`,
+    `En tant que${sep.repeat(N)}x`,
+    `As a x${sep.repeat(N)}I want`,
+    `Given a${sep.repeat(N)}when`,
+    `En tant que a, je veux b, afin de c.\n\n- Étant donné a${sep.repeat(N)}quand`,
+    `- [x]${sep.repeat(N)}Étant donné a`,
+  ];
+
+  it.each(SEPARATORS)(
+    "given 65,000 %s between keywords, when it is read, then each body is answered in under 200 ms",
+    async (_name, sep) => {
+      for (const body of bodies(sep)) {
+        const start = performance.now();
+        await readStoryIssue(body);
+        expect(performance.now() - start, body.slice(0, 20)).toBeLessThan(200);
+      }
+    },
+  );
+
+  it("given repeated keywords and lines (« En tant que » 5,000 times, « Given a when » 5,000 times), when it is read, then it is answered in under 200 ms", async () => {
+    for (const body of [
+      "En tant que ".repeat(5_000),
+      "Given a when ".repeat(5_000),
+      "En tant que a je veux ".repeat(2_900),
+      "- [x] ".repeat(10_000),
+    ]) {
+      const start = performance.now();
+      await readStoryIssue(body);
+      expect(performance.now() - start).toBeLessThan(200);
+    }
+  });
+});

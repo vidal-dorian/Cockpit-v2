@@ -34,6 +34,10 @@ type Options = {
   listStatus?: number;
   /** Status of POST /api/projects/5/issues/import (default 200). */
   importStatus?: number;
+  /** The `error` code of a failed import (default github_unavailable). */
+  importError?: string;
+  /** Project 5 is archived: GET /api/projects says so. */
+  archived?: boolean;
   tickets?: RichTicket[];
 };
 
@@ -57,6 +61,17 @@ export function stubImport(initial: Issue[], options: Options = {}) {
         init?.method ?? (input instanceof Request ? input.method : "GET")
       ).toUpperCase();
       const path = new URL(raw, "http://localhost").pathname;
+      if (options.archived && path === "/api/projects" && method === "GET")
+        return Response.json({
+          projects: [
+            {
+              id: 5,
+              fullName: "octocat/hello",
+              defaultBranch: "main",
+              archived: true,
+            },
+          ],
+        });
       if (path === "/api/projects/5/issues" && method === "GET") {
         state.lists++;
         if (options.listStatus && options.listStatus !== 200)
@@ -77,7 +92,7 @@ export function stubImport(initial: Issue[], options: Options = {}) {
         imports.push(sent);
         if (options.importStatus && options.importStatus !== 200)
           return Response.json(
-            { error: "github_unavailable" },
+            { error: options.importError ?? "github_unavailable" },
             { status: options.importStatus },
           );
         const counts = { tickets: 0, stories: 0, skipped: 0 };
