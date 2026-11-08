@@ -407,3 +407,85 @@ export const setBudgets = (
     monthUsd: null,
     ...body,
   });
+
+// Slice 14.6 (decision 044 and its amendments of 2026-11-08). Pinned where the decision leaves room:
+// - GET and PUT /api/me/night-hours answer { startHour, endHour, timeZone } (PUT: 200, same shape in the body);
+// - POST /api/nights { storyIds } -> 201 { id }; errors 409 { error: "night_exists" | "launcher_not_connected" }, 400 without story;
+//   GET /api/nights/current -> { night: null | { id, status, startsAt, endsAt, items }, ready, toValidate } where an item is
+//   { storyId, iWant, project: { id, name }, estimatedSeconds: number | null, outcome: string | null } and ready / toValidate
+//   (items without outcome) are the stories of the ticked projects that are not in the night; PUT /api/nights/current { storyIds }
+//   (before the start), POST /api/nights/current/cancel, POST /api/nights/current/stop, POST /api/nights/:id/hide answer 200;
+// - tables `nights(id, user_id, starts_at, ends_at, status)` and `night_items(night_id, story_id, position, run_id, outcome)`;
+// - entries plan_night, cancel_night, stop_night (human), start_night, finish_night (system);
+// - the finish_run outcome `paused` makes the run status `paused`;
+// - GET /api/home gives `night`: null or { id, delivered, total, items: [{ storyId, iWant, outcome, startedAt, finishedAt }] }.
+export const START = new Date("2026-11-08T22:00:30Z");
+export const MINUTE = 60_000;
+export const minutesAfter = (from: Date, minutes: number) =>
+  new Date(from.getTime() + minutes * MINUTE);
+/** The clock is at `date`, then one pass of the minute. */
+export const at = (ctx: Ctx, date: Date) => {
+  ctx.clock.now = date.getTime();
+  return pass(ctx, date);
+};
+export const nightCall = (
+  ctx: Ctx,
+  method: string,
+  suffix = "",
+  body?: unknown,
+) => send(ctx.app, ctx.alice.cookie, method, `/api/nights${suffix}`, body);
+export const setHours = (
+  ctx: Ctx,
+  body: unknown = { startHour: 22, endHour: 7, timeZone: "UTC" },
+) => send(ctx.app, ctx.alice.cookie, "PUT", "/api/me/night-hours", body);
+/** The night planned from NOW (so starting at 22:00 UTC) with these stories, the step checked. */
+export async function planStories(ctx: Ctx, ids: number[]) {
+  expect((await setHours(ctx)).status, "setting the hours").toBe(200);
+  const res = await nightCall(ctx, "POST", "", { storyIds: ids });
+  expect(res.status, "planning the night").toBe(201);
+  return ((await res.json()) as { id: number }).id;
+}
+/** n ready stories (the first is ctx.storyId) planned as a night, in that order. */
+export async function planned(ctx: Ctx, n: number) {
+  const ids = [ctx.storyId];
+  while (ids.length < n) ids.push(await readyStory(ctx));
+  await planStories(ctx, ids);
+  return ids;
+}
+/** The night planned, then started by the pass: its first launch is fired. */
+export async function started(ctx: Ctx, n: number) {
+  const ids = await planned(ctx, n);
+  await at(ctx, START);
+  expect(ctx.calls, "the night starts").toHaveLength(1);
+  return ids;
+}
+export const nightItems = (ctx: Ctx) =>
+  sqlRows<{ story_id: number; outcome: string | null; run_id: number | null }>(
+    ctx,
+    sql`select story_id, outcome, run_id from night_items order by night_id, position`,
+  );
+export const nightStatus = async (ctx: Ctx) =>
+  (
+    await sqlRows<{ status: string }>(
+      ctx,
+      sql`select status from nights order by id desc limit 1`,
+    )
+  )[0]?.status;
+/** Claude asks a question on the last launch, pushes, and pauses (E). */
+export async function pauseLaunched(ctx: Ctx) {
+  const runId = await finishLaunched(ctx, null);
+  const { question_id } = dataOf<{ question_id: number }>(
+    await callTool(ctx.app, ctx.alice.secret, "ask_user", {
+      run_id: runId,
+      question: "Quel nom pour le bouton ?",
+    }),
+  );
+  dataOf(
+    await callTool(ctx.app, ctx.alice.secret, "finish_run", {
+      run_id: runId,
+      outcome: "paused",
+      summary: "En pause",
+    }),
+  );
+  return { runId, questionId: question_id };
+}
