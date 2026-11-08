@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { proposedBranch } from "../server/branch.ts";
 import { parseTeam } from "../server/team.ts";
 import { client } from "./api.ts";
 import { fetchLauncher } from "./LauncherSettings.tsx";
@@ -31,19 +32,6 @@ type Story = {
 };
 
 const storageKey = (projectId: number) => `cockpit.clone.${projectId}`;
-
-/** The short title of decision 005 D: lower case, no accents, dashes, 40 characters at most. */
-const proposedBranch = (story: Story) => {
-  const slug = story.iWant
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .slice(0, 40)
-    .replace(/-+$/, "");
-  return `us/${story.id}${slug && `-${slug}`}`;
-};
 
 async function fetchBranches(id: string) {
   const res = await client.api.projects[":id"].branches.$get({ param: { id } });
@@ -137,6 +125,18 @@ export function DevelopWindow({
       return res.json();
     },
   });
+  const queue = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.queue.$post({ json: { storyId: story.id } });
+      if (!res.ok) {
+        const answer: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(
+          LAUNCH_ERRORS[answer.error ?? ""] ??
+            "Cette US ne peut pas être mise en file : vérifie le lanceur dans Réglages.",
+        );
+      }
+    },
+  });
   // The message that was copied (or that failed to copy): another message resets both.
   const [copied, setCopied] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState<string | null>(null);
@@ -193,20 +193,30 @@ export function DevelopWindow({
       footer={
         <>
           {cloud ? (
-            <button
-              type="button"
-              className={panelPrimaryButton}
-              disabled={!canLaunch}
-              onClick={() => launch.mutate()}
-            >
-              <span>Lancer dans le cloud</span>
-              <span
-                aria-hidden="true"
-                className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+            <>
+              <button
+                type="button"
+                className={panelPrimaryButton}
+                disabled={!canLaunch}
+                onClick={() => launch.mutate()}
               >
-                Ctrl Entrée
-              </span>
-            </button>
+                <span>Lancer dans le cloud</span>
+                <span
+                  aria-hidden="true"
+                  className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+                >
+                  Ctrl Entrée
+                </span>
+              </button>
+              <button
+                type="button"
+                className={ghostButton}
+                disabled={queue.isPending || queue.isSuccess}
+                onClick={() => queue.mutate()}
+              >
+                Mettre en file
+              </button>
+            </>
           ) : (
             <>
               <a
@@ -475,6 +485,20 @@ export function DevelopWindow({
                   Voir la session ↗
                 </a>
               )}
+            </p>
+          )}
+          {queue.isSuccess && (
+            <p role="status">
+              Mis en file :{" "}
+              <Link to="/claude" className="underline">
+                voir la file
+              </Link>
+              .
+            </p>
+          )}
+          {queue.isError && (
+            <p role="alert" className={alertBox}>
+              {queue.error.message}
             </p>
           )}
           {launch.isError && (

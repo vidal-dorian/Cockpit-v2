@@ -14,7 +14,7 @@ import { App } from "./App.tsx";
 // Slice 14.2 (decision 056 F, G): the page « Tâches programmées » at /claude/taches.
 //
 // Pinned choices (the decision leaves them open):
-// - The sidebar has a link « Claude » to /claude/taches. The page reads GET /api/routines ({ routines: [{ id, name, instruction,
+// - The sidebar has a link « Claude » to /claude (slice 14.3). The page reads GET /api/routines ({ routines: [{ id, name, instruction,
 //   agents, projectIds, frequency, hour, weekday, timeZone, nextRunAt, pausedAt, lastLaunch: { at, outcome, sessionUrl } | null }] }),
 //   GET /api/me/launcher, GET /api/me/routine (the write-US task, shown when connected) and GET /api/projects.
 // - Two <section>s found by their heading (level 2): « Tes tâches » (the write-US task, then each routine as a button named by the
@@ -158,7 +158,7 @@ afterEach(() => {
 });
 
 describe("criterion 7: the page Tâches programmées", () => {
-  it("given a user, when a page loads, then the sidebar has the link Claude to /claude/taches", async () => {
+  it("given a user, when a page loads, then the sidebar has the link Claude to /claude", async () => {
     stubApi();
     renderAt("/");
 
@@ -166,7 +166,7 @@ describe("criterion 7: the page Tâches programmées", () => {
       await screen.findByRole("complementary"),
     ).findByRole("link", { name: /^Claude/ });
 
-    expect(link.getAttribute("href")).toBe("/claude/taches");
+    expect(link.getAttribute("href")).toBe("/claude");
   });
 
   it("given the write-US task and two routines, when the page loads, then Tes tâches lists them with their projects and Prochains lancements gives the unpaused ones in time order", async () => {

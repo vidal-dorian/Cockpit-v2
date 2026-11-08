@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
@@ -9,10 +9,9 @@ import {
   projectMembers,
   projects,
   routines,
-  runs,
-  userStories,
 } from "./db/schema.ts";
 import { memberProject } from "./projects.ts";
+import { reserveStory } from "./queue.ts";
 import {
   connectBody,
   entryOf,
@@ -26,8 +25,6 @@ import {
 import { memberStory } from "./stories.ts";
 import { AGENT_NAME, MAX_TEAM_NAME } from "./team.ts";
 import { assertActive, body, noNul, refusal } from "./tickets.ts";
-
-const PENDING_MS = 15 * 60_000;
 
 /** Decision 054 B: fixed, shown by « Copier la consigne ». Only `launch_id` travels in the fired text; the rest is read from Cockpit. */
 // Generic on purpose: what to do travels in `instructions`, so later launches (routines, the night) never make the user copy a new prompt.
@@ -327,49 +324,8 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
         entry,
         at,
         [project.id],
-        async (tx) => {
-          const [locked] = await tx
-            .select()
-            .from(userStories)
-            .where(eq(userStories.id, story.id))
-            .for("update");
-          if (!locked) throw new Refused("not_found");
-          if (!["ready", "in_review"].includes(locked.status))
-            throw new Refused("wrong_status");
-          const [running] = await tx
-            .select({ id: runs.id })
-            .from(runs)
-            .where(and(eq(runs.storyId, story.id), eq(runs.status, "running")));
-          if (running) throw new Refused("run_active");
-          if (locked.branch && locked.branch !== branch)
-            throw new Refused("branch_mismatch");
-          const [pending] = await tx
-            .select({ id: cloudLaunches.id })
-            .from(cloudLaunches)
-            .where(
-              and(
-                eq(cloudLaunches.storyId, story.id),
-                gt(
-                  cloudLaunches.createdAt,
-                  new Date(at.getTime() - PENDING_MS),
-                ),
-                isNull(cloudLaunches.runId),
-                isNull(cloudLaunches.reason),
-                or(
-                  isNull(cloudLaunches.result),
-                  eq(cloudLaunches.result, "ok"),
-                ),
-              ),
-            );
-          if (pending) throw new Refused("launch_pending");
-          return {
-            projectId: project.id,
-            storyId: story.id,
-            branch,
-            team,
-            comment,
-          };
-        },
+        (tx) =>
+          reserveStory(tx, at, story.id, project.id, { branch, team, comment }),
       );
       return "error" in launched
         ? c.json({ error: launched.error }, launched.status)
