@@ -139,6 +139,8 @@ Le lancement de la tâche est en préversion chez Anthropic et ne se vérifie pa
 
 Sur une US prête, « Développer avec Claude » propose « Dans le cloud » : la session démarre sans PC allumé. Il faut relier une seconde tâche planifiée, le « Lanceur Cockpit », une seule fois : « Réglages », « Tâches cloud », carte « Lanceur Cockpit » (mêmes étapes que ci-dessus, avec sa propre consigne), puis cocher les projets dont le repo est dans la tâche. Après un changement du catalogue, « Mettre à jour » les repos préparés (`/dev-us --launch`). Décision [054](docs/decisions/054-lancer-dans-le-cloud.md).
 
+La page « Claude » → « Tâches programmées » (`/claude/taches`) ajoute tes propres routines par le même lanceur : un nom, une consigne (texte libre ou skill), des agents, des projets cochés dans le lanceur et un planning (à la demande, chaque jour, chaque semaine). Tu peux les lancer tout de suite, les mettre en pause ou les supprimer ; chaque passage rend son résultat par `finish_launch`, ou compte en échec après 2 heures sans nouvelles. Claude ne peut ni créer ni modifier une routine. Décision [055](docs/decisions/055-routines.md).
+
 ## Lancer en local
 
 Il faut Node.js 24 ou plus récent et une base PostgreSQL 18. Pour avoir une base en local :

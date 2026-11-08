@@ -72,7 +72,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | |
 | [S30](S30_Run_Fini.png) | Un run fini : le verdict, les critères, le coût | 7.7 (existe), 14.5 | 035, 039 | le coût (14.5) |
 | [S31](S31_Run_Fermer.png) | Fermer un run muet | 7.5 (existe) | 037 | |
-| [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 | 022 | les routines libres (14.2) |
+| [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 055 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
 | [S33](S33_CoutBudget.png) | Coût et plafonds | 14.5 | | tout (14.5) |
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 | 044 | |
 | [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 | 044 | |
