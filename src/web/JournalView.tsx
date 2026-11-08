@@ -421,7 +421,8 @@ export function JournalList({
           onRetry={(retry) =>
             entries.some((e) => e.id === retry.id)
               ? openEntry(retry.id)
-              : setHidden({
+              : // Keeps the refusal's other fields only to fill the type: a partial panel never shows them (origin, args, ids).
+                setHidden({
                   ...open,
                   ...retry,
                   result: retry.result as Entry["result"],
