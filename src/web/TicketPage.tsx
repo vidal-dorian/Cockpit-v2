@@ -539,13 +539,17 @@ export function TicketPage() {
     queryFn: () => fetchTicket(id),
   });
   // Read with the ticket, so that the card never offers « + Ajouter » on an archived project for a moment.
-  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const projects = useQuery({
+    queryKey: ["projects"],
+    queryFn: fetchProjects,
+    retry: false,
+  });
   const loaded = ticket.data;
 
   return (
     <main className="pb-6">
       <div aria-live="polite">
-        {ticket.isPending && (
+        {(ticket.isPending || (ticket.data && projects.isPending)) && (
           <p className="px-[26px] pt-[26px] text-muted-foreground">
             Chargement…
           </p>

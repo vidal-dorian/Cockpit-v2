@@ -4,6 +4,7 @@ import {
   fetchAttachments,
   formatSize,
   iconOf,
+  nextKey,
   uploadAttachment,
 } from "./attachments.ts";
 import {
@@ -34,9 +35,9 @@ export function TicketAttachments({
   });
   const input = useRef<HTMLInputElement>(null);
   const [confirming, setConfirming] = useState<number>();
-  const [refused, setRefused] = useState<{ name: string; message: string }[]>(
-    [],
-  );
+  const [refused, setRefused] = useState<
+    { key: number; name: string; message: string }[]
+  >([]);
   const [sending, setSending] = useState(false);
   const refresh = () =>
     Promise.all([
@@ -61,7 +62,7 @@ export function TicketAttachments({
     const failed: typeof refused = [];
     for (const file of chosen) {
       const message = await uploadAttachment(ticketId, file);
-      if (message) failed.push({ name: file.name, message });
+      if (message) failed.push({ key: nextKey(), name: file.name, message });
     }
     setRefused(failed);
     await refresh();
@@ -137,7 +138,7 @@ export function TicketAttachments({
       {refused.length > 0 && (
         <div role="alert" className={`mt-2 ${alertBox}`}>
           {refused.map((r) => (
-            <p key={r.name}>
+            <p key={r.key}>
               {r.name} : {r.message}
             </p>
           ))}

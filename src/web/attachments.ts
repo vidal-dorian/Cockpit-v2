@@ -8,6 +8,12 @@ export type Attachment = {
 };
 
 const MO = 1024 * 1024;
+// An image is 3.75 MiB at most (decision 058 B: 5 MB once base64-encoded for Claude).
+const IMAGE_MAX = 3_932_160;
+
+let lastKey = 0;
+/** A key for a list row that has no id of its own (two refused files can share a name). */
+export const nextKey = () => ++lastKey;
 
 /** « 500 o », « 84 Ko », « 1,2 Mo » (a Mo is 1 048 576 bytes, a « ,0 » is dropped). */
 export function formatSize(bytes: number) {
@@ -31,7 +37,7 @@ const OTHERS = ["pdf", "txt", "md", "csv", "json"];
 const SENTENCES: Record<string, string> = {
   unsupported_type:
     "Ce type de fichier n'est pas accepté : images, PDF ou texte.",
-  too_large: "Ce fichier dépasse 20 Mo (5 Mo pour une image).",
+  too_large: "Ce fichier dépasse 20 Mo (3,75 Mo pour une image).",
   too_many: "Ce ticket a déjà 20 pièces jointes.",
   invalid_name: "Ce nom de fichier n'est pas valide.",
   project_archived: "Ce projet est archivé : ses tickets ne changent plus.",
@@ -44,7 +50,7 @@ export function checkFile(file: { name: string; size: number }) {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const image = IMAGES.includes(extension);
   if (!image && !OTHERS.includes(extension)) return "unsupported_type";
-  return file.size > (image ? 5 : 20) * MO ? "too_large" : undefined;
+  return file.size > (image ? IMAGE_MAX : 20 * MO) ? "too_large" : undefined;
 }
 
 /** The attachments of a ticket, oldest first. */

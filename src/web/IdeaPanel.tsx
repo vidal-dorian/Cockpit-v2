@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useRef, useState } from "react";
-import { checkFile, formatSize, refusal } from "./attachments.ts";
+import { checkFile, formatSize, nextKey, refusal } from "./attachments.ts";
 import { TagField } from "./TagField.tsx";
 import { fetchTickets, PRIORITIES, withPending } from "./tickets.ts";
 import {
@@ -43,9 +43,9 @@ export function IdeaPanel({
   const heading = useId();
   const [tagText, setTagText] = useState("");
   const picker = useRef<HTMLInputElement>(null);
-  const [rejected, setRejected] = useState<{ name: string; code: string }[]>(
-    [],
-  );
+  const [rejected, setRejected] = useState<
+    { key: number; name: string; code: string }[]
+  >([]);
   const set = onChange;
   // The tags already used in the chosen project, offered as suggestions.
   const used = useQuery({
@@ -146,7 +146,9 @@ export function IdeaPanel({
           }));
           setRejected(
             checked.flatMap((c) =>
-              c.code ? [{ name: c.file.name, code: c.code }] : [],
+              c.code
+                ? [{ key: nextKey(), name: c.file.name, code: c.code }]
+                : [],
             ),
           );
           set({
@@ -181,7 +183,7 @@ export function IdeaPanel({
       {rejected.length > 0 && (
         <div role="alert" className={alertBox}>
           {rejected.map((r) => (
-            <p key={r.name}>
+            <p key={r.key}>
               {r.name} : {refusal(r.code)}
             </p>
           ))}
