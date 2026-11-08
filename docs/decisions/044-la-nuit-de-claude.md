@@ -1,6 +1,6 @@
 # 044 — La nuit de Claude
 
-- **Statut** : proposée
+- **Statut** : proposée (à valider à la relecture de la PR) ; construite en tranche 14.6, avec les amendements du 2026-11-08 en fin de décision
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [022 — Programmer l'écriture des US](022-routine-ecriture-us.md) (une tâche cloud lancée par `/fire`), [033 — Le run minimal](033-run-minimal.md), [036 — Les questions de Claude](036-questions-de-claude.md), [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md), [038 — Le suivi de la PR](038-suivi-de-la-pr.md), [040 — L'accueil](040-accueil.md)
@@ -48,3 +48,20 @@ Les briques existent déjà. Une tâche planifiée de claude.ai (anciennement «
 - **Le mode auto** de la session cloud peut bloquer une action que `/dev-us` attend (doc) : le run échoue ou reste muet, et G le ferme.
 - **Le déclencheur `/fire` est en préversion** (022) : sa forme peut changer.
 - **Non vérifiable ici** : une vraie nuit (les tests simulent `/fire` et l'horloge).
+
+## Amendements du 2026-11-08 (tranche 14.6)
+
+La 044 a été écrite avant les tranches 14.1 à 14.5. En la construisant, elle s'appuie sur ce qu'elles ont mis en place. Ces amendements l'emportent sur les choix ci-dessus quand ils les contredisent.
+
+| # | Ce qui change | Décision |
+|---|---|---|
+| A' | La tâche de nuit | **Pas de seconde tâche** : la nuit passe par le **lanceur** de la [054](054-lancer-dans-le-cloud.md). Les projets « ajoutés à la tâche de nuit » sont les projets cochés dans le lanceur (054 D) ; un `repository_not_in_task` décoche le projet (054 F), et l'US de la nuit finit `failed` |
+| B' | Le texte envoyé | `launch_id: <id>`, comme tout lancement (054 B). Les `instructions` de `get_launch` d'une US de la nuit ajoutent `--night` à la commande `/dev-us` ; la consigne de la tâche ne change pas (054 B, générique) |
+| C' | Les heures | Sur la carte « Lanceur Cockpit » de « Tâches cloud » (S46) : **Début** et **Fin** (22 h et 7 h par défaut, fuseau du navigateur au moment du choix, `users.night_start_hour`, `night_end_hour`, `night_time_zone`), et le **plafond par nuit** de la [060](060-cout-et-budget.md). `PUT /api/me/night-hours` |
+| D' | Une seule chose à la fois | Le lanceur ne fait qu'**une** chose de la nuit ou de la file à la fois : pendant une nuit `running`, la file (058) ne lance rien ; la nuit attend aussi qu'un lancement de la file en cours soit fini |
+| F' | La CI rouge | La relance unique de F passe par le mécanisme de la [059](059-relance-automatique.md) (`launchCloud`, la branche, les checks en échec en consigne), **que le réglage de relance automatique soit actif ou non** ; elle prend la place de l'US suivante (D'). Elle ne compte pas dans les 3 relances de la 059 |
+| G' | Un run muet | Inchangé (60 minutes, fermeture par `system`) ; la fermeture passe par celle de la 037 B |
+| H' | Lancer | Par `launchCloud` (054 E) : réservation, `/fire`, « à reconnecter » sur `401`, `403`, `404`, qui **arrête la nuit**. Le plafond du mois (060 E) refuse le lancement : la nuit s'arrête aussi. Un autre échec : l'US est `not_started` et la nuit passe à la suivante (pas de nouvel essai la minute suivante : pas d'idempotence de `/fire`) |
+| I' | Le plafond par nuit | Quand le coût des lancements de la nuit atteint le plafond par nuit (060 C), la nuit ne lance plus rien, le run en cours reçoit une demande d'arrêt (060 D, raison `budget`), et la nuit finit |
+| L' | L'historique | Les lancements écrivent `launch_story` (acteur `system`, 054 J) ; `plan_night`, `cancel_night` (humain) et `stop_night` (« Arrêter la nuit ») ; `start_night` et `finish_night` (acteur `system`). Journal : « Nuit programmée », « Nuit annulée », « Nuit arrêtée », « Nuit commencée », « Nuit finie » |
+| M' | Les écrans | `/nuit` montre le soir (N1) avant la nuit, la nuit en cours (S34) pendant, et renvoie à l'accueil après. Entrée **« ☾ Cette nuit »** de la barre latérale, avec le nombre d'US au programme. Le bloc « Cette nuit » de l'accueil (J, N2). Les réglages de N1 « Il s'arrête jusqu'à ta réponse » et « Te prévenir » ne sont pas construits : une question met l'US en pause (E), et la notification attend la 15.2 ; la colonne de droite rappelle les règles en texte |
