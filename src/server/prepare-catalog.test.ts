@@ -25,7 +25,8 @@ describe("decision 027 A: the agents of the catalogue", () => {
   it.each([
     { name: "test-writer", model: "sonnet" },
     { name: "developer", model: "sonnet" },
-    { name: "reviewer", model: "opus" },
+    // Decision 063 A: the catalogue reviewer is the Standard's, sonnet (it was opus); Premium raises it by the model line of its plan.
+    { name: "reviewer", model: "sonnet" },
   ])(
     "given the catalogue, when the agent $name is read, then it has a front matter with that name, a description, tools and model: $model",
     ({ name, model }) => {

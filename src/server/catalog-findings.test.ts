@@ -146,13 +146,14 @@ describe("decision 051 K: « Préparer pour Claude » and « Mettre à jour » c
       expect(result?.find((f) => f.path === path)?.state).toBe("absent");
   });
 
-  it("given the catalogue, when history.json is read, then it has 12 keys, the three agents included, each holding the SHA-256 of the current text", () => {
+  // Decision 063 C: doc-writer and doc-reviewer make 14 history keys (the plan stays at 13 for a Standard project and the states at 12 for a repo without them).
+  it("given the catalogue, when history.json is read, then it has 14 keys, the three agents included, each holding the SHA-256 of the current text", () => {
     const history = JSON.parse(read("catalog/history.json")) as Record<
       string,
       string[]
     >;
 
-    expect(Object.keys(history)).toHaveLength(12);
+    expect(Object.keys(history)).toHaveLength(14);
     for (const { name } of AGENTS)
       expect(history[`.claude/agents/${name}.md`]).toContain(
         sha256(read(`catalog/agents/${name}.md`)),

@@ -98,7 +98,14 @@ describe("decision 049 B: catalog/history.json", () => {
       string[]
     >;
 
-    expect(Object.keys(history).sort()).toEqual(PATHS);
+    // Decision 063 C: doc-writer and doc-reviewer are in the catalogue, so in the history, though only Premium and Max write them (PATHS is what a Standard preparation writes).
+    expect(Object.keys(history).sort()).toEqual(
+      [
+        ...PATHS,
+        ".claude/agents/doc-writer.md",
+        ".claude/agents/doc-reviewer.md",
+      ].sort(),
+    );
     for (const [path, text] of Object.entries(CATALOG))
       expect(history[path], path).toContain(sha256(text));
   });
