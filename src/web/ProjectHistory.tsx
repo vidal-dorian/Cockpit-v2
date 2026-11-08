@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NavLink } from "react-router";
 import { ACTIONS, type Entry, RESULTS } from "./Journal.tsx";
 import {
   exportLink,
@@ -33,6 +34,26 @@ function sentence(entry: Entry) {
   return ACTIONS[entry.action] ?? entry.action;
 }
 
+/** The two views of the Historique tab (decision 062 F): the journal, and what was delivered. */
+export function HistoryChips({ projectId }: { projectId: string }) {
+  return (
+    <nav
+      aria-label="Vues de l'historique"
+      className="mt-4 flex gap-2 px-[26px]"
+    >
+      <NavLink to={`/projets/${projectId}/historique`} end className={chipLink}>
+        Journal
+      </NavLink>
+      <NavLink
+        to={`/projets/${projectId}/historique/livre`}
+        className={chipLink}
+      >
+        Ce qui a été livré
+      </NavLink>
+    </nav>
+  );
+}
+
 /** The Historique tab of a project (S16, decision 053 I): the journal filtered on the project, one chip at a time. */
 export function ProjectHistory({ projectId }: { projectId: string }) {
   const [chip, setChip] = useState(CHIPS[0]);
@@ -45,7 +66,8 @@ export function ProjectHistory({ projectId }: { projectId: string }) {
   };
   return (
     <>
-      <div className="mt-4 flex flex-wrap items-center gap-2 px-[26px]">
+      <HistoryChips projectId={projectId} />
+      <div className="mt-3 flex flex-wrap items-center gap-2 px-[26px]">
         {CHIPS.map((c) => (
           <button
             key={c.label}

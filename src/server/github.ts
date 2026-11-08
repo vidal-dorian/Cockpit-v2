@@ -87,6 +87,30 @@ const reviewsSchema = z.array(
 const pullFilesSchema = z.array(
   z.object({ filename: z.string(), previous_filename: z.string().optional() }),
 );
+const CHANGELOG_PULL_PAGES = 3;
+const mergedPullsSchema = z.array(
+  z.object({
+    number: z.number().int(),
+    title: z.string(),
+    merged_at: z.string().nullable(),
+    head: z.object({ sha: z.string() }),
+  }),
+);
+const releasesSchema = z.array(
+  z.object({
+    tag_name: z.string(),
+    name: z.string().nullable(),
+    draft: z.boolean(),
+    published_at: z.string().nullable(),
+  }),
+);
+const branchesSchema = z.array(
+  z.object({
+    name: z.string(),
+    protected: z.boolean(),
+    commit: z.object({ sha: z.string() }),
+  }),
+);
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -948,6 +972,136 @@ export function githubClient(config: GitHubAppConfig) {
         if (files.length < PAGE_SIZE) break;
       }
       return paths;
+    },
+
+    /** The PRs merged into `base` (decision 062 A): the closed ones, 100 per page, 3 pages at most, most recently updated first. Shortcut: older PRs are not listed, paginate further if it ever matters. */
+    async listMergedPulls(
+      installationId: number,
+      fullName: string,
+      base: string,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const found: z.infer<typeof mergedPullsSchema> = [];
+      for (let page = 1; page <= CHANGELOG_PULL_PAGES; page++) {
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/pulls",
+          {
+            owner,
+            repo,
+            state: "closed",
+            base,
+            sort: "updated",
+            direction: "desc",
+            per_page: PAGE_SIZE,
+            page,
+          },
+        );
+        const pulls = mergedPullsSchema.parse(data);
+        found.push(...pulls);
+        if (pulls.length < PAGE_SIZE) break;
+      }
+      return found.filter((p) => p.merged_at !== null);
+    },
+
+    /** The published releases of the repo, drafts left out, 100 at most (decision 062 A); `cut` when GitHub sent a full page, drafts counted: older releases may exist. */
+    async listReleases(installationId: number, fullName: string) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/releases",
+        { owner, repo, per_page: PAGE_SIZE },
+      );
+      const all = releasesSchema.parse(data);
+      const releases = all.flatMap((r) =>
+        r.draft || !r.published_at
+          ? []
+          : [
+              {
+                tag: r.tag_name,
+                name: r.name || r.tag_name,
+                publishedAt: r.published_at,
+              },
+            ],
+      );
+      return { releases, cut: all.length >= PAGE_SIZE };
+    },
+
+    /** The branches of the repo with the commit each points at, 100 per page, 10 pages at most (decision 062 D). */
+    async listBranches(installationId: number, fullName: string) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const found: { name: string; sha: string }[] = [];
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/branches",
+          { owner, repo, per_page: PAGE_SIZE, page },
+        );
+        const branches = branchesSchema.parse(data);
+        found.push(
+          ...branches.map((b) => ({ name: b.name, sha: b.commit.sha })),
+        );
+        if (branches.length < PAGE_SIZE) break;
+      }
+      return found;
+    },
+
+    /** What decision 062 E checks right before deleting a branch, read live: the PR (merged, last commit), the branch (null when gone) and whether an open PR starts from it. Throws on any GitHub error. */
+    async readBranchToDelete(
+      installationId: number,
+      fullName: string,
+      prNumber: number,
+      branch: string,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const pull = mergedPullsSchema.element.parse(
+        (
+          await octokit.request(
+            "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+            {
+              owner,
+              repo,
+              pull_number: prNumber,
+            },
+          )
+        ).data,
+      );
+      // The branch is in the URL itself: a {branch} would have its slash encoded.
+      const found = await octokit
+        .request(
+          `GET /repos/{owner}/{repo}/branches/${branch.split("/").map(encodeURIComponent).join("/")}`,
+          { owner, repo },
+        )
+        .then(({ data }) => branchesSchema.element.parse(data))
+        .catch((error) => {
+          if (isNotFound(error)) return null;
+          throw error;
+        });
+      const { data: open } = await octokit.request(
+        "GET /repos/{owner}/{repo}/pulls",
+        { owner, repo, state: "open", head: `${owner}:${branch}`, per_page: 1 },
+      );
+      return {
+        merged: pull.merged_at !== null,
+        pullHeadSha: pull.head.sha,
+        branch: found && { protected: found.protected, sha: found.commit.sha },
+        hasOpenPull: mergedPullsSchema.parse(open).length > 0,
+      };
+    },
+
+    /** Deletes the branch reference (decision 062 E); the caller has checked that nothing is lost. */
+    async deleteBranch(
+      installationId: number,
+      fullName: string,
+      branch: string,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      await octokit.request(
+        `DELETE /repos/{owner}/{repo}/git/refs/heads/${branch.split("/").map(encodeURIComponent).join("/")}`,
+        { owner, repo },
+      );
     },
 
     /** The App's webhook as GitHub holds it, read as the App (decision 024 F): its config and the status code of its last delivery, null when it has none. Errors are left to the caller. */

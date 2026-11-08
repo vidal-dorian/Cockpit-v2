@@ -37,6 +37,40 @@ type FakeGitEntry =
   | { kind: "submodule"; treeStatus?: 404 | 200 }
   | { kind: "large" };
 
+/** Slice 11.5 (decision 062): a pull request of a `gitRepos` repo. Dates are ISO strings; `updatedAt` orders the list. */
+export type FakePull = {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  /** Only meaningful when closed. */
+  merged: boolean;
+  mergedAt: string | null;
+  updatedAt: string;
+  /** The base branch name. */
+  base: string;
+  headRef: string;
+  headSha: string;
+};
+/** Slice 11.5: a release; `publishedAt` is ISO, `draft` releases are served with `published_at: null`. */
+export type FakeRelease = {
+  tag: string;
+  name?: string;
+  draft?: boolean;
+  publishedAt: string;
+};
+
+const servedPull = (fullName: string, p: FakePull) => ({
+  number: p.number,
+  title: p.title,
+  state: p.state,
+  merged: p.merged,
+  merged_at: p.mergedAt,
+  updated_at: p.updatedAt,
+  html_url: `https://github.com/${fullName}/pull/${p.number}`,
+  base: { ref: p.base },
+  head: { ref: p.headRef, sha: p.headSha },
+});
+
 /** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
 export type FakeGitRepoOptions = {
   /** Default: "main". */
@@ -272,6 +306,8 @@ export function failOnUnexpectedFetch() {
  * `https://github.com/{o}/{r}/pull/{number}`; `pullRequestFailure` fails it). They are recorded apart from `created` (which the older tests compare with `toEqual`) as `git.refsCreated` (`{ branch, sha, force }`),
  * `git.refsDeleted` (branch names) and `git.pullRequests` (`{ number, head, base, title, body }`); `git.branch(name)` is the sha a branch points at (the default branch included), `undefined` when it does not exist.
  * `GET .../git/ref/heads/<name>` serves these branches too.
+ * Slice 11.5 (decision 062): `git.pulls`, `git.releases` and `git.protectedBranches` (seeded by the test) are served by `GET .../pulls` (state, base, head, per_page, page, most recently updated first), `GET .../pulls/{n}`,
+ * `GET .../releases` and `GET .../branches` (per_page, page, `protected`, `commit.sha`) / `GET .../branches/{name}`.
  * Reading a PR (slice 7.3, decision 035 C), on any repo: `GET .../pulls/{n}` answers what `addPull(fullName, number, branch, headRepo?)` seeded (`head.ref`, `head.repo.full_name`), 404 otherwise; `failOn` applies.
  * `failOn` applies to these repos too. A tree that would replace anything is accepted, as GitHub does: it is the caller's job not to send it. A blob sent over a directory, a symlink, a submodule or a file replaces it (and
  * everything under a directory), and a blob under a path that is a file, a symlink or a submodule replaces that parent by a directory.
@@ -467,6 +503,12 @@ export function stubGitHub(initial: {
         /** The branches the code under test created (decision 026 G), in order of creation. */
         refsCreated: [] as { branch: string; sha: string; force: unknown }[],
         refsDeleted: [] as string[],
+        /** Slice 11.5 (decision 062): the pull requests of the repo as GitHub lists them (see `FakePull`), seeded by the test. */
+        pulls: [] as FakePull[],
+        /** Slice 11.5: the releases of the repo as GitHub lists them (see `FakeRelease`), seeded by the test. */
+        releases: [] as FakeRelease[],
+        /** Slice 11.5: the branches GitHub says are protected (the default branch included when named). */
+        protectedBranches: new Set<string>(),
         pullRequests: [] as {
           number: number;
           head: string;
@@ -726,11 +768,83 @@ export function stubGitHub(initial: {
         // Slice 7.2 (decision 034 C): the branches, in alphabetical order like GitHub, the default one included.
         if (verb === "GET" && rest === "/branches") {
           if (empty) return reply(200, []);
+          // Slice 11.5: `per_page` (default 100 here, 30 on GitHub: every caller sends it) and `page`, a `protected` flag.
+          const size = Math.min(
+            Number(url.searchParams.get("per_page") ?? 100),
+            100,
+          );
+          const page = Number(url.searchParams.get("page") ?? 1);
           return reply(
             200,
             [git.defaultBranch, ...git._otherBranches.keys()]
               .sort()
-              .map((name) => ({ name })),
+              .slice((page - 1) * size, page * size)
+              .map((name) => ({
+                name,
+                protected: git.protectedBranches.has(name),
+                commit: { sha: git.branch(name) },
+              })),
+          );
+        }
+        // Slice 11.5: `GET .../branches/{name}`, `{ name, protected, commit: { sha } }`, 404 when the branch does not exist.
+        const oneBranch = /^\/branches\/(.+)$/.exec(rest);
+        if (verb === "GET" && oneBranch) {
+          const name = decodeURIComponent(oneBranch[1] as string);
+          const at = git.branch(name);
+          if (at === undefined) return reply(404, { message: "Not Found" });
+          return reply(200, {
+            name,
+            protected: git.protectedBranches.has(name),
+            commit: { sha: at },
+          });
+        }
+        // Slice 11.5 (decision 062 A, E): the pull requests seeded in `git.pulls`. The list takes `state` (open, closed, all; default open), `base`, `head` (`owner:branch`), `sort=updated&direction=desc`
+        // (the only order served: most recently updated first), `per_page` (100 at most) and `page`. A PR is `{ number, title, state, merged, merged_at, updated_at, html_url, base: { ref }, head: { ref, sha } }`.
+        if (verb === "GET" && rest === "/pulls") {
+          const state = url.searchParams.get("state") ?? "open";
+          const base = url.searchParams.get("base");
+          const head = url.searchParams.get("head")?.replace(/^[^:]*:/, "");
+          const size = Math.min(
+            Number(url.searchParams.get("per_page") ?? 30),
+            100,
+          );
+          const page = Number(url.searchParams.get("page") ?? 1);
+          return reply(
+            200,
+            git.pulls
+              .filter(
+                (p) =>
+                  (state === "all" || p.state === state) &&
+                  (!base || p.base === base) &&
+                  (!head || p.headRef === head),
+              )
+              .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+              .slice((page - 1) * size, page * size)
+              .map((p) => servedPull(gitRoute[2] as string, p)),
+          );
+        }
+        const onePull = /^\/pulls\/(\d+)$/.exec(rest);
+        if (verb === "GET" && onePull) {
+          const found = git.pulls.find((p) => p.number === Number(onePull[1]));
+          if (!found) return reply(404, { message: "Not Found" });
+          return reply(200, servedPull(gitRoute[2] as string, found));
+        }
+        // Slice 11.5 (decision 062 A): `GET .../releases?per_page&page`, in the order seeded (a test seeds them newest first, like GitHub), drafts included with `published_at: null`.
+        if (verb === "GET" && rest === "/releases") {
+          const size = Math.min(
+            Number(url.searchParams.get("per_page") ?? 30),
+            100,
+          );
+          const page = Number(url.searchParams.get("page") ?? 1);
+          return reply(
+            200,
+            git.releases.slice((page - 1) * size, page * size).map((r) => ({
+              tag_name: r.tag,
+              name: r.name ?? null,
+              draft: r.draft ?? false,
+              published_at: r.draft ? null : r.publishedAt,
+              created_at: r.publishedAt,
+            })),
           );
         }
         const ref = /^\/git\/ref\/(.+)$/.exec(rest);
