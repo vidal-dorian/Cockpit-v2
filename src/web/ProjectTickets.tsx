@@ -162,6 +162,16 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
       <h2 id="tickets" className="sr-only">
         Tickets
       </h2>
+      {tickets.data && (
+        <div className="mb-3 flex justify-end">
+          <Link
+            to={`/projets/${projectId}/tickets/importer`}
+            className={button}
+          >
+            Importer les issues
+          </Link>
+        </div>
+      )}
       <div aria-live="polite">
         {tickets.isPending && (
           <p className="text-muted-foreground">Chargement…</p>

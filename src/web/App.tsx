@@ -12,6 +12,7 @@ import { Autoriser } from "./Autoriser.tsx";
 import { client } from "./api.ts";
 import { HomePage } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
+import { IssueImport } from "./IssueImport.tsx";
 import { Journal } from "./JournalPage.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { Logo } from "./Logo.tsx";
@@ -189,6 +190,10 @@ function Shell() {
             <Route
               path="/projets/:id/tickets"
               element={<ProjectPage tab="tickets" />}
+            />
+            <Route
+              path="/projets/:id/tickets/importer"
+              element={<IssueImport />}
             />
             <Route
               path="/projets/:id/conception"
