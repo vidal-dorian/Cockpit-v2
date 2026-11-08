@@ -241,7 +241,12 @@ describe("decision 052 H: the gray lines after a refresh", () => {
         "Secret scanning n'est pas activé",
       ];
       expect(all.filter((s) => said.includes(s))).toHaveLength(1);
-      expect(screen.queryByRole("link", { name: /sur GitHub ↗/ })).toBeNull();
+      // The project header always has « Ouvrir sur GitHub ↗ »: only the access links of B must be absent.
+      expect(
+        screen.queryByRole("link", {
+          name: /^(Approuver|Modifier l'App) sur GitHub ↗$/,
+        }),
+      ).toBeNull();
     },
   );
 
