@@ -31,7 +31,7 @@ const LEVELS = [
   {
     id: "premium",
     name: "Premium",
-    sentence: "Une relecture plus forte, et la doc tenue à jour.",
+    sentence: "L'équipe de base, et la doc tenue à jour.",
   },
   {
     id: "max",

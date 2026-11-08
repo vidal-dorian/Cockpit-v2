@@ -30,7 +30,7 @@ export const LEVELS: Record<Level, Step[]> = {
   standard: [
     { agent: "test-writer", model: "sonnet" },
     dev("sonnet"),
-    loops("reviewer", "sonnet", "developer"),
+    loops("reviewer", "opus", "developer"),
   ],
   premium: [
     { agent: "test-writer", model: "sonnet" },

@@ -21,8 +21,8 @@ import {
 //   * the agents of the team with the model of the level (the `model:` line replaced, `withModel`); the agents outside the team (bug-hunter, cartographer, the reviewer of Éco...) keep the catalogue text;
 //   * `.claude/team.md` with the file of the level without its model lines (`teamWritten`), for Éco, Premium and Max.
 // - STANDARD WRITES NO team.md: without the file `/dev-us` already follows test-writer, developer, reviewer (decision 029 C), which is the Standard team, so a Standard plan is today's
-//   plan with nothing added. The catalogue reviewer is therefore `model: sonnet` (decision 063 A: Standard is all sonnet), so that the files of today's plan are the catalogue texts.
-//   Premium raises the reviewer to opus by the model line of its plan file.
+//   plan with nothing added. The catalogue models (test-writer and developer sonnet, reviewer opus) are the Standard's, so the files of today's plan are the catalogue texts;
+//   Premium adds doc-writer and doc-reviewer to that team, and Max puts every agent of its team in opus.
 // - The apply route accepts these files (the plan went through the browser, decision 026 D): a `create` of a file of the level whose content is not the level's is 400.
 // - GET /api/projects/:id... is not touched; GET /api/starter-teams (session required, 401 without) answers
 //   `{ teams: [{ id, team, agents: [{ name, text }] }] }`, the four levels in the order eco, standard, premium, max; `team` is `teamWritten(level)`,
@@ -92,7 +92,7 @@ const extras = (level: Level) =>
     .filter((p) => !TODAY.includes(p));
 
 describe("decision 063 E: the plan of « Préparer pour Claude » by level", () => {
-  it("given a Standard project, when the plan is read, then it is today's plan, with no team.md and the Standard models (every agent of the team in sonnet)", async () => {
+  it("given a Standard project, when the plan is read, then it is today's plan, with no team.md and the Standard models (test-writer and developer sonnet, reviewer opus: the catalogue's)", async () => {
     const ctx = await ready("standard");
 
     const plan = await planOf(ctx);
@@ -290,7 +290,7 @@ describe("decision 063 B, C: GET /api/starter-teams", () => {
 });
 
 describe("decision 063 C: the dev-us skill and the catalogue agents stay consistent", () => {
-  it("given the catalogue reviewer, when its model is read, then it is sonnet, the Standard's (decision 063 A)", () => {
-    expect(modelOf(fromCatalog("agents/reviewer.md"))).toBe("sonnet");
+  it("given the catalogue reviewer, when its model is read, then it is opus, the Standard's (decision 063 A)", () => {
+    expect(modelOf(fromCatalog("agents/reviewer.md"))).toBe("opus");
   });
 });

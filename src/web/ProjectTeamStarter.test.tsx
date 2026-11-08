@@ -65,7 +65,7 @@ const STARTERS = [
   level("standard", [
     ["test-writer", "sonnet"],
     ["developer", "sonnet"],
-    ["reviewer", "sonnet", "developer"],
+    ["reviewer", "opus", "developer"],
   ]),
   level("premium", [
     ["test-writer", "sonnet"],
