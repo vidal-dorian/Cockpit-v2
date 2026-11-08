@@ -71,7 +71,7 @@ describe("056 F: how the screen is reached", () => {
     await open();
     await chip("À importer · 4");
 
-    const nav = document.querySelector("nav") as HTMLElement;
+    const nav = screen.getByRole("navigation", { name: "Fil d'Ariane" });
     expect(nav.textContent).toContain("Projets");
     expect(
       within(nav).getByRole("link", { name: "Projets" }).getAttribute("href"),
