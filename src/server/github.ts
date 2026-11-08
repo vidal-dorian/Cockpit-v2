@@ -1012,13 +1012,17 @@ export function githubClient(config: GitHubAppConfig) {
         "GET /repos/{owner}/{repo}/releases",
         { owner, repo, per_page: PAGE_SIZE },
       );
-      return releasesSchema
-        .parse(data)
-        .flatMap((r) =>
-          r.draft || !r.published_at
-            ? []
-            : [{ name: r.name || r.tag_name, publishedAt: r.published_at }],
-        );
+      return releasesSchema.parse(data).flatMap((r) =>
+        r.draft || !r.published_at
+          ? []
+          : [
+              {
+                tag: r.tag_name,
+                name: r.name || r.tag_name,
+                publishedAt: r.published_at,
+              },
+            ],
+      );
     },
 
     /** The branches of the repo with the commit each points at, 100 per page, 10 pages at most (decision 062 D). */

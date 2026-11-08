@@ -7,27 +7,28 @@ import { tickets, userStories } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { memberProject } from "./projects.ts";
 import { memberStory } from "./stories.ts";
-import { assertActive } from "./tickets.ts";
 
 // Decision 062 (slice 11.5): what the project delivered, read live from GitHub, and the branches of merged stories to clean.
 
+const RELEASES_MAX = 100;
 type Pull = { number: number; title: string; mergedAt: number };
 type Group = {
-  kind: "unreleased" | "release" | "day";
+  kind: "unreleased" | "release" | "day" | "older";
   name: string | null;
   date: string | null;
   entries: ReturnType<typeof line>[];
 };
 
 /** `feat(11.1): Add it` -> `Add it`; a `fix` type is flagged (decision 062 C). */
-const TITLE = /^(\w+)(?:\([^)]*\))?!?:\s*(.*)$/s;
+const TITLE =
+  /^(feat|fix|chore|docs|refactor|perf|test|build|ci|style|revert)(?:\([^)]*\))?!?:\s*(.+)$/is;
 
 const line = (pull: Pull, storyId: number | null) => {
   const [, type, rest] = TITLE.exec(pull.title) ?? [];
   return {
     number: pull.number,
     title: rest || pull.title,
-    fix: type === "fix",
+    fix: type?.toLowerCase() === "fix",
     storyId,
   };
 };
@@ -35,7 +36,7 @@ const line = (pull: Pull, storyId: number | null) => {
 /** Decision 062 B: under the first release published after the merge, else "unreleased"; with no release at all, by UTC merge day. Newest first everywhere. */
 function group(
   pulls: Pull[],
-  releases: { name: string; publishedAt: number }[],
+  releases: { tag: string; name: string; publishedAt: number }[],
   storyOf: (number: number) => number | null,
 ) {
   const groups = new Map<string, Group>();
@@ -46,20 +47,30 @@ function group(
   for (const pull of newest) {
     const release = oldestFirst.find((r) => r.publishedAt > pull.mergedAt);
     const day = new Date(pull.mergedAt).toISOString().slice(0, 10);
+    // With 100 releases the list may be cut, so the release before the oldest one read is unknown: a PR merged earlier than one release interval before it cannot be placed. shortcut: the interval is the gap between the two oldest releases read, a guess; no better rule without the commits of the releases.
+    const [first, second] = oldestFirst;
+    const cut =
+      releases.length >= RELEASES_MAX &&
+      first !== undefined &&
+      pull.mergedAt <
+        first.publishedAt -
+          ((second?.publishedAt ?? first.publishedAt) - first.publishedAt);
     const [key, made]: [string, Group] =
       releases.length === 0
         ? [day, { kind: "day", name: null, date: day, entries: [] }]
-        : release
-          ? [
-              `${release.publishedAt}`,
-              {
-                kind: "release",
-                name: release.name,
-                date: new Date(release.publishedAt).toISOString(),
-                entries: [],
-              },
-            ]
-          : ["", { kind: "unreleased", name: null, date: null, entries: [] }];
+        : cut
+          ? ["older", { kind: "older", name: null, date: null, entries: [] }]
+          : release
+            ? [
+                `tag:${release.tag}`,
+                {
+                  kind: "release",
+                  name: release.name,
+                  date: new Date(release.publishedAt).toISOString(),
+                  entries: [],
+                },
+              ]
+            : ["", { kind: "unreleased", name: null, date: null, entries: [] }];
     const target = groups.get(key) ?? made;
     groups.set(key, target);
     target.entries.push(line(pull, storyOf(pull.number)));
@@ -140,6 +151,7 @@ export function changelogRoutes(db: Db, readGitHub: ReadGitHub) {
               );
         const storyOf = new Map(stories.map((s) => [s.prNumber, s.id]));
         return c.json({
+          repo: project.fullName,
           groups: group(pulls, releases, (n) => storyOf.get(n) ?? null),
           branches: toClean
             .filter((s) => onGitHub.has(s.branch as string))
@@ -174,40 +186,52 @@ export function changelogRoutes(db: Db, readGitHub: ReadGitHub) {
         ticketId: ticket.id,
         storyId: story.id,
       };
+      const record = async (error: unknown) => {
+        try {
+          await act(db, entry, async () => {
+            throw error;
+          });
+        } catch (thrown) {
+          if (thrown !== error) throw thrown;
+        }
+      };
+      // Before any call to GitHub, and outside any transaction.
+      if (project.archivedAt) {
+        await record(new Refused("project_archived"));
+        return c.json({ error: "project_archived" }, 409);
+      }
+      const { prNumber, branch } = story;
       try {
-        await act(db, entry, async (tx) => {
-          // Before any call to GitHub.
-          await assertActive(tx, project.id);
-          const { prNumber, branch } = story;
-          if (story.status !== "done" || prNumber === null || branch === null)
-            throw new Refused("pr_not_merged");
-          // Everything is read again on GitHub: the page is not believed (decision 062 E).
-          const github = await ready();
-          const live = await github.readBranchToDelete(
-            project.installationId,
-            project.fullName,
-            prNumber,
-            branch,
-          );
-          if (!live.merged) throw new Refused("pr_not_merged");
-          if (!live.branch) throw new Refused("branch_gone");
-          if (live.branch.protected || branch === project.defaultBranch)
-            throw new Refused("branch_protected");
-          if (live.branch.sha !== live.pullHeadSha)
-            throw new Refused("branch_has_new_commits");
-          if (live.hasOpenPull) throw new Refused("branch_has_open_pr");
-          await github.deleteBranch(
-            project.installationId,
-            project.fullName,
-            branch,
-          );
-        });
+        if (story.status !== "done" || prNumber === null || branch === null)
+          throw new Refused("pr_not_merged");
+        // Everything is read again on GitHub: the page is not believed (decision 062 E).
+        const github = await ready();
+        const live = await github.readBranchToDelete(
+          project.installationId,
+          project.fullName,
+          prNumber,
+          branch,
+        );
+        if (!live.merged) throw new Refused("pr_not_merged");
+        if (!live.branch) throw new Refused("branch_gone");
+        if (live.branch.protected || branch === project.defaultBranch)
+          throw new Refused("branch_protected");
+        if (live.branch.sha !== live.pullHeadSha)
+          throw new Refused("branch_has_new_commits");
+        if (live.hasOpenPull) throw new Refused("branch_has_open_pr");
+        // shortcut: a push landing between the re-check and this DELETE loses those commits from the ref (GitHub's REST DELETE takes no expected sha); they stay in the pusher's clone. Nothing to upgrade to.
+        await github.deleteBranch(
+          project.installationId,
+          project.fullName,
+          branch,
+        );
       } catch (error) {
+        await record(error);
         if (error instanceof Refused)
           return c.json({ error: error.message }, 409);
-        // `act` has logged it and kept an `error` entry; nothing was deleted unless GitHub answered the last call.
         return c.json({ error: "github_unavailable" }, 502);
       }
+      await act(db, entry, async () => {});
       return c.body(null, 204);
     });
 }
