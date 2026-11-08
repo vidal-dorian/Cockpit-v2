@@ -93,17 +93,17 @@ export async function fetchTickets(id: string) {
   return (await res.json()).tickets;
 }
 
-/** The priorities of a ticket (decision 054 A), as the select of the idea panel and of the ticket page offers them. */
+/** The priorities of a ticket (decision 055 A), as the select of the idea panel and of the ticket page offers them. */
 export const PRIORITIES = {
   low: "Priorité : basse",
   normal: "Priorité : normale",
   high: "Priorité : haute",
 } as const;
 
-// Decision 054 A: a ticket has 10 tags at most.
+// Decision 055 A: a ticket has 10 tags at most.
 export const MAX_TAGS = 10;
 
-/** A tag as the server keeps it (decision 054 A): trimmed, inner spaces reduced to one, lowercase. */
+/** A tag as the server keeps it (decision 055 A): trimmed, inner spaces reduced to one, lowercase. */
 export const normalizeTag = (text: string) =>
   text.trim().replace(/\s+/g, " ").toLowerCase();
 

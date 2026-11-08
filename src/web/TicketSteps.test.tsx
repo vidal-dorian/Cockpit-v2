@@ -30,13 +30,13 @@ describe("criterion 16: the step labels", () => {
     );
 
     renderAt("/projets/5/tickets");
-    // Decision 054 F: « Ouverts » is pressed by default and hides done and abandoned tickets; releasing it shows them all.
+    // Decision 055 F: « Ouverts » is pressed by default and hides done and abandoned tickets; releasing it shows them all.
     fireEvent.click(
       await screen.findByRole("button", { name: /^Ouverts/, pressed: true }),
     );
 
     for (const [code, label] of LABELS) {
-      // Decision 054 F: a row is a button that opens the panel, no longer a link.
+      // Decision 055 F: a row is a button that opens the panel, no longer a link.
       const link = await screen.findByRole("button", {
         name: `ticket-${code}`,
       });

@@ -19,7 +19,7 @@ import {
 type Ticket = NonNullable<Awaited<ReturnType<typeof fetchTickets>>>[number];
 type Stories = NonNullable<Awaited<ReturnType<typeof fetchStories>>>;
 
-/** « 4 US · 1 à valider, 2 prêtes, 1 en cours »: the stories of a ticket by status (decision 054 F). */
+/** « 4 US · 1 à valider, 2 prêtes, 1 en cours »: the stories of a ticket by status (decision 055 F). */
 function storiesDetail(stories: Stories) {
   if (stories.length === 0) return "";
   const count = (status: string) =>
@@ -90,7 +90,7 @@ function TicketRow({
   );
 }
 
-/** The « Tickets » tab of the project page (decision 054 F, G; S14): chips, tag menu, search, the list and the panel of the open ticket. */
+/** The « Tickets » tab of the project page (decision 055 F, G; S14): chips, tag menu, search, the list and the panel of the open ticket. */
 export function ProjectTickets({ projectId }: { projectId: string }) {
   const tickets = useQuery({
     queryKey: ["tickets", projectId],

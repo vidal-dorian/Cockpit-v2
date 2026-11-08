@@ -578,7 +578,7 @@ describe("criterion 1: authentication of POST /mcp", () => {
 });
 
 describe("criterion 2: tools/list", () => {
-  it("given a valid token, when tools/list is posted, then exactly the 20 tools, each with an English description and an input schema naming its arguments", async () => {
+  it("given a valid token, when tools/list is posted, then exactly the 22 tools, each with an English description and an input schema naming its arguments", async () => {
     const { app, alice } = await withProject();
 
     const res = await rpc(app, "tools/list", {}, `Bearer ${alice.secret}`);
@@ -607,6 +607,7 @@ describe("criterion 2: tools/list", () => {
       "create_user_stories",
       "finish_run",
       "get_answer",
+      "get_launch",
       "get_project",
       "get_ticket",
       "get_user_story",
@@ -615,6 +616,7 @@ describe("criterion 2: tools/list", () => {
       "list_projects",
       "list_tickets_needing_us",
       "report_criterion",
+      "report_launch",
       "report_step",
       "search",
       "start_run",

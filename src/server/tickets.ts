@@ -33,7 +33,7 @@ export const descriptionMd = z.string().max(50_000).refine(noNul);
 // Limits of decision 017 B, shared by the stories Claude writes (MCP) and the ones the user edits (REST): the texts are trimmed.
 export const narrative = z.string().trim().min(1).max(1_000).refine(noNul);
 export const criterionText = z.string().trim().min(1).max(2_000).refine(noNul);
-// Decision 054 A: a tag is trimmed, its inner spaces reduced to one and lowercased before the length check; duplicates collapse (first kept), then at most 10.
+// Decision 055 A: a tag is trimmed, its inner spaces reduced to one and lowercased before the length check; duplicates collapse (first kept), then at most 10.
 const tag = z
   .string()
   .transform((text) => text.trim().replace(/\s+/g, " ").toLowerCase())
@@ -242,7 +242,7 @@ export function ticketRoutes(
           Number(c.req.param("id")),
         );
         if (!project) return c.json(notFound, 404);
-        // Decision 054 C: a case-insensitive substring; strpos binds the text, so `%` and `_` stay literal.
+        // Decision 055 C: a case-insensitive substring; strpos binds the text, so `%` and `_` stay literal.
         const has = (...columns: AnyPgColumn[]) =>
           or(
             ...columns.map(

@@ -44,7 +44,7 @@ describe("review of slice 9.3: the idea bar", () => {
     await waitFor(async () => expect((await select()).value).toBe("9"));
   });
 
-  // Decision 054 D: the bar's button opens the panel, whose « Noter » sends; it is disabled while sending, so a double click sends once.
+  // Decision 055 D: the bar's button opens the panel, whose « Noter » sends; it is disabled while sending, so a double click sends once.
   it("given an idea being sent from the panel, then « Noter » is disabled meanwhile and one ticket is sent", async () => {
     const api = stubShell({ projects });
     const inner = globalThis.fetch;

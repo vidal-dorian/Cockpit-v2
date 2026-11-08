@@ -165,7 +165,7 @@ describe("POST /api/projects/:id/tickets", () => {
       descriptionMd: "",
       step: "new",
     });
-    // Decision 054 B adds `priority` and `tags`.
+    // Decision 055 B adds `priority` and `tags`.
     expect(Object.keys(ticket).sort()).toEqual([
       "abandonedAt",
       "createdAt",

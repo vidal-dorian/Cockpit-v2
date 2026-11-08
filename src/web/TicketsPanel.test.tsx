@@ -11,7 +11,7 @@ import { redClasses } from "./test-journal.tsx";
 import { type FakeStory, fail, renderAt, story } from "./test-tickets.tsx";
 import { hits, rich, stubTab } from "./test-tickets-full.tsx";
 
-// Slice 11.2, decision 054 G (S14): the panel of a ticket on the Tickets tab.
+// Slice 11.2, decision 055 G (S14): the panel of a ticket on the Tickets tab.
 //
 // Pinned choices (the decision leaves them open):
 // - A click on the <button> of a row opens `Panel` (Shell.tsx): an <aside> named « Ticket » (role complementary) with the badge « Ticket », an <h2> with the title,
@@ -45,7 +45,7 @@ const click = async (title: string) =>
   fireEvent.click(await screen.findByRole("button", { name: title }));
 const panel = () => screen.findByRole("complementary", { name: "Ticket" });
 
-describe("054 G: the panel of a ticket", () => {
+describe("055 G: the panel of a ticket", () => {
   it("given the tab, when it loads, then no panel is open", async () => {
     stubTab([T1, T2, T3], STORIES);
     renderAt("/projets/5/tickets");
@@ -201,7 +201,7 @@ describe("054 G: the panel of a ticket", () => {
   });
 });
 
-describe("054 J: the colour of the panel", () => {
+describe("055 J: the colour of the panel", () => {
   it("given a high ticket with tags, when its panel is open, then nothing in it is red or destructive", async () => {
     stubTab([T1, T2, T3], STORIES);
     renderAt("/projets/5/tickets");

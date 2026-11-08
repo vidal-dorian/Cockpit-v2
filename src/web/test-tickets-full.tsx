@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { stubProjectShell, stubShell } from "./test-shell.tsx";
 import { type FakeTicket, ticket } from "./test-tickets.tsx";
 
-// Shared by the acceptance tests of slice 11.2 (decision 054): tickets with a priority and tags, the search route,
+// Shared by the acceptance tests of slice 11.2 (decision 055): tickets with a priority and tags, the search route,
 // the routine of the project and the tickets of other projects, laid over the existing fakes (stubProjectShell, stubShell).
 
 export type Priority = "low" | "normal" | "high";
@@ -15,7 +15,7 @@ export const ago = {
     new Date(Date.now() - n * 24 * 60 * MINUTE).toISOString(),
 };
 
-/** A ticket of project 5 (or `projectId`) as GET /api/projects/:id/tickets gives it after 054: with `priority` and `tags`. */
+/** A ticket of project 5 (or `projectId`) as GET /api/projects/:id/tickets gives it after 055: with `priority` and `tags`. */
 export const rich = (
   id: number,
   title: string,
@@ -50,7 +50,7 @@ type Options = {
   search?: (q: string) => SearchAnswer | Promise<SearchAnswer>;
 };
 
-/** Lays what 054 adds over the current fetch fake. Returns the searches asked and the runs fired. */
+/** Lays what 055 adds over the current fetch fake. Returns the searches asked and the runs fired. */
 export function layer(options: Options = {}) {
   const inner = globalThis.fetch;
   const searches: string[] = [];
@@ -126,7 +126,7 @@ export function layer(options: Options = {}) {
   return { searches, runs, held };
 }
 
-/** The project 5 pages (tickets, stories) with the shell, plus 054's additions. */
+/** The project 5 pages (tickets, stories) with the shell, plus 055's additions. */
 export function stubTab(
   tickets: RichTicket[],
   stories: Parameters<typeof stubProjectShell>[2] = [],
@@ -136,7 +136,7 @@ export function stubTab(
   return { ...api, ...layer(options) };
 }
 
-/** The shell alone (the idea bar on the home page, POST recorded in `sent`), plus 054's additions. */
+/** The shell alone (the idea bar on the home page, POST recorded in `sent`), plus 055's additions. */
 export function stubBar(
   options: Options & { ticketStatus?: number } = {},
   homeProjects = projects,

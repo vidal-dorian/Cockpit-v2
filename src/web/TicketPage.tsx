@@ -67,7 +67,7 @@ function TicketView({ ticket, stories }: Loaded) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
-  // « Modifier » of the panel of the Tickets tab leads here with ?modifier=1 (decision 054 G).
+  // « Modifier » of the panel of the Tickets tab leads here with ?modifier=1 (decision 055 G).
   const [params, setParams] = useSearchParams();
   const [mode, setMode] = useState<"view" | "edit" | "delete" | "abandon">(
     params.get("modifier") === "1" && !ticket.abandonedAt ? "edit" : "view",

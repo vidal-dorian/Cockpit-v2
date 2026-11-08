@@ -12,7 +12,7 @@ export type Idea = {
   tags: string[];
 };
 
-/** The idea bar grown upwards (decision 054 D, S09): title, description, project, priority and tags. The draft is the caller's, so that it survives « Annuler » and Escape; both are ignored while the idea is sending. */
+/** The idea bar grown upwards (decision 055 D, S09): title, description, project, priority and tags. The draft is the caller's, so that it survives « Annuler » and Escape; both are ignored while the idea is sending. */
 export function IdeaPanel({
   projects,
   idea,

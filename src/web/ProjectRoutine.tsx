@@ -66,7 +66,7 @@ const when = (iso: string) =>
     timeStyle: "short",
   });
 
-/** « Écrire les US maintenant » (decision 022 H), with the refusal of the server under it; `onlyConnected` hides it until a routine exists (the Tickets tab, 054 F). */
+/** « Écrire les US maintenant » (decision 022 H), with the refusal of the server under it; `onlyConnected` hides it until a routine exists (the Tickets tab, 055 F). */
 export function RunNowButton({
   projectId,
   onlyConnected = false,

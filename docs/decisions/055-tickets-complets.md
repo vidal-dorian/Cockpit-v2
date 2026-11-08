@@ -1,4 +1,4 @@
-# 054 — Les tickets complets
+# 055 — Les tickets complets
 
 - **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 11.2)
 - **Date** : 2026-11-08
@@ -49,7 +49,7 @@ Le brief (§6.2) veut une capture rapide depuis n'importe quel écran, une prior
 - **Les étiquettes** : chacune est normalisée **avant** le contrôle de longueur (rognée, espaces réduits, minuscules, puis 1 à 30 caractères) ; les doublons sont fusionnés en gardant le premier ; ensuite seulement, 10 au plus. Dans le panneau et sur la page du ticket, une étiquette tapée et pas encore ajoutée l'est quand on clique « Noter » ou « Enregistrer ». Au-delà de 10, le champ dit « 10 étiquettes au plus. ». Si le serveur refuse (400) une requête qui portait des étiquettes, le message ajoute « Une étiquette n'est pas valide (30 caractères au plus). »
 - **Les routes** : `POST /api/projects/:id/tickets` et `PATCH /api/tickets/:id` prennent `priority` et `tags` ; `GET /api/projects/:id/tickets` et `GET /api/tickets/:id` les rendent. La recherche rend `{ tickets: [{ id, title, step }], stories: [{ id, ticketId, title, status }] }` : le `title` d'une US est son « je veux » (`i_want`) ; chaque liste est triée par `id` décroissant, 50 au plus. Un critère qui correspond (sous-requête `exists` sur `acceptance_criteria`) suffit à rendre son US. `%` et `_` sont des caractères comme les autres.
 - **Le tri de la liste** : haute, normale, basse, puis `id` décroissant (le plus récent d'abord).
-- **La migration `0029`** : colonnes `priority` (`text`, `'normal'`, `CHECK` sur les trois valeurs) et `tags` (`text[]`, vide) de `tickets`.
+- **La migration `0030`** : colonnes `priority` (`text`, `'normal'`, `CHECK` sur les trois valeurs) et `tags` (`text[]`, vide) de `tickets`.
 - **La recherche à l'écran** : la case garde ce qui est tapé ; la requête part **300 ms** après la dernière frappe, avec `q` rogné. Les résultats déjà affichés restent pendant le chargement. Sans ticket ni US : « Aucun résultat. ». Les tickets trouvés viennent d'abord (dans l'ordre de la recherche), puis les US, chacune un lien vers `/us/:id`.
 - **Les puces** : « Ouverts » est enfoncée par défaut ; un second clic la relâche et montre **tous** les tickets (de même pour « Nouveaux »). Le menu « Étiquette » filtre en plus, et ne propose que les étiquettes des tickets du projet.
 - **La routine** : la phrase « Claude les écrira à 7 h, ou maintenant si tu veux. » n'existe que pour une routine quotidienne ou hebdomadaire (« chaque semaine à … h » pour la seconde) ; pour les autres fréquences, rien. « Écrire les US maintenant » est le même bouton que celui des Réglages du projet (022 H), partagé ; il n'apparaît dans l'onglet que si la tâche est connectée (`connected`), et après un lancement le lien « Voir la session » apparaît à côté.

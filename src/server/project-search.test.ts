@@ -11,7 +11,7 @@ import {
   withProject,
 } from "./test-mcp.ts";
 
-// Slice 11.2, decision 054 C: GET /api/projects/:id/search?q=
+// Slice 11.2, decision 055 C: GET /api/projects/:id/search?q=
 //
 // Pinned choices (the decision leaves them open):
 // - Answer 200 { tickets: [{ id, title, step }], stories: [{ id, ticketId, title, status }] } and nothing else in the objects.
@@ -42,7 +42,7 @@ const found = async (res: Response) => {
   return (await res.json()) as Found;
 };
 
-describe("054 C: access", () => {
+describe("055 C: access", () => {
   it("given no session, when the search is called, then 401", async () => {
     const { app, projectId } = await withProject();
 
@@ -91,7 +91,7 @@ describe("054 C: access", () => {
   });
 });
 
-describe("054 C: the query", () => {
+describe("055 C: the query", () => {
   it("given no q, an empty q or a q of 101 characters, when the search is called, then 400", async () => {
     const { app, alice, projectId } = await withProject();
 
@@ -163,7 +163,7 @@ describe("054 C: the query", () => {
   });
 });
 
-describe("054 C: where it looks", () => {
+describe("055 C: where it looks", () => {
   it.each([
     ["the title of a ticket", "title"],
     ["the description of a ticket", "description"],
@@ -254,7 +254,7 @@ describe("054 C: where it looks", () => {
   });
 });
 
-describe("054 C: how many and in which order", () => {
+describe("055 C: how many and in which order", () => {
   it("given 55 tickets and 55 stories that match, when it is searched, then 50 of each come back, newest first", async () => {
     const { app, db, alice, projectId } = await withProject();
     const ticketIds: number[] = [];

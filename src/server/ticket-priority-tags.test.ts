@@ -11,7 +11,7 @@ import {
   postTicket,
 } from "./test-tickets.ts";
 
-// Slice 11.2, decision 054 A and B: the priority and the tags of a ticket.
+// Slice 11.2, decision 055 A and B: the priority and the tags of a ticket.
 //
 // Pinned choices (the decision leaves them open):
 // - Columns `tickets.priority` (text, default 'normal', CHECK in low | normal | high) and `tickets.tags` (text[], default '{}').
@@ -32,7 +32,7 @@ const entries = (db: Awaited<ReturnType<typeof ctxOf>>["db"], action: string) =>
 const read = async (res: Response) =>
   ((await res.json()) as { ticket: ApiTicket }).ticket;
 
-describe("054 A/B: create with priority and tags", () => {
+describe("055 A/B: create with priority and tags", () => {
   it("given a priority and tags, when the ticket is created, then the answer, GET one and the list give them back", async () => {
     const { app, cookie, projectId } = await ctxOf();
 
@@ -167,7 +167,7 @@ describe("054 A/B: create with priority and tags", () => {
   });
 });
 
-describe("054 A/B: edit the priority and the tags", () => {
+describe("055 A/B: edit the priority and the tags", () => {
   it("given a ticket, when PATCH sends a priority and tags, then both change, tags are normalised, and GET shows them", async () => {
     const { app, cookie, projectId } = await ctxOf();
     const { id } = await makeTicket(app, cookie, projectId, { title: "T" });
@@ -268,7 +268,7 @@ describe("054 A/B: edit the priority and the tags", () => {
   });
 });
 
-describe("054 A: the database refuses a priority outside the three", () => {
+describe("055 A: the database refuses a priority outside the three", () => {
   it("given the tickets table, when a row is inserted with an unknown priority, then the CHECK refuses it, and the three known ones pass", async () => {
     const { db, projectId } = await ctxOf();
     for (const priority of ["low", "normal", "high"])
@@ -293,7 +293,7 @@ describe("054 A: the database refuses a priority outside the three", () => {
   });
 });
 
-describe("054 B: the order of the list", () => {
+describe("055 B: the order of the list", () => {
   it("given tickets of every priority, when the list is read, then high comes first, then normal, then low, newest first inside each", async () => {
     const { app, cookie, projectId } = await ctxOf();
     const make = (title: string, priority: string) =>
@@ -319,7 +319,7 @@ describe("054 B: the order of the list", () => {
   });
 });
 
-describe("054 B: the history never keeps the tags", () => {
+describe("055 B: the history never keeps the tags", () => {
   it("given a creation and an edit with tags, when the history is read, then both entries keep args { ticketId } and no tag appears anywhere in it", async () => {
     const { app, db, cookie, projectId } = await ctxOf();
     const { id } = await makeTicket(app, cookie, projectId, {

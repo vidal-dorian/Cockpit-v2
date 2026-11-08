@@ -116,7 +116,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   reglages: "",
 };
 
-// The second line of the Tickets tab, from the schedule of the automatic writing (decisions 022 D and 054 F): nothing when it is not scheduled.
+// The second line of the Tickets tab, from the schedule of the automatic writing (decisions 022 D and 055 F): nothing when it is not scheduled.
 function writingSentence(
   schedule: { frequency: string; hour: number | null } | undefined,
 ) {

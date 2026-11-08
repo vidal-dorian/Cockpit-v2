@@ -127,6 +127,19 @@ export const writeUsRoutines = pgTable("write_us_routines", {
     .defaultNow(),
 });
 
+/** The « Lanceur Cockpit » task of a user (decision 054 C): same shape as `writeUsRoutines`, the token is encrypted and never leaves the server. */
+export const cloudLaunchers = pgTable("cloud_launchers", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  fireUrl: text("fire_url").notNull(),
+  token: text("token").notNull(),
+  needsReconnect: boolean("needs_reconnect").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
 /** Who works on a project: the one place access lives (decisions 002 and 008). */
 export const projectMembers = pgTable(
   "project_members",
@@ -138,6 +151,8 @@ export const projectMembers = pgTable(
       .notNull()
       .references(() => users.id),
     role: text("role", { enum: ["owner"] }).notNull(),
+    // Ticked by this user once the repo is added to their cloud launcher (decision 054 D).
+    inLauncher: boolean("in_launcher").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -214,7 +229,7 @@ export const tickets = pgTable(
       .references(() => projects.id),
     title: text("title").notNull(),
     descriptionMd: text("description_md").notNull().default(""),
-    // Decision 054 A: the tags are free text, normalised at the boundary.
+    // Decision 055 A: the tags are free text, normalised at the boundary.
     priority: text("priority").notNull().default("normal"),
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     abandonedAt: timestamp("abandoned_at", {
@@ -365,6 +380,33 @@ export const runs = pgTable(
     ),
   ],
 );
+
+/** One session asked of the launcher (decision 054 E): reserved before `/fire` is called, `result` null until it answers. */
+export const cloudLaunches = pgTable("cloud_launches", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id),
+  storyId: integer("story_id")
+    .notNull()
+    .references(() => userStories.id),
+  branch: text("branch").notNull(),
+  team: text("team"),
+  comment: text("comment"),
+  result: text("result", { enum: ["ok", "error"] }),
+  sessionId: text("session_id"),
+  // Only a https://claude.ai address: the page makes it a link.
+  sessionUrl: text("session_url"),
+  // What Claude reported (`report_launch`).
+  reason: text("reason"),
+  runId: integer("run_id").references(() => runs.id),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
 
 /** A question Claude asks during a run (decision 036 A); one unanswered question per run at most. */
 export const questions = pgTable(

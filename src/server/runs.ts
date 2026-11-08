@@ -6,6 +6,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
+  cloudLaunches,
   questions,
   runSteps,
   runs,
@@ -43,7 +44,7 @@ export async function startRun(
   readGitHub: ReadGitHub,
   entry: Entry,
   found: Found,
-  args: { branch: string; model: string; comment?: string },
+  args: { branch: string; model: string; comment?: string; launch_id?: number },
 ) {
   let runId = 0;
   try {
@@ -70,6 +71,25 @@ export async function startRun(
             throw isUniqueViolation(error) ? new Refused("run_active") : error;
           });
         if (!run) throw new Error("run not created");
+        if (args.launch_id !== undefined) {
+          const [launch] = await tx
+            .select()
+            .from(cloudLaunches)
+            .where(
+              and(
+                eq(cloudLaunches.id, args.launch_id),
+                eq(cloudLaunches.userId, userId),
+                eq(cloudLaunches.storyId, locked.id),
+              ),
+            )
+            .for("update");
+          if (!launch) throw new Refused("launch_mismatch");
+          if (launch.runId !== null) throw new Refused("launch_started");
+          await tx
+            .update(cloudLaunches)
+            .set({ runId: run.id })
+            .where(eq(cloudLaunches.id, launch.id));
+        }
         runId = run.id;
         entry.runId = run.id;
         const [row] = await tx
@@ -450,6 +470,10 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
         .from(runSteps)
         .where(eq(runSteps.runId, run.id))
         .orderBy(asc(runSteps.id));
+      const [launch] = await db
+        .select({ sessionUrl: cloudLaunches.sessionUrl })
+        .from(cloudLaunches)
+        .where(eq(cloudLaunches.runId, run.id));
       const asked = await db
         .select({
           id: questions.id,
@@ -489,6 +513,7 @@ export function runRoutes(db: Db, readGitHub: ReadGitHub) {
           startedAt: run.startedAt,
           finishedAt: run.finishedAt,
         },
+        cloud: launch ? { sessionUrl: launch.sessionUrl } : null,
         steps,
         questions: asked,
         criteria,

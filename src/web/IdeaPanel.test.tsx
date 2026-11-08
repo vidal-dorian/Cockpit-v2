@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt } from "./test-tickets.tsx";
 import { projects, rich, stubBar, stubTab } from "./test-tickets-full.tsx";
 
-// Slice 11.2, decision 054 D (S09): Enter in the idea bar opens a panel instead of creating.
+// Slice 11.2, decision 055 D (S09): Enter in the idea bar opens a panel instead of creating.
 //
 // Pinned choices (the decision leaves them open):
 // - The bar keeps its form « Noter une idée », its field « Idée », its select « Projet » and its button « Noter l'idée » (↑):
@@ -65,7 +65,7 @@ const posts = (api: {
       s.method === "POST" && /^\/api\/projects\/\d+\/tickets$/.test(s.path),
   );
 
-describe("054 D: Enter opens the panel", () => {
+describe("055 D: Enter opens the panel", () => {
   it("given a title in the bar, when Enter is pressed, then nothing is created and the panel « Noter une idée » opens with its title prefilled", async () => {
     const api = stubBar();
     renderAt("/");
@@ -157,7 +157,7 @@ describe("054 D: Enter opens the panel", () => {
   });
 });
 
-describe("054 D: the project of the panel", () => {
+describe("055 D: the project of the panel", () => {
   it("given the user is on /projets/5, when the panel opens, then its project is that one", async () => {
     stubTab([rich(7, "Un ticket")]);
     renderAt("/projets/5/tickets");
@@ -192,7 +192,7 @@ describe("054 D: the project of the panel", () => {
   });
 });
 
-describe("054 D: the tags of the panel", () => {
+describe("055 D: the tags of the panel", () => {
   it("given a tag typed with capitals and spaces, when Enter is pressed, then a chip shows it normalised, the field is emptied and nothing is sent", async () => {
     const api = stubBar();
     renderAt("/");
@@ -275,7 +275,7 @@ describe("054 D: the tags of the panel", () => {
   });
 });
 
-describe("054 D: Noter", () => {
+describe("055 D: Noter", () => {
   it("given every field filled, when Noter is clicked, then { title, descriptionMd, priority, tags } is sent, the panel closes, the bar is emptied and Idée notée is said", async () => {
     const api = stubBar();
     renderAt("/");
@@ -374,7 +374,7 @@ describe("054 D: Noter", () => {
   });
 });
 
-describe("054 D: Annuler and Escape", () => {
+describe("055 D: Annuler and Escape", () => {
   it("given the panel, when Annuler is clicked, then it closes, nothing was sent and the title is still in the bar", async () => {
     const api = stubBar();
     renderAt("/");
@@ -427,7 +427,7 @@ describe("054 D: Annuler and Escape", () => {
   });
 });
 
-// Review of slice 11.2. Pinned (amends 054 D where it says only the title is kept):
+// Review of slice 11.2. Pinned (amends 055 D where it says only the title is kept):
 // - While the panel is open the bar replaces itself by the panel (S09): the bar's « Idée » field is gone from the accessibility tree, or disabled, readOnly or inert,
 //   and `n` does not focus it.
 // - After a successful « Noter » the bar field is empty and focused (never <body>).

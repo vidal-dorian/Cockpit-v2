@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import type { App } from "./test-mcp.ts";
 
-// Shared by the acceptance tests of slice 11.2 (decision 054): REST helpers over app.request() with a session cookie.
+// Shared by the acceptance tests of slice 11.2 (decision 055): REST helpers over app.request() with a session cookie.
 
 export const json = (cookie: string, method: string, body?: unknown) => ({
   method,

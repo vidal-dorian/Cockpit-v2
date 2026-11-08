@@ -24,7 +24,7 @@ type Ticket = {
 };
 type Story = { id: number; iWant: string; status: string };
 
-/** The right panel of a ticket of the Tickets tab (decision 054 G): its description and stories, the way to its page, and the deletion with its confirmation on the spot. */
+/** The right panel of a ticket of the Tickets tab (decision 055 G): its description and stories, the way to its page, and the deletion with its confirmation on the spot. */
 export function TicketPanel({
   ticket,
   stories,

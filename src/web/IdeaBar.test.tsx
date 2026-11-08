@@ -45,7 +45,7 @@ describe("slice 9.3: the idea bar", () => {
     expect((await send()).hasAttribute("disabled")).toBe(false);
   });
 
-  // Decision 054 D changed 045 F: Enter (or the ↑ button) no longer creates the ticket, it opens the panel « Noter une idée »;
+  // Decision 055 D changed 045 F: Enter (or the ↑ button) no longer creates the ticket, it opens the panel « Noter une idée »;
   // « Noter » of the panel creates (IdeaPanel.test.tsx). The project chosen in the bar is the one the panel starts with.
   it("given an idea typed and a project chosen, when I send it, then nothing is posted and the panel opens on that project with the title", async () => {
     const api = stubShell({ projects });
@@ -70,7 +70,7 @@ describe("slice 9.3: the idea bar", () => {
     expect(api.sent.filter((s) => s.method === "POST")).toEqual([]);
   });
 
-  // 054 D: the refusal now comes from « Noter » of the panel.
+  // 055 D: the refusal now comes from « Noter » of the panel.
   it("given the server refuses the idea, when I send it from the panel, then the sentence of the refusal is shown", async () => {
     stubShell({ projects }, { ticketStatus: 500 });
     renderAt("/");

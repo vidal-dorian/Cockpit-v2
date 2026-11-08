@@ -11,7 +11,7 @@ import { redClasses } from "./test-journal.tsx";
 import { fail, renderAt, stubTicketApi } from "./test-tickets.tsx";
 import { rich } from "./test-tickets-full.tsx";
 
-// Slice 11.2, decision 054 H (and J): the priority and the tags on the ticket page.
+// Slice 11.2, decision 055 H (and J): the priority and the tags on the ticket page.
 //
 // Pinned choices (the decision leaves them open):
 // - Under the title (after the <h1>, inside <main>) the page writes the tags as words and, for a ticket that is not normal, « priorité haute » or « priorité basse »;
@@ -44,7 +44,7 @@ const addTag = (text: string) => {
   fireEvent.keyDown(input, { key: "Enter" });
 };
 
-describe("054 H: reading", () => {
+describe("055 H: reading", () => {
   it("given a high ticket with tags, when /tickets/:id loads, then « priorité haute » and the tags are written under the title", async () => {
     stubTicketApi([fresh()]);
     renderAt("/tickets/7");
@@ -75,7 +75,7 @@ describe("054 H: reading", () => {
   });
 });
 
-describe("054 H: editing", () => {
+describe("055 H: editing", () => {
   it("given a ticket, when Modifier is clicked, then the form offers Priorité preset to the ticket's and its tags as chips", async () => {
     stubTicketApi([fresh()]);
     renderAt("/tickets/7");

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story } from "./test-tickets.tsx";
 import { ago, rich, stubTab } from "./test-tickets-full.tsx";
 
-// Slice 11.2, decision 054 E and F (S14): the Tickets tab.
+// Slice 11.2, decision 055 E and F (S14): the Tickets tab.
 //
 // Pinned choices (the decision leaves them open):
 // - No form to create a ticket (no « Nouveau ticket », no « Titre » field, no « Créer »), no « Importer les issues » (slice 11.3).
@@ -68,11 +68,11 @@ const titles = () =>
   [...screen.getByRole("main").querySelectorAll("li")]
     .map((li) => li.querySelector("button")?.textContent)
     .filter(Boolean);
-/** The title is on the page, whatever the markup around it (a link before 054, a button after). */
+/** The title is on the page, whatever the markup around it (a link before 055, a button after). */
 const listed = (title: string) => screen.findByText(title);
 const chip = (name: string) => screen.findByRole("button", { name });
 
-describe("054 E: no creation form on the tab", () => {
+describe("055 E: no creation form on the tab", () => {
   it("given the Tickets tab, when it loads, then it has no Nouveau ticket form, no Créer button and no Importer les issues", async () => {
     stubTab(TICKETS, STORIES);
     renderAt("/projets/5/tickets");
@@ -86,7 +86,7 @@ describe("054 E: no creation form on the tab", () => {
   });
 });
 
-describe("054 F: the sentences", () => {
+describe("055 F: the sentences", () => {
   it("given 4 tickets of which 2 are new, when the tab loads, then the sentence reads « 4 tickets, 2 attendent leurs user stories. »", async () => {
     stubTab(TICKETS, STORIES);
     renderAt("/projets/5/tickets");
@@ -130,7 +130,7 @@ describe("054 F: the sentences", () => {
   });
 });
 
-describe("054 F: the row of a ticket", () => {
+describe("055 F: the row of a ticket", () => {
   it("given a ticket with tags, when the tab loads, then its row shows the title, the step, the tag as a word and the age 10 min", async () => {
     stubTab(TICKETS, STORIES);
     renderAt("/projets/5/tickets");
@@ -182,7 +182,7 @@ describe("054 F: the row of a ticket", () => {
   });
 });
 
-describe("054 F: the chips and the tag menu", () => {
+describe("055 F: the chips and the tag menu", () => {
   it("given 4 tickets, when the tab loads, then Ouverts · 3 is pressed and lists the three that are not done, and Nouveaux · 2 is not pressed", async () => {
     stubTab(TICKETS, STORIES);
     renderAt("/projets/5/tickets");
@@ -258,7 +258,7 @@ describe("054 F: the chips and the tag menu", () => {
   });
 });
 
-describe("054 F: the search", () => {
+describe("055 F: the search", () => {
   const SEARCH = {
     tickets: [{ id: 11, title: "Exporter en CSV", step: "new" }],
     stories: [
@@ -341,7 +341,7 @@ describe("054 F: the search", () => {
   });
 });
 
-describe("054 F: Écrire les US maintenant", () => {
+describe("055 F: Écrire les US maintenant", () => {
   it("given a routine exists, when the tab loads, then the button is there and a click fires the run of this project", async () => {
     const api = stubTab(TICKETS, STORIES, { routineConnected: true });
     renderAt("/projets/5/tickets");
@@ -367,7 +367,7 @@ describe("054 F: Écrire les US maintenant", () => {
   });
 });
 
-describe("054 J: the colour of the tab", () => {
+describe("055 J: the colour of the tab", () => {
   it("given a high ticket with tags, when the tab loads, then nothing on the page is red or destructive", async () => {
     stubTab(TICKETS, STORIES, { routineConnected: true });
     renderAt("/projets/5/tickets");

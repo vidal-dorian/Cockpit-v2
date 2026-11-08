@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
+import { LauncherSettings } from "./LauncherSettings.tsx";
 import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
 import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
@@ -150,7 +151,7 @@ function UserList() {
   );
 }
 
-type SettingsTab = "claude" | "utilisateurs" | "ecriture-us";
+type SettingsTab = "claude" | "utilisateurs" | "taches-cloud";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
 const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
@@ -158,9 +159,9 @@ const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
     title: "Connecte Claude à Cockpit.",
     rest: "Une seule fois, sur claude.ai ; ça marche ensuite partout.",
   },
-  "ecriture-us": {
-    title: "Une tâche de Claude écrit tes US.",
-    rest: "Créée une fois sur claude.ai, lancée par Cockpit.",
+  "taches-cloud": {
+    title: "Des tâches de Claude écrivent tes US et développent dans le cloud.",
+    rest: "Créées une fois sur claude.ai, lancées par Cockpit.",
   },
   utilisateurs: {
     title: "Voici ceux qui ont accès à ton instance.",
@@ -179,7 +180,7 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
   const routine = useQuery({
     queryKey: ["routine"],
     queryFn: fetchRoutine,
-    enabled: on("ecriture-us"),
+    enabled: on("taches-cloud"),
   });
   const users = useQuery({
     queryKey: ["users"],
@@ -193,7 +194,7 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
       title: "Claude est connecté à Cockpit.",
       rest: `Depuis ${connect.data.client}, le ${day(connect.data.connectedAt)}.`,
     };
-  if (tab === "ecriture-us" && routine.data?.connected)
+  if (tab === "taches-cloud" && routine.data?.connected)
     return routine.data.needsReconnect
       ? {
           title: "La tâche de Claude est à reconnecter.",
@@ -243,7 +244,7 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           <NavLink to="/reglages" end className={menuItem}>
             Connecter Claude
           </NavLink>
-          <NavLink to="/reglages/ecriture-us" className={menuItem}>
+          <NavLink to="/reglages/taches-cloud" className={menuItem}>
             Tâches cloud
           </NavLink>
           {me.data?.isAdmin && (
@@ -278,7 +279,12 @@ export function Settings({ tab }: { tab: SettingsTab }) {
             ) : (
               <p>Cette page est réservée à l'administrateur.</p>
             ))}
-          {tab === "ecriture-us" && <RoutineSettings />}
+          {tab === "taches-cloud" && (
+            <div className="grid gap-[22px]">
+              <RoutineSettings />
+              <LauncherSettings />
+            </div>
+          )}
         </div>
       </div>
     </main>

@@ -337,7 +337,7 @@ export function IdeaBar() {
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
   const [done, setDone] = useState<string>();
-  // Enter opens the panel of decision 054 D instead of creating the ticket.
+  // Enter opens the panel of decision 055 D instead of creating the ticket.
   const [open, setOpen] = useState(false);
   // What the panel holds besides the title (the bar's own): it survives « Annuler » and goes with a successful « Noter ».
   const [draft, setDraft] = useState<Partial<Omit<Idea, "title">>>({});

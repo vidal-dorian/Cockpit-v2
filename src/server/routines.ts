@@ -6,6 +6,7 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
+  type cloudLaunchers,
   history,
   projects,
   tickets,
@@ -23,7 +24,7 @@ export type FireRoutine = (
   url: string,
   init?: RequestInit,
 ) => Promise<Response>;
-type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
+export type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
 
 const FIRE_TIMEOUT_MS = 10_000;
 const TICK_EVERY_MS = 60_000;
@@ -62,7 +63,7 @@ const isTimeZone = (name: string) => {
   }
 };
 
-const connectBody = z.object({
+export const connectBody = z.object({
   fireUrl: z.string().trim().refine(isFireUrl),
   // Printable ASCII only: it goes into a header, and a NUL cannot be stored.
   token: z
@@ -155,17 +156,17 @@ const presentSchedule = (p: typeof projects.$inferSelect) => ({
       : null,
 });
 
-type Fired =
+export type Fired =
   | { ok: true; sessionId: string | null; sessionUrl: string | null }
   | { ok: false; reconnect: false }
   // The sealed token that was refused: a token saved meanwhile must not be marked.
   | { ok: false; reconnect: true; token: string };
 
-/** Calls `/fire` for a project and never throws. A 401, 403 or 404 (task deleted on claude.ai) is the token to renew (`reconnect`); any other failure is for the next pass to retry. */
-async function fire(
+/** Calls `/fire` of a task (the write-US routine or the launcher) and never throws. A 401, 403 or 404 (task deleted on claude.ai) is the token to renew (`reconnect`); any other failure is for the caller to retry. */
+export async function fire(
   { encryptionKey, fireRoutine }: Fire,
-  routine: typeof writeUsRoutines.$inferSelect,
-  projectId: number,
+  routine: { fireUrl: string; token: string },
+  text: string,
 ): Promise<Fired> {
   try {
     const res = await fireRoutine(routine.fireUrl, {
@@ -176,7 +177,7 @@ async function fire(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ text: `project_id: ${projectId}` }),
+      body: JSON.stringify({ text }),
       // The token must not follow a redirect.
       redirect: "error",
       signal: AbortSignal.timeout(FIRE_TIMEOUT_MS),
@@ -324,7 +325,7 @@ export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
           { userId: routine.userId, actor: "system", origin: "system" },
           project.id,
           now,
-          await fire(deps, routine, project.id),
+          await fire(deps, routine, `project_id: ${project.id}`),
         );
       } catch (error) {
         console.error(`Routine of project ${project.id} failed:`, error);
@@ -343,89 +344,121 @@ export function scheduleRoutines(db: Db, deps: Fire): NodeJS.Timeout {
   ).unref();
 }
 
-type Env = { Variables: { userId: number } };
+export type Env = { Variables: { userId: number } };
 
-/** The routine of the user (decision 022 C) and the schedule of their projects (D), read and written; and the button « Écrire les US maintenant ». */
-export function routineRoutes(db: Db, deps: Fire, now: () => number) {
-  const signedIn = createMiddleware<Env>(async (c, next) => {
+export const signedIn = (db: Db) =>
+  createMiddleware<Env>(async (c, next) => {
     const user = await currentUser(db, c);
     if (!user) return c.json(unauthorized, 401);
     c.set("userId", user.userId);
     await next();
   });
-  const routineOf = async (userId: number) =>
-    (
-      await db
-        .select()
-        .from(writeUsRoutines)
-        .where(eq(writeUsRoutines.userId, userId))
-    )[0];
-  const entryOf = (userId: number, action: string): Entry => ({
-    userId,
-    actor: "human",
-    origin: "ui",
-    action,
-    args: {},
-  });
 
-  /** Writes the one `refused` entry of a refusal of the button (022 F) and gives the code back. */
-  const refuse = async <Code extends string>(
-    userId: number,
-    projectId: number,
-    code: Code,
-  ) => {
-    try {
-      await act(
-        db,
-        {
-          ...entryOf(userId, "fire_write_us"),
-          projectId,
-          args: { projectId },
-        },
-        async () => {
-          throw new Refused(code);
-        },
-      );
-    } catch (error) {
-      if (!(error instanceof Refused)) throw error;
-    }
-    return code;
-  };
+// The write-US routine and the launcher are two tables of the same shape (decisions 022 C and 054 C).
+// shortcut: the union does not type-check in drizzle, so the launcher table is read as the routine one; same columns, so safe until they differ.
+type Task = typeof writeUsRoutines | typeof cloudLaunchers;
+const asRoutine = (table: Task) => table as typeof writeUsRoutines;
+
+export const taskOf = async (db: Db, table: Task, userId: number) =>
+  (
+    await db
+      .select()
+      .from(asRoutine(table))
+      .where(eq(asRoutine(table).userId, userId))
+  )[0];
+
+/** Saves the address and the sealed token of a task, in one `act`; a new token clears « à reconnecter ». */
+export async function saveTask(
+  db: Db,
+  key: Buffer,
+  table: Task,
+  userId: number,
+  action: string,
+  { fireUrl, token }: { fireUrl: string; token: string },
+) {
+  const sealed = encrypt(key, token);
+  return act(db, entryOf(userId, action), async (tx) => {
+    const [saved] = await tx
+      .insert(asRoutine(table))
+      .values({ userId, fireUrl, token: sealed })
+      .onConflictDoUpdate({
+        target: asRoutine(table).userId,
+        set: { fireUrl, token: sealed, needsReconnect: false },
+      })
+      .returning();
+    if (!saved) throw new Error("task not saved");
+    return saved;
+  });
+}
+
+export const removeTask = (
+  db: Db,
+  table: Task,
+  userId: number,
+  action: string,
+) =>
+  act(db, entryOf(userId, action), (tx) =>
+    tx.delete(asRoutine(table)).where(eq(asRoutine(table).userId, userId)),
+  );
+
+/** Writes the one `refused` entry of a refusal (022 F) and gives the code back. */
+export async function refuseEntry<Code extends string>(
+  db: Db,
+  entry: Entry,
+  code: Code,
+) {
+  try {
+    await act(db, entry, async () => {
+      throw new Refused(code);
+    });
+  } catch (error) {
+    if (!(error instanceof Refused)) throw error;
+  }
+  return code;
+}
+
+export const entryOf = (userId: number, action: string): Entry => ({
+  userId,
+  actor: "human",
+  origin: "ui",
+  action,
+  args: {},
+});
+
+/** The routine of the user (decision 022 C) and the schedule of their projects (D), read and written; and the button « Écrire les US maintenant ». */
+export function routineRoutes(db: Db, deps: Fire, now: () => number) {
+  const signed = signedIn(db);
+  const routineOf = (userId: number) => taskOf(db, writeUsRoutines, userId);
+  const refuse = (userId: number, projectId: number, code: string) =>
+    refuseEntry(
+      db,
+      { ...entryOf(userId, "fire_write_us"), projectId, args: { projectId } },
+      code,
+    );
 
   return new Hono<Env>()
-    .use("/api/me/routine", signedIn)
-    .use("/api/projects/:id/routine", signedIn)
-    .use("/api/projects/:id/routine/run", signedIn)
+    .use("/api/me/routine", signed)
+    .use("/api/projects/:id/routine", signed)
+    .use("/api/projects/:id/routine/run", signed)
     .get("/api/me/routine", async (c) =>
       c.json(presentRoutine(await routineOf(c.get("userId")))),
     )
     .put("/api/me/routine", body(connectBody), async (c) => {
       const userId = c.get("userId");
       const { fireUrl, token } = c.req.valid("json");
-      const sealed = encrypt(deps.encryptionKey, token);
-      const row = await act(
+      const row = await saveTask(
         db,
-        entryOf(userId, "connect_routine"),
-        async (tx) => {
-          const [saved] = await tx
-            .insert(writeUsRoutines)
-            .values({ userId, fireUrl, token: sealed })
-            .onConflictDoUpdate({
-              target: writeUsRoutines.userId,
-              set: { fireUrl, token: sealed, needsReconnect: false },
-            })
-            .returning();
-          if (!saved) throw new Error("routine not saved");
-          return saved;
-        },
+        deps.encryptionKey,
+        writeUsRoutines,
+        userId,
+        "connect_routine",
+        { fireUrl, token },
       );
       return c.json(presentRoutine(row));
     })
     .delete("/api/me/routine", async (c) => {
       const userId = c.get("userId");
-      await act(db, entryOf(userId, "disconnect_routine"), (tx) =>
-        tx.delete(writeUsRoutines).where(eq(writeUsRoutines.userId, userId)),
-      );
+      await removeTask(db, writeUsRoutines, userId, "disconnect_routine");
       return c.body(null, 204);
     })
     .get("/api/projects/:id/routine", async (c) => {
@@ -509,7 +542,7 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
           },
           409,
         );
-      const fired = await fire(deps, routine, project.id);
+      const fired = await fire(deps, routine, `project_id: ${project.id}`);
       await recordFire(
         db,
         { userId, actor: "human", origin: "ui" },

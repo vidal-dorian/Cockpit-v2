@@ -23,7 +23,7 @@ const rowOf = (title: string) => {
 };
 
 describe("Project page, the tickets", () => {
-  // Decision 054 F, G: a row is a button that opens the panel (the ticket page is reached by « Ouvrir le ticket »), no longer a link.
+  // Decision 055 F, G: a row is a button that opens the panel (the ticket page is reached by « Ouvrir le ticket »), no longer a link.
   it("given two tickets, when /projets/:id loads, then a Tickets section lists them in the API order, each a button with its step Nouveau", async () => {
     stubTicketApi([ticket(8, "Plus récent"), ticket(7, "Plus ancien")]);
 
@@ -39,7 +39,7 @@ describe("Project page, the tickets", () => {
     expect(within(rowOf("Plus ancien")).getByText("Nouveau")).toBeDefined();
   });
 
-  // Decision 054 E (changes 014 I): the « Nouveau ticket » form left the tab; a ticket is created by the idea bar only.
+  // Decision 055 E (changes 014 I): the « Nouveau ticket » form left the tab; a ticket is created by the idea bar only.
   // The tests of that form (title and description fields, Créer, the refusals of the server, the archived project) are gone with it;
   // the idea bar's own tests (IdeaPanel.test.tsx) cover what they covered.
   it("given a project without ticket, when the page loads, then it says there is none yet and offers no creation form", async () => {

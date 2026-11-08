@@ -1,12 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { parseTeam } from "../server/team.ts";
 import { client } from "./api.ts";
+import { fetchLauncher } from "./LauncherSettings.tsx";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
-import { badge, field, ghostButton, kbd, panelPrimaryButton } from "./ui.ts";
+import {
+  alertBox,
+  badge,
+  button,
+  field,
+  ghostButton,
+  kbd,
+  panelPrimaryButton,
+} from "./ui.ts";
 
-// Mirror of BRANCH in src/server/mcp.ts (decision 033 B), `..` being refused next to it.
+// Mirror of BRANCH in src/server/launcher.ts (decision 033 B), `..` being refused next to it.
 const BRANCH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*(?<![/.])$/;
 const MAX_PROMPT = 10_000;
 const MAX_BRANCH = 255;
@@ -51,6 +61,18 @@ async function fetchTeams(id: string) {
   };
 }
 
+// What the user reads for a refused or failed launch (decision 054 H); the codes of the server are not meant to be read.
+const LAUNCH_ERRORS: Record<string, string> = {
+  launch_pending:
+    "Un lancement de cette US est déjà en cours : attends quelques minutes avant de réessayer.",
+  run_active: "Cette US a déjà un run en cours.",
+  wrong_status:
+    "Cette US n'est plus à développer (ni prête, ni en relecture) : recharge la page.",
+  branch_mismatch:
+    "Cette US a déjà une autre branche : recharge la page pour la retrouver.",
+  fire_failed: "Claude n'a pas pu être lancé : réessaie dans un instant.",
+};
+
 /** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
 export function DevelopWindow({
   story,
@@ -85,6 +107,36 @@ export function DevelopWindow({
     }
   });
   const [prompt, setPrompt] = useState("");
+  const launcher = useQuery({
+    queryKey: ["launcher"],
+    queryFn: fetchLauncher,
+    retry: false,
+  });
+  const cloudPossible =
+    !!launcher.data?.connected &&
+    !launcher.data.needsReconnect &&
+    launcher.data.projectIds.includes(project.id);
+  const [chosen, setChosen] = useState<"cloud" | "pc">();
+  const cloud = cloudPossible && chosen !== "pc";
+  const queryClient = useQueryClient();
+  const launch = useMutation({
+    // A refusal may mean the launcher changed (a token refused): the next read decides if the cloud is still possible.
+    onError: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
+    mutationFn: async () => {
+      const res = await client.api.stories[":id"].launch.$post({
+        param: { id: String(story.id) },
+        json: { branch, team: team || undefined, comment: extra || undefined },
+      });
+      if (!res.ok) {
+        const answer: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(
+          LAUNCH_ERRORS[answer.error ?? ""] ??
+            "Le lancement a été refusé : vérifie le lanceur dans Réglages.",
+        );
+      }
+      return res.json();
+    },
+  });
   // The message that was copied (or that failed to copy): another message resets both.
   const [copied, setCopied] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState<string | null>(null);
@@ -99,8 +151,9 @@ export function DevelopWindow({
     .trim()
     .replace(/^"(.*)"$/, "$1")
     .trim();
-  const valid = branchValid && promptValid && cleanFolder !== "";
   const extra = prompt.trim();
+  const valid = branchValid && promptValid && (cloud || cleanFolder !== "");
+  const canLaunch = valid && !launch.isPending && !launch.isSuccess;
   const message = `/dev-us ${story.id} --branch ${branch}${team ? ` --team ${team}` : ""}${extra ? `\n\n${extra}` : ""}`;
   const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(message)}`;
   const choices = (branches.data ?? []).filter(
@@ -115,8 +168,10 @@ export function DevelopWindow({
       label="Développer avec Claude"
       // Ctrl+Enter launches from the panel, as decision 003 (7) lists and the button shows.
       onKeyDown={(e) => {
-        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid)
-          launchRef.current?.click();
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && valid) {
+          if (!cloud) launchRef.current?.click();
+          else if (canLaunch) launch.mutate();
+        }
       }}
       badge={
         <span className={badge}>
@@ -137,44 +192,63 @@ export function DevelopWindow({
       }
       footer={
         <>
-          <a
-            ref={launchRef}
-            className={`${panelPrimaryButton} aria-disabled:opacity-50`}
-            {...(valid
-              ? {
-                  href,
-                  onClick: () => {
-                    try {
-                      window.localStorage.setItem(
-                        storageKey(project.id),
-                        cleanFolder,
-                      );
-                    } catch {}
-                  },
-                }
-              : { "aria-disabled": true, role: "link" })}
-          >
-            <span>Lancer Claude</span>
-            <span
-              aria-hidden="true"
-              className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+          {cloud ? (
+            <button
+              type="button"
+              className={panelPrimaryButton}
+              disabled={!canLaunch}
+              onClick={() => launch.mutate()}
             >
-              Ctrl Entrée
-            </span>
-          </a>
-          <button
-            type="button"
-            className={ghostButton}
-            disabled={!branchValid || !promptValid}
-            onClick={() =>
-              navigator.clipboard
-                .writeText(message)
-                .then(() => setCopied(message))
-                .catch(() => setCopyFailed(message))
-            }
-          >
-            Copier le prompt
-          </button>
+              <span>Lancer dans le cloud</span>
+              <span
+                aria-hidden="true"
+                className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+              >
+                Ctrl Entrée
+              </span>
+            </button>
+          ) : (
+            <>
+              <a
+                ref={launchRef}
+                className={`${panelPrimaryButton} aria-disabled:opacity-50`}
+                {...(valid
+                  ? {
+                      href,
+                      onClick: () => {
+                        try {
+                          window.localStorage.setItem(
+                            storageKey(project.id),
+                            cleanFolder,
+                          );
+                        } catch {}
+                      },
+                    }
+                  : { "aria-disabled": true, role: "link" })}
+              >
+                <span>Lancer Claude</span>
+                <span
+                  aria-hidden="true"
+                  className={`${kbd} border-primary-foreground/30 text-primary-foreground`}
+                >
+                  Ctrl Entrée
+                </span>
+              </a>
+              <button
+                type="button"
+                className={ghostButton}
+                disabled={!branchValid || !promptValid}
+                onClick={() =>
+                  navigator.clipboard
+                    .writeText(message)
+                    .then(() => setCopied(message))
+                    .catch(() => setCopyFailed(message))
+                }
+              >
+                Copier le prompt
+              </button>
+            </>
+          )}
           {copied === message && (
             <span role="status" className="text-center text-muted-foreground">
               Copié
@@ -192,18 +266,54 @@ export function DevelopWindow({
       }
     >
       <p className="text-lg font-semibold">Où Claude doit-il travailler ?</p>
-      {/* The only place that exists (decision 045, slices 14.1 and 14.6 add the others). */}
-      <div className="flex items-start gap-2.5 rounded-xl border border-foreground bg-raised px-3 py-2.5">
-        <span
-          aria-hidden="true"
-          className="mt-0.5 size-3.5 flex-none rounded-full border-4 border-foreground"
-        />
-        <span>
-          <b className="block text-[13.5px] font-semibold">
-            Sur ce PC, avec Claude Desktop
-          </b>
-          <span className={hint}>Tu suis Claude en direct dans ton clone.</span>
-        </span>
+      <div className="grid gap-2">
+        {(
+          [
+            [
+              "cloud",
+              "Dans le cloud",
+              "Ton PC peut être éteint. Claude ouvre la PR et te prévient.",
+            ],
+            [
+              "pc",
+              "Sur ce PC, avec Claude Desktop",
+              "Tu suis Claude en direct dans ton clone.",
+            ],
+          ] as const
+        ).map(([value, title, text]) => (
+          <label
+            key={value}
+            className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 has-[:disabled]:opacity-50 ${(value === "cloud") === cloud ? "border-foreground bg-raised" : "border-border"}`}
+          >
+            <input
+              type="radio"
+              name="target"
+              className="mt-0.5"
+              checked={(value === "cloud") === cloud}
+              disabled={value === "cloud" && !cloudPossible}
+              onChange={() => setChosen(value)}
+            />
+            <span>
+              <b className="block text-[13.5px] font-semibold">{title}</b>
+              <span className={hint}>{text}</span>
+            </span>
+          </label>
+        ))}
+        {!cloudPossible && !launcher.isPending && (
+          <p className={hint}>
+            {launcher.isError
+              ? "Impossible de lire le lanceur."
+              : !launcher.data?.connected
+                ? "Le lanceur n'est pas relié."
+                : launcher.data.needsReconnect
+                  ? "Le lanceur est à reconnecter."
+                  : "Ce projet n'est pas coché dans le lanceur."}{" "}
+            <Link to="/reglages/taches-cloud" className="underline">
+              régler le lanceur dans Réglages
+            </Link>
+            .
+          </p>
+        )}
       </div>
       {story.branch ? (
         <div className="grid gap-1.5">
@@ -309,22 +419,24 @@ export function DevelopWindow({
           </div>
         )
       )}
-      <div>
-        <label className={label}>
-          Dossier du clone
-          <input
-            required
-            className={field}
-            value={folder}
-            placeholder="C:\Users\dorian\code\mon-repo ou /home/dorian/code/mon-repo"
-            onChange={(e) => setFolder(e.target.value)}
-          />
-        </label>
-        <details className={`mt-2 ${hint}`}>
-          <summary>Pas encore cloné ?</summary>
-          <code>git clone https://github.com/{project.fullName}.git</code>
-        </details>
-      </div>
+      {!cloud && (
+        <div>
+          <label className={label}>
+            Dossier du clone
+            <input
+              required
+              className={field}
+              value={folder}
+              placeholder="C:\Users\dorian\code\mon-repo ou /home/dorian/code/mon-repo"
+              onChange={(e) => setFolder(e.target.value)}
+            />
+          </label>
+          <details className={`mt-2 ${hint}`}>
+            <summary>Pas encore cloné ?</summary>
+            <code>git clone https://github.com/{project.fullName}.git</code>
+          </details>
+        </div>
+      )}
       <label className={label}>
         Consigne en plus{" "}
         <span className="font-medium text-muted-foreground">· facultatif</span>
@@ -348,14 +460,51 @@ export function DevelopWindow({
           même.
         </p>
       ))}
-      <p className={hint}>
-        Mode conseillé dans Claude Desktop : « Accepter les modifications ».
-      </p>
-      <p className={hint}>
-        Claude Desktop va s'ouvrir. Confirme le dossier, puis appuie sur Entrée.
-      </p>
-      {!valid && cleanFolder === "" && (
-        <p className={hint}>Indique le dossier du clone pour lancer Claude.</p>
+      {cloud ? (
+        <>
+          {launch.isSuccess && (
+            <p role="status">
+              Lancé dans le cloud.{" "}
+              {launch.data.sessionUrl && (
+                <a
+                  href={launch.data.sessionUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="underline"
+                >
+                  Voir la session ↗
+                </a>
+              )}
+            </p>
+          )}
+          {launch.isError && (
+            <div role="alert" className={alertBox}>
+              <p>{launch.error.message}</p>
+              <button
+                type="button"
+                onClick={() => launch.mutate()}
+                className={`mt-3 ${button}`}
+              >
+                Réessayer
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className={hint}>
+            Mode conseillé dans Claude Desktop : « Accepter les modifications ».
+          </p>
+          <p className={hint}>
+            Claude Desktop va s'ouvrir. Confirme le dossier, puis appuie sur
+            Entrée.
+          </p>
+          {!valid && cleanFolder === "" && (
+            <p className={hint}>
+              Indique le dossier du clone pour lancer Claude.
+            </p>
+          )}
+        </>
       )}
       {!story.branch && mode === "existing" && existing === "" && (
         <p className={hint}>Choisis une branche existante.</p>
