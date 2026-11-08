@@ -328,8 +328,8 @@ export function webhookRoutes(db: Db, readInstance: ReadInstance) {
           result: "ok",
         });
       });
-      // Not awaited, and started after the answer has left: the answer does not wait for the processing, which never throws.
-      setImmediate(() => void processDeliveries(db, { readInstance }));
+      // Not awaited: the answer does not wait for the processing, which never throws.
+      void processDeliveries(db, { readInstance });
       return c.body(null, 202);
     },
   );
