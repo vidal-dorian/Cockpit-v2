@@ -1,19 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router";
 import { client } from "./api.ts";
-import { fetchLauncher } from "./LauncherSettings.tsx";
-import { fetchNight, StateSentence } from "./Shell.tsx";
+import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
+import { fetchNight, StateSentence, useHome } from "./Shell.tsx";
 import {
   alertBox,
   button,
-  focusRing,
+  iconButton,
   listCard,
+  moved,
   primaryButton,
+  row,
   sectionLabel,
 } from "./ui.ts";
-
-const row = "flex min-h-[50px] flex-wrap items-center gap-x-3 px-[18px] py-2.5";
-const iconButton = `grid size-[30px] place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
 
 /** What the night did with a story (decision 044 I). */
 export const OUTCOMES: Record<string, string> = {
@@ -23,6 +23,13 @@ export const OUTCOMES: Record<string, string> = {
   failed: "Échouée",
   skipped: "Sautée : plus prête",
   not_started: "Non lancée",
+};
+
+/** The next instant, in the browser's time zone, when the clock reads `hour` o'clock. */
+const nextHour = (hour: number) => {
+  const at = new Date();
+  at.setHours(hour, 0, 0, 0);
+  return at.getTime() <= Date.now() ? at.getTime() + 86_400_000 : at.getTime();
 };
 
 const RULES = [
@@ -47,6 +54,11 @@ export function Night() {
   const queryClient = useQueryClient();
   const night = useQuery({ queryKey: ["home", "night"], queryFn: fetchNight });
   const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });
+  const hours = useQuery({
+    queryKey: ["night-hours"],
+    queryFn: fetchNightHours,
+  });
+  const morning = useHome().data?.night;
   // The order the user gave; until they touch it, the ready stories as the server gave them.
   const [order, setOrder] = useState<number[]>();
   const act = useMutation({
@@ -68,7 +80,9 @@ export function Night() {
   });
   const data = night.data;
   const stories = [...(data?.ready ?? []), ...(data?.toValidate ?? [])];
-  const program = order ?? (data?.ready ?? []).map((s) => s.storyId);
+  const open = data?.night ?? null;
+  const program =
+    order ?? (open ? open.items : (data?.ready ?? [])).map((s) => s.storyId);
   const inProgram = program.flatMap((id) => {
     const story = stories.find((s) => s.storyId === id);
     return story ? [story] : [];
@@ -76,12 +90,14 @@ export function Night() {
   const maybe = (data?.toValidate ?? []).filter(
     (s) => !program.includes(s.storyId),
   );
-  const move = (at: number, by: number) => {
-    const next = [...program];
-    next.splice(at + by, 0, ...next.splice(at, 1));
-    setOrder(next);
-  };
-  const open = data?.night ?? null;
+  // Before the start the programme is the server's: each change is saved at once.
+  const reorder = (next: number[]) =>
+    open
+      ? act.mutate(() =>
+          client.api.nights.current.$put({ json: { storyIds: next } }),
+        )
+      : setOrder(next);
+  const move = (at: number, by: number) => reorder(moved(program, at, by));
   const shown = open
     ? open.items
     : inProgram.map((s) => ({ ...s, outcome: null }));
@@ -94,6 +110,16 @@ export function Night() {
       ? "Aucune user story à lancer."
       : null;
   const count = shown.length;
+  const planned = open?.status === "planned";
+  // The end: the start (the night's, or the next start hour) and the total, when every story has an estimate.
+  const total = known.reduce((a, b) => a + b, 0);
+  const start = open
+    ? Math.max(Date.parse(open.startsAt), Date.now())
+    : hours.data && nextHour(hours.data.startHour);
+  const probableEnd =
+    start && known.length === count && count > 0
+      ? new Date(start + total * 1000)
+      : null;
 
   return (
     <main>
@@ -105,7 +131,7 @@ export function Night() {
         }
         rest={
           known.length > 0
-            ? `Durée estimée : ${duration(known.reduce((a, b) => a + b, 0))}${known.length < count ? " et plus" : ""}.`
+            ? `Durée estimée : ${duration(total)}${known.length < count ? " et plus" : ""}${probableEnd ? `, fin vers ${probableEnd.getHours()} h ${String(probableEnd.getMinutes()).padStart(2, "0")}` : ""}.`
             : undefined
         }
       />
@@ -135,7 +161,7 @@ export function Night() {
                       <span className="text-muted-foreground">
                         {s.project.name} · {duration(s.estimatedSeconds)}
                       </span>
-                      {open ? (
+                      {open && !planned ? (
                         <span className="ml-auto text-muted-foreground">
                           {s.outcome
                             ? (OUTCOMES[s.outcome] ?? s.outcome)
@@ -169,7 +195,7 @@ export function Night() {
                             aria-describedby={`night-${s.storyId}`}
                             className={iconButton}
                             onClick={() =>
-                              setOrder(program.filter((id) => id !== s.storyId))
+                              reorder(program.filter((id) => id !== s.storyId))
                             }
                           >
                             ✕
@@ -185,6 +211,13 @@ export function Night() {
                   )}
                 </ul>
               </section>
+              {morning && !open && (
+                <p>
+                  <Link to="/" className="font-semibold underline">
+                    Voir ce que Claude a fait cette nuit
+                  </Link>
+                </p>
+              )}
               {!open && (
                 <section aria-labelledby="peut-etre">
                   <h2 id="peut-etre" className={sectionLabel}>

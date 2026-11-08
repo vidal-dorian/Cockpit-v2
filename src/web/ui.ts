@@ -76,3 +76,17 @@ export const tabLink = ({ isActive }: { isActive: boolean }) =>
 /** A chip of a row that switches the view of a tab (« Modèle », « Règles · 34 »): the open one has an ink border. */
 export const chipLink = ({ isActive }: { isActive: boolean }) =>
   `inline-flex h-7 items-center rounded-full border px-2.5 text-[12.5px] font-semibold whitespace-nowrap ${focusRing} ${isActive ? "border-foreground bg-raised text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`;
+
+/** A row of a list card that holds a story and its buttons (the queue, the night). */
+export const row =
+  "flex min-h-[50px] flex-wrap items-center gap-x-3 px-[18px] py-2.5";
+
+/** A square button of such a row (↑ ↓ ✕). */
+export const iconButton = `grid size-[30px] place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
+
+/** The ids with the one at `at` moved by `by` places. */
+export function moved(ids: number[], at: number, by: number) {
+  const order = [...ids];
+  order.splice(at + by, 0, ...order.splice(at, 1));
+  return order;
+}

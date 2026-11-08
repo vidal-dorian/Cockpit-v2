@@ -527,6 +527,8 @@ export const nightItems = pgTable(
       .references(() => userStories.id),
     position: integer("position").notNull(),
     runId: integer("run_id").references(() => runs.id),
+    // The extra prompt of the night's one CI retry, waiting for the slot (decision 044 F'); null when none is waiting.
+    ciRetryComment: text("ci_retry_comment"),
     outcome: text("outcome", {
       enum: ["pr", "paused", "ci_failed", "failed", "skipped", "not_started"],
     }),

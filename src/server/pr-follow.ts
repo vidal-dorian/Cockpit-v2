@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import {
@@ -12,9 +12,10 @@ import {
 import { publish } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
+import { advance } from "./night.ts";
 import { APP_FILES_KEPT, isTestPath } from "./pr-files.ts";
 import { reserveStory } from "./queue.ts";
-import { entryOf, type Fire, launchCloud } from "./routines.ts";
+import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
 import type { memberStory } from "./stories.ts";
 
 type Found = NonNullable<Awaited<ReturnType<typeof memberStory>>>;
@@ -75,10 +76,10 @@ export async function followPullRequest(
   found: Found,
   userId: number,
   origin: "webhook" | "ui",
-  fire?: Fire,
+  fire?: LiveFire,
 ) {
   const { story, ticket, project } = found;
-  const at = new Date(fire?.now?.() ?? Date.now());
+  const at = fire ? new Date(fire.now()) : new Date();
   const prNumber = story.prNumber;
   if (prNumber === null) return;
   const ready = await readGitHub();
@@ -157,8 +158,8 @@ export async function followPullRequest(
       await tx.insert(history).values({ ...entry, result: "ok" });
     }
     // The count itself moves in the launch (a refused one costs nothing); the owner of the last run is the one who asked for Claude.
-    let relaunch: { by: number; branch: string; nightItemId?: number } | null =
-      null;
+    let relaunch: { by: number; branch: string } | null = null;
+    let retryNight: typeof nights.$inferSelect | null = null;
     if (
       fire &&
       pull.open &&
@@ -178,14 +179,23 @@ export async function followPullRequest(
         .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
+      // A story this night launched, while its night is not over (not one launched by hand, nor a night not started): its one retry (044 F').
       const [item] = await tx
         .select({
           id: nightItems.id,
+          night: nights,
           relaunched: sql<boolean>`exists (select 1 from cloud_launches where night_item_id = ${nightItems.id} and relaunch)`,
         })
         .from(nightItems)
         .innerJoin(nights, eq(nights.id, nightItems.nightId))
-        .where(and(eq(nightItems.storyId, story.id), gt(nights.endsAt, at)))
+        .where(
+          and(
+            eq(nightItems.storyId, story.id),
+            inArray(nights.status, ["running", "finished"]),
+            gt(nights.endsAt, at),
+            sql`exists (select 1 from cloud_launches where night_item_id = ${nightItems.id})`,
+          ),
+        )
         .orderBy(desc(nightItems.id))
         .limit(1);
       // A blocked owner is never launched for, as in the queue and the routines.
@@ -195,25 +205,28 @@ export async function followPullRequest(
             .update(nightItems)
             .set({ outcome: "ci_failed" })
             .where(eq(nightItems.id, item.id));
-        else if (item)
-          relaunch = {
-            by: last.userId,
-            branch: locked.branch,
-            nightItemId: item.id,
-          };
-        else if (last.on && locked.relaunchCount < MAX_RELAUNCHES)
+        else if (item) {
+          // The slot is the night's: its pass launches the retry when the run in progress is over.
+          await tx
+            .update(nightItems)
+            .set({ ciRetryComment: relaunchComment(prNumber, pull.checkRuns) })
+            .where(eq(nightItems.id, item.id));
+          retryNight = item.night;
+        } else if (last.on && locked.relaunchCount < MAX_RELAUNCHES)
           relaunch = { by: last.userId, branch: locked.branch };
       }
     }
-    return { transitioned: action !== null, relaunch };
+    return { transitioned: action !== null, relaunch, retryNight };
   });
   if (!outcome) return;
   // Also when a relaunch keeps its status: the issue still shows the one it had before the PR.
   if (outcome.transitioned) await syncIssue(db, readGitHub, userId, story.id);
   await publish(db, project.id, [`story:${story.id}`]);
+  if (fire && outcome.retryNight)
+    await advance(db, fire, outcome.retryNight, at);
   // After the commit, never inside it: `/fire` is a network call. A refusal (a run is active, the project is not ticked) writes its entry and nothing else.
   if (fire && outcome.relaunch) {
-    const { by, branch, nightItemId } = outcome.relaunch;
+    const { by, branch } = outcome.relaunch;
     await launchCloud(
       db,
       fire,
@@ -235,13 +248,11 @@ export async function followPullRequest(
           branch,
           comment: relaunchComment(prNumber, pull.checkRuns),
         });
-        // The night's one relaunch is not one of the 3 of the setting (044 F').
-        if (nightItemId === undefined)
-          await tx
-            .update(userStories)
-            .set({ relaunchCount: sql`${userStories.relaunchCount} + 1` })
-            .where(eq(userStories.id, story.id));
-        return { ...reserved, relaunch: true, nightItemId };
+        await tx
+          .update(userStories)
+          .set({ relaunchCount: sql`${userStories.relaunchCount} + 1` })
+          .where(eq(userStories.id, story.id));
+        return { ...reserved, relaunch: true };
       },
     );
   }

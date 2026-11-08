@@ -59,7 +59,15 @@ export async function reserveStory(
     team,
     comment,
     budgetUsd,
-  }: { branch: string; team?: string; comment?: string; budgetUsd?: number },
+    readyOnly,
+  }: {
+    branch: string;
+    team?: string;
+    comment?: string;
+    budgetUsd?: number;
+    // The queue and the night launch what is ready, never a story already in review (058 B, 044 D).
+    readyOnly?: boolean;
+  },
 ) {
   const [locked] = await tx
     .select()
@@ -67,7 +75,7 @@ export async function reserveStory(
     .where(eq(userStories.id, storyId))
     .for("update");
   if (!locked) throw new Refused("not_found");
-  if (!["ready", "in_review"].includes(locked.status))
+  if (!(readyOnly ? ["ready"] : ["ready", "in_review"]).includes(locked.status))
     throw new Refused("wrong_status");
   const [running] = await tx
     .select({ id: runs.id })
@@ -82,6 +90,42 @@ export async function reserveStory(
     .where(and(eq(cloudLaunches.storyId, storyId), pendingSince(at)));
   if (pending) throw new Refused("launch_pending");
   return { projectId, storyId, branch, team, comment, budgetUsd };
+}
+
+/** What a launch of the queue or of the night checks and writes: the user's row is the lock that gives the two one slot, whatever launches at the same time (pass, end of a run). */
+export async function reserveSlot(
+  tx: Tx,
+  userId: number,
+  at: Date,
+  story: {
+    id: number;
+    iWant: string;
+    branch: string | null;
+    projectId: number;
+  },
+  {
+    budgetUsd,
+    comment,
+    relaunch,
+  }: {
+    budgetUsd?: number;
+    comment?: string;
+    // The CI retry of the night: its story is in review.
+    relaunch?: boolean;
+  } = {},
+) {
+  await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .for("update");
+  if (await slotBusy(tx, userId, at)) throw new Refused("slot_busy");
+  return reserveStory(tx, at, story.id, story.projectId, {
+    branch: story.branch ?? proposedBranch(story),
+    budgetUsd,
+    comment,
+    readyOnly: !relaunch,
+  });
 }
 
 /** The queue of the user in order; `waiting` says why a story is skipped (decision 058 B, D). */
@@ -252,23 +296,15 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
       },
       at,
       [next.projectId],
-      async (tx) => {
-        // The user's row is the lock that gives the queue one slot, whatever launches at the same time (pass, end of a run).
-        await tx
-          .select({ id: users.id })
-          .from(users)
-          .where(eq(users.id, userId))
-          .for("update");
-        if (await slotBusy(tx, userId, at)) throw new Refused("queue_busy");
-        return {
-          ...(await reserveStory(tx, at, next.storyId, next.projectId, {
-            branch:
-              next.branch ??
-              proposedBranch({ id: next.storyId, iWant: next.iWant }),
-          })),
-          fromQueue: true,
-        };
-      },
+      async (tx) => ({
+        ...(await reserveSlot(tx, userId, at, {
+          id: next.storyId,
+          iWant: next.iWant,
+          branch: next.branch,
+          projectId: next.projectId,
+        })),
+        fromQueue: true,
+      }),
     );
     if (!("error" in launched))
       await db.delete(queueItems).where(eq(queueItems.storyId, next.storyId));

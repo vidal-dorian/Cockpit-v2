@@ -78,7 +78,7 @@ async function runningRuns(
 }
 
 /** The home of the user (decision 040 A to D): what waits for them, what Claude does, the state of each project; read in a few set-based queries, nothing stored. */
-export function homeRoutes(db: Db) {
+export function homeRoutes(db: Db, now: () => number) {
   return new Hono().get("/api/home", async (c) => {
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -258,7 +258,7 @@ export function homeRoutes(db: Db) {
     const forYouIn = new Set(forYou.map((i) => i.project.id));
     const claudeIn = new Set(running.map((r) => r.projectId));
     return c.json({
-      night: await morningOf(db, user.userId),
+      night: await morningOf(db, user.userId, new Date(now())),
       forYou,
       claudeWorks: running.map((r) => ({
         runId: r.runId,

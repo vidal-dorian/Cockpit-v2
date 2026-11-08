@@ -53,7 +53,7 @@ try {
 }
 // Started once the key is known good, so a failing start deletes nothing.
 schedulePurge(db);
-const fire = { encryptionKey, fireRoutine: fetch };
+const fire = { encryptionKey, fireRoutine: fetch, now: Date.now };
 scheduleRoutines(db, fire);
 scheduleDeliveries(db, {
   readInstance: instanceReader(db, encryptionKey),

@@ -75,6 +75,7 @@ export const ACTIONS: Record<string, string> = {
   resume_queue: "File reprise",
   plan_night: "Nuit programmée",
   cancel_night: "Nuit annulée",
+  reorder_night: "Nuit réordonnée",
   stop_night: "Nuit arrêtée",
   start_night: "Nuit commencée",
   finish_night: "Nuit finie",

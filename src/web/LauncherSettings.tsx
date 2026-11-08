@@ -21,7 +21,7 @@ export async function fetchLauncher() {
   return res.json();
 }
 
-async function fetchNightHours() {
+export async function fetchNightHours() {
   const res = await client.api.me["night-hours"].$get();
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
@@ -42,11 +42,17 @@ function NightStep() {
       const value = (key: string, saved: number | null) =>
         key in typed ? typed[key] : `${saved ?? ""}`;
       const night = value("night", budgets.data.nightUsd);
+      const [start, end] = [
+        value("start", hours.data.startHour),
+        value("end", hours.data.endHour),
+      ];
+      if (start === "" || end === "" || start === end)
+        throw new Error("Indique deux heures différentes, de 0 à 23.");
       const [put, caps] = await Promise.all([
         client.api.me["night-hours"].$put({
           json: {
-            startHour: Number(value("start", hours.data.startHour)),
-            endHour: Number(value("end", hours.data.endHour)),
+            startHour: Number(start),
+            endHour: Number(end),
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           },
         }),
@@ -77,6 +83,7 @@ function NightStep() {
         type="number"
         min="0"
         max={max}
+        required={max !== undefined}
         step={max === undefined ? "any" : 1}
         className={field}
         value={key in typed ? typed[key] : `${saved ?? ""}`}

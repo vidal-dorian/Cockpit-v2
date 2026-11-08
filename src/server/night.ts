@@ -5,6 +5,7 @@ import {
   eq,
   gt,
   inArray,
+  isNotNull,
   isNull,
   lte,
   notExists,
@@ -14,8 +15,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
-import { proposedBranch } from "./branch.ts";
-import { budgetsOf } from "./cost.ts";
+import { budgetsOf, systemStop } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
@@ -32,7 +32,8 @@ import {
   users,
 } from "./db/schema.ts";
 import { publish } from "./events.ts";
-import { changer, reserveStory, slotBusy } from "./queue.ts";
+import { isDatabaseId } from "./projects.ts";
+import { changer, reserveSlot, slotBusy } from "./queue.ts";
 import {
   entryOf,
   type Fire,
@@ -94,42 +95,59 @@ const STOPS_NIGHT = [
  * Launches the next story of a running night, unless a launch of the night or of the queue is in progress (D'); a story that cannot start is skipped (or `not_started` when `/fire` failed)
  * and the next is tried at once. The night finishes when nothing is left, the end hour has passed or its cap is reached. Never throws.
  */
-async function advance(
+export async function advance(
   db: Db,
   deps: Fire,
   night: typeof nights.$inferSelect,
   at: Date,
 ) {
   const { userId } = night;
+  const items = () =>
+    db
+      .select({
+        id: nightItems.id,
+        storyId: userStories.id,
+        iWant: userStories.iWant,
+        branch: userStories.branch,
+        projectId: tickets.projectId,
+        retry: nightItems.ciRetryComment,
+      })
+      .from(nightItems)
+      .innerJoin(userStories, eq(userStories.id, nightItems.storyId))
+      .innerJoin(tickets, eq(tickets.id, userStories.ticketId));
   try {
     for (;;) {
       if (await slotBusy(db, userId, at)) return;
-      const [next] = await db
-        .select({
-          id: nightItems.id,
-          storyId: userStories.id,
-          iWant: userStories.iWant,
-          branch: userStories.branch,
-          projectId: tickets.projectId,
-        })
-        .from(nightItems)
-        .innerJoin(userStories, eq(userStories.id, nightItems.storyId))
-        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+      // The CI retry of a story goes before the next story (044 F', D'), also once the night is finished (the CI answers late).
+      const [retry] = await items()
         .where(
           and(
             eq(nightItems.nightId, night.id),
-            isNull(nightItems.outcome),
-            notExists(
-              db
-                .select({ one: sql`1` })
-                .from(cloudLaunches)
-                .where(eq(cloudLaunches.nightItemId, nightItems.id)),
-            ),
+            isNotNull(nightItems.ciRetryComment),
           ),
         )
         .orderBy(asc(nightItems.position))
         .limit(1);
+      const [next] =
+        retry || night.status !== "running"
+          ? []
+          : await items()
+              .where(
+                and(
+                  eq(nightItems.nightId, night.id),
+                  isNull(nightItems.outcome),
+                  notExists(
+                    db
+                      .select({ one: sql`1` })
+                      .from(cloudLaunches)
+                      .where(eq(cloudLaunches.nightItemId, nightItems.id)),
+                  ),
+                ),
+              )
+              .orderBy(asc(nightItems.position))
+              .limit(1);
       const budgets = await budgetsOf(db, userId);
+      // shortcut: the cost is read when the run ends, and Claude Code's last points may come after; a night can overshoot its cap by that, upgrade by reading the cost again at the next pass.
       const [spent] = await db
         .select({
           usd: sql<number>`coalesce(sum(${cloudLaunches.costUsd}), 0)`,
@@ -141,8 +159,12 @@ async function advance(
         budgets.nightUsd === null
           ? null
           : budgets.nightUsd - Number(spent?.usd);
-      if (!next || at >= night.endsAt || (left !== null && left <= 0))
-        return await finishNight(db, night);
+      const target = retry ?? next;
+      const over = at >= night.endsAt || (left !== null && left <= 0);
+      if (!target || over) {
+        if (night.status === "running") await finishNight(db, night);
+        return;
+      }
       // The run is stopped when the night's cap is reached, as when its own cap is (060 D).
       const caps = [budgets.runUsd, left].filter((cap) => cap !== null);
       const launched = await launchCloud(
@@ -153,41 +175,53 @@ async function advance(
           userId,
           actor: "system",
           origin: "system",
-          storyId: next.storyId,
-          projectId: next.projectId,
-          args: { storyId: next.storyId },
+          storyId: target.storyId,
+          projectId: target.projectId,
+          args: { storyId: target.storyId },
         },
         at,
-        [next.projectId],
-        async (tx) => {
-          // The user's row is the lock that gives the night and the queue one slot, whatever launches at the same time.
-          await tx
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.id, userId))
-            .for("update");
-          if (await slotBusy(tx, userId, at)) throw new Refused("slot_busy");
-          return {
-            ...(await reserveStory(tx, at, next.storyId, next.projectId, {
-              branch:
-                next.branch ??
-                proposedBranch({ id: next.storyId, iWant: next.iWant }),
+        [target.projectId],
+        async (tx) => ({
+          ...(await reserveSlot(
+            tx,
+            userId,
+            at,
+            {
+              id: target.storyId,
+              iWant: target.iWant,
+              branch: target.branch,
+              projectId: target.projectId,
+            },
+            {
               budgetUsd: caps.length ? Math.min(...caps) : undefined,
-            })),
-            nightItemId: next.id,
-          };
-        },
+              comment: target.retry ?? undefined,
+              relaunch: retry !== undefined,
+            },
+          )),
+          nightItemId: target.id,
+          relaunch: retry !== undefined,
+        }),
       );
+      // One try only: the retry is spent whatever came of it.
+      if (retry)
+        await db
+          .update(nightItems)
+          .set({ ciRetryComment: null })
+          .where(eq(nightItems.id, retry.id));
       if (!("error" in launched) || launched.error === "slot_busy") return;
-      if (STOPS_NIGHT.includes(`${launched.error}`))
-        return await finishNight(db, night);
+      if (STOPS_NIGHT.includes(`${launched.error}`)) {
+        if (night.status === "running") await finishNight(db, night);
+        return;
+      }
       // `/fire` failing is not the story's fault; the other refusals (not ready any more, already running) skip it. No retry: `/fire` has no idempotence key (H').
-      await db
-        .update(nightItems)
-        .set({
-          outcome: launched.error === "fire_failed" ? "not_started" : "skipped",
-        })
-        .where(eq(nightItems.id, next.id));
+      if (!retry)
+        await db
+          .update(nightItems)
+          .set({
+            outcome:
+              launched.error === "fire_failed" ? "not_started" : "skipped",
+          })
+          .where(eq(nightItems.id, target.id));
     }
   } catch (error) {
     console.error(`Night ${night.id} failed:`, error);
@@ -222,8 +256,7 @@ export async function nightAfterRun(
               : "failed",
       })
       .where(eq(nightItems.id, ended.itemId));
-    if (ended.night.status === "running")
-      await advance(db, deps, ended.night, at);
+    await advance(db, deps, ended.night, at);
   } catch (error) {
     console.error(`Night after run ${runId} failed:`, error);
   }
@@ -350,16 +383,30 @@ async function estimates(db: Db, projectIds: number[]) {
   return new Map(rows.map((r) => [r.projectId, Math.round(r.seconds)]));
 }
 
-/** The morning of the home (decision 044 J): the last night, when it is finished and not hidden. */
-// shortcut: the block stays until « Masquer » or the next night is planned, not until the next evening; upgrade with the clock of the app if users ask.
-export async function morningOf(db: Db, userId: number) {
+/** The morning of the home (decision 044 J): the last night, when it is finished and not hidden, until the next start hour. */
+export async function morningOf(db: Db, userId: number, at: Date) {
   const [night] = await db
-    .select()
+    .select({
+      night: nights,
+      hour: users.nightStartHour,
+      zone: users.nightTimeZone,
+    })
     .from(nights)
+    .innerJoin(users, eq(users.id, nights.userId))
     .where(eq(nights.userId, userId))
     .orderBy(desc(nights.id))
     .limit(1);
-  if (night?.status !== "finished" || night.hiddenAt) return null;
+  if (
+    night?.night.status !== "finished" ||
+    night.night.hiddenAt ||
+    at >=
+      nextOccurrence(night.night.endsAt, {
+        routineHour: night.hour,
+        routineWeekday: null,
+        routineTimeZone: night.zone,
+      })
+  )
+    return null;
   const items = await db
     .select({
       storyId: userStories.id,
@@ -371,12 +418,12 @@ export async function morningOf(db: Db, userId: number) {
     .from(nightItems)
     .innerJoin(userStories, eq(userStories.id, nightItems.storyId))
     .leftJoin(runs, eq(runs.id, nightItems.runId))
-    .where(eq(nightItems.nightId, night.id))
+    .where(eq(nightItems.nightId, night.night.id))
     .orderBy(asc(nightItems.position));
   return {
-    id: night.id,
-    startsAt: night.startsAt,
-    endsAt: night.endsAt,
+    id: night.night.id,
+    startsAt: night.night.startsAt,
+    endsAt: night.night.endsAt,
     delivered: items.filter((i) => i.outcome === "pr").length,
     total: items.length,
     items,
@@ -415,11 +462,10 @@ async function assertPlannable(tx: Tx, userId: number, ids: number[]) {
 export function nightRoutes(db: Db, now: () => number) {
   const signed = signedIn(db);
   const change = changer(db);
-  const hoursBody = z.object({
-    startHour: hour,
-    endHour: hour,
-    timeZone,
-  });
+  // The same hour for both would be a night of 0 or 24 hours.
+  const hoursBody = z
+    .object({ startHour: hour, endHour: hour, timeZone })
+    .refine((h) => h.startHour !== h.endHour);
   const hoursOf = async (userId: number) => {
     const [user] = await db
       .select({
@@ -431,6 +477,12 @@ export function nightRoutes(db: Db, now: () => number) {
       .where(eq(users.id, userId));
     return user;
   };
+  const place = (tx: Tx, nightId: number, storyIds: number[]) =>
+    tx
+      .insert(nightItems)
+      .values(
+        storyIds.map((storyId, position) => ({ nightId, storyId, position })),
+      );
   const openNight = (userId: number) =>
     db
       .select()
@@ -586,13 +638,7 @@ export function nightRoutes(db: Db, now: () => number) {
                 : error;
             });
           if (!night) throw new Error("night not created");
-          await tx.insert(nightItems).values(
-            storyIds.map((storyId, position) => ({
-              nightId: night.id,
-              storyId,
-              position,
-            })),
-          );
+          await place(tx, night.id, storyIds);
           return { id: night.id };
         },
         201,
@@ -604,7 +650,7 @@ export function nightRoutes(db: Db, now: () => number) {
       return change(
         c,
         {
-          ...entryOf(userId, "plan_night"),
+          ...entryOf(userId, "reorder_night"),
           args: { stories: storyIds.length },
         },
         async (tx) => {
@@ -616,13 +662,7 @@ export function nightRoutes(db: Db, now: () => number) {
           if (!night) throw new Refused("night_not_planned");
           await assertPlannable(tx, userId, storyIds);
           await tx.delete(nightItems).where(eq(nightItems.nightId, night.id));
-          await tx.insert(nightItems).values(
-            storyIds.map((storyId, position) => ({
-              nightId: night.id,
-              storyId,
-              position,
-            })),
-          );
+          await place(tx, night.id, storyIds);
           return {};
         },
       );
@@ -639,44 +679,46 @@ export function nightRoutes(db: Db, now: () => number) {
         return {};
       });
     })
-    .post("/api/nights/current/stop", (c) => {
+    .post("/api/nights/current/stop", async (c) => {
       const userId = c.get("userId");
-      return change(c, entryOf(userId, "stop_night"), async (tx) => {
-        // The end hour is now: nothing new is launched, and the night finishes with its run in progress.
-        const [night] = await tx
-          .update(nights)
-          .set({ endsAt: new Date(now()) })
-          .where(and(eq(nights.userId, userId), eq(nights.status, "running")))
-          .returning({ id: nights.id });
-        if (!night) throw new Refused("night_not_running");
-        await tx
-          .update(runs)
-          .set({ stopRequestedAt: sql`now()` })
-          .where(
-            and(
-              eq(runs.status, "running"),
-              isNull(runs.stopRequestedAt),
-              inArray(
-                runs.id,
-                tx
-                  .select({ id: cloudLaunches.runId })
-                  .from(cloudLaunches)
-                  .innerJoin(
-                    nightItems,
-                    eq(nightItems.id, cloudLaunches.nightItemId),
-                  )
-                  .where(eq(nightItems.nightId, night.id)),
-              ),
-            ),
-          );
-        return {};
-      });
+      const stopped = await change(
+        c,
+        entryOf(userId, "stop_night"),
+        async (tx) => {
+          // The end hour is now: nothing new is launched, and the night finishes with its run in progress.
+          const [night] = await tx
+            .update(nights)
+            .set({ endsAt: new Date(now()) })
+            .where(and(eq(nights.userId, userId), eq(nights.status, "running")))
+            .returning({ id: nights.id });
+          if (!night) throw new Refused("night_not_running");
+          return { id: night.id };
+        },
+      );
+      if (stopped.status !== 200) return stopped;
+      // After the commit: the stop request is the one of 037 A, as for a cap.
+      const running = await db
+        .select({ runId: runs.id, projectId: cloudLaunches.projectId })
+        .from(cloudLaunches)
+        .innerJoin(nightItems, eq(nightItems.id, cloudLaunches.nightItemId))
+        .innerJoin(runs, eq(runs.id, cloudLaunches.runId))
+        .innerJoin(nights, eq(nights.id, nightItems.nightId))
+        .where(
+          and(
+            eq(nights.userId, userId),
+            eq(nights.status, "running"),
+            eq(runs.status, "running"),
+          ),
+        );
+      for (const r of running)
+        await systemStop(db, userId, r.projectId, r.runId, "night_stopped");
+      return stopped;
     })
     .post("/api/nights/:id/hide", (c) => {
       const userId = c.get("userId");
       const id = Number(c.req.param("id"));
       return change(c, entryOf(userId, "hide_night"), async (tx) => {
-        const hidden = Number.isSafeInteger(id)
+        const hidden = isDatabaseId(id)
           ? await tx
               .update(nights)
               .set({ hiddenAt: new Date(now()) })

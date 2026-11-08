@@ -39,12 +39,9 @@ export type FireRoutine = (
   url: string,
   init?: RequestInit,
 ) => Promise<Response>;
-/** `now` is the app's clock, for what runs outside a request (the end of a run, a webhook); absent in the pass, which has its own time. */
-export type Fire = {
-  encryptionKey: Buffer;
-  fireRoutine: FireRoutine;
-  now?: () => number;
-};
+export type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
+/** A `Fire` with the app's clock, for what launches outside the pass and outside a request's own clock (the end of a run, a webhook); the pass has its own time. */
+export type LiveFire = Fire & { now: () => number };
 
 const FIRE_TIMEOUT_MS = 10_000;
 const TICK_EVERY_MS = 60_000;

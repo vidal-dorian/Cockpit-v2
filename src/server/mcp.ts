@@ -40,7 +40,7 @@ import {
 import { memberProject, memberProjects } from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
 import { queueAfterRun } from "./queue.ts";
-import type { Fire } from "./routines.ts";
+import type { LiveFire } from "./routines.ts";
 import {
   activeRunId,
   finishRun,
@@ -87,7 +87,7 @@ type Call = {
   userId: number;
   entry: Entry;
   readGitHub: ReadGitHub;
-  deps: Fire;
+  deps: LiveFire;
 };
 
 /** Arguments that do not fit the schema of the tool; `fields` names the faulty ones, for Claude only (the history gets the fixed code). */
@@ -962,7 +962,7 @@ const tools = {
         call.db,
         call.deps,
         args.run_id,
-        new Date(call.deps.now?.() ?? Date.now()),
+        new Date(call.deps.now()),
       );
       return finished;
     },
@@ -1091,7 +1091,7 @@ export function mcpRoutes(
   readGitHub: ReadGitHub,
   readInstance: ReadInstance,
   version: string,
-  deps: Fire,
+  deps: LiveFire,
 ) {
   return (
     new Hono()

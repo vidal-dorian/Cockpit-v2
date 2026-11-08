@@ -28,7 +28,7 @@ import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
 import { isDatabaseId, memberProject } from "./projects.ts";
-import type { Fire } from "./routines.ts";
+import type { LiveFire } from "./routines.ts";
 import { storyRuns } from "./runs.ts";
 import {
   assertActive,
@@ -289,7 +289,7 @@ const presentStory = (story: Story, parts: Parts, fullName: string) => ({
 });
 
 /** Behind the gate of `projectRoutes` (503 before the session check), which also covers /api/stories/*. */
-export function storyRoutes(db: Db, readGitHub: ReadGitHub, fire: Fire) {
+export function storyRoutes(db: Db, readGitHub: ReadGitHub, fire: LiveFire) {
   /** The story as it is now (after the sync of its issue), for the answer of a decision. */
   const reread = async (id: number, fullName: string) => {
     const [story] = await db

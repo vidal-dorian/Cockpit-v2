@@ -1,0 +1,1 @@
+ALTER TABLE "night_items" ADD COLUMN "ci_retry_comment" text;

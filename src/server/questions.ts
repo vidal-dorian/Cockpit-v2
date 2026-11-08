@@ -7,7 +7,7 @@ import type { Db } from "./db/db.ts";
 import { questions, runs } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 import { reserveStory } from "./queue.ts";
-import { entryOf, type Fire, launchCloud } from "./routines.ts";
+import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
 import { announce, isUniqueViolation, lockRunning, ownRun } from "./runs.ts";
 import { memberStory } from "./stories.ts";
 import { body, noNul } from "./tickets.ts";
@@ -82,7 +82,7 @@ const answerBody = z.object({
 const CONFLICTS = ["already_answered", "run_finished", "project_archived"];
 
 /** Not behind the gate of `projectRoutes`: it never reads GitHub, like /api/runs/:id. The answer to the question of a paused night run relaunches its story by day (decision 044 E). */
-export function questionRoutes(db: Db, deps: Fire) {
+export function questionRoutes(db: Db, deps: LiveFire) {
   return new Hono().post(
     "/api/questions/:id/answer",
     body(answerBody),
@@ -143,13 +143,16 @@ export function questionRoutes(db: Db, deps: Fire) {
       const { answer } = c.req.valid("json");
       const { branch } = found.story;
       if (run.status === "paused" && branch) {
-        const at = new Date(deps.now?.() ?? Date.now());
-        await launchCloud(
+        const at = new Date(deps.now());
+        // The launcher is the owner of the run's, who may not be the one answering; the answer stays saved when the launch is refused.
+        const launched = await launchCloud(
           db,
           deps,
           {
-            ...entryOf(user.userId, "launch_story"),
-            userId: user.userId,
+            ...entryOf(run.userId, "launch_story"),
+            userId: run.userId,
+            actor: "system",
+            origin: "system",
             projectId: found.project.id,
             ticketId: found.ticket.id,
             storyId: found.story.id,
@@ -163,6 +166,8 @@ export function questionRoutes(db: Db, deps: Fire) {
               comment: `You asked: ${question}\nThe user answered: ${answer}`,
             }),
         );
+        if ("error" in launched)
+          return c.json({ error: launched.error }, launched.status);
       }
       return c.json({ question: { id, answer } });
     },

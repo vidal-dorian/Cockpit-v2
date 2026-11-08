@@ -112,7 +112,7 @@ export function createApp(
       .route("/", storyRoutes(db, readGitHub, fireDeps))
       .route("/", runRoutes(db, readGitHub, fireDeps, now))
       .route("/", questionRoutes(db, fireDeps))
-      .route("/", homeRoutes(db))
+      .route("/", homeRoutes(db, now))
       .route("/", claudeRoutes(db))
       .route("/", costRoutes(db, now))
       .route("/", routineRoutes(db, fireDeps, now))
