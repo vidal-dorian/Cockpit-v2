@@ -66,8 +66,11 @@ export function mcpRefusal(
   for (const [name, server] of Object.entries(parsed.mcpServers)) {
     const at = `mcpServers.${name}`;
     if (!isObject(server)) return secret(at);
-    const url = typeof server.url === "string" ? URL.parse(server.url) : null;
-    if (url?.username || url?.password) return secret(`${at}.url`);
+    const raw = typeof server.url === "string" ? server.url : "";
+    const url = URL.parse(raw);
+    // An address that does not parse is judged on its look: credentials before an @ (a "${MCP_URL}" has none).
+    if (url ? url.username || url.password : /\/\/[^/]*@/.test(raw))
+      return secret(`${at}.url`);
     for (const key of ["headers", "env"]) {
       const values = server[key];
       if (values === undefined) continue;

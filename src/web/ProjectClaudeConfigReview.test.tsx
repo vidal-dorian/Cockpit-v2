@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Review of slice 12.1: each chip starts from nothing, and the chips show before the read ends.
+// Review of slice 12.1: each chip starts from nothing.
 
 afterEach(() => {
   cleanup();

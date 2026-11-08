@@ -276,7 +276,7 @@ export function ProjectPage({
                             tab === "reglages"
                               ? `Réglages de ${name}.`
                               : tab === "agents" && fichier
-                                ? `Ce que Claude lit dans ${project?.fullName}.`
+                                ? `Ce que Claude lit dans ${project?.fullName ?? name}.`
                                 : tab === "agents"
                                   ? `Les agents et les équipes de ${name}.`
                                   : tab === "historique" && view === "delivered"

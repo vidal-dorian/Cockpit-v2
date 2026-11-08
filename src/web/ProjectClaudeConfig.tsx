@@ -492,8 +492,8 @@ export function ProjectClaudeConfig({
       {done && <DoneBox done={done} />}
       {data && unreadable && (
         <p className="mt-3">
-          Ce fichier ne se lit pas depuis Cockpit (lien symbolique ou trop gros)
-          : modifie-le sur GitHub.
+          Ce fichier est vide ou ne se lit pas depuis Cockpit (lien symbolique
+          ou trop gros) : modifie-le sur GitHub.
         </p>
       )}
       {data && !unreadable && fichier === "claude-md" && (

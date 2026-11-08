@@ -1,3 +1,4 @@
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: ${MCP_URL} is a reference, the data under test
 import { describe, expect, it } from "vitest";
 import { mcpRefusal } from "./health.ts";
 
@@ -12,6 +13,10 @@ describe("mcpRefusal on values that are not objects", () => {
     ],
     [{ mcpServers: [{ url: "https://x.test" }] }, "mcpServers"],
     [{ mcpServers: { a: "ghp_x" } }, "mcpServers.a"],
+    [
+      { mcpServers: { a: { url: "https://bob:ghp_x@exa mple.com/mcp" } } },
+      "mcpServers.a.url",
+    ],
   ])("given %j, then secret_in_clear at %s", (json, at) => {
     expect(mcpRefusal(JSON.stringify(json))).toEqual({
       error: "secret_in_clear",
@@ -21,6 +26,7 @@ describe("mcpRefusal on values that are not objects", () => {
 
   it("given no mcpServers or servers without headers and env, then it is accepted", () => {
     expect(mcpRefusal("{}")).toBeNull();
+    expect(mcpRefusal('{"mcpServers":{"a":{"url":"${MCP_URL}"}}}')).toBeNull();
     expect(mcpRefusal('{"mcpServers":{"a":{"command":"x"}}}')).toBeNull();
   });
 });
