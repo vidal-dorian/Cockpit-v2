@@ -97,7 +97,7 @@ export function getLaunch(
     if (!project || launch.storyId === null) throw new Refused("not_found");
     entry.projectId = project.id;
     entry.storyId = launch.storyId;
-    const command = `/dev-us ${launch.storyId} --branch ${launch.branch}${launch.team ? ` --team ${launch.team}` : ""} --launch ${launch.id}`;
+    const command = `/dev-us ${launch.storyId} --branch ${launch.branch}${launch.team ? ` --team ${launch.team}` : ""} --launch ${launch.id}${launch.nightItemId === null ? "" : " --night"}`;
     return {
       launch_id: launch.id,
       kind: "story" as const,

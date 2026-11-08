@@ -4,8 +4,10 @@ import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { questions, runs } from "./db/schema.ts";
+import { questions, runs, users } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
+import { reserveStory } from "./queue.ts";
+import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
 import { announce, isUniqueViolation, lockRunning, ownRun } from "./runs.ts";
 import { memberStory } from "./stories.ts";
 import { body, noNul } from "./tickets.ts";
@@ -79,8 +81,8 @@ const answerBody = z.object({
 
 const CONFLICTS = ["already_answered", "run_finished", "project_archived"];
 
-/** Not behind the gate of `projectRoutes`: it never reads GitHub, like /api/runs/:id. */
-export function questionRoutes(db: Db) {
+/** Not behind the gate of `projectRoutes`: it never reads GitHub, like /api/runs/:id. The answer to the question of a paused night run relaunches its story by day (decision 044 E). */
+export function questionRoutes(db: Db, deps: LiveFire) {
   return new Hono().post(
     "/api/questions/:id/answer",
     body(answerBody),
@@ -110,17 +112,22 @@ export function questionRoutes(db: Db) {
         storyId: found.story.id,
         runId: run.id,
       };
+      let question = "";
       try {
         await act(db, entry, async (tx) => {
-          await lockRunning(tx, found.project.id, run.id);
+          await lockRunning(tx, found.project.id, run.id, [
+            "running",
+            "paused",
+          ]);
           // Locked, so two answers cannot both win.
           const [locked] = await tx
-            .select({ answer: questions.answer })
+            .select({ answer: questions.answer, question: questions.question })
             .from(questions)
             .where(eq(questions.id, id))
             .for("update");
           if (!locked) throw new Refused("not_found");
           if (locked.answer !== null) throw new Refused("already_answered");
+          question = locked.question;
           await tx
             .update(questions)
             .set({ answer: c.req.valid("json").answer, answeredAt: sql`now()` })
@@ -133,7 +140,44 @@ export function questionRoutes(db: Db) {
           : c.json({ error: "Not found" }, 404);
       }
       await announce(db, found, run.id);
-      return c.json({ question: { id, answer: c.req.valid("json").answer } });
+      const { answer } = c.req.valid("json");
+      const { branch } = found.story;
+      // A blocked owner is never launched for, as in the queue and the routines.
+      const [owner] = await db
+        .select({ blockedAt: users.blockedAt })
+        .from(users)
+        .where(eq(users.id, run.userId));
+      if (run.status === "paused" && branch && !owner?.blockedAt) {
+        const at = new Date(deps.now());
+        // The launcher is the owner of the run's, who may not be the one answering; the answer stays saved when the launch is refused.
+        const launched = await launchCloud(
+          db,
+          deps,
+          {
+            ...entryOf(run.userId, "launch_story"),
+            userId: run.userId,
+            actor: "system",
+            origin: "system",
+            projectId: found.project.id,
+            ticketId: found.ticket.id,
+            storyId: found.story.id,
+            args: { storyId: found.story.id },
+          },
+          at,
+          [found.project.id],
+          (tx) =>
+            reserveStory(tx, at, found.story.id, found.project.id, {
+              branch,
+              comment: `You asked: ${question}\nThe user answered: ${answer}`,
+            }),
+        );
+        if ("error" in launched)
+          return c.json(
+            { error: launched.error, answerSaved: true },
+            launched.status,
+          );
+      }
+      return c.json({ question: { id, answer } });
     },
   );
 }

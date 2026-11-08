@@ -20,6 +20,7 @@ import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { issueImportRoutes } from "./issue-import.ts";
 import { launcherRoutes } from "./launcher.ts";
 import { mcpRoutes } from "./mcp.ts";
+import { nightRoutes } from "./night.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
 import { questionRoutes } from "./questions.ts";
@@ -87,7 +88,7 @@ export function createApp(
 ) {
   const readInstance = instanceReader(db, encryptionKey);
   const readGitHub = githubReader(readInstance);
-  const fireDeps = { encryptionKey, fireRoutine };
+  const fireDeps = { encryptionKey, fireRoutine, now };
   return (
     new Hono()
       // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
@@ -134,13 +135,14 @@ export function createApp(
       .route("/", storyRoutes(db, readGitHub, fireDeps))
       .route("/", changelogRoutes(db, readGitHub))
       .route("/", runRoutes(db, readGitHub, fireDeps, now))
-      .route("/", questionRoutes(db))
-      .route("/", homeRoutes(db))
+      .route("/", questionRoutes(db, fireDeps))
+      .route("/", homeRoutes(db, now))
       .route("/", claudeRoutes(db))
       .route("/", costRoutes(db, now))
       .route("/", routineRoutes(db, fireDeps, now))
       .route("/", launcherRoutes(db, fireDeps, now))
       .route("/", queueRoutes(db))
+      .route("/", nightRoutes(db, now))
       .route("/", customRoutineRoutes(db, fireDeps, now))
       // Outside /api: Claude Code's exporter has no session and its own 1 MiB limit (decision 060 A).
       .route("/", metricsRoutes(db))

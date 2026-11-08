@@ -3,7 +3,16 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { StateSentence } from "./Shell.tsx";
-import { alertBox, button, focusRing, listCard, sectionLabel } from "./ui.ts";
+import {
+  alertBox,
+  button,
+  focusRing,
+  iconButton,
+  listCard,
+  moved,
+  row,
+  sectionLabel,
+} from "./ui.ts";
 
 async function fetchClaude() {
   const res = await client.api.claude.$get();
@@ -24,8 +33,6 @@ const PAUSES: Record<string, string> = {
   no_session:
     "Une session n'a pas démarré en 15 minutes : vérifie le lanceur, puis reprends.",
 };
-const row = "flex min-h-[50px] flex-wrap items-center gap-x-3 px-[18px] py-2.5";
-const iconButton = `grid size-[30px] place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
 
 /** Decision 058 F: the page « Claude », what Claude does now and the queue of stories it launches one by one. */
 export function Claude() {
@@ -45,11 +52,10 @@ export function Claude() {
   });
   const items = queue.data?.items ?? [];
   const ids = items.map((i) => i.storyId);
-  const move = (at: number, by: number) => {
-    const order = [...ids];
-    order.splice(at + by, 0, ...order.splice(at, 1));
-    change.mutate(() => client.api.queue.$put({ json: { storyIds: order } }));
-  };
+  const move = (at: number, by: number) =>
+    change.mutate(() =>
+      client.api.queue.$put({ json: { storyIds: moved(ids, at, by) } }),
+    );
   const running = claude.data?.running ?? [];
   const pausedFor = queue.data?.pausedReason;
 

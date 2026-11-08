@@ -4,6 +4,7 @@ import {
   eq,
   gt,
   inArray,
+  isNotNull,
   isNull,
   lte,
   ne,
@@ -18,6 +19,7 @@ import type { Db } from "./db/db.ts";
 import {
   cloudLaunches,
   history,
+  nights,
   projectMembers,
   projects,
   queueItems,
@@ -27,6 +29,7 @@ import {
   userStories,
   users,
 } from "./db/schema.ts";
+import { nightAfterRun, retryWaiting } from "./night.ts";
 import { isDatabaseId } from "./projects.ts";
 import { entryOf, type Fire, launchCloud, signedIn } from "./routines.ts";
 import { isUniqueViolation } from "./runs.ts";
@@ -56,7 +59,15 @@ export async function reserveStory(
     team,
     comment,
     budgetUsd,
-  }: { branch: string; team?: string; comment?: string; budgetUsd?: number },
+    readyOnly,
+  }: {
+    branch: string;
+    team?: string;
+    comment?: string;
+    budgetUsd?: number;
+    // The queue and the night launch what is ready, never a story already in review (058 B, 044 D).
+    readyOnly?: boolean;
+  },
 ) {
   const [locked] = await tx
     .select()
@@ -64,7 +75,7 @@ export async function reserveStory(
     .where(eq(userStories.id, storyId))
     .for("update");
   if (!locked) throw new Refused("not_found");
-  if (!["ready", "in_review"].includes(locked.status))
+  if (!(readyOnly ? ["ready"] : ["ready", "in_review"]).includes(locked.status))
     throw new Refused("wrong_status");
   const [running] = await tx
     .select({ id: runs.id })
@@ -79,6 +90,42 @@ export async function reserveStory(
     .where(and(eq(cloudLaunches.storyId, storyId), pendingSince(at)));
   if (pending) throw new Refused("launch_pending");
   return { projectId, storyId, branch, team, comment, budgetUsd };
+}
+
+/** What a launch of the queue or of the night checks and writes: the user's row is the lock that gives the two one slot, whatever launches at the same time (pass, end of a run). */
+export async function reserveSlot(
+  tx: Tx,
+  userId: number,
+  at: Date,
+  story: {
+    id: number;
+    iWant: string;
+    branch: string | null;
+    projectId: number;
+  },
+  {
+    budgetUsd,
+    comment,
+    relaunch,
+  }: {
+    budgetUsd?: number;
+    comment?: string;
+    // The CI retry of the night: its story is in review.
+    relaunch?: boolean;
+  } = {},
+) {
+  await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .for("update");
+  if (await slotBusy(tx, userId, at)) throw new Refused("slot_busy");
+  return reserveStory(tx, at, story.id, story.projectId, {
+    branch: story.branch ?? proposedBranch(story),
+    budgetUsd,
+    comment,
+    readyOnly: !relaunch,
+  });
 }
 
 /** The queue of the user in order; `waiting` says why a story is skipped (decision 058 B, D). */
@@ -186,8 +233,8 @@ const STOPS_QUEUE = [
   "monthly_budget_reached",
 ];
 
-/** A launch of the queue is in progress while its run runs or, with no run yet, for 15 minutes (058 C). */
-async function slotBusy(db: Db, userId: number, at: Date) {
+/** A launch of the queue or of the night is in progress while its run runs or, with no run yet, for 15 minutes (058 C, 044 D'): the two share the one slot. */
+export async function slotBusy(db: Db, userId: number, at: Date) {
   const [inProgress] = await db
     .select({ id: cloudLaunches.id })
     .from(cloudLaunches)
@@ -195,7 +242,10 @@ async function slotBusy(db: Db, userId: number, at: Date) {
     .where(
       and(
         eq(cloudLaunches.userId, userId),
-        eq(cloudLaunches.fromQueue, true),
+        or(
+          eq(cloudLaunches.fromQueue, true),
+          isNotNull(cloudLaunches.nightItemId),
+        ),
         or(
           eq(runs.status, "running"),
           and(
@@ -224,7 +274,17 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
         ),
       );
     if (!user) return;
-    if (await slotBusy(db, userId, at)) return;
+    // The night has the launcher to itself, and so has the CI retry it is waiting to launch (044 D', F').
+    const [night] = await db
+      .select({ id: nights.id })
+      .from(nights)
+      .where(
+        and(
+          eq(nights.userId, userId),
+          or(eq(nights.status, "running"), retryWaiting),
+        ),
+      );
+    if (night || (await slotBusy(db, userId, at))) return;
     const next = (await readItems(db, userId, at)).find((i) => !i.waiting);
     if (!next) return;
     const launched = await launchCloud(
@@ -241,23 +301,15 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
       },
       at,
       [next.projectId],
-      async (tx) => {
-        // The user's row is the lock that gives the queue one slot, whatever launches at the same time (pass, end of a run).
-        await tx
-          .select({ id: users.id })
-          .from(users)
-          .where(eq(users.id, userId))
-          .for("update");
-        if (await slotBusy(tx, userId, at)) throw new Refused("queue_busy");
-        return {
-          ...(await reserveStory(tx, at, next.storyId, next.projectId, {
-            branch:
-              next.branch ??
-              proposedBranch({ id: next.storyId, iWant: next.iWant }),
-          })),
-          fromQueue: true,
-        };
-      },
+      async (tx) => ({
+        ...(await reserveSlot(tx, userId, at, {
+          id: next.storyId,
+          iWant: next.iWant,
+          branch: next.branch,
+          projectId: next.projectId,
+        })),
+        fromQueue: true,
+      }),
     );
     if (!("error" in launched))
       await db.delete(queueItems).where(eq(queueItems.storyId, next.storyId));
@@ -297,13 +349,14 @@ export async function runQueues(db: Db, deps: Fire, now: Date) {
   }
 }
 
-/** After a run ends (058 C, E): the end of a queue run that did not succeed pauses the queue of the owner of the launch, a success starts their next story at once. Never throws. */
+/** After a run ends (058 C, E): the night goes on first (044 D); the end of a queue run that did not succeed pauses the queue of the owner of the launch, a success starts their next story at once. Never throws. */
 export async function queueAfterRun(
   db: Db,
   deps: Fire,
   runId: number,
   at: Date,
 ) {
+  await nightAfterRun(db, deps, runId, at);
   try {
     const [ended] = await db
       .select({ status: runs.status, userId: cloudLaunches.userId })
@@ -325,11 +378,10 @@ const reorderBody = z.object({
   storyIds: z.array(z.number().int().positive()).max(1000),
 });
 
-/** The queue of the user (decision 058 B): read, add, remove, reorder, pause, resume. */
-export function queueRoutes(db: Db) {
-  const signed = signedIn(db);
-  /** One `act` of a queue action; a refusal is the 409 of its code (a missing story is the 404). */
-  const change = async (
+/** One `act` of a queue or night action; a refusal is the 409 of its code (a missing story is the 404). */
+export const changer =
+  (db: Db) =>
+  async (
     c: Context,
     entry: ReturnType<typeof entryOf>,
     work: Parameters<typeof act>[2],
@@ -346,6 +398,11 @@ export function queueRoutes(db: Db) {
           : c.json({ error: error.message }, 409);
     }
   };
+
+/** The queue of the user (decision 058 B): read, add, remove, reorder, pause, resume. */
+export function queueRoutes(db: Db) {
+  const signed = signedIn(db);
+  const change = changer(db);
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/queue/*", signed)
     .use("/api/queue", signed)

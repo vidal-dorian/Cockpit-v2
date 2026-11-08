@@ -137,8 +137,13 @@ export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
   return found;
 }
 
-/** Checks the project and locks the run, which must still run; answers it as locked. */
-export async function lockRunning(tx: Tx, projectId: number, runId: number) {
+/** Checks the project and locks the run, which must still run (or be paused, for the answer to its question: decision 044 E); answers it as locked. */
+export async function lockRunning(
+  tx: Tx,
+  projectId: number,
+  runId: number,
+  statuses: string[] = ["running"],
+) {
   await assertActive(tx, projectId);
   const [run] = await tx
     .select()
@@ -146,7 +151,7 @@ export async function lockRunning(tx: Tx, projectId: number, runId: number) {
     .where(eq(runs.id, runId))
     .for("update");
   if (!run) throw new Refused("not_found");
-  if (run.status !== "running") throw new Refused("run_finished");
+  if (!statuses.includes(run.status)) throw new Refused("run_finished");
   return run;
 }
 
@@ -298,7 +303,7 @@ export async function linkPullRequest(
 }
 
 /** Ends a locked running run (decisions 033 D and 037 B, C): open steps close failed, and a story still in_progress goes back to in_review when it has a PR, else to ready. True when the story moved. */
-async function endRun(
+export async function endRun(
   tx: Tx,
   runId: number,
   storyId: number,
@@ -325,13 +330,17 @@ async function endRun(
   return changed.length > 0;
 }
 
-/** `finish_run` (decisions 033 D, 035 D and 037 C): success needs a linked PR; a failure after a stop request is `stopped`. */
+/** `finish_run` (decisions 033 D, 035 D, 037 C and 044 E): success needs a linked PR; a failure after a stop request is `stopped`; `paused` waits for the answer to a question. */
 export async function finishRun(
   db: Db,
   userId: number,
   readGitHub: ReadGitHub,
   entry: Entry,
-  args: { run_id: number; outcome: "succeeded" | "failed"; summary: string },
+  args: {
+    run_id: number;
+    outcome: "succeeded" | "failed" | "paused";
+    summary: string;
+  },
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
   const { moved, status } = await act(db, entry, async (tx) => {

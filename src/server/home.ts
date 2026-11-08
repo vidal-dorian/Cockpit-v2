@@ -14,6 +14,7 @@ import {
   tickets,
   userStories,
 } from "./db/schema.ts";
+import { morningOf } from "./night.ts";
 import { MAX_RELAUNCHES } from "./pr-follow.ts";
 import { runVerdict } from "./verdict.ts";
 
@@ -31,8 +32,12 @@ const project = (r: { projectId: number; projectName: string }) => ({
 const mineOf = (userId: number) =>
   and(eq(projectMembers.userId, userId), isNull(projects.archivedAt));
 
-/** The running runs of the user's projects, each with its pending question and its open step; shared by the home and the page « Claude » (decision 058 F). */
-async function runningRuns(db: Db, userId: number) {
+/** The runs of the user's projects that run (or are paused, decision 044 E), each with its pending question and its open step; shared by the home and the page « Claude » (decision 058 F). */
+async function runningRuns(
+  db: Db,
+  userId: number,
+  status: "running" | "paused" = "running",
+) {
   const running = await db
     .select({
       ...storyColumns,
@@ -51,7 +56,7 @@ async function runningRuns(db: Db, userId: number) {
       questions,
       and(eq(questions.runId, runs.id), isNull(questions.answer)),
     )
-    .where(and(mineOf(userId), eq(runs.status, "running")))
+    .where(and(mineOf(userId), eq(runs.status, status)))
     .orderBy(asc(runs.id));
   const steps = running.length
     ? await db
@@ -73,7 +78,7 @@ async function runningRuns(db: Db, userId: number) {
 }
 
 /** The home of the user (decision 040 A to D): what waits for them, what Claude does, the state of each project; read in a few set-based queries, nothing stored. */
-export function homeRoutes(db: Db) {
+export function homeRoutes(db: Db, now: () => number) {
   return new Hono().get("/api/home", async (c) => {
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -202,25 +207,27 @@ export function homeRoutes(db: Db) {
           ]
         : [],
     );
+    // The question of a paused run (044 E) is the first thing to answer: its story waits.
+    const answerOf = (r: (typeof running)[number]) =>
+      r.questionId === null || r.question === null
+        ? []
+        : [
+            {
+              kind: "answer" as const,
+              questionId: r.questionId,
+              question: r.question,
+              suggestedAnswers: r.suggestedAnswers,
+              askedAt: r.askedAt,
+              runId: r.runId,
+              storyId: r.storyId,
+              iWant: r.iWant,
+              project: project(r),
+            },
+          ];
     const forYou = [
+      ...(await runningRuns(db, user.userId, "paused")).flatMap(answerOf),
       ...exhausted,
-      ...running.flatMap((r) =>
-        r.questionId === null || r.question === null
-          ? []
-          : [
-              {
-                kind: "answer" as const,
-                questionId: r.questionId,
-                question: r.question,
-                suggestedAnswers: r.suggestedAnswers,
-                askedAt: r.askedAt,
-                runId: r.runId,
-                storyId: r.storyId,
-                iWant: r.iWant,
-                project: project(r),
-              },
-            ],
-      ),
+      ...running.flatMap(answerOf),
       ...toValidate.map((w) => ({
         kind: "validate" as const,
         storyId: w.storyId,
@@ -251,6 +258,7 @@ export function homeRoutes(db: Db) {
     const forYouIn = new Set(forYou.map((i) => i.project.id));
     const claudeIn = new Set(running.map((r) => r.projectId));
     return c.json({
+      night: await morningOf(db, user.userId, new Date(now())),
       forYou,
       claudeWorks: running.map((r) => ({
         runId: r.runId,

@@ -5,7 +5,7 @@ description: Develop one user story of Cockpit from start to pull request. Use w
 
 # Develop a user story
 
-The message is `/dev-us <story_id> [--branch <name>] [--team <name>] [--launch <id>]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
+The message is `/dev-us <story_id> [--branch <name>] [--team <name>] [--launch <id>] [--night]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
 
 The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, the `cockpit` MCP server is not connected: tell the user and stop.
 
@@ -66,6 +66,10 @@ When `report_step` or `get_answer` answers `stop_requested: true`, the user aske
 When a choice belongs to the user (a name, a trade-off, a scope you cannot settle from the story and the notes), never guess: call `mcp__cockpit__ask_user` with the `run_id` and the question, plus at most two `suggested_answers` when the choices are obvious. It answers at once. Keep working on what does not depend on the answer, then call `mcp__cockpit__get_answer` with the `question_id` after 30 seconds, after 1 minute, after 2 minutes, then every 5 minutes (each call is journaled: never poll faster). Resume with the answer as soon as `answered` is true.
 
 Give each agent the story, its criteria and the notes. Commit as you go, in small commits that follow the conventions of the repository.
+
+## At night (`--night`)
+
+With `--night`, nobody is there to answer: never wait for an answer. When a choice belongs to the user, call `mcp__cockpit__ask_user` as above, then do not poll `get_answer`. Commit and push what is done on the branch (push only to the branch of the run), call `mcp__cockpit__finish_run` with `outcome` `paused` and a `summary` of what is done and what the question blocks, and stop. Cockpit relaunches the story on the same branch, by day, with the question and the answer as the extra prompt. A run that needs no question finishes as usual.
 
 ## Finish
 

@@ -68,6 +68,7 @@
 - **Fait** : tranche 14.4 (la relance automatique, [décision 059](decisions/059-relance-automatique.md)).
 - **Fait** : tranche 14.5 (le coût et le budget, [décision 060](decisions/060-cout-et-budget.md)).
 - **Fait** : tranche 11.4 (les pièces jointes, [décision 061](decisions/061-pieces-jointes.md)).
+- **Fait** : tranche 14.6 (la nuit de Claude, [décision 044](decisions/044-la-nuit-de-claude.md)) ; la phase 14 est terminée.
 - **Fait** : tranche 11.5 (après le merge : le changelog et les branches à nettoyer, [décision 062](decisions/062-apres-le-merge.md)). La phase 11 est faite, sauf la 11.6, qui attend Dorian.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).

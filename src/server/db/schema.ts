@@ -40,6 +40,10 @@ export const users = pgTable("users", {
   budgetRunUsd: doublePrecision("budget_run_usd"),
   budgetNightUsd: doublePrecision("budget_night_usd"),
   budgetMonthUsd: doublePrecision("budget_month_usd"),
+  // The hours of the night of Claude, in the browser's time zone when chosen (decision 044 C').
+  nightStartHour: integer("night_start_hour").notNull().default(22),
+  nightEndHour: integer("night_end_hour").notNull().default(7),
+  nightTimeZone: text("night_time_zone").notNull().default("UTC"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -388,6 +392,8 @@ export const RUN_STATUSES = [
   "failed",
   "stopped",
   "closed_manually",
+  // The run asked a question at night and stopped to wait for the answer (decision 044 E).
+  "paused",
 ] as const;
 const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
 
@@ -421,7 +427,7 @@ export const runs = pgTable(
       .where(sql`${t.status} = 'running'`),
     check(
       "runs_status_check",
-      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually')`,
+      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually', 'paused')`,
     ),
   ],
 );
@@ -483,6 +489,8 @@ export const cloudLaunches = pgTable(
     costUsd: doublePrecision("cost_usd").notNull().default(0),
     tokens: bigint("tokens", { mode: "number" }).notNull().default(0),
     budgetUsd: doublePrecision("budget_usd"),
+    // The item of the night this launch is for, the CI relaunch of a night story included (decision 044 D', F').
+    nightItemId: integer("night_item_id").references(() => nightItems.id),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -491,6 +499,66 @@ export const cloudLaunches = pgTable(
     check(
       "cloud_launches_story_xor_routine",
       sql`(${t.storyId} is null) <> (${t.routineId} is null)`,
+    ),
+  ],
+);
+
+/** The night of Claude of a user (decision 044 I): a user has one planned or running night at a time. */
+export const nights = pgTable(
+  "nights",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    startsAt: timestamp("starts_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    endsAt: timestamp("ends_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    status: text("status", {
+      enum: ["planned", "running", "finished", "cancelled"],
+    }).notNull(),
+    // « Masquer » on the morning block of the home.
+    hiddenAt: timestamp("hidden_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => [
+    uniqueIndex("nights_one_open_per_user_idx")
+      .on(t.userId)
+      .where(sql`${t.status} in ('planned', 'running')`),
+    check(
+      "nights_status_check",
+      sql`${t.status} in ('planned', 'running', 'finished', 'cancelled')`,
+    ),
+  ],
+);
+
+/** A story of a night, in its place; `outcome` is null until the story's turn is over (decision 044 I). */
+export const nightItems = pgTable(
+  "night_items",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    nightId: integer("night_id")
+      .notNull()
+      .references(() => nights.id),
+    storyId: integer("story_id")
+      .notNull()
+      .references(() => userStories.id),
+    position: integer("position").notNull(),
+    runId: integer("run_id").references(() => runs.id),
+    // The extra prompt of the night's one CI retry, waiting for the slot (decision 044 F'); null when none is waiting.
+    ciRetryComment: text("ci_retry_comment"),
+    outcome: text("outcome", {
+      enum: ["pr", "paused", "ci_failed", "failed", "skipped", "not_started"],
+    }),
+  },
+  (t) => [
+    check(
+      "night_items_outcome_check",
+      sql`${t.outcome} in ('pr', 'paused', 'ci_failed', 'failed', 'skipped', 'not_started')`,
     ),
   ],
 );
