@@ -43,7 +43,7 @@ const ANALYSIS_AGENTS = [
 ];
 
 /** An agent being edited: `before` is the text read (null for an addition), `base` the text the form starts from. */
-type Editing = { name: string; before: string | null; base: string };
+export type Editing = { name: string; before: string | null; base: string };
 type Done = { url: string; pullRequest: boolean };
 
 async function fetchAgents(id: string) {
@@ -52,14 +52,17 @@ async function fetchAgents(id: string) {
   return { data: await res.json() };
 }
 
-function AgentForm({
+export function AgentForm({
   editing,
+  path,
   archived,
   pending,
   onCommit,
   onClose,
 }: {
   editing: Editing;
+  /** The file the form writes, shown beside the diff. */
+  path: string;
   archived: boolean;
   pending: boolean;
   onCommit: (after: string | null) => void;
@@ -154,9 +157,7 @@ function AgentForm({
                 {after}
               </pre>
             )}
-            <span className="text-[12.5px] text-muted-foreground">
-              .claude/agents/{name}.md
-            </span>
+            <span className="text-[12.5px] text-muted-foreground">{path}</span>
           </div>
         </div>
       ) : (
@@ -229,7 +230,7 @@ function AgentForm({
   );
 }
 
-function AddAgent({
+export function AddAgent({
   taken,
   catalog,
   onContinue,
@@ -533,6 +534,7 @@ export function ProjectAgents({
               // The text too: opening an agent again after a re-read starts from the new text, not from stale fields.
               key={`${editing.name}\n${editing.before}`}
               editing={editing}
+              path={`.claude/agents/${editing.name}.md`}
               archived={archived}
               pending={commit.isPending}
               onClose={() => setEditing(null)}

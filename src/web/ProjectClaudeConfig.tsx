@@ -65,7 +65,7 @@ function refusal(problem: Failure) {
 }
 
 /** A text, its diff and the commit (decision 065 E); `left` is where the text is typed. */
-function Editor({
+export function Editor({
   before,
   after,
   valid = true,
@@ -208,14 +208,17 @@ function TextEditor({
   );
 }
 
-function SkillEditor({
+export function SkillEditor({
   open,
   taken,
+  dir = ".claude/skills",
   onCommit,
   ...rest
 }: Omit<EditorProps, "onCommit"> & {
   open: Open;
   taken: string[];
+  /** Where the skills live, `.claude/skills` in a repo. */
+  dir?: string;
   /** The name is the one typed when the skill is new. */
   onCommit: (after: string | null, name: string) => void;
 }) {
@@ -243,7 +246,7 @@ function SkillEditor({
         (open.name !== undefined || validName(name, taken)) &&
         fields.description.trim() !== ""
       }
-      file={`.claude/skills/${name || "<nom>"}/SKILL.md`}
+      file={`${dir}/${name || "<nom>"}/SKILL.md`}
       deleteLabel="Supprimer le skill"
       onCommit={(after) => onCommit(after, name)}
       onReset={() => setFields(initial)}

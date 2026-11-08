@@ -34,6 +34,8 @@ export const users = pgTable("users", {
   queuePausedReason: text("queue_paused_reason", {
     enum: ["launch_failed", "run_failed", "no_session"],
   }),
+  // The repo of plugins shared by every project, `owner/name` (decision 066 B); null when none is linked.
+  pluginRepo: text("plugin_repo"),
   // Cockpit relaunches Claude when the CI of a PR fails (decision 059 A).
   autoRelaunch: boolean("auto_relaunch").notNull().default(false),
   // The caps in dollars, all optional (decision 060 C).
