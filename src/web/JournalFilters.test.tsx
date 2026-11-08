@@ -667,3 +667,55 @@ describe("Journal, two projects with the same repo name (decision 053 F, review)
     ).toContain("bob/app");
   });
 });
+
+describe("Journal, the box follows the address and loading hides Afficher plus (decision 053 F, review)", () => {
+  // Pinned: the search box shows the `q` of the address at all times (history back, a link to /journal), and while the results of a new filter load
+  // (the previous list is kept) the « Afficher plus » button is not offered.
+  const box = () =>
+    within(main()).getByPlaceholderText("Chercher…") as HTMLInputElement;
+  const go = (path: string) => {
+    window.history.pushState({}, "", path);
+    fireEvent(window, new PopStateEvent("popstate"));
+  };
+
+  it("given the page open on /journal?q=first, when the address becomes /journal?q=other, then the box reads other and the request carries it", async () => {
+    const { requests } = stubJournal(() => ({ entries: [entry(1)] }));
+    renderAt("/journal?q=first");
+    await loaded();
+    expect(box().value).toBe("first");
+
+    go("/journal?q=other");
+
+    await waitFor(() => expect(box().value).toBe("other"));
+    await waitFor(() => expect(last(requests)?.get("q")).toBe("other"));
+  });
+
+  it("given the page open with a search, when the address becomes /journal with no q, then the box is empty", async () => {
+    stubJournal(() => ({ entries: [entry(1)] }));
+    renderAt("/journal?q=first");
+    await loaded();
+
+    go("/journal");
+
+    await waitFor(() => expect(box().value).toBe(""));
+  });
+
+  it("given a first page with more, when a filter is chosen and its results are loading, then Afficher plus is not shown", async () => {
+    let release: (a: { entries: ReturnType<typeof entry>[] }) => void =
+      () => {};
+    const slow = new Promise<{ entries: ReturnType<typeof entry>[] }>((r) => {
+      release = r;
+    });
+    const { requests } = stubJournal((params) =>
+      params.has("actor") ? slow : { entries: [entry(1)], hasMore: true },
+    );
+    renderAt("/journal");
+    await screen.findByRole("button", { name: "Afficher plus" });
+
+    await choose("Auteur", "Claude");
+    await waitFor(() => expect(last(requests)?.get("actor")).toBe("claude"));
+
+    expect(screen.queryByRole("button", { name: "Afficher plus" })).toBeNull();
+    release({ entries: [entry(2)] });
+  });
+});
