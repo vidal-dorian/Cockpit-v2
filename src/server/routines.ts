@@ -27,6 +27,7 @@ import {
   users,
   writeUsRoutines,
 } from "./db/schema.ts";
+import { runNights } from "./night.ts";
 import { memberProject } from "./projects.ts";
 import { runQueues } from "./queue.ts";
 import { decrypt, encrypt } from "./secrets.ts";
@@ -38,7 +39,12 @@ export type FireRoutine = (
   url: string,
   init?: RequestInit,
 ) => Promise<Response>;
-export type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
+/** `now` is the app's clock, for what runs outside a request (the end of a run, a webhook); absent in the pass, which has its own time. */
+export type Fire = {
+  encryptionKey: Buffer;
+  fireRoutine: FireRoutine;
+  now?: () => number;
+};
 
 const FIRE_TIMEOUT_MS = 10_000;
 const TICK_EVERY_MS = 60_000;
@@ -308,6 +314,8 @@ async function hasWork(db: Db, projectId: number) {
  */
 export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
   await runDueCustomRoutines(db, deps, now);
+  // Before the queues: the queue yields to a running night (decision 044 D').
+  await runNights(db, deps, now);
   await runQueues(db, deps, now);
   try {
     // A blocked scheduling user (012 G) is skipped, without an entry.

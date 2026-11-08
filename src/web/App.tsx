@@ -18,6 +18,7 @@ import { IssueImport } from "./IssueImport.tsx";
 import { Journal } from "./JournalPage.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { Logo } from "./Logo.tsx";
+import { Night } from "./Night.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
@@ -256,6 +257,7 @@ function Shell() {
             />
             <Route path="/runs/:id" element={<RunPage />} />
             <Route path="/claude" element={<Claude />} />
+            <Route path="/nuit" element={<Night />} />
             <Route path="/claude/taches" element={<Taches />} />
             <Route path="/claude/cout" element={<Cost />} />
             <Route path="/journal" element={<Journal />} />

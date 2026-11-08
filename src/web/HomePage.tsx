@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
+import { NightMorning } from "./NightMorning.tsx";
 import { REASONS } from "./RunVerdict.tsx";
 import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
 import {
@@ -449,6 +450,9 @@ export function HomePage() {
   return (
     <>
       <StateSentence {...sentence} headingRef={headingRef} />
+      {home.data.night && (
+        <NightMorning night={home.data.night} questions={blocked} />
+      )}
       {first && (
         <Section
           label={

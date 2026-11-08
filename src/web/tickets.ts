@@ -17,6 +17,7 @@ export const RUN_STATUSES: Record<string, string> = {
   failed: "Échoué",
   stopped: "Arrêté",
   closed_manually: "Fermé à la main",
+  paused: "En pause : attend ta réponse",
 };
 
 /** The result labels of an acceptance criterion (decision 035 F). */

@@ -33,6 +33,13 @@ async function fetchHome() {
   return res.json();
 }
 
+/** The night of the user and the stories that could join it (decision 044 C). */
+export async function fetchNight() {
+  const res = await client.api.nights.current.$get();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 /** What waits for the user (decision 040): the home reads it, and so do the sidebar and the idea bar. */
 export function useHome() {
   return useQuery({ queryKey: ["home"], queryFn: fetchHome });
@@ -219,6 +226,10 @@ export function Sidebar() {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data;
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
   const home = useHome().data;
+  const night = useQuery({
+    queryKey: ["home", "night"],
+    queryFn: fetchNight,
+  }).data?.night;
   const logout = useMutation({
     mutationFn: async () => {
       const res = await client.api.auth.logout.$post();
@@ -255,6 +266,12 @@ export function Sidebar() {
         </NavLink>
         <NavLink to="/claude" className={navItem}>
           Claude
+        </NavLink>
+        <NavLink to="/nuit" className={navItem}>
+          ☾ Cette nuit
+          {night && night.items.length > 0 && (
+            <span className={`${badge} ml-auto`}>{night.items.length}</span>
+          )}
         </NavLink>
         {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}
         {projects.map((p) => {

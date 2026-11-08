@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { fetchBudgets } from "./Cost.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { ConnectStep, failure, PromptStep, useTask } from "./TaskCard.tsx";
 import {
   alertBox,
   button,
+  field,
   focusRing,
   listCard,
   primaryButton,
@@ -17,6 +19,104 @@ export async function fetchLauncher() {
   const res = await client.api.me.launcher.$get();
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
+}
+
+async function fetchNightHours() {
+  const res = await client.api.me["night-hours"].$get();
+  if (!res.ok) throw new Error("Réponse inattendue du serveur.");
+  return res.json();
+}
+
+/** Decision 044 C': the hours of the night of Claude, in the browser's time zone, and the cap of a night (060 C). */
+function NightStep() {
+  const queryClient = useQueryClient();
+  const hours = useQuery({
+    queryKey: ["night-hours"],
+    queryFn: fetchNightHours,
+  });
+  const budgets = useQuery({ queryKey: ["budgets"], queryFn: fetchBudgets });
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!hours.data || !budgets.data) return;
+      const value = (key: string, saved: number | null) =>
+        key in typed ? typed[key] : `${saved ?? ""}`;
+      const night = value("night", budgets.data.nightUsd);
+      const [put, caps] = await Promise.all([
+        client.api.me["night-hours"].$put({
+          json: {
+            startHour: Number(value("start", hours.data.startHour)),
+            endHour: Number(value("end", hours.data.endHour)),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        }),
+        client.api.me.budgets.$put({
+          json: { ...budgets.data, nightUsd: night ? Number(night) : null },
+        }),
+      ]);
+      if (!put.ok || !caps.ok)
+        throw new Error(
+          "Heures ou plafond refusés : des heures de 0 à 23, un montant positif.",
+        );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["night-hours"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+    },
+  });
+  if (!hours.data || !budgets.data) return null;
+  const input = (
+    key: string,
+    label: string,
+    saved: number | null,
+    max?: number,
+  ) => (
+    <label>
+      {label}
+      <input
+        type="number"
+        min="0"
+        max={max}
+        step={max === undefined ? "any" : 1}
+        className={field}
+        value={key in typed ? typed[key] : `${saved ?? ""}`}
+        onChange={(e) => setTyped({ ...typed, [key]: e.target.value })}
+      />
+    </label>
+  );
+  return (
+    <li className="px-[18px] py-3.5">
+      <form
+        className="grid gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <p className="font-semibold">La nuit de Claude</p>
+        <p className="text-[12.5px] text-muted-foreground">
+          Claude développe les US de la page « Cette nuit » entre ces heures (de
+          0 à 23, dans le fuseau de ton navigateur).
+        </p>
+        {input("start", "Début", hours.data.startHour, 23)}
+        {input("end", "Fin", hours.data.endHour, 23)}
+        {input("night", "Plafond par nuit", budgets.data.nightUsd)}
+        {save.isError && (
+          <p role="alert" className={alertBox}>
+            {save.error.message}
+          </p>
+        )}
+        {save.isSuccess && <p role="status">Heures enregistrées.</p>}
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className={`justify-self-start ${button}`}
+        >
+          Enregistrer les heures
+        </button>
+      </form>
+    </li>
+  );
 }
 
 /** Decision 060 F: the variables that make Claude Code report its cost to this Cockpit; they go on the cloud environment, not on the task. */
@@ -194,6 +294,7 @@ export function LauncherSettings() {
                 d'affilée, pour les projets cochés ci-dessus.
               </p>
             </li>
+            <NightStep />
             <CostStep />
           </ol>
         )}

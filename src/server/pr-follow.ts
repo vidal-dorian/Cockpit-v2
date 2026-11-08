@@ -1,7 +1,14 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import type { Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { history, runs, userStories, users } from "./db/schema.ts";
+import {
+  history,
+  nightItems,
+  nights,
+  runs,
+  userStories,
+  users,
+} from "./db/schema.ts";
 import { publish } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
@@ -60,6 +67,7 @@ const relaunchComment = (prNumber: number, runs: CheckRun[]) =>
 /**
  * Reads the PR of a story on GitHub as the App and brings the story up to date (decision 038 B and D): a merge finishes it, a close without merge frees it, anything else only refreshes the CI and review caches.
  * A failed read throws before anything is written. The sync of the issue, the event and the automatic relaunch of a CI gone red (decision 059, only with `fire`) come after the commit.
+ * A story of the night (decision 044 F') is relaunched once, whatever the setting, and left `ci_failed` at the second failure.
  */
 export async function followPullRequest(
   db: Db,
@@ -70,6 +78,7 @@ export async function followPullRequest(
   fire?: Fire,
 ) {
   const { story, ticket, project } = found;
+  const at = new Date(fire?.now?.() ?? Date.now());
   const prNumber = story.prNumber;
   if (prNumber === null) return;
   const ready = await readGitHub();
@@ -148,15 +157,15 @@ export async function followPullRequest(
       await tx.insert(history).values({ ...entry, result: "ok" });
     }
     // The count itself moves in the launch (a refused one costs nothing); the owner of the last run is the one who asked for Claude.
-    let relaunch: { by: number; branch: string } | null = null;
+    let relaunch: { by: number; branch: string; nightItemId?: number } | null =
+      null;
     if (
       fire &&
       pull.open &&
       ci === "failure" &&
       locked.prCiState !== "failure" &&
       locked.status === "in_review" &&
-      locked.branch &&
-      locked.relaunchCount < MAX_RELAUNCHES
+      locked.branch
     ) {
       const [last] = await tx
         .select({
@@ -169,9 +178,32 @@ export async function followPullRequest(
         .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
+      const [item] = await tx
+        .select({
+          id: nightItems.id,
+          relaunched: sql<boolean>`exists (select 1 from cloud_launches where night_item_id = ${nightItems.id} and relaunch)`,
+        })
+        .from(nightItems)
+        .innerJoin(nights, eq(nights.id, nightItems.nightId))
+        .where(and(eq(nightItems.storyId, story.id), gt(nights.endsAt, at)))
+        .orderBy(desc(nightItems.id))
+        .limit(1);
       // A blocked owner is never launched for, as in the queue and the routines.
-      if (last?.on && !last.blockedAt)
-        relaunch = { by: last.userId, branch: locked.branch };
+      if (last && !last.blockedAt) {
+        if (item?.relaunched)
+          await tx
+            .update(nightItems)
+            .set({ outcome: "ci_failed" })
+            .where(eq(nightItems.id, item.id));
+        else if (item)
+          relaunch = {
+            by: last.userId,
+            branch: locked.branch,
+            nightItemId: item.id,
+          };
+        else if (last.on && locked.relaunchCount < MAX_RELAUNCHES)
+          relaunch = { by: last.userId, branch: locked.branch };
+      }
     }
     return { transitioned: action !== null, relaunch };
   });
@@ -181,8 +213,7 @@ export async function followPullRequest(
   await publish(db, project.id, [`story:${story.id}`]);
   // After the commit, never inside it: `/fire` is a network call. A refusal (a run is active, the project is not ticked) writes its entry and nothing else.
   if (fire && outcome.relaunch) {
-    const { by, branch } = outcome.relaunch;
-    const at = new Date();
+    const { by, branch, nightItemId } = outcome.relaunch;
     await launchCloud(
       db,
       fire,
@@ -204,11 +235,13 @@ export async function followPullRequest(
           branch,
           comment: relaunchComment(prNumber, pull.checkRuns),
         });
-        await tx
-          .update(userStories)
-          .set({ relaunchCount: sql`${userStories.relaunchCount} + 1` })
-          .where(eq(userStories.id, story.id));
-        return { ...reserved, relaunch: true };
+        // The night's one relaunch is not one of the 3 of the setting (044 F').
+        if (nightItemId === undefined)
+          await tx
+            .update(userStories)
+            .set({ relaunchCount: sql`${userStories.relaunchCount} + 1` })
+            .where(eq(userStories.id, story.id));
+        return { ...reserved, relaunch: true, nightItemId };
       },
     );
   }
