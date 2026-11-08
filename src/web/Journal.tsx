@@ -78,6 +78,8 @@ export const ACTIONS: Record<string, string> = {
   ticket_finding: "Constat transformé en ticket",
   dismiss_finding: "Constat rejeté",
   later_finding: "Constat remis à plus tard",
+  refresh_github_alerts: "Alertes GitHub actualisées",
+  add_dependabot: ".github/dependabot.yml ajouté",
   create_takeover_stories: "Règles de reprise écrites",
   keep_rule: "Règle validée",
   unkeep_rule: "Validation de la règle annulée",

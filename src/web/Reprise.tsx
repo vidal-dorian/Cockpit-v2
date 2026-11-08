@@ -39,7 +39,7 @@ const lineRange = ({ startLine, endLine }: Source) =>
     : `lignes ${startLine}–${endLine}`;
 
 /** Decision 047 G: the code of one source, read on GitHub at its commit, with the cited lines marked. */
-function SourceCode({
+export function SourceCode({
   projectId,
   fullName,
   source,

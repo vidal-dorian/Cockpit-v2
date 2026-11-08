@@ -32,6 +32,7 @@ const ANALYSIS_AGENTS = [
   "bug-hunter",
   "security-reviewer",
   "architect",
+  "upgrade-advisor",
 ];
 
 /** An agent being edited: `before` is the text read (null for an addition), `base` the text the form starts from. */

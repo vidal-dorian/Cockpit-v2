@@ -6,6 +6,7 @@ import { CatalogLine } from "./CatalogLine.tsx";
 import { fetchCodeMap } from "./conception.ts";
 import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { findingsSentence, toDecide, useFindings } from "./findings.ts";
+import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { ProjectAgents } from "./ProjectAgents.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { FeaturesExport } from "./ProjectFeatures.tsx";
@@ -16,6 +17,7 @@ import { fetchProjects } from "./Projects.tsx";
 import { fetchTickets, ProjectTickets } from "./ProjectTickets.tsx";
 import { rulesSentence, useRules } from "./rules.ts";
 import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { UpdatesLine } from "./UpdatesLine.tsx";
 import {
   alertBox,
   badge,
@@ -44,6 +46,8 @@ const LABELS: Record<string, string> = {
   agents: "Agents et skill de développement",
   catalog: "Fichiers de Claude à jour",
   webhook: "Webhook de Cockpit",
+  github_alerts: "Alertes GitHub",
+  updates: "Mises à jour automatiques",
 };
 
 // One sentence per red line, by "key.detail"; the codes of the server are never shown.
@@ -65,6 +69,12 @@ const EXPLANATIONS: Record<string, string> = {
     "La dernière livraison du webhook a échoué : regarde les livraisons récentes dans les réglages de l'App sur GitHub.",
   "webhook.unknown":
     "Impossible de lire le webhook sur GitHub : réessaie dans une minute.",
+  ...Object.fromEntries(
+    Object.entries(ACCESS_TEXT).map(([detail, text]) => [
+      `github_alerts.${detail}`,
+      text,
+    ]),
+  ),
 };
 
 type ProjectTab =
@@ -430,6 +440,14 @@ export function ProjectPage({
                         fullName={project.fullName}
                         archived={project.archived}
                       />
+                    ) : line.key === "updates" && project ? (
+                      <UpdatesLine
+                        key={line.key}
+                        line={line}
+                        projectId={id}
+                        fullName={project.fullName}
+                        archived={project.archived}
+                      />
                     ) : (
                       <li
                         key={line.key}
@@ -444,7 +462,13 @@ export function ProjectPage({
                           </span>
                           {!line.ok && (
                             <span className="block text-[12.5px] text-muted-foreground">
-                              {EXPLANATIONS[`${line.key}.${line.detail}`]}
+                              {EXPLANATIONS[`${line.key}.${line.detail}`]}{" "}
+                              {line.key === "github_alerts" && (
+                                <AccessLink
+                                  detail={line.detail}
+                                  url={"url" in line ? line.url : undefined}
+                                />
+                              )}
                             </span>
                           )}
                         </p>
