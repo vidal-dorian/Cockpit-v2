@@ -80,16 +80,17 @@ function fromCodeScanning(
   fullName: string,
   a: z.infer<typeof codeScanningAlert>,
 ): Mapped {
-  const { rule, most_recent_instance: instance } = a;
-  const at = instance.location;
-  const commitSha = instance.commit_sha ?? null;
+  const { rule } = a;
+  const instance = a.most_recent_instance;
+  const at = instance?.location;
+  const commitSha = instance?.commit_sha ?? null;
   return {
     number: a.number,
     title: rule.description || rule.name || rule.id || "Alerte code scanning",
     bodyMd: [
-      `**Outil** : ${a.tool.name ?? "inconnu"}`,
+      `**Outil** : ${a.tool?.name ?? "inconnu"}`,
       `**Règle** : ${rule.id ?? rule.name ?? "inconnue"}`,
-      ...(instance.message?.text
+      ...(instance?.message?.text
         ? [`**Message** : ${instance.message.text}`]
         : []),
       `Alerte : <${alertUrl(fullName, "code_scanning", a.number)}>`,
@@ -213,6 +214,7 @@ async function storeAlerts(
     commitSha: m.commitSha,
   });
   const ids = new Map<number, number>();
+  let insertedCount = 0;
   const fresh = mapped.filter((m) => !known.has(m.number));
   for (let i = 0; i < fresh.length; i += CHUNK) {
     const created = await tx
@@ -242,8 +244,16 @@ async function storeAlerts(
           githubClosedAt: null,
         },
       })
-      .returning({ id: findings.id, number: findings.githubAlertNumber });
-    for (const row of created) ids.set(row.number as number, row.id);
+      .returning({
+        id: findings.id,
+        number: findings.githubAlertNumber,
+        // xmax is 0 for a row that was inserted, not one updated by the conflict.
+        inserted: sql<boolean>`xmax = 0`,
+      });
+    for (const row of created) {
+      ids.set(row.number as number, row.id);
+      if (row.inserted) insertedCount++;
+    }
   }
   const seen = mapped.filter((m) => known.has(m.number));
   for (const m of seen) {
@@ -264,7 +274,10 @@ async function storeAlerts(
   );
   for (let i = 0; i < sources.length; i += CHUNK)
     await tx.insert(codeSources).values(sources.slice(i, i + CHUNK));
-  return { created: fresh.length, updated: seen.length };
+  return {
+    created: insertedCount,
+    updated: mapped.length - insertedCount,
+  };
 }
 
 /** Dates as closed on GitHub the open findings of a tool whose alert is not in `except` (every alert when empty); returns how many. The status is never touched. */
@@ -422,23 +435,38 @@ export async function receiveAlert(
     .from(projects)
     .where(eq(projects.githubRepoId, delivery.repoId));
   if (!project || project.archivedAt) return;
-  // A closed alert may come without its tool or its occurrence: only its number and state are read then.
-  const { alert: head } = z
-    .object({ alert: z.object({ number: z.int(), state: z.string() }) })
+  // The webhook is not the REST list (types.d.ts of @octokit/openapi-webhooks-types): a secret alert has no `state` and is closed once `resolution` is set, a code scanning alert has a null `state` outside the default branch, and a closed one may come without its tool or its occurrence. Only what decides is read first.
+  const { alert: head, repository } = z
+    .object({
+      alert: z.object({
+        number: z.int(),
+        state: z.string().nullish(),
+        resolution: z.string().nullish(),
+        resolved_at: z.string().nullish(),
+      }),
+      repository: z.object({ default_branch: z.string().nullish() }).nullish(),
+    })
     .parse(delivery.payload);
-  if (head.state !== "open") {
+  const closed =
+    tool === "secret_scanning"
+      ? Boolean(head.resolution || head.resolved_at) ||
+        (head.state != null && head.state !== "open")
+      : head.state != null && head.state !== "open";
+  if (closed) {
     await db.transaction((tx) =>
       closeAlerts(tx, project.id, tool, [], head.number),
     );
     return;
   }
+  if (tool !== "secret_scanning" && head.state !== "open") return;
   const { alert } = z
     .object({ alert: ALERT_TOOLS[tool].schema })
     .parse(delivery.payload);
   // Only the default branch, like the list of a refresh.
   if (
     "most_recent_instance" in alert &&
-    alert.most_recent_instance.ref?.startsWith("refs/pull/")
+    alert.most_recent_instance?.ref !==
+      `refs/heads/${repository?.default_branch ?? project.defaultBranch}`
   )
     return;
   const ready = await readGitHub();

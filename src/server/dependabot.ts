@@ -82,6 +82,9 @@ export function dependabotRoutes(db: Db, readGitHub: ReadGitHub) {
       github,
       reader,
       sha: at.sha,
+      // A .github/dependabot.yaml is the same file for GitHub.
+      hasYaml:
+        (await reader.inspect(".github/dependabot.yaml", at.sha)) !== null,
       content: dependabotYaml([...root, ...mapped], workflows),
     };
   };
@@ -188,8 +191,20 @@ export function dependabotRoutes(db: Db, readGitHub: ReadGitHub) {
           return c.json({ error: read.refused }, 409);
         }
         const [file] = plan.files;
-        if (file?.status === "create" && file.content !== read.content)
-          return c.json({ error: "Bad request" }, 400);
+        if (file?.status === "create") {
+          // The repo as it is now, against the plan: what no longer matches is a repo that changed if this client signed the plan, a forged plan otherwise.
+          const stale = read.hasYaml || file.content !== read.content;
+          if (read.content === null) {
+            await record(new Refused("no_ecosystem"));
+            return c.json({ error: "no_ecosystem" }, 409);
+          }
+          if (stale && !read.github.isPlanSigned(plan))
+            return c.json({ error: "Bad request" }, 400);
+          if (stale) {
+            await record(new Refused("repo_changed"));
+            return c.json({ error: "repo_changed" }, 409);
+          }
+        }
         result = await read.github.applyRepoWrite(
           project.installationId,
           project.fullName,

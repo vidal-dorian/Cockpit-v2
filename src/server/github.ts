@@ -106,7 +106,8 @@ const installationAccessSchema = z.object({
 });
 
 // Decision 052 D: what is read of an alert of GitHub, named field by field. zod drops the rest, so the `secret` of a secret scanning alert never goes any further.
-const alertBase = { number: z.number().int(), state: z.string() };
+// `state` is absent from a secret scanning webhook and null for a code scanning alert of a pull request: the webhook handler judges it itself.
+const alertBase = { number: z.number().int(), state: z.string().nullish() };
 export const dependabotAlert = z.object({
   ...alertBase,
   dependency: z.object({ manifest_path: z.string().optional() }),
@@ -131,19 +132,21 @@ export const codeScanningAlert = z.object({
     security_severity_level: z.string().nullish(),
     description: z.string().nullish(),
   }),
-  tool: z.object({ name: z.string().nullish() }),
-  most_recent_instance: z.object({
-    ref: z.string().nullish(),
-    commit_sha: z.string().nullish(),
-    message: z.object({ text: z.string().nullish() }).nullish(),
-    location: z
-      .object({
-        path: z.string().nullish(),
-        start_line: z.number().int().nullish(),
-        end_line: z.number().int().nullish(),
-      })
-      .nullish(),
-  }),
+  tool: z.object({ name: z.string().nullish() }).nullish(),
+  most_recent_instance: z
+    .object({
+      ref: z.string().nullish(),
+      commit_sha: z.string().nullish(),
+      message: z.object({ text: z.string().nullish() }).nullish(),
+      location: z
+        .object({
+          path: z.string().nullish(),
+          start_line: z.number().int().nullish(),
+          end_line: z.number().int().nullish(),
+        })
+        .nullish(),
+    })
+    .nullish(),
 });
 export const secretScanningAlert = z.object({
   ...alertBase,
@@ -492,6 +495,8 @@ export function githubClient(config: GitHubAppConfig) {
   };
 
   return {
+    /** Whether this client signed the plan, so its files are as `planRepoWrite` gave them (decision 026 H). */
+    isPlanSigned: isSigned,
     /** The installation of this personal account, or null when the App is not installed or the account is someone else's. */
     async findUserInstallation(login: string, githubId: number) {
       try {
