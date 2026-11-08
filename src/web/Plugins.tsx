@@ -209,8 +209,8 @@ export function Plugins() {
               Ton repo de plugins
             </h2>
             <p className="mt-2">
-              Crée un repo vide sur GitHub, ouvre-le à Cockpit, puis relie-le
-              ici.
+              Crée un repo sur GitHub avec un premier commit (un README suffit),
+              ouvre-le à Cockpit, puis relie-le ici.
             </p>
             <ul className={`mt-2 ${listCard}`}>
               {repositories.data?.repositories.map((r) => (

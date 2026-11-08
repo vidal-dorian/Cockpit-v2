@@ -15,7 +15,7 @@ import { renderAt } from "./test-tickets.tsx";
 // Assumed contract (server tests: src/server/plugins.test.ts):
 // - The « Configurer » section of the sidebar has a link « Équipes d'agents » to /equipes/commun. The page says « Ce que tous tes projets partagent. » and « Défini une fois, dans ton repo de plugins. ».
 // - The page reads GET /api/plugins -> { repo, agents, skills } and, once a repo is linked, GET /api/plugins/projects -> { projects: [{ id, fullName, installed, settings }] }.
-// - No repo: « Crée un repo vide sur GitHub, ouvre-le à Cockpit, puis relie-le ici. » and the repos of GET /api/github/repositories, one list item each with a button « Relier »
+// - No repo: « Crée un repo sur GitHub avec un premier commit (un README suffit), ouvre-le à Cockpit, puis relie-le ici. » (066 B as amended) and the repos of GET /api/github/repositories, one list item each with a button « Relier »
 //   that sends PUT /api/plugins/repo { fullName }. A 409 { error: "repo_unreachable" } on GET /api/plugins is a role="alert" in French.
 // - Linked: the agents and skills are list items with a button « Ouvrir <name> »; « + Nouvel agent commun » opens the agent form of 030 (« Nom de l'agent », « Continuer », « Description », « Consigne »),
 //   « + Nouveau skill commun » the skill form of 065 (« Nom »); « Faire le commit » posts /api/plugins/apply { kind, name, before, after } and answers « C'est fait ». « Délier » sends { fullName: null }.
@@ -146,7 +146,7 @@ describe("decision 066 B: linking the repo", () => {
     });
     renderAt("/equipes/commun");
     await screen.findByText(
-      /Crée un repo vide sur GitHub, ouvre-le à Cockpit, puis relie-le ici\./,
+      /Crée un repo sur GitHub avec un premier commit \(un README suffit\), ouvre-le à Cockpit, puis relie-le ici\./,
     );
 
     fireEvent.click(
