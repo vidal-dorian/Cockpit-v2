@@ -66,6 +66,7 @@
 - **Fait** : tranche 11.2 (les tickets complets, [décision 055](decisions/055-tickets-complets.md)).
 - **Fait** : tranche 11.3 (importer les issues GitHub, [décision 057](decisions/057-importer-les-issues.md)).
 - **Fait** : tranche 14.4 (la relance automatique, [décision 059](decisions/059-relance-automatique.md)).
+- **Fait** : tranche 14.5 (le coût et le budget, [décision 060](decisions/060-cout-et-budget.md)).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
