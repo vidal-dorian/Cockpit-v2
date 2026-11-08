@@ -16,6 +16,7 @@
   - la [038](038-suivi-de-la-pr.md), choix G : « PR #12 » dans le bloc GitHub ;
   - la [027](027-preparer-pour-claude.md), choix F : le plan est une liste de fichiers avec un aperçu ;
   - la [031](031-equipe-en-graphe.md), choix F : un commutateur Graphe / Liste remplace la liste sous le graphe.
+- **Modifiée par** : [053](053-journal-filtrable.md) : l'onglet Historique d'un projet (G) existe depuis la tranche 11.1
 - **Modifiée par** : [046](046-logo-la-boucle.md) : le logo, repoussé ici, est tranché
 - **Écrans** : [`docs/ecrans/`](../ecrans/README.md) (63 écrans, PNG et HTML), validés par Dorian le 2026-11-07
 - **Tranche** : 9.3 du [découpage](../decoupage.md) pour la coque commune, puis la tranche de chaque écran
@@ -61,7 +62,7 @@ La 9.3 refait ce qui existe, avec les mêmes fonctions qu'avant. Ce dont la tran
 - **Chercher** (`Ctrl K`), la page **Claude** (tous les runs, la file), **Cette nuit** : pas dans la barre latérale.
 - **Les favoris** : la barre latérale liste à leur place les projets qui ne sont pas au repos (ceux de `GET /api/home`).
 - **La page Équipes d'agents** de la barre latérale.
-- **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages. La tranche R1 a ajouté Conception (entre Tickets et Santé, [043](043-carte-du-code.md)) ; CI / CD et Historique attendent leur tranche.
+- **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages. La tranche R1 a ajouté Conception (entre Tickets et Santé, [043](043-carte-du-code.md)) ; CI / CD et Historique attendent leur tranche. *Historique est fait par la [053](053-journal-filtrable.md) en 11.1 (entre Agents et Réglages, `/projets/:id/historique`) ; CI / CD attend toujours.*
 - **Les entrées de Réglages Préférences, Membres, Abonnement et Données** : il reste Connecter Claude (les jetons MCP y sont, `/reglages/jetons` renvoie à `/reglages`), Tâches cloud et Instance (administrateur).
 - **L'écran « Cockpit hors ligne » (S56)** : seule la page « Cette page n'existe pas. » est faite ; la perte du serveur reste l'alerte « Serveur injoignable » avec « Réessayer ».
 - **Les barres d'étapes d'un run** et la carte **« Pourquoi Claude demande »**.

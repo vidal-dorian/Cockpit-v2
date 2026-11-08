@@ -25,10 +25,6 @@ Une App créée avant la [décision 052](docs/decisions/052-constats-de-github-e
 
 La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US, voir plus bas) et « Instance » (pour l'administrateur seulement : les utilisateurs). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
-Il se filtre : une case « Chercher… » (un numéro de ticket, d'US, de run ou de PR, avec ou sans `#`, ou un bout de nom d'action ou de code de refus ; pas de texte libre, le journal n'en garde pas) et des puces Auteur, Résultat, Projet, Outil, Origine et période (Aujourd'hui, Cette semaine depuis lundi, Ce mois-ci, Tout). Les filtres sont dans l'adresse (`/journal?auteur=claude&resultat=refuse&periode=semaine`) : une vue filtrée se recharge et se partage. Un clic sur une ligne ouvre l'entrée à droite (quand, acteur, origine, projet, résultat, arguments ; ↑ et ↓ pour passer à la suivante) ; pour un refus ou une erreur, le panneau dit si l'acteur a réessayé dans l'heure et ouvre ce réessai. « Exporter » télécharge un CSV des entrées filtrées (les 10 000 plus récentes).
-
-L'onglet « Historique » d'un projet (`/projets/:id/historique`) est ce même journal limité au projet, en phrases (« Claude a fini l'étape reviewer »), avec les puces Tout, Toi, Claude, GitHub, Refus et erreurs, une période et un lien « Exporter ». Décision [053](docs/decisions/053-journal-filtrable.md).
-
 ### La page d'un projet
 
 La page d'un projet a sept onglets : « Kanban » (`/projets/:id`, six colonnes dont « Idées », les tickets qui attendent leurs US), « Tickets », « Conception » (voir plus bas), « Santé » (le bilan, « Revérifier », « Préparer pour Claude »), « Agents », « Historique » (voir « Le Journal ») et « Réglages » (l'écriture automatique des US, l'ancien onglet « Écriture des US » ; « Sur ce PC · Dossier du clone », le même que celui de « Développer avec Claude », retenu par le navigateur ; « Archiver le projet »). L'onglet Santé dit « Santé · N à corriger » quand le bilan a des lignes rouges. Décisions [028](docs/decisions/028-creme-sombre-onglets-journal.md) et [045](docs/decisions/045-interface-quatre-temps.md).
@@ -38,6 +34,10 @@ L'onglet « Agents » (`/projets/:id/agents`) modifie les agents de `.claude/age
 ### Le Journal
 
 Le Journal est groupé par jour et affiche les 25 dernières entrées, puis « Afficher plus » ajoute les 25 suivantes. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+
+Il se filtre : une case « Chercher… » (un numéro de ticket, d'US, de run ou de PR, avec ou sans `#`, ou un bout de nom d'action ou de code de refus ; pas de texte libre, le journal n'en garde pas) et des puces Auteur, Résultat, Projet, Outil, Origine et période (Aujourd'hui, Cette semaine depuis lundi, Ce mois-ci, Tout). Les filtres sont dans l'adresse (`/journal?auteur=claude&resultat=refuse&periode=semaine`) : une vue filtrée se recharge et se partage. Un clic sur une ligne ouvre l'entrée à droite (quand, acteur, origine, projet, résultat, arguments ; ↑ et ↓ pour passer à la suivante) ; pour un refus ou une erreur, le panneau dit si l'acteur a réessayé dans l'heure et ouvre ce réessai. « Exporter » télécharge un CSV des entrées filtrées (les 10 000 plus récentes).
+
+L'onglet « Historique » d'un projet (`/projets/:id/historique`) est ce même journal limité au projet, en phrases (« Claude a fini l'étape reviewer »), avec les puces Tout, Toi, Claude, GitHub, Refus et erreurs, une période et un lien « Exporter ». Décision [053](docs/decisions/053-journal-filtrable.md).
 
 ### Webhooks GitHub
 
