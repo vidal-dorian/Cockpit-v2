@@ -26,9 +26,10 @@ const AUTHORS: Record<string, string> = {
 /** The row as a sentence in French (decision 053 I): a step of a run is told, any other action by its label. */
 function sentence(entry: Entry) {
   const args = "args" in entry ? entry.args : undefined;
-  const who = AUTHORS[entry.actor] === "toi" ? "Tu" : AUTHORS[entry.actor];
+  const who = entry.actor === "human" ? "Tu" : AUTHORS[entry.actor];
+  const has = entry.actor === "human" ? "as" : "a";
   if (entry.action === "report_step" && typeof args?.agent === "string")
-    return `${who} a ${args.event === "finished" ? "fini" : "lancé"} l'étape ${args.agent}`;
+    return `${who} ${has} ${args.event === "finished" ? "fini" : "lancé"} l'étape ${args.agent}`;
   return ACTIONS[entry.action] ?? entry.action;
 }
 

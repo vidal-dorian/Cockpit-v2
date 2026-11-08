@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ACTIONS, JournalEntry } from "./Journal.tsx";
 import {
@@ -72,6 +73,7 @@ const OUTIL: Facet = {
 export function Journal() {
   const [params, setParams] = useSearchParams();
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const names = (projects.data ?? []).map((p) => repoName(p.fullName));
   const projet: Facet = {
     name: "Projet",
     param: "projet",
@@ -80,9 +82,14 @@ export function Journal() {
     options: (projects.data ?? []).map((p) => ({
       slug: String(p.id),
       value: String(p.id),
-      label: repoName(p.fullName),
+      // The owner only when two repos share a name.
+      label:
+        names.filter((n) => n === repoName(p.fullName)).length > 1
+          ? p.fullName
+          : repoName(p.fullName),
     })),
   };
+  const justChosen = useRef<string | null>(null);
   const facets = [AUTEUR, RESULTAT, projet, OUTIL, ORIGINE];
 
   const set = (key: string, value: string) =>
@@ -107,6 +114,14 @@ export function Journal() {
   if (since) filters.since = since;
   const q = params.get("q") ?? "";
   if (q) filters.q = q;
+  // The box keeps what is typed; the address and the request follow 300 ms after the last keystroke.
+  const [text, setText] = useState(q);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a keystroke starts the pause; `set` and `q` change with every render.
+  useEffect(() => {
+    if (text === q) return;
+    const timer = setTimeout(() => set("q", text), 300);
+    return () => clearTimeout(timer);
+  }, [text]);
 
   return (
     <main>
@@ -121,8 +136,8 @@ export function Journal() {
           aria-label="Chercher…"
           placeholder="Chercher…"
           maxLength={100}
-          value={q}
-          onChange={(e) => set("q", e.target.value)}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
           className={`${field} mt-0 w-56`}
         />
         {facets.map((f) => {
@@ -138,6 +153,13 @@ export function Journal() {
               <span>{chosen}</span>
               <button
                 type="button"
+                ref={(el) => {
+                  // The focus follows a choice onto the chip that replaces the menu button.
+                  if (el && justChosen.current === f.name) {
+                    justChosen.current = null;
+                    el.focus();
+                  }
+                }}
                 aria-label={`Retirer le filtre ${f.name}`}
                 onClick={() => set(f.param, "")}
                 className={`rounded-full px-1 ${focusRing}`}
@@ -150,8 +172,12 @@ export function Journal() {
               key={f.name}
               label={f.name}
               items={f.options.map((o) => ({
+                key: o.slug,
                 label: o.label,
-                onChoose: () => set(f.param, o.slug),
+                onChoose: () => {
+                  justChosen.current = f.name;
+                  set(f.param, o.slug);
+                },
               }))}
             />
           );
@@ -163,7 +189,10 @@ export function Journal() {
         {(Object.keys(filters).length > 0 || params.has("periode")) && (
           <button
             type="button"
-            onClick={() => setParams({}, { replace: true })}
+            onClick={() => {
+              setText("");
+              setParams({}, { replace: true });
+            }}
             className={ghostButton}
           >
             Effacer les filtres

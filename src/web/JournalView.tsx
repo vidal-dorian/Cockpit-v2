@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { type Entry, fetchHistory } from "./Journal.tsx";
 import { Panel } from "./Shell.tsx";
@@ -81,32 +81,46 @@ export const exportLink = (filters: Record<string, string>) => (
   </a>
 );
 
-/** A chip that opens a menu of items; the menu closes when one is chosen, on Escape and on a click elsewhere. */
+const menuItemsOf = (box: HTMLElement | null) => [
+  ...(box?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []),
+];
+
+/** A chip that opens a menu of items; the menu closes when one is chosen, on Escape and on a click elsewhere. The first item takes the focus, the arrows move between items, and the focus goes back to the chip. */
 export function ChipMenu({
   label,
   items,
 }: {
   label: string;
-  items: { label: string; onChoose: () => void }[];
+  items: { key?: string; label: string; onChoose: () => void }[];
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const chip = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
+    menuItemsOf(box.current)[0]?.focus();
     const away = (event: MouseEvent) => {
       if (!box.current?.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
   }, [open]);
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+      chip.current?.focus();
+    }
+    const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+    if (!open || !step) return;
+    e.preventDefault();
+    const all = menuItemsOf(box.current);
+    all[all.indexOf(document.activeElement as HTMLElement) + step]?.focus();
+  };
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: Escape closes the menu from any item, the buttons are the controls.
-    <div
-      ref={box}
-      className="relative"
-      onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-    >
+    // biome-ignore lint/a11y/noStaticElementInteractions: the keys of the menu items are handled here, the buttons are the controls.
+    <div ref={box} className="relative" onKeyDown={onKeyDown}>
       <button
+        ref={chip}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -125,11 +139,12 @@ export function ChipMenu({
         >
           {items.map((item) => (
             <button
-              key={item.label}
+              key={item.key ?? item.label}
               type="button"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
+                chip.current?.focus();
                 item.onChoose();
               }}
               className={`block w-full rounded-md px-3 py-1.5 text-left text-[13px] hover:bg-raised-hover ${focusRing}`}
@@ -178,18 +193,15 @@ const clock = (at: string) =>
 
 function EntryPanel({
   entry,
-  index,
-  entries,
-  onOpen,
+  counter,
+  onRetry,
 }: {
   entry: Entry;
-  index: number;
-  entries: Entry[];
-  onOpen: (id: number) => void;
+  counter?: { index: number; entries: Entry[]; onOpen: (id: number) => void };
+  onRetry: (retry: { id: number; at: string; result: string }) => void;
 }) {
   const when = new Date(entry.at);
   const retry = "retry" in entry ? entry.retry : null;
-  const retried = retry && entries.find((e) => e.id === retry.id);
   const fields: [string, ReactNode][] = [
     [
       "Quand",
@@ -221,12 +233,16 @@ function EntryPanel({
     <Panel
       label="Entrée du journal"
       badge={<span className={badge}>Entrée du journal</span>}
-      counter={{
-        index,
-        total: entries.length,
-        onPrevious: () => onOpen(entries[index - 1]?.id ?? entry.id),
-        onNext: () => onOpen(entries[index + 1]?.id ?? entry.id),
-      }}
+      counter={
+        counter && {
+          index: counter.index,
+          total: counter.entries.length,
+          onPrevious: () =>
+            counter.onOpen(counter.entries[counter.index - 1]?.id ?? entry.id),
+          onNext: () =>
+            counter.onOpen(counter.entries[counter.index + 1]?.id ?? entry.id),
+        }
+      }
     >
       <h2 className="text-lg font-semibold break-words">
         {entry.action} {RESULT_WORDS[entry.result] ?? entry.result}
@@ -239,23 +255,16 @@ function EntryPanel({
           </div>
         ))}
       </dl>
-      {retry &&
-        (retried ? (
-          <button
-            type="button"
-            onClick={() => onOpen(retry.id)}
-            className={`${button} h-auto py-2 text-left whitespace-normal`}
-          >
-            {entry.actor === "human"
-              ? "Tu as"
-              : `${ACTOR_WORDS[entry.actor]} a`}{" "}
-            réessayé à {clock(retry.at)} : {RESULT_WORDS[retry.result]}.
-          </button>
-        ) : (
-          <p className="text-[13px] text-muted-foreground">
-            Réessayé à {clock(retry.at)} : {RESULT_WORDS[retry.result]}.
-          </p>
-        ))}
+      {retry && (
+        <button
+          type="button"
+          onClick={() => onRetry(retry)}
+          className={`${button} h-auto py-2 text-left whitespace-normal`}
+        >
+          {entry.actor === "human" ? "Tu as" : `${ACTOR_WORDS[entry.actor]} a`}{" "}
+          réessayé à {clock(retry.at)} : {RESULT_WORDS[retry.result]}.
+        </button>
+      )}
     </Panel>
   );
 }
@@ -275,15 +284,24 @@ export function JournalList({
     queryKey: ["history", filters],
     queryFn: ({ pageParam }) => fetchHistory(pageParam, filters),
     initialPageParam: undefined as number | undefined,
+    // The previous rows and an open panel stay while a new filter or search loads.
+    placeholderData: keepPreviousData,
     // The next page starts after the last entry shown (decision 028 F).
     getNextPageParam: (last) =>
       last?.hasMore ? last.entries.at(-1)?.id : undefined,
   });
   const entries = pages.data?.pages.flatMap((page) => page?.entries ?? []);
   const [openId, setOpenId] = useState<number | null>(null);
+  // A retry the filters hide: shown from `retry` (same actor, action and project as the refusal, decision 053 D D), without its arguments.
+  const [hidden, setHidden] = useState<Entry | null>(null);
+  const openEntry = (id: number) => {
+    setHidden(null);
+    setOpenId(id);
+  };
   const index = entries?.findIndex((e) => e.id === openId) ?? -1;
   const open = entries?.[index];
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `openEntry` only sets state.
   useEffect(() => {
     if (!entries || index < 0) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -291,9 +309,10 @@ export function JournalList({
         event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
       const target = event.target as HTMLElement;
       const next = entries[index + step]?.id;
-      if (!step || target.closest("input, textarea, select")) return;
+      if (!step || target.closest("input, textarea, select, [role=menu]"))
+        return;
       event.preventDefault();
-      if (next !== undefined) setOpenId(next);
+      if (next !== undefined) openEntry(next);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
@@ -351,7 +370,7 @@ export function JournalList({
                 <ul className={listCard}>
                   {rows.map((entry) => (
                     <Fragment key={entry.id}>
-                      {row(entry, () => setOpenId(entry.id))}
+                      {row(entry, () => openEntry(entry.id))}
                     </Fragment>
                   ))}
                 </ul>
@@ -384,10 +403,20 @@ export function JournalList({
       </div>
       {open && entries && (
         <EntryPanel
-          entry={open}
-          index={index}
-          entries={entries}
-          onOpen={setOpenId}
+          entry={hidden ?? open}
+          counter={hidden ? undefined : { index, entries, onOpen: openEntry }}
+          onRetry={(retry) =>
+            entries.some((e) => e.id === retry.id)
+              ? openEntry(retry.id)
+              : setHidden({
+                  ...open,
+                  ...retry,
+                  result: retry.result as Entry["result"],
+                  detail: null,
+                  args: {},
+                  retry: null,
+                })
+          }
         />
       )}
     </>
