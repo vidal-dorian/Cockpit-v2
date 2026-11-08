@@ -27,6 +27,8 @@ import { renderAt } from "./test-tickets.tsx";
 // - Its panel (aside[data-panel]) has the title as first heading, the runtime (« node 18 »), the sub-project (the name of the module, « Serveur »), the end of life date in full (« 30 avril 2025 »,
 //   « Fin de vie »), the line of the manifest as CodeView (read at the commit of the map: sha, path, start, end), « Fermer » and the button « Demander un plan à Claude » which opens the window
 //   « Analyser avec Claude » (aside named so) with the box « Versions » checked. No decision button (it is no finding), no field of reason.
+// - The same runtime at the same version in several modules (same name and version) is ONE row, whatever the number of modules (decision 052 J). Its panel names each module and, one
+//   after the other (no tabs), shows each module's manifest line as a CodeView, read at that module's commit (sha, path, start, end).
 // - The versions are read once the screen opens; if the read fails (502) the rows are simply absent and the findings are shown as before.
 
 afterEach(() => {
@@ -190,6 +192,66 @@ describe("decision 052 J: the rows of the end of life", () => {
     );
     expect(shown("Constat numéro 1")).toBe(true);
     expect(screen.queryByText(/n'est plus maintenu/)).toBeNull();
+  });
+});
+
+describe("decision 052 J: the same runtime in several modules", () => {
+  const inWeb = runtime("node", "18", "eol", "2025-04-30", {
+    module: { path: "web", name: "Application" },
+    source: {
+      path: "web/package.json",
+      startLine: 3,
+      endLine: 3,
+      commitSha: "b".repeat(40),
+    },
+  });
+
+  it("given node 18 in end of life in two modules, when the screen opens, then there is one row only", async () => {
+    await open([finding(1)], [NODE18, inWeb]);
+
+    await rowOf("node 18 n'est plus maintenu");
+
+    expect(
+      within(main()).getAllByRole("button", {
+        name: "Ouvrir node 18 n'est plus maintenu",
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("given that row, when it is opened, then the panel names both modules and reads the manifest line of each at its own commit", async () => {
+    const api = await open([finding(1)], [NODE18, inWeb]);
+    const row = await rowOf("node 18 n'est plus maintenu");
+
+    fireEvent.click(within(row).getByRole("button"));
+
+    expect(panel().textContent).toContain("Serveur");
+    expect(panel().textContent).toContain("Application");
+    await waitFor(() => expect(api.codeReads()).toHaveLength(2));
+    const reads = api
+      .codeReads()
+      .map((c) => Object.fromEntries(new URLSearchParams(c.search)));
+    expect(reads).toEqual(
+      expect.arrayContaining([
+        {
+          sha: "a1b2c3d".padEnd(40, "0"),
+          path: "api/package.json",
+          start: "2",
+          end: "2",
+        },
+        { sha: "b".repeat(40), path: "web/package.json", start: "3", end: "3" },
+      ]),
+    );
+  });
+
+  it("given node 18 and node 20 in two modules, when the screen opens, then each version has its own row", async () => {
+    await open(
+      [],
+      [NODE18, inWeb, NODE20, { ...NODE20, module: inWeb.module }],
+    );
+
+    await rowOf("node 18 n'est plus maintenu");
+    await rowOf("node 20 ne sera plus maintenu en avril 2027");
+    expect(within(others()).getAllByRole("listitem")).toHaveLength(2);
   });
 });
 

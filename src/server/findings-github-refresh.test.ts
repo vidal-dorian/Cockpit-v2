@@ -292,9 +292,30 @@ describe("decision 052 C: the pages and the history", () => {
       .filter((r) => r.tool === "dependabot")
       .map((r) => r.page);
     expect(pages.slice(0, 3)).toEqual([1, 2, 3]);
-    expect(Math.max(...pages)).toBeLessThanOrEqual(4);
+    // Decision 052 C: a page of fewer than 100 alerts is the last one.
+    expect(Math.max(...pages)).toBe(3);
     expect(body.created).toBe(250);
   });
+
+  it.each([
+    [99, [1]],
+    [100, [1, 2]],
+    [101, [1, 2]],
+  ])(
+    "given %s open alerts, when it is refreshed, then the pages read are %j (a page of fewer than 100 is the last one)",
+    async (count, expected) => {
+      const ctx = await withAlerts((a) => {
+        for (let n = 1; n <= count; n++) a.dependabot.push(dependabot(n));
+      });
+
+      await refreshed(ctx);
+
+      const pages = alertReads(ctx)
+        .filter((r) => r.tool === "dependabot")
+        .map((r) => r.page);
+      expect([...new Set(pages)].sort((a, b) => a - b)).toEqual(expected);
+    },
+  );
 
   it("given alerts of the three tools, when it is refreshed, then one refresh_github_alerts entry of the human, from the UI, holds the project and the three counts, and no text of an alert", async () => {
     const ctx = await withAlerts((a) => {

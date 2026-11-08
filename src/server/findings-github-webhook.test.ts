@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { findingSourceRows } from "./test-findings.ts";
@@ -170,6 +171,47 @@ describe("decision 052 C: an alert received by webhook is processed like a read"
     const text = await stored(ctx.db);
     expect(text).not.toContain(SECRET);
     expect(text).not.toContain("SUPERSECRET");
+  });
+
+  it("given a secret_scanning_alert posted to the webhook route with the secret in alert.secret, when it is received and processed, then the secret is in no row of webhook_deliveries, findings, code_sources, history or tickets (decision 052 D)", async () => {
+    const ctx = await withAlerts((a, c) => {
+      a.locations[2] = [commitLocation("api/src/db.ts", 5, 9, c.sha)];
+    });
+    const body = JSON.stringify({
+      action: "created",
+      alert: secretScanning(2),
+      installation: { id: 77 },
+      repository: { id: 1, full_name: "user1000/app" },
+    });
+    // The instance secret of configureTestInstance.
+    const signature = `sha256=${createHmac("sha256", "webhook-secret").update(body).digest("hex")}`;
+
+    const res = await ctx.app.request("/api/webhooks/github", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-hub-signature-256": signature,
+        "x-github-delivery": "72d3162e-cc78-11e3-81ab-4c9367dc0958",
+        "x-github-event": "secret_scanning_alert",
+      },
+      body,
+    });
+    expect(res.status).toBe(202);
+    await pass(ctx.db);
+
+    const recorded = JSON.stringify(
+      (
+        (await ctx.db.execute(
+          sql`select * from webhook_deliveries`,
+        )) as unknown as { rows: unknown[] }
+      ).rows,
+    );
+    expect(recorded).toContain("secret_scanning_alert");
+    for (const text of [recorded, await stored(ctx.db)]) {
+      expect(text).not.toContain(SECRET);
+      expect(text).not.toContain("SUPERSECRET");
+    }
+    expect(await githubRows(ctx.db)).toHaveLength(1);
   });
 
   it.each(["fixed", "dismissed", "auto_dismissed", "resolved"])(
