@@ -4,7 +4,7 @@
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 14.7)
 - **Dépend de** : [035 — Critères et PR](035-criteres-et-pr.md) (`result`, `resultRunId`), [044 — La nuit de Claude](044-la-nuit-de-claude.md) (J, M', N'), [045 — L'interface « Quatre temps » et les écrans de référence](045-interface-quatre-temps.md) (l'accueil), [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (`cloud_launches.night_item_id`)
-- **Modifie** : 044 J (« tests ajoutés » devient « critères prouvés ») ; 064 14.7 (la frise à l'échelle des heures est sur N2 seulement, pas sur N1)
+- **Modifie** : 044 J et N' (« tests ajoutés » devient « critères prouvés ») ; 064 14.7 (la frise à l'échelle des heures est sur N2 seulement, pas sur N1)
 - **Tranche** : 14.7 du [découpage](../decoupage.md)
 - **Écrans** : [N2](../ecrans/N2_Nuit_Matin.png), [N1](../ecrans/N1_Nuit_Soir.png)
 
