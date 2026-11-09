@@ -428,6 +428,8 @@ export const runs = pgTable(
     }),
     comment: text("comment"),
     summary: text("summary"),
+    /** The agents the run will follow, in order, as `start_run` announced them (decision 069 A). */
+    plannedSteps: jsonb("planned_steps").$type<string[]>(),
     startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -604,6 +606,10 @@ export const questions = pgTable(
     question: text("question").notNull(),
     suggestedAnswers: jsonb("suggested_answers").$type<string[]>(),
     answer: text("answer"),
+    /** What is done and what the answer decides (decision 069 D). */
+    context: text("context"),
+    /** The agent of the run's open step when asked, null without one. */
+    agent: text("agent"),
     askedAt: timestamp("asked_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

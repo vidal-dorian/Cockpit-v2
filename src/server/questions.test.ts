@@ -64,6 +64,7 @@ describe("criterion 1: ask_user stores the question", () => {
         tools.find((t) => t.name === name)?.inputSchema?.properties ?? {},
       ).sort();
     expect(keys("ask_user")).toEqual([
+      "context",
       "question",
       "run_id",
       "suggested_answers",
