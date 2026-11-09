@@ -454,6 +454,17 @@ describe("decision 079 A: the new keys", () => {
       ],
     ],
     [
+      "wait first on the middle step of a group",
+      [
+        "  - agent: a",
+        "  - agent: b",
+        "    parallel: true",
+        "    wait: first",
+        "  - agent: c",
+        "    parallel: true",
+      ],
+    ],
+    [
       "loop_to naming a later step",
       [
         "  - agent: a",

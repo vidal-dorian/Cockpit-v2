@@ -58,6 +58,7 @@ steps:
 ---
 Body kept.
 `;
+const NO_MAX = TEAM.replace("    max: 3\n", "");
 const SHA = "a".repeat(40);
 const COMMIT_URL = `https://github.com/octocat/hello/commit/${SHA}`;
 const PR_URL = "https://github.com/octocat/hello/pull/3";
@@ -429,17 +430,48 @@ describe("decision 031 D: the step panel", () => {
     expect(commitButton().disabled).toBe(false);
   });
 
-  it("given a team.md whose loop has no max, when the tab opens and the loop is looked at, then it is readable, « Au plus » is empty and « Faire le commit » stays disabled until a limit is set", async () => {
-    stubApi({ team: TEAM.replace("    max: 3\n", "") });
+  it("given a team.md whose loop has no max, when the loop is changed (its condition) and left without a limit, then « Faire le commit » is disabled until a limit is set", async () => {
+    stubApi({ team: NO_MAX });
     await openTeam();
     edit("reviewer");
-
     expect(control("Au plus").value).toBe("");
+
+    fireEvent.change(control("Condition"), { target: { value: "all green" } });
     review();
     expect(commitButton().disabled).toBe(true);
     fireEvent.change(control("Au plus"), { target: { value: "3" } });
     review();
     expect(commitButton().disabled).toBe(false);
+  });
+
+  it("given a team.md whose loop has no max, when the loop is left as it is and another step is changed, then « Faire le commit » is enabled", async () => {
+    stubApi({ team: NO_MAX });
+    await openTeam();
+    edit("developer");
+
+    fireEvent.change(control("Ce qu'il fait"), {
+      target: { value: "implements it" },
+    });
+    review();
+
+    expect(commitButton().disabled).toBe(false);
+  });
+
+  it("given a team.md whose loop has no max, when a new loop is added and its « Au plus » emptied, then « Faire le commit » is disabled, and a limit on the old loop does not enable it", async () => {
+    stubApi({ team: NO_MAX });
+    await openTeam();
+    edit("developer");
+    fireEvent.change(control("Boucle"), { target: { value: "test-writer" } });
+    fireEvent.change(control("Condition"), { target: { value: "ok" } });
+    fireEvent.change(control("Au plus"), { target: { value: "" } });
+    review();
+    expect(commitButton().disabled).toBe(true);
+
+    edit("reviewer");
+    fireEvent.change(control("Au plus"), { target: { value: "3" } });
+    review();
+
+    expect(commitButton().disabled).toBe(true);
   });
 
   it.each(["test-writer", "reviewer"])(

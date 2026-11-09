@@ -96,19 +96,24 @@ function stubApi(
   options: {
     team?: string | null;
     teams?: { name: string; text: string }[];
+    /** The teams read once a save was answered (the repo changed meanwhile). */
+    teamsAfter?: { name: string; text: string }[];
     applies?: Answer[];
   } = {},
 ) {
-  const read = {
+  const calls = { applyBodies: [] as Record<string, unknown>[], reads: 0 };
+  const read = () => ({
     agents: REPO_AGENTS,
     catalog: [],
     team: options.team === undefined ? TEAM : options.team,
-    teams: options.teams ?? [],
-  };
+    teams:
+      calls.applyBodies.length > 0 && options.teamsAfter
+        ? options.teamsAfter
+        : (options.teams ?? []),
+  });
   const applies = options.applies ?? [
     { status: 200, body: { commitSha: SHA } },
   ];
-  const calls = { applyBodies: [] as Record<string, unknown>[] };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -170,8 +175,10 @@ function stubApi(
         });
       if (path === "/api/starter-teams")
         return Response.json({ teams: STARTERS });
-      if (path === "/api/projects/5/agents" && method === "GET")
-        return Response.json(read);
+      if (path === "/api/projects/5/agents" && method === "GET") {
+        calls.reads++;
+        return Response.json(read());
+      }
       if (path === "/api/projects/5/team/apply" && method === "POST") {
         const answer = applies[
           Math.min(calls.applyBodies.length, applies.length - 1)
@@ -226,6 +233,15 @@ const select = (i: number) =>
 const field = (label: string) => ui().getByLabelText(label) as HTMLInputElement;
 const typeName = (value: string) =>
   fireEvent.change(field("Nom de l'équipe"), { target: { value } });
+async function openEditCanvas() {
+  await openTab();
+  fireEvent.click(await screen.findByRole("button", { name: "leger" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Modifier sur le canevas" }),
+  );
+  await screen.findByRole("dialog", { name: /^Modifier l'équipe · leger/ });
+  await ui().findByRole("button", { name: "doc-writer" });
+}
 const create = () =>
   ui().getByRole("button", { name: "Créer l'équipe" }) as HTMLButtonElement;
 
@@ -522,6 +538,34 @@ describe("decision 079 E: creating the team", () => {
   });
 });
 
+describe("decision 079 D5, D6: the gestures of the panel", () => {
+  it("given the panel of the developer, when « Nom de l'étape » is changed, then the step is labelled with it and the loop that named developer follows the new key", async () => {
+    const calls = stubApi();
+    await openCanvas();
+    typeName("docs");
+    select(1);
+
+    fireEvent.change(field("Nom de l'étape"), { target: { value: "impl" } });
+
+    expect(rowAt(1).textContent).toContain("developer · impl");
+    fireEvent.click(create());
+    await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
+    const written = readTeam(String(calls.applyBodies[0]?.after));
+    expect(written?.steps[1]).toMatchObject({ agent: "developer", id: "impl" });
+    expect(written?.steps[2]?.loopTo).toBe("impl");
+  });
+
+  it("given the panel of the developer, when « Retirer l'étape » is clicked, then the step is gone from the list", async () => {
+    stubApi();
+    await openCanvas();
+    select(0);
+
+    fireEvent.click(ui().getByRole("button", { name: "Retirer l'étape" }));
+
+    expect(rows()).toEqual(["developer", "reviewer"]);
+  });
+});
+
 describe("decision 079 D4: undo and redo", () => {
   it("given a step added, when « Défaire » then « Refaire » are clicked, then the draft goes back then forward", async () => {
     stubApi();
@@ -558,6 +602,53 @@ describe("decision 079 D, F: the Agents tab", () => {
     fireEvent.click(ui().getByRole("button", { name: "Enregistrer" }));
     await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
     expect(calls.applyBodies[0]).toMatchObject({ name: "leger", before: TEAM });
+  });
+
+  it("given the canvas opened on a named team, when « Enregistrer » is refused with repo_changed, the teams are read again with another text and « Enregistrer » is clicked again, then before is still the text read when the canvas opened", async () => {
+    const changed = TEAM.replace("implements", "implements it");
+    const calls = stubApi({
+      teams: [{ name: "leger", text: TEAM }],
+      teamsAfter: [{ name: "leger", text: changed }],
+      applies: [{ status: 409, body: { error: "repo_changed" } }],
+    });
+    await openEditCanvas();
+    fireEvent.click(ui().getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
+    await waitFor(() => expect(calls.reads).toBeGreaterThanOrEqual(2));
+    await ui().findByRole("alert");
+
+    fireEvent.click(ui().getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(calls.applyBodies).toHaveLength(2));
+    expect(calls.applyBodies[0]?.before).toBe(TEAM);
+    expect(calls.applyBodies[1]?.before).toBe(TEAM);
+  });
+
+  it("given an unsaved edit of the team shown in the tab, when « Modifier sur le canevas » is clicked, then the canvas opens with that edit and « Enregistrer » posts before = the repo text", async () => {
+    const calls = stubApi();
+    await openTab();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "+ Ajouter une étape" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter à l'équipe" }));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Modifier sur le canevas" }),
+    );
+
+    await screen.findByRole("dialog", { name: /^Modifier l'équipe ·/ });
+    expect(rows()).toEqual([
+      "test-writer",
+      "developer",
+      "reviewer",
+      "doc-writer",
+    ]);
+    fireEvent.click(ui().getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(calls.applyBodies).toHaveLength(1));
+    expect(calls.applyBodies[0]?.before).toBe(TEAM);
+    expect(
+      readTeam(String(calls.applyBodies[0]?.after))?.steps.map((s) => s.agent),
+    ).toEqual(["test-writer", "developer", "reviewer", "doc-writer"]);
   });
 
   it("given a team with a group and an id, when the tab opens, then the graph and the list are replaced by the sentence and « Modifier sur le canevas »", async () => {
