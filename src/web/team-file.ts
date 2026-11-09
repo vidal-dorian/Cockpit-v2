@@ -138,7 +138,8 @@ export function readTeam(
     steps.every(
       (s, i) =>
         !(i === 0 && s.parallel) &&
-        (s.wait === undefined || steps[i + 1]?.parallel === true) &&
+        (s.wait === undefined ||
+          (!s.parallel && steps[i + 1]?.parallel === true)) &&
         (s.loopTo ? loopIsValid(steps, i, groups) : !s.until && !s.max),
     )
     ? { steps, body: lines.slice(end + 1).join("\n") }

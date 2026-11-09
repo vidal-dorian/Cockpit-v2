@@ -37,10 +37,6 @@ export const chip = (on: boolean) =>
 
 const TDD_AGENTS = ["test-writer", "reviewer"];
 
-// shortcut: a loop already without `max` in the file is kept as it is (decision 079 A2), so only a limitless loop more than the file (or the starter team) had blocks the commit (one emptied, not one left alone); the canvas checks every loop.
-const limitless = (steps: TeamStep[]) =>
-  steps.filter((s) => s.loopTo !== null && s.max === undefined).length;
-
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
@@ -517,9 +513,12 @@ export function ProjectTeam({
   const [seen, setSeen] = useState(key);
   const [switchTo, setSwitchTo] = useState<string | null>(null);
   // The canvas (decision 079) while it is open: a new team or the team shown, on its own draft started from the team as read.
-  const [canvas, setCanvas] = useState<{ draft: Draft; edit: boolean } | null>(
-    null,
-  );
+  const [canvas, setCanvas] = useState<{
+    draft: Draft;
+    edit: boolean;
+    /** The text read when the canvas opened: what a save is compared with, even after a re-read. */
+    before: string | null;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [view, setView] = useState<"graph" | "list">("graph");
@@ -530,8 +529,8 @@ export function ProjectTeam({
   const [starter, setStarter] = useState<{
     id: string;
     agents: StarterAgent[];
-    /** The loops without `max` the starter team brings: kept as they are (decision 079 A2). */
-    loose: number;
+    /** Its steps: a loop already without `max` there, and unchanged, is kept (decision 079 C). */
+    base: TeamStep[];
   } | null>(null);
   const [choosing, setChoosing] = useState(false);
   const starters = useQuery(starterQuery);
@@ -638,7 +637,7 @@ export function ProjectTeam({
       setStarter({
         id: chosen.id,
         agents: chosen.agents,
-        loose: limitless(read.steps),
+        base: read.steps,
       });
       setShowDiff(false);
       setChoosing(false);
@@ -702,6 +701,7 @@ export function ProjectTeam({
             setCanvas({
               draft: initial ?? { steps: DEFAULT_STEPS, body: "" },
               edit: false,
+              before: null,
             });
           }}
           className={`${chip(false)} border-transparent`}
@@ -717,7 +717,11 @@ export function ProjectTeam({
               setDeleting(false);
               setProblem(null);
               setDone(null);
-              setCanvas({ draft: initial, edit: true });
+              setCanvas({
+                draft: draft ?? initial,
+                edit: true,
+                before: current,
+              });
             }}
             className={`${chip(false)} border-transparent`}
           >
@@ -818,7 +822,7 @@ export function ProjectTeam({
               canvas.edit
                 ? {
                     name,
-                    before: current,
+                    before: canvas.before,
                     after: writeTeam(draft.steps, draft.body),
                     agents: added,
                   }
@@ -910,8 +914,21 @@ export function ProjectTeam({
     !unchanged &&
     steps.length > 0 &&
     steps.every((s) => s.loopTo === null || s.until.trim() !== "") &&
-    limitless(steps) <= (starter?.loose ?? limitless(initial?.steps ?? []));
-
+    // A loop without `max` stays only if the base has the same one: same place, same return, same condition (a renamed agent is the same step).
+    steps.every((s, i) => {
+      const base = starter?.base ?? initial?.steps ?? [];
+      const target = (list: TeamStep[], t: TeamStep) =>
+        list.findIndex((x) => x.agent === t.loopTo);
+      const was = base[i];
+      return (
+        s.loopTo === null ||
+        s.max !== undefined ||
+        (was?.loopTo != null &&
+          was.max === undefined &&
+          was.until === s.until &&
+          target(base, was) === target(steps, s))
+      );
+    });
   return (
     // `contents`: the chips span the page, the editor and the commit row are the left column of the grid of ProjectAgents.
     <section aria-labelledby="team" hidden={hidden} className="contents">
