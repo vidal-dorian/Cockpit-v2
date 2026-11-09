@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gt,
@@ -19,6 +20,7 @@ import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { budgetsOf, systemStop } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
+  acceptanceCriteria,
   cloudLaunchers,
   cloudLaunches,
   history,
@@ -436,12 +438,38 @@ export async function morningOf(db: Db, userId: number, at: Date) {
     .leftJoin(runs, eq(runs.id, nightItems.runId))
     .where(eq(nightItems.nightId, night.night.id))
     .orderBy(asc(nightItems.position));
+  // The runs launched for the night, CI retries included (decision 070 B, C).
+  const nightRuns = db
+    .select({ id: cloudLaunches.runId })
+    .from(cloudLaunches)
+    .innerJoin(nightItems, eq(nightItems.id, cloudLaunches.nightItemId))
+    .where(eq(nightItems.nightId, night.night.id));
+  const [work] = await db
+    .select({
+      seconds: sql<number>`coalesce(sum(extract(epoch from ${runs.finishedAt} - ${runs.startedAt})), 0)`,
+    })
+    .from(runs)
+    .where(and(inArray(runs.id, nightRuns), isNotNull(runs.finishedAt)));
+  const [proven] = await db
+    .select({ count: count() })
+    .from(acceptanceCriteria)
+    .where(
+      and(
+        eq(acceptanceCriteria.result, "passed"),
+        inArray(acceptanceCriteria.resultRunId, nightRuns),
+      ),
+    );
   return {
     id: night.night.id,
     startsAt: night.night.startsAt,
     endsAt: night.night.endsAt,
     delivered: items.filter((i) => i.outcome === "pr").length,
     total: items.length,
+    workSeconds: Math.round(Number(work?.seconds)),
+    criteriaProven: proven?.count ?? 0,
+    failures: items.filter((i) =>
+      ["failed", "ci_failed", "not_started"].includes(i.outcome ?? ""),
+    ).length,
     items,
   };
 }

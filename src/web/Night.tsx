@@ -41,7 +41,7 @@ const RULES = [
 ];
 
 /** « 1 h 30 », « 25 min »: the estimate of a story. */
-const duration = (seconds: number | null) => {
+export const duration = (seconds: number | null) => {
   if (seconds === null) return "durée inconnue";
   const minutes = Math.max(1, Math.round(seconds / 60));
   return minutes < 60
