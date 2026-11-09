@@ -278,6 +278,21 @@ describe("decision 063 F: « Repartir d'une équipe de départ »", () => {
     expect(calls.posts).toBe(0);
   });
 
+  it("given a level chosen and not committed, when the tab is looked at, then « Modifier sur le canevas » is disabled (the level's agents are written only by the tab's commit)", async () => {
+    stubApi();
+    await openTeam();
+    const canvasButton = () =>
+      screen.getByRole("button", {
+        name: "Modifier sur le canevas",
+      }) as HTMLButtonElement;
+    expect(canvasButton().disabled).toBe(false);
+
+    startFrom("Premium");
+
+    await waitFor(() => expect(rowAgents()).toHaveLength(5));
+    expect(canvasButton().disabled).toBe(true);
+  });
+
   it("given Éco chosen, when the draft loads, then the reviewer is gone from the steps", async () => {
     stubApi();
     await openTeam();

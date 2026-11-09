@@ -474,6 +474,27 @@ describe("decision 031 D: the step panel", () => {
     expect(commitButton().disabled).toBe(true);
   });
 
+  it("given a team.md whose loop has no max, when « Retirer l'étape » is used on test-writer, then the loop is unchanged (same step, return and condition) and « Faire le commit » is enabled", async () => {
+    stubApi({ team: NO_MAX });
+    await openTeam();
+    edit("test-writer");
+
+    click("Retirer l'étape");
+    review();
+
+    expect(commitButton().disabled).toBe(false);
+  });
+
+  it("given a team.md whose loop has no max, when « Descendre » is used on test-writer, then the loop is unchanged and « Faire le commit » is enabled", async () => {
+    stubApi({ team: NO_MAX });
+    await openTeam();
+
+    click("Descendre", row("test-writer"));
+    review();
+
+    expect(commitButton().disabled).toBe(false);
+  });
+
   it.each(["test-writer", "reviewer"])(
     "given the step %s removed, when « Retirer l'étape » is clicked, then the step goes, the TDD warning is shown and the commit is not blocked",
     async (agent) => {
