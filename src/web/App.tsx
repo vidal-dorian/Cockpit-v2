@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Link,
@@ -25,13 +25,24 @@ import { ProjectFromTemplate } from "./ProjectFromTemplate.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
+import { SearchDialog } from "./SearchDialog.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
-import { Dot, fetchHealth, fetchMe, IdeaBar, Sidebar } from "./Shell.tsx";
+import {
+  Dot,
+  fetchHealth,
+  fetchMe,
+  IdeaBar,
+  Sidebar,
+  useHome,
+} from "./Shell.tsx";
+import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
+import { applyTheme } from "./theme.ts";
 import {
   alertBox,
   button,
+  card,
   cardShape,
   panelPrimaryButton,
   primaryButton,
@@ -39,6 +50,7 @@ import {
 } from "./ui.ts";
 import { useAnyChange } from "./useChanges.ts";
 import { Welcome } from "./Welcome.tsx";
+import { clock } from "./when.ts";
 
 // Loaded on first visit: react-markdown stays out of the main bundle.
 const TicketPage = lazy(() =>
@@ -72,7 +84,7 @@ function LoginError() {
   return null;
 }
 
-/** Shown on the home and the login screen when the server does not answer; the version lives in the sidebar. */
+/** Shown on the login screen when the server does not answer; the logged-in shell has the banner below. */
 function ServerAlert() {
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
   if (!health.isError) return null;
@@ -90,10 +102,46 @@ function ServerAlert() {
   );
 }
 
+/** S56 (decision 072 I): on every page of the shell, with the time of the last answer of /api/health; the page asks again every 10 seconds while it fails. */
+function OfflineBanner() {
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: fetchHealth,
+    // The banner shows at the first failure, then asks every 10 seconds.
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.status === "error" ? 10_000 : false,
+  });
+  const { refetch } = health;
+  // React Query only listens to the window; a page shown again (a tab back, a phone unlocked) asks at once.
+  useEffect(() => {
+    const ask = () => void refetch();
+    document.addEventListener("visibilitychange", ask);
+    return () => document.removeEventListener("visibilitychange", ask);
+  }, [refetch]);
+  if (!health.isError) return null;
+  return (
+    <div
+      role="alert"
+      className={`mx-[26px] mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${card}`}
+    >
+      <p>
+        Cockpit ne répond plus.{" "}
+        {health.dataUpdatedAt
+          ? `Ce que tu vois date de ${clock(new Date(health.dataUpdatedAt).toISOString())} ; on réessaie`
+          : "On réessaie"}{" "}
+        toutes les 10 secondes.
+      </p>
+      <button type="button" onClick={() => health.refetch()} className={button}>
+        Réessayer
+      </button>
+    </div>
+  );
+}
+
 function Home() {
   return (
     <main>
-      <ServerAlert />
       <HomePage />
     </main>
   );
@@ -179,15 +227,37 @@ function NotFound() {
   );
 }
 
+/** The window open over the page, if any (decisions 073 B and E). */
+type Overlay = "search" | "shortcuts" | undefined;
+
 /** The shell (045 F): the sidebar, then the page and the idea bar at the bottom. */
-function Shell() {
+function Shell({
+  overlay,
+  onOverlay,
+}: {
+  overlay: Overlay;
+  onOverlay: (overlay: Overlay) => void;
+}) {
   // The one stream of the tab, opened after the page's own: the home, the sidebar and the idea bar read the same query.
   useAnyChange("home");
+  const idea = useRef<(opener: HTMLElement | null) => void>(null);
+  // The idea panel only exists with a project.
+  const hasProject = (useHome().data?.projects.length ?? 0) > 0;
   return (
     <div className="md:grid md:grid-cols-[224px_minmax(0,1fr)]">
-      <Sidebar />
+      <Sidebar onSearch={() => onOverlay("search")} />
+      {overlay === "search" && (
+        <SearchDialog
+          onClose={() => onOverlay(undefined)}
+          onIdea={hasProject ? () => idea.current?.(null) : undefined}
+        />
+      )}
+      {overlay === "shortcuts" && (
+        <ShortcutsDialog onClose={() => onOverlay(undefined)} />
+      )}
       {/* A page renders its own <main>. */}
       <div className="flex min-h-screen min-w-0 flex-col pb-16 md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
+        <OfflineBanner />
         <InstallBanner />
         <div className="flex-1">
           <Routes>
@@ -282,6 +352,10 @@ function Shell() {
               element={<Settings tab="utilisateurs" />}
             />
             <Route
+              path="/reglages/preferences"
+              element={<Settings tab="preferences" />}
+            />
+            <Route
               path="/reglages/taches-cloud"
               element={<Settings tab="taches-cloud" />}
             />
@@ -295,7 +369,7 @@ function Shell() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
-        <IdeaBar />
+        <IdeaBar ref={idea} />
       </div>
     </div>
   );
@@ -308,8 +382,19 @@ function RedirectToSettings() {
 }
 
 /** The shell for a logged-in user, the login screen otherwise. /autoriser (S05) is a card of its own, with or without a session: it says itself when the account cannot be read. */
-function Routed() {
+function Routed({
+  overlay,
+  onOverlay,
+}: {
+  overlay: Overlay;
+  onOverlay: (overlay: Overlay) => void;
+}) {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  // The theme kept on the server is the same on every device (decision 073 F).
+  const theme = me.data?.theme;
+  useEffect(() => {
+    if (theme) applyTheme(theme);
+  }, [theme]);
   return (
     <Routes>
       <Route path="/autoriser" element={<Autoriser />} />
@@ -317,7 +402,7 @@ function Routed() {
         path="*"
         element={
           me.data ? (
-            <Shell />
+            <Shell overlay={overlay} onOverlay={onOverlay} />
           ) : me.isPending ? (
             <p className="p-4 text-muted-foreground">Chargement…</p>
           ) : me.isError ? (
@@ -349,6 +434,21 @@ async function fetchSetupStatus() {
 
 export function App() {
   const setup = useQuery({ queryKey: ["setup"], queryFn: fetchSetupStatus });
+  // Here, above the pages that load, so that a key pressed while Cockpit starts is not lost.
+  const [overlay, setOverlay] = useState<Overlay>();
+  // Ctrl K works in a field too, unlike the single-key shortcuts.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey))
+        return;
+      if (event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      setOverlay("search");
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+  useShortcut("?", () => setOverlay("shortcuts"));
 
   if (setup.isPending)
     return <p className="p-4 text-muted-foreground">Chargement…</p>;
@@ -372,7 +472,7 @@ export function App() {
 
   return (
     <BrowserRouter>
-      <Routed />
+      <Routed overlay={overlay} onOverlay={setOverlay} />
     </BrowserRouter>
   );
 }

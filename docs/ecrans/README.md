@@ -32,15 +32,15 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 |---|---|---|---|---|
 | [S00a](S00a_Accueil.png) | L'accueil : phrase d'état, « 1 · Maintenant », « 2 · Ensuite », Claude en ce moment, la question ouverte à droite | 8.1 (existe), refaite en 9.3 | 040, 045, 069 | « Pourquoi Claude demande » : fait en 9.5 ([069](../decisions/069-finitions.md)) |
 | [S07](S07_Accueil_Calme.png) | L'accueil quand rien n'attend : plus aucun rouge | 8.1, 9.3 | 040 G | |
-| [S08](S08_Recherche.png) | Recherche globale `Ctrl K` | 15.3 | | |
+| [S08](S08_Recherche.png) | Recherche globale `Ctrl K` | 15.3 (existe) | 073 | la fenêtre est construite ([073](../decisions/073-ergonomie.md) A à D) ; `Ctrl Entrée` ouvre dans un nouvel onglet, pas « à droite » |
 | [S09](S09_NoterIdee.png) | Noter une idée en détail : projet, priorité, étiquettes, pièce jointe | 11.2, 11.4 (existent) | 014, 055, 061 | |
 
 ## 3 · Projets
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | tranché ([064](../decisions/064-tranches-restantes.md)) : les favoris en 15.3 ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
-| [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063 | le choix du niveau n'est plus sur l'écran : « Importer » ouvre une fenêtre à carrousel ([074](../decisions/074-equipes-a-la-demande.md) A) |
+| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3, 15.3 (favoris, existent) | 011, 073 | les favoris sont construits ([073](../decisions/073-ergonomie.md) H) ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
+| [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063, 074 | le choix du niveau n'est plus sur l'écran : « Importer » ouvre une fenêtre à carrousel ([074](../decisions/074-equipes-a-la-demande.md) A) |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | rien n'est retiré : les filtres restent ([069](../decisions/069-finitions.md) J) |
@@ -77,7 +77,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 (existe) | 044 | |
 | [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; pas de frise à l'échelle des heures sur le soir ([070](../decisions/070-le-matin-de-la-nuit.md) G) |
 | [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6, 14.7 (existe) | 044, 070 | « Ce matin · 8 h 12 » et « Compte 20 minutes pour tout traiter » non construits ([070](../decisions/070-le-matin-de-la-nuit.md)) |
-| [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 | 044 | la notification attend la 15.2 (044 M') |
+| [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 (existe) | 044, 072 | la notification de 044 M' est construite ([072](../decisions/072-pwa-et-notifications.md)) |
 
 ## 6 · Équipes d'agents et journal
 
@@ -107,7 +107,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 |---|---|---|---|---|
 | [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | « Accès donnés à Claude » retiré ([069](../decisions/069-finitions.md) I) |
 | [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1, 14.6 (existent) | 022, 044, 054 | |
-| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | tranché ([064](../decisions/064-tranches-restantes.md) 15.2, 15.3) : thème clair proposé par Claude, validé par Dorian |
+| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2 (notifications, existe), 15.3 (thème et raccourcis, existent) | 072, 073 | la carte « Notifications sur le téléphone » est construite, sans le sous-titre de la maquette ([072](../decisions/072-pwa-et-notifications.md)) ; les cartes « Thème » et « Raccourcis clavier » sont construites ([073](../decisions/073-ergonomie.md) I), la palette claire attend l'accord de Dorian (captures dans `captures/073-clair-*.png`) |
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | tranché ([064](../decisions/064-tranches-restantes.md) 13.1) : les trois rôles de l'écran ; invitation par login GitHub, pas par e-mail |
 | [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | tranché ([064](../decisions/064-tranches-restantes.md) 13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités ; codes Pro ; paiement plus tard |
 | [S50](S50_Reglages_Donnees.png) | Données : exporter, supprimer son compte | 13.5 | | |
@@ -121,6 +121,6 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 (existe) | 036, 071 | le panneau de l'accueil vient sous « 1 · Maintenant » ([071](../decisions/071-trois-gestes-au-telephone.md) E) |
 | [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 (existe) | 018, 071 | « Plus tard » non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) |
 | [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 (existe) | 014, 071 | « Photo » construit, « Dicter » retiré ([064](../decisions/064-tranches-restantes.md) 15.1) ; le titre de l'idée en gros n'est pas construit, et le panneau montre aussi la priorité et les étiquettes, absentes de S55 ([071](../decisions/071-trois-gestes-au-telephone.md)) |
-| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : tranche 15.2 ([064](../decisions/064-tranches-restantes.md)) |
+| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite), 15.2 (hors ligne, existe) | 072 | « Cockpit hors ligne » est le bandeau de la coque ([072](../decisions/072-pwa-et-notifications.md) I) |
 
 Sur le téléphone, la barre du bas (Accueil, Idée, Nuit, Projets) est la même sur chaque écran.

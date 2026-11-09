@@ -64,6 +64,103 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* The light theme (decision 073 G): the names of the dark tokens above, redefined. The four « temps » keep their meaning, darkened to reach 4.5:1 on the light grounds (Contrast.test.ts); strong borders reach 3:1.
+   « system » is the same values under prefers-color-scheme (ThemeSystem.test.ts keeps the two copies equal). Code tokens go dark-on-light with them. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-background: #f6f7f9;
+  --color-foreground: #12141a;
+  --color-card: #ffffff;
+  --color-sunken: #eef0f4;
+  --color-raised: #e4e8ee;
+  --color-raised-hover: #d9dee7;
+  --color-border: #d8dce4;
+  --color-border-strong: #858fa0;
+  --color-muted-foreground: #4a5261;
+  --color-dim: #5f6778;
+  --color-past: #a3aab8;
+  --color-primary: #12141a;
+  --color-primary-hover: #000000;
+  --color-primary-foreground: #f6f7f9;
+  --color-idea: #d9a300;
+  --color-idea-soft: #fdf1c7;
+  --color-idea-text: #6e4e00;
+  --color-you: #c4162d;
+  --color-you-soft: #fde4e8;
+  --color-you-text: #a50f24;
+  --color-you-line: rgba(196, 22, 45, 0.55);
+  --color-you-ground: #fff2f4;
+  --color-claude: #4a5ae0;
+  --color-claude-soft: #e6e9ff;
+  --color-claude-text: #3340b0;
+  --color-claude-glow: rgba(74, 90, 224, 0.18);
+  --color-claude-glow-strong: rgba(74, 90, 224, 0.45);
+  --color-done: #0f9f6e;
+  --color-done-soft: #d9f4e8;
+  --color-done-text: #0a6446;
+  --color-destructive: #c4162d;
+  --color-destructive-soft: #fde4e8;
+  --shiki-token-keyword: #8a3a9c;
+  --shiki-token-string: #1d6683;
+  --shiki-token-string-expression: #1d6683;
+  --shiki-token-link: #1d6683;
+  --shiki-token-function: #2b3445;
+  --shiki-token-constant: #7a4a2a;
+  --shiki-token-punctuation: #586175;
+  --shiki-token-comment: #586175;
+  --shiki-token-inserted: #1d6683;
+  --shiki-token-deleted: #586175;
+  --shiki-token-changed: #7a4a2a;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --color-background: #f6f7f9;
+    --color-foreground: #12141a;
+    --color-card: #ffffff;
+    --color-sunken: #eef0f4;
+    --color-raised: #e4e8ee;
+    --color-raised-hover: #d9dee7;
+    --color-border: #d8dce4;
+    --color-border-strong: #858fa0;
+    --color-muted-foreground: #4a5261;
+    --color-dim: #5f6778;
+    --color-past: #a3aab8;
+    --color-primary: #12141a;
+    --color-primary-hover: #000000;
+    --color-primary-foreground: #f6f7f9;
+    --color-idea: #d9a300;
+    --color-idea-soft: #fdf1c7;
+    --color-idea-text: #6e4e00;
+    --color-you: #c4162d;
+    --color-you-soft: #fde4e8;
+    --color-you-text: #a50f24;
+    --color-you-line: rgba(196, 22, 45, 0.55);
+    --color-you-ground: #fff2f4;
+    --color-claude: #4a5ae0;
+    --color-claude-soft: #e6e9ff;
+    --color-claude-text: #3340b0;
+    --color-claude-glow: rgba(74, 90, 224, 0.18);
+    --color-claude-glow-strong: rgba(74, 90, 224, 0.45);
+    --color-done: #0f9f6e;
+    --color-done-soft: #d9f4e8;
+    --color-done-text: #0a6446;
+    --color-destructive: #c4162d;
+    --color-destructive-soft: #fde4e8;
+    --shiki-token-keyword: #8a3a9c;
+    --shiki-token-string: #1d6683;
+    --shiki-token-string-expression: #1d6683;
+    --shiki-token-link: #1d6683;
+    --shiki-token-function: #2b3445;
+    --shiki-token-constant: #7a4a2a;
+    --shiki-token-punctuation: #586175;
+    --shiki-token-comment: #586175;
+    --shiki-token-inserted: #1d6683;
+    --shiki-token-deleted: #586175;
+    --shiki-token-changed: #7a4a2a;
+  }
+}
+
 /* Colors of the logo (Logo.tsx): the four beats of the loop (decisions 045 and 046).
    Plain variables, not @theme ones: Tailwind drops theme variables no utility uses. */
 :root {

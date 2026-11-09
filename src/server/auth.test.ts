@@ -415,6 +415,7 @@ describe("GET /api/me", () => {
       name: "The Octocat",
       avatarUrl: "https://avatars/1",
       isAdmin: true,
+      theme: "dark",
     });
   });
 

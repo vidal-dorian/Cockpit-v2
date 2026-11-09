@@ -86,7 +86,11 @@ export function homeRoutes(db: Db, now: () => number) {
     if (!user) return c.json({ error: "Unauthorized" }, 401);
     const mine = mineOf(user.userId);
     const list = await db
-      .select({ id: projects.id, name: projects.fullName })
+      .select({
+        id: projects.id,
+        name: projects.fullName,
+        favorite: projectMembers.favorite,
+      })
       .from(projectMembers)
       .innerJoin(projects, eq(projects.id, projectMembers.projectId))
       .where(mine)

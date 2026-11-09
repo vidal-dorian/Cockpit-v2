@@ -12,6 +12,7 @@ import { costRoutes, metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
+import { favoriteRoutes } from "./favorites.ts";
 import { findingRoutes } from "./findings.ts";
 import { githubReader } from "./github.ts";
 import { alertRoutes } from "./github-alerts.ts";
@@ -24,10 +25,12 @@ import { mcpRoutes } from "./mcp.ts";
 import { nightRoutes } from "./night.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { projectRoutes } from "./projects.ts";
+import { pushRoutes, type SendPush, webPushSender } from "./push.ts";
 import { questionRoutes } from "./questions.ts";
 import { queueRoutes } from "./queue.ts";
 import { type FireRoutine, routineRoutes } from "./routines.ts";
 import { runRoutes } from "./runs.ts";
+import { searchRoutes } from "./search.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
 import { takeoverRoutes } from "./takeover.ts";
@@ -54,6 +57,8 @@ export type AppOptions = {
   fetchEndOfLife?: FetchEndOfLife;
   /** The clock in milliseconds, for the life of authorization codes, of the CIMD cache and the next run of a schedule; Date.now when absent. */
   now?: () => number;
+  /** The Web Push sender of the test notification (decision 072 F); `web-push` when absent. */
+  sendPush?: SendPush;
 };
 
 const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
@@ -89,6 +94,7 @@ export function createApp(
     fireRoutine = (url, init) => fetch(url, init),
     fetchEndOfLife = (url, init) => fetch(url, init),
     now = Date.now,
+    sendPush = webPushSender(db, encryptionKey),
   }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);
@@ -153,11 +159,14 @@ export function createApp(
       .route("/", questionRoutes(db, fireDeps))
       .route("/", homeRoutes(db, now))
       .route("/", claudeRoutes(db))
+      .route("/", searchRoutes(db))
+      .route("/", favoriteRoutes(db))
       .route("/", costRoutes(db, now))
       .route("/", routineRoutes(db, fireDeps, now))
       .route("/", launcherRoutes(db, fireDeps, now))
       .route("/", queueRoutes(db))
       .route("/", nightRoutes(db, now))
+      .route("/", pushRoutes(db, encryptionKey, sendPush))
       .route("/", customRoutineRoutes(db, fireDeps, now))
       .route("/", agentTeamRoutes(db))
       // Outside /api: Claude Code's exporter has no session and its own 1 MiB limit (decision 060 A).
@@ -170,6 +179,11 @@ export function createApp(
       // An unknown API route is an error, not a reason to send the page.
       .all("/api/*", (c) => c.json({ error: "Not found" }, 404))
       // The page built by Vite; every other path gets index.html so the React router can handle it.
+      // A new service worker must be seen at once (decision 072 A).
+      .use("/sw.js", async (c, next) => {
+        await next();
+        c.header("Cache-Control", "no-cache");
+      })
       .use("/*", serveStatic({ root: "./dist/web" }))
       .get("*", serveStatic({ path: "./dist/web/index.html" }))
   );

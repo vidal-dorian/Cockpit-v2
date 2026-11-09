@@ -302,6 +302,27 @@
       "when": 1794213289814,
       "tag": "0042_previous_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794223281081,
+      "tag": "0043_common_random",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794229335615,
+      "tag": "0044_free_vision",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794236013646,
+      "tag": "0045_needy_leader",
+      "breakpoints": true
     }
   ]
 }

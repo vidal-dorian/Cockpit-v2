@@ -26,6 +26,7 @@ import {
   history,
   nightItems,
   nights,
+  notifications,
   projectMembers,
   projects,
   runSteps,
@@ -71,6 +72,19 @@ const live = (db: Db) =>
     db.select({ id: users.id }).from(users).where(isNull(users.blockedAt)),
   );
 
+/** The text of N3 (decision 072 C): the PR delivered and the questions waiting. */
+const recapOf = (outcomes: (string | null)[]) => {
+  const delivered = outcomes.filter((o) => o === "pr").length;
+  const asked = outcomes.filter((o) => o === "paused").length;
+  return [
+    `Cette nuit : ${delivered === 0 ? "aucune PR prête" : `${delivered} PR prête${delivered > 1 ? "s" : ""}`}.`,
+    asked === 1 && "Une question attend ta réponse.",
+    asked > 1 && `${asked} questions attendent ta réponse.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+};
+
 /** Ends a running night (decision 044 D, L'): what was not reached is `not_started`. Once: the UPDATE only matches a running night. */
 async function finishNight(db: Db, night: { id: number; userId: number }) {
   await db.transaction(async (tx) => {
@@ -84,6 +98,17 @@ async function finishNight(db: Db, night: { id: number; userId: number }) {
       .update(nightItems)
       .set({ outcome: "not_started" })
       .where(and(eq(nightItems.nightId, night.id), isNull(nightItems.outcome)));
+    const items = await tx
+      .select({ outcome: nightItems.outcome })
+      .from(nightItems)
+      .where(eq(nightItems.nightId, night.id));
+    await tx.insert(notifications).values({
+      userId: night.userId,
+      type: "night_recap",
+      title: "Ta nuit avec Claude",
+      body: recapOf(items.map((i) => i.outcome)),
+      url: "/",
+    });
     await tx
       .insert(history)
       .values(systemEntry(night.userId, "finish_night", { nightId: night.id }));

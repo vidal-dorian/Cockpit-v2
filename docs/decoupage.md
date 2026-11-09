@@ -78,8 +78,10 @@
 - **Fait** : tranche 9.5 (les étapes à venir et « Pourquoi Claude demande » sur un run, la carte du Kanban ouverte dans le panneau de droite, [décision 069](decisions/069-finitions.md)).
 - **Fait** : tranche 14.7 (le matin de la nuit : le bilan avec les critères prouvés, la frise à l'échelle des heures sur l'accueil, « Relire en série » et la touche R, [décision 070](decisions/070-le-matin-de-la-nuit.md)).
 - **Fait** : tranche 15.1 (les trois gestes au téléphone : la barre du bas, le panneau « Noter une idée » en plein écran avec « Photo », le panneau de l'accueil sous « 1 · Maintenant », [décision 071](decisions/071-trois-gestes-au-telephone.md)).
+- **Fait** : tranche 15.2 (PWA et notifications : l'application installable, quatre notifications sur le téléphone avec un silence réglable, « Cockpit ne répond plus », [décision 072](decisions/072-pwa-et-notifications.md)).
+- **Fait** : tranche 15.3 (ergonomie : recherche `Ctrl K`, raccourcis clavier, thème clair à valider par Dorian, projets favoris, [décision 073](decisions/073-ergonomie.md)).
 - **Fait** : hors tranche, des demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, avec un avertissement au lancement quand l'équipe du repo a changé, [décision 074](decisions/074-equipes-a-la-demande.md)).
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (15.1 faite), puis phase 13 (13.3 et 13.4 attendent Dorian).
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (15.1 à 15.3 faites), puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -289,8 +291,8 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | # | Tranche | Démo |
 |---|---|---|
 | 15.1 | **Les trois gestes au téléphone** : noter une idée, valider une US et répondre à Claude, vérifiés et corrigés en largeur téléphone ; « Photo » dans Noter une idée ([071](decisions/071-trois-gestes-au-telephone.md), [064](decisions/064-tranches-restantes.md)) | Sur mon téléphone, je fais les trois gestes sans zoom ni défilement latéral |
-| 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17), le récap de la nuit, le silence la nuit, l'écran « Cockpit ne répond plus » (S56) ([064](decisions/064-tranches-restantes.md)) | Claude pose une question, mon téléphone vibre |
-| 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20), favoris ([064](decisions/064-tranches-restantes.md)) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
+| 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17), le récap de la nuit, le silence la nuit, l'écran « Cockpit ne répond plus » (S56) ([072](decisions/072-pwa-et-notifications.md), [064](decisions/064-tranches-restantes.md)) | Claude pose une question, mon téléphone vibre |
+| 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20), favoris ([073](decisions/073-ergonomie.md), [064](decisions/064-tranches-restantes.md)) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
 | 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18), les sept étapes de S06, en haut de l'accueil ([064](decisions/064-tranches-restantes.md)) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
 
 ## Équipe d'agents (fait)

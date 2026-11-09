@@ -17,6 +17,7 @@ import { publish, subscribe } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
 import { isDatabaseId } from "./projects.ts";
+import { notify } from "./push.ts";
 import { queueAfterRun } from "./queue.ts";
 import type { Fire } from "./routines.ts";
 import {
@@ -303,6 +304,12 @@ export async function linkPullRequest(
       )
       .returning({ id: userStories.id });
     if (changed.length === 0) throw new Refused("wrong_status");
+    await notify(tx, project.id, {
+      type: "pr_ready",
+      title: "PR prête à relire",
+      body: story.iWant,
+      url: "/",
+    });
   });
   await syncIssue(db, readGitHub, userId, story.id);
   await announce(db, found, args.run_id);
@@ -337,6 +344,21 @@ export async function endRun(
   return changed.length > 0;
 }
 
+/** Whether Cockpit itself asked the run to stop for its budget (`systemStop` leaves this entry). */
+const budgetStopped = (tx: Tx, runId: number) =>
+  tx
+    .select({ id: history.id })
+    .from(history)
+    .where(
+      and(
+        eq(history.runId, runId),
+        eq(history.action, "request_stop"),
+        sql`${history.detail}->>'reason' = 'budget'`,
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows.length > 0);
+
 /** `finish_run` (decisions 033 D, 035 D, 037 C and 044 E): success needs a linked PR; a failure after a stop request is `stopped`; `paused` waits for the answer to a question. */
 export async function finishRun(
   db: Db,
@@ -367,6 +389,17 @@ export async function finishRun(
       status,
       summary: args.summary,
     });
+    // A stop the user asked for is no failure to tell; the cap of the budget is (decision 072 C).
+    if (
+      status === "failed" ||
+      (status === "stopped" && (await budgetStopped(tx, args.run_id)))
+    )
+      await notify(tx, found.project.id, {
+        type: "run_failed",
+        title: "Échec d'un run",
+        body: found.story.iWant,
+        url: `/runs/${args.run_id}`,
+      });
     return { moved, status };
   });
   if (moved) await syncIssue(db, readGitHub, userId, found.story.id);

@@ -48,7 +48,7 @@ Il a ensuite demandé les quatre couleurs des profils DISC (v8), puis de les rat
 ## Ce qui est repoussé
 
 - **Le logo** : les écrans montrent quatre carrés aux couleurs des temps, une proposition. Le composant `Logo` (les deux mains, 028 D) reste jusqu'à ce qu'une décision tranche. → tranché par la [046](046-logo-la-boucle.md) : la boucle, que les écrans montrent depuis.
-- **Le thème clair** : la 15.3. Les jetons sont nommés pour recevoir un second thème.
+- **Le thème clair** : la 15.3, construit par la [073](073-ergonomie.md) : les mêmes jetons, redéfinis sous `[data-theme="light"]` ; un jeton nouveau a ses deux valeurs.
 - **Les branches en parallèle dans une équipe** : une décision avant la tranche E6 (G).
 - **Ce que chaque écran marque « à trancher »** dans l'index (prix de l'abonnement, rôles des membres, coût…) : décidé avec sa tranche.
 
@@ -66,7 +66,7 @@ La 9.3 refait ce qui existe, avec les mêmes fonctions qu'avant. Ce dont la tran
 - **La page Équipes d'agents** de la barre latérale.
 - **Les onglets d'un projet Conception, CI / CD et Historique** : le projet a Kanban, Tickets, Santé, Agents et Réglages. La tranche R1 a ajouté Conception (entre Tickets et Santé, [043](043-carte-du-code.md)) ; CI / CD et Historique attendent leur tranche. *Historique est fait par la [053](053-journal-filtrable.md) en 11.1 (entre Agents et Réglages, `/projets/:id/historique`) ; CI / CD attend toujours.*
 - **Les entrées de Réglages Préférences, Membres, Abonnement et Données** : il reste Connecter Claude (les jetons MCP y sont, `/reglages/jetons` renvoie à `/reglages`), Tâches cloud et Instance (administrateur).
-- **L'écran « Cockpit hors ligne » (S56)** : seule la page « Cette page n'existe pas. » est faite ; la perte du serveur reste l'alerte « Serveur injoignable » avec « Réessayer ».
+- **L'écran « Cockpit hors ligne » (S56)** : seule la page « Cette page n'existe pas. » est faite ; la perte du serveur reste l'alerte « Serveur injoignable » avec « Réessayer » ; construit par la [072](072-pwa-et-notifications.md) I (le bandeau de la coque ; l'écran de connexion garde l'alerte).
 - **Les barres d'étapes d'un run** et la carte **« Pourquoi Claude demande »**. *Faits par la [069](069-finitions.md) en 9.5.*
 - **L'ouverture d'une carte du Kanban dans le panneau de droite** : une carte mène toujours à sa page. *Fait par la [069](069-finitions.md) en 9.5.*
 - **Ce que les écrans montrent encore et que le code n'a pas** (relevé à l'alignement des écrans construits, le logo mis à part) : le cloud et la nuit dans « Développer avec Claude » (S24, tranches 14.1 et 14.6), « Accès donnés à Claude » (S45), « Branchements » (S51), les filtres de Tous les projets, de Tickets et du Journal, le canevas de « Nouvelle équipe » (S38). *La [069](069-finitions.md) retire les filtres de Tous les projets (sauf Favoris) et « Accès donnés à Claude » de la liste ; ceux de Tickets restent.*

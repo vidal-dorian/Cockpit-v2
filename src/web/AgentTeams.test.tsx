@@ -137,6 +137,9 @@ function stubApi(options: Options = {}) {
         });
       if (path === "/api/me")
         return Response.json({ login: "octocat", name: null, avatarUrl: null });
+      // The shell's « Cockpit ne répond plus » banner (decision 072) reads it.
+      if (path === "/api/health")
+        return Response.json({ status: "ok", version: "0.1.0" });
       if (path === "/api/projects" && method === "GET")
         return Response.json({
           projects: [

@@ -46,6 +46,21 @@ export const users = pgTable("users", {
   nightStartHour: integer("night_start_hour").notNull().default(22),
   nightEndHour: integer("night_end_hour").notNull().default(7),
   nightTimeZone: text("night_time_zone").notNull().default("UTC"),
+  // The phone notifications (decision 072 D): the four switches, the quiet hours (in the night's time zone), and when the last « PR prête à relire » went out (E).
+  notifyQuestion: boolean("notify_question").notNull().default(true),
+  notifyRunFailed: boolean("notify_run_failed").notNull().default(true),
+  notifyPrReady: boolean("notify_pr_ready").notNull().default(true),
+  notifyNightRecap: boolean("notify_night_recap").notNull().default(true),
+  quietStartHour: integer("quiet_start_hour").notNull().default(22),
+  quietEndHour: integer("quiet_end_hour").notNull().default(7),
+  lastReviewPushAt: timestamp("last_review_push_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  // The look of the page (decision 073 F): the same on every device.
+  theme: text("theme", { enum: ["dark", "light", "system"] })
+    .notNull()
+    .default("dark"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -66,6 +81,9 @@ export const instanceSettings = pgTable(
     githubWebhookSecret: text("github_webhook_secret").notNull(),
     // The SHA-256 of the cookie that lets the person who ran the wizard become the first administrator; null once spent.
     adminClaimHash: text("admin_claim_hash"),
+    // The Web Push keys, generated at the first need (decision 072 F); the private one is an AES-256-GCM value like the secrets above.
+    vapidPublicKey: text("vapid_public_key"),
+    vapidPrivateKey: text("vapid_private_key"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -185,6 +203,8 @@ export const projectMembers = pgTable(
     role: text("role", { enum: ["owner"] }).notNull(),
     // Ticked by this user once the repo is added to their cloud launcher (decision 054 D).
     inLauncher: boolean("in_launcher").notNull().default(false),
+    // Starred by this user (decision 073 H).
+    favorite: boolean("favorite").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -964,6 +984,38 @@ export const templateRequests = pgTable("template_requests", {
   name: text("name").notNull(),
   description: text("description"),
   private: boolean("private").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
+/** A phone or browser that receives pushes (decision 072 F); the endpoint is the push service's address, unique to the device. */
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
+/** The outbox of decision 072 B: the events write a row per member, the pass of the minute sends it and empties it. */
+export const notifications = pgTable("notifications", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type", {
+    enum: ["question", "run_failed", "pr_ready", "night_recap"],
+  }).notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  url: text("url").notNull(),
+  actions: jsonb("actions").$type<{ action: string; title: string }[]>(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),

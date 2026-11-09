@@ -5,8 +5,7 @@ import {
   type CallToolResult,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { and, asc, count, eq, ilike, isNull, type SQL, sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
@@ -52,6 +51,7 @@ import {
   reportStep,
   startRun,
 } from "./runs.ts";
+import { activeOf, MAX_RESULTS, searchWork } from "./search.ts";
 import {
   changeStory,
   memberStory,
@@ -81,7 +81,6 @@ import { proposeWorkflowChange, workflowPath } from "./workflows.ts";
 
 // Decision 016. The body is read whole in memory: same 256 KiB as the API routes (the global limit only covers /api/*).
 const MAX_BODY = 256 * 1024;
-const MAX_RESULTS = 20;
 /** Per ticket, over all the calls that write it (decision 017 B). */
 const MAX_STORIES = 100;
 
@@ -146,10 +145,6 @@ async function ownProject(call: Call, id: number) {
 }
 
 const id = z.number().int().min(1).max(2_147_483_647);
-
-/** Rows of a project the user belongs to and has not archived (what `search` and `list_tickets_needing_us` look at). */
-const activeOf = (userId: number) =>
-  and(eq(projectMembers.userId, userId), isNull(projects.archivedAt));
 
 // Limits of decision 017 B (shared with the REST edit of a story): the notes are kept as typed.
 const storyText = {
@@ -294,86 +289,30 @@ const tools = {
         call.entry.args = { projectId: project_id };
         await ownProject(call, project_id);
       }
-      // LIKE wildcards in the query are plain characters.
-      const words = query.split(/\s+/).map((w) => w.replace(/[\\%_]/g, "\\$&"));
-      const matching = (column: AnyPgColumn | SQL) =>
-        and(...words.map((word) => ilike(column, `%${word}%`)));
-      const mine = activeOf(call.userId);
       return act(call.db, call.entry, async (tx) => {
-        const found =
-          project_id === undefined
-            ? await tx
-                .select({ id: projects.id, fullName: projects.fullName })
-                .from(projects)
-                .innerJoin(
-                  projectMembers,
-                  eq(projectMembers.projectId, projects.id),
-                )
-                .where(and(mine, matching(projects.fullName)))
-                .orderBy(asc(projects.id))
-                .limit(MAX_RESULTS)
-            : [];
-        const foundTickets = await tx
-          .select({ ticket: tickets })
-          .from(tickets)
-          .innerJoin(projects, eq(projects.id, tickets.projectId))
-          .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-          .where(
-            and(
-              mine,
-              matching(tickets.title),
-              project_id === undefined
-                ? undefined
-                : eq(tickets.projectId, project_id),
-            ),
-          )
-          .orderBy(asc(tickets.id))
-          .limit(MAX_RESULTS);
-        const foundStories = await tx
-          .select({ story: userStories, projectId: tickets.projectId })
-          .from(userStories)
-          .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-          .innerJoin(projects, eq(projects.id, tickets.projectId))
-          .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-          .where(
-            and(
-              mine,
-              matching(
-                sql`${userStories.asA} || ' ' || ${userStories.iWant} || ' ' || ${userStories.soThat}`,
-              ),
-              project_id === undefined
-                ? undefined
-                : eq(tickets.projectId, project_id),
-            ),
-          )
-          .orderBy(asc(userStories.id))
-          .limit(MAX_RESULTS);
-        const statuses = await storyStatuses(
-          tx,
-          foundTickets.map(({ ticket }) => ticket.id),
-        );
+        const found = await searchWork(tx, call.userId, query, project_id);
         return {
           results: [
-            ...found.map((p) => ({
+            ...found.projects.map((p) => ({
               type: "project",
               id: p.id,
               title: p.fullName,
               project_id: p.id,
             })),
-            ...foundTickets.map(({ ticket }) => ({
+            ...found.tickets.map((t) => ({
               type: "ticket",
-              id: ticket.id,
-              title: ticket.title,
-              project_id: ticket.projectId,
-              step: ticketStep(ticket, statuses.get(ticket.id) ?? []),
+              id: t.id,
+              title: t.title,
+              project_id: t.projectId,
+              step: t.step,
             })),
-            ...foundStories.map(({ story, projectId }) => ({
+            ...found.stories.map((s) => ({
               type: "story",
-              id: story.id,
-              title: story.iWant,
-              project_id: projectId,
-              ticket_id: story.ticketId,
-              status: story.status,
+              id: s.id,
+              title: s.title,
+              project_id: s.projectId,
+              ticket_id: s.ticketId,
+              status: s.status,
             })),
           ].slice(0, MAX_RESULTS),
         };
