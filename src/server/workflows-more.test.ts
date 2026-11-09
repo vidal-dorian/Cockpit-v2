@@ -54,22 +54,20 @@ describe("decision 067 B: which workflows are listed", () => {
     const ctx = await withProject({
       gitRepos: { "user1000/app": { files: { "README.md": "x\n" } } },
     });
-    ctx.fetchMock
-      .git("user1000/app")
-      .workflows.push(
-        { path: ".github/workflows/ci.yml", name: "CI", runs: [] },
-        {
-          path: ".github/workflows/old.yml",
-          name: "Old",
-          runs: [],
-          state: "disabled_manually",
-        },
-        {
-          path: "dynamic/github-code-scanning/codeql",
-          name: "CodeQL",
-          runs: [],
-        },
-      );
+    ctx.fetchMock.git("user1000/app").workflows.push(
+      { path: ".github/workflows/ci.yml", name: "CI", runs: [] },
+      {
+        path: ".github/workflows/old.yml",
+        name: "Old",
+        runs: [],
+        state: "disabled_manually",
+      },
+      {
+        path: "dynamic/github-code-scanning/codeql",
+        name: "CodeQL",
+        runs: [],
+      },
+    );
 
     const res = await ctx.app.request(
       `/api/projects/${ctx.projectId}/workflows`,
