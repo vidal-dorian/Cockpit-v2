@@ -565,13 +565,13 @@ describe("the return from GitHub (decision 068 D)", () => {
 
     await createAndReturn(ctx);
 
-    const tables = await ctx.db.execute<{ table_name: string }>(
+    const tables = (await ctx.db.execute(
       sql`select table_name from information_schema.tables where table_schema = 'public'`,
-    );
+    )) as unknown as { rows: { table_name: string }[] };
     for (const { table_name } of tables.rows) {
-      const rows = await ctx.db.execute(
+      const rows = (await ctx.db.execute(
         sql.raw(`select t::text as row from "${table_name}" t`),
-      );
+      )) as unknown as { rows: unknown[] };
       expect(JSON.stringify(rows.rows), table_name).not.toContain(USER_TOKEN);
     }
   });
