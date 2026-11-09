@@ -27,6 +27,7 @@ import { mcpRoutes } from "./mcp.ts";
 import { invitationReturn, memberRoutes } from "./members.ts";
 import { nightRoutes } from "./night.ts";
 import { oauthRoutes } from "./oauth.ts";
+import { planRoutes } from "./pro-codes.ts";
 import { projectRoutes, RoleRefused } from "./projects.ts";
 import { pushRoutes, type SendPush, webPushSender } from "./push.ts";
 import { questionRoutes } from "./questions.ts";
@@ -120,12 +121,12 @@ export function createApp(
               projectId: error.projectId,
               actor: "human",
               origin: "ui",
-              action: "refused_role",
+              action: `refused_${error.message}`,
               args: {},
             },
             () => Promise.reject(error),
           ).catch(() => {});
-        return c.json({ error: "role" }, 403);
+        return c.json({ error: error.message }, 403);
       })
       // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
       .use("*", async (c, next) => {
@@ -167,6 +168,7 @@ export function createApp(
       )
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
+      .route("/", planRoutes(db))
       .route("/", webhookRoutes(db, readInstance, fireDeps))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       .route("/", templateRoutes(db, readInstance, readGitHub))

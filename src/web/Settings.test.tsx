@@ -101,6 +101,9 @@ function stubApi(state: State) {
       // The MCP tokens have their own tests (SettingsTokens.test.tsx): none here.
       if (path === "/api/me/tokens" && method === "GET")
         return Response.json({ tokens: [] });
+      // The Pro codes have their own tests (ProCodes.test.tsx): none here.
+      if (path === "/api/settings/pro-codes" && method === "GET")
+        return Response.json({ codes: [] });
       if (path === "/api/settings/users" && method === "GET")
         return state.isAdmin
           ? Response.json({ users: state.users })

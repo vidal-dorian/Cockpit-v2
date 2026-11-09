@@ -42,6 +42,7 @@ import { pdfText } from "./pdf-text.ts";
 import {
   memberProject,
   memberProjects,
+  proOnly,
   type Role,
   RoleRefused,
 } from "./projects.ts";
@@ -972,6 +973,7 @@ const tools = {
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
       const project = await ownProject(call, args.project_id, "owner");
+      await proOnly(call.db, call.userId, project.id);
       return submitCodeMap(call.db, call.readGitHub, call.entry, project, args);
     },
   ),
@@ -982,6 +984,7 @@ const tools = {
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
       const project = await ownProject(call, args.project_id, "owner");
+      await proOnly(call.db, call.userId, project.id);
       return createTakeoverStories(
         call.db,
         call.readGitHub,
@@ -998,6 +1001,7 @@ const tools = {
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
       const project = await ownProject(call, args.project_id, "owner");
+      await proOnly(call.db, call.userId, project.id);
       return submitFindings(
         call.db,
         call.readGitHub,
@@ -1048,6 +1052,7 @@ const TOOL_NAME = /^[a-z][a-z0-9_]{0,39}$/;
 
 /** What Claude reads after a refusal: why, and what to do (decision 004). */
 const ADVICE: Record<string, string | ((written: number) => string)> = {
+  plan: "the plan of the project's owner does not allow this: taking over an app is part of Pro, and a project beyond the 3 of a Free plan is read-only. Tell the user; do not retry.",
   not_found:
     "not found. The project, ticket or story does not exist or is not yours. Find the right id with list_projects, search or list_tickets_needing_us, then call again.",
   wrong_status:

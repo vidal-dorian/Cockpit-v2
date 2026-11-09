@@ -6,9 +6,11 @@ import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
 import { LauncherSettings } from "./LauncherSettings.tsx";
 import { fetchMembers, Members } from "./Members.tsx";
 import { Preferences } from "./Preferences.tsx";
+import { ProCodes } from "./ProCodes.tsx";
 import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
 import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
+import { fetchPlan, planSentence, Subscription } from "./Subscription.tsx";
 import { plural } from "./tickets.ts";
 import {
   alertBox,
@@ -165,7 +167,8 @@ type SettingsTab =
   | "utilisateurs"
   | "taches-cloud"
   | "preferences"
-  | "membres";
+  | "membres"
+  | "abonnement";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
 const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
@@ -182,6 +185,7 @@ const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
     title: "Personne ne voit tes projets.",
     rest: "Invite quelqu'un sur un de tes projets.",
   },
+  abonnement: { title: "Ton abonnement" },
   utilisateurs: {
     title: "Voici ceux qui ont accès à ton instance.",
     rest: "Toute personne avec un compte GitHub peut se connecter.",
@@ -211,6 +215,12 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
     queryFn: fetchMembers,
     enabled: on("membres"),
   });
+  const plan = useQuery({
+    queryKey: ["plan"],
+    queryFn: fetchPlan,
+    enabled: on("abonnement"),
+  });
+  if (tab === "abonnement" && plan.data) return planSentence(plan.data);
   if (tab === "utilisateurs" && !isAdmin)
     return { title: "L'instance est gérée par son administrateur." };
   if (tab === "claude" && connect.data?.connected && connect.data.connectedAt)
@@ -289,6 +299,9 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           <NavLink to="/reglages/membres" className={menuItem}>
             Membres
           </NavLink>
+          <NavLink to="/reglages/abonnement" className={menuItem}>
+            Abonnement
+          </NavLink>
           {me.data?.isAdmin && (
             <NavLink to="/reglages/utilisateurs" className={menuItem}>
               Instance
@@ -306,21 +319,25 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           )}
           {tab === "utilisateurs" &&
             (me.data?.isAdmin ? (
-              <section aria-labelledby="utilisateurs">
-                <h2 id="utilisateurs" className={sectionLabel}>
-                  Utilisateurs
-                </h2>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">
-                  Toute personne avec un compte GitHub peut se connecter à
-                  Cockpit. Un compte bloqué ne peut plus se connecter.
-                </p>
-                <div className="mt-3" aria-live="polite">
-                  <UserList />
-                </div>
-              </section>
+              <div className="grid gap-[22px]">
+                <section aria-labelledby="utilisateurs">
+                  <h2 id="utilisateurs" className={sectionLabel}>
+                    Utilisateurs
+                  </h2>
+                  <p className="mt-1 text-[12.5px] text-muted-foreground">
+                    Toute personne avec un compte GitHub peut se connecter à
+                    Cockpit. Un compte bloqué ne peut plus se connecter.
+                  </p>
+                  <div className="mt-3" aria-live="polite">
+                    <UserList />
+                  </div>
+                </section>
+                <ProCodes />
+              </div>
             ) : (
               <p>Cette page est réservée à l'administrateur.</p>
             ))}
+          {tab === "abonnement" && <Subscription />}
           {tab === "preferences" && <Preferences />}
           {tab === "membres" && <Members />}
           {tab === "taches-cloud" && (

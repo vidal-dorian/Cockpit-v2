@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { client } from "./api.ts";
 import {
   type Failure,
@@ -9,6 +10,7 @@ import {
   type Plan,
   readPlan,
 } from "./ProjectPrepare.tsx";
+import { fetchProjects } from "./Projects.tsx";
 import { Panel } from "./Shell.tsx";
 import {
   alertBox,
@@ -73,10 +75,16 @@ export function AnalyseWindow({
     url: string;
     pullRequest: boolean;
   } | null>(null);
+  // The takeover is Pro (decision 077 D): the plan of the project's owner comes with the projects.
+  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const free =
+    projects.data?.find((p) => String(p.id) === projectId)?.ownerPlan ===
+    "free";
   // Read when the window opens (a POST that writes nothing); an unreadable plan only means no proposal.
   const read = useQuery({
     queryKey: ["analyse-plan", projectId],
     queryFn: () => readPlan(projectId),
+    enabled: !free,
     retry: false,
     gcTime: 0,
     refetchOnWindowFocus: false,
@@ -144,6 +152,29 @@ export function AnalyseWindow({
     (f) => f.status === "create" || f.status === "update",
   );
 
+  if (free)
+    return (
+      <Panel
+        label="Analyser avec Claude"
+        footer={
+          <button type="button" className={ghostButton} onClick={onClose}>
+            Annuler
+          </button>
+        }
+      >
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-xl leading-snug font-semibold"
+        >
+          Analyser avec Claude
+        </h2>
+        <p>La reprise fait partie de l'offre Pro.</p>
+        <Link to="/reglages/abonnement" className="underline">
+          Abonnement
+        </Link>
+      </Panel>
+    );
   return (
     <Panel
       label="Analyser avec Claude"

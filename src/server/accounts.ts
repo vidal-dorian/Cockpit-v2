@@ -6,6 +6,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { sessions, users } from "./db/schema.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
+import { proCodeRoutes } from "./pro-codes.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
 
 type Env = { Variables: { adminId: number; settings: InstanceSettings } };
@@ -66,6 +67,7 @@ export function accountRoutes(db: Db, readInstance: ReadInstance) {
 
   return new Hono<Env>()
     .use("/api/settings/*", adminOnly)
+    .route("/", proCodeRoutes(db))
     .get("/api/settings/users", async (c) => {
       const all = await db
         .select({

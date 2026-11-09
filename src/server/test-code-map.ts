@@ -102,6 +102,15 @@ export async function ready(
 }
 export type Ctx = Awaited<ReturnType<typeof ready>>;
 
+/** `ready()` with Alice Pro by a code with no end: the takeover tools are Pro only (decision 077 D), and most tests are not about the plan. */
+export async function readyPro(...args: Parameters<typeof ready>) {
+  const ctx = await ready(...args);
+  await ctx.db.execute(
+    sql`insert into pro_codes (code_hash, note, created_at, expires_at, user_id, used_at) values ('test', 'test', now(), now(), ${ctx.alice.id}, now())`,
+  );
+  return ctx;
+}
+
 /** A `submit_code_map` call on the project of `ctx`; `args` overrides any argument (`project_id`, `commit_sha`, `modules`). */
 export const submit = (
   ctx: Pick<Ctx, "app" | "alice" | "projectId" | "sha">,

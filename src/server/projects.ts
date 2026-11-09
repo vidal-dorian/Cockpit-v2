@@ -43,6 +43,7 @@ import {
   updatesLine,
   webhookLine,
 } from "./health.ts";
+import { overQuota, planOf, planState } from "./plans.ts";
 import {
   marketplaceOf,
   pluginInstalled,
@@ -269,8 +270,9 @@ export type Role = (typeof ROLES)[number];
 export class RoleRefused extends Refused {
   userId: number;
   projectId: number;
-  constructor(userId: number, projectId: number) {
-    super("role");
+  /** `plan` when the owner's plan, not the member's role, is what refuses (decision 077). */
+  constructor(userId: number, projectId: number, reason = "role") {
+    super(reason);
     this.userId = userId;
     this.projectId = projectId;
   }
@@ -295,9 +297,38 @@ export async function memberProject(
       ),
     );
   if (!found) return undefined;
-  if (ROLES.indexOf(found.role) < ROLES.indexOf(min))
-    throw new RoleRefused(userId, projectId);
-  return { ...found.project, role: found.role };
+  // A project the plan of its owner locks is read-only for everyone (decision 077 E).
+  const [owner] = await db
+    .select({ id: projectMembers.userId })
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.role, "owner"),
+      ),
+    );
+  const locked = owner
+    ? (await planState(db, owner.id)).locked.has(projectId)
+    : false;
+  const role = locked ? "read_only" : found.role;
+  if (ROLES.indexOf(role) < ROLES.indexOf(min))
+    throw new RoleRefused(userId, projectId, locked ? "plan" : "role");
+  return { ...found.project, role };
+}
+
+/** Refuses a gesture that is Pro only when the owner of the project is Free (decision 077 D). */
+export async function proOnly(db: Db, userId: number, projectId: number) {
+  const [owner] = await db
+    .select({ id: projectMembers.userId })
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.role, "owner"),
+      ),
+    );
+  if (owner && (await planOf(db, owner.id)).plan === "free")
+    throw new RoleRefused(userId, projectId, "plan");
 }
 
 /** Every project the user belongs to, active ones first (same rule as `memberProject`), with their role and, on a shared one, the login of its owner. */
@@ -308,17 +339,31 @@ export async function memberProjects(db: Db, userId: number) {
       favorite: projectMembers.favorite,
       role: projectMembers.role,
       owner: sql<string>`(select u.login from project_members o join users u on u.id = o.user_id where o.project_id = ${projects.id} and o.role = 'owner')`,
+      ownerId: sql<number>`(select o.user_id from project_members o where o.project_id = ${projects.id} and o.role = 'owner')`,
     })
     .from(projectMembers)
     .innerJoin(projects, eq(projects.id, projectMembers.projectId))
     .where(eq(projectMembers.userId, userId))
     .orderBy(asc(sql`${projects.archivedAt} is not null`), asc(projects.id));
-  return rows.map((row) => ({
-    ...row.project,
-    favorite: row.favorite,
-    role: row.role,
-    sharedBy: row.role === "owner" ? null : row.owner,
-  }));
+  const states = new Map(
+    await Promise.all(
+      [...new Set(rows.map((row) => row.ownerId))].map(
+        async (id) => [id, await planState(db, id)] as const,
+      ),
+    ),
+  );
+  return rows.map((row) => {
+    const state = states.get(row.ownerId);
+    const locked = state?.locked.has(row.project.id) ?? false;
+    return {
+      ...row.project,
+      favorite: row.favorite,
+      role: locked ? ("read_only" as const) : row.role,
+      sharedBy: row.role === "owner" ? null : row.owner,
+      lockedBy: locked ? row.owner : null,
+      ownerPlan: state?.plan ?? "free",
+    };
+  });
 }
 
 const present = (
@@ -326,12 +371,16 @@ const present = (
     favorite?: boolean;
     role?: Role;
     sharedBy?: string | null;
+    lockedBy: string | null;
+    ownerPlan: "free" | "pro";
   },
 ) => ({
   id: p.id,
   favorite: p.favorite ?? false,
   role: p.role ?? "owner",
   sharedBy: p.sharedBy ?? null,
+  lockedBy: p.lockedBy,
+  ownerPlan: p.ownerPlan,
   fullName: p.fullName,
   defaultBranch: p.defaultBranch,
   archived: p.archivedAt !== null,
@@ -753,6 +802,7 @@ export function projectRoutes(
         try {
           const project = await act(db, entry, async (tx) => {
             if (!found || !repo) throw new Refused("repo_not_available");
+            if (await overQuota(tx, user.userId)) throw new Refused("plan");
             const created = await trackRepo(
               tx,
               user.userId,
@@ -764,9 +814,19 @@ export function projectRoutes(
             entry.args = { projectId: created.id, starterTeam };
             return created;
           });
-          return c.json({ project: present(project) }, 201);
+          return c.json(
+            {
+              project: present({
+                ...project,
+                lockedBy: null,
+                ownerPlan: (await planOf(db, user.userId)).plan,
+              }),
+            },
+            201,
+          );
         } catch (error) {
           if (!(error instanceof Refused)) throw error;
+          if (error.message === "plan") return c.json({ error: "plan" }, 403);
           return error.message === "already_tracked"
             ? c.json({ error: ALREADY_TRACKED }, 409)
             : c.json(

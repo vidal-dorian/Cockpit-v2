@@ -13,6 +13,8 @@ export const atLeast = (role: string | undefined, min: Role) =>
   Object.keys(ROLE_LABELS).indexOf(min);
 
 export const ROLE_REFUSAL = "Ton rôle sur ce projet ne le permet pas.";
+const PLAN_REFUSAL =
+  "Ce projet est en lecture seule : l'abonnement Gratuit de son propriétaire ne le permet plus.";
 
 /** The error of a refused write: the sentence of the role when the server says so, `fallback` otherwise. */
 export async function refusedError(res: Response, fallback: string) {
@@ -27,4 +29,8 @@ export async function refusedError(res: Response, fallback: string) {
 
 /** The sentence of a refusal 403 `role` of the server (decision 076 G); null for any other answer. */
 export const roleRefusal = (status: number, error: unknown) =>
-  status === 403 && error === "role" ? ROLE_REFUSAL : null;
+  status === 403 && error === "role"
+    ? ROLE_REFUSAL
+    : status === 403 && error === "plan"
+      ? PLAN_REFUSAL
+      : null;

@@ -11,6 +11,7 @@ import { templateRequests } from "./db/schema.ts";
 import type { githubClient, ReadGitHub } from "./github.ts";
 import { healthLines } from "./health.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
+import { overQuota } from "./plans.ts";
 import {
   installedRepos,
   NOT_CONFIGURED,
@@ -162,6 +163,19 @@ export function templateRoutes(
       const { template, owner, name, description } = parsed.data;
       const config = await readInstance();
       if (!config) return c.json({ error: NOT_CONFIGURED }, 503);
+      // Before GitHub is asked anything: a refused 4th repo creates nothing (decision 077 C).
+      if (await overQuota(db, user.userId))
+        return act(
+          db,
+          {
+            userId: user.userId,
+            actor: "human",
+            origin: "ui",
+            action: "create_from_template",
+            args: {},
+          },
+          () => Promise.reject(new Refused("plan")),
+        ).catch(() => c.json({ error: "plan" }, 403));
       try {
         const github = c.get("github");
         const found = await installedRepos(github, user.login, user.githubId);

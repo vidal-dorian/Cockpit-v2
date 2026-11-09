@@ -1062,3 +1062,26 @@ export const notifications = pgTable("notifications", {
     .notNull()
     .defaultNow(),
 });
+
+/** The Pro codes of decision 077: hashed like a token (015), bound to one account once entered. Every date is written by the server's JS clock, never by SQL. */
+export const proCodes = pgTable("pro_codes", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  codeHash: text("code_hash").notNull().unique(),
+  note: text("note").notNull(),
+  /** The end of the Pro this code gives once entered; null is no end. */
+  until: timestamp("until", { withTimezone: true, mode: "date" }),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  /** Until when a never-entered code can be entered. */
+  expiresAt: timestamp("expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  userId: integer("user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
+});
