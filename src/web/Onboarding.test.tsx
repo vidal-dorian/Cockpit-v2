@@ -114,7 +114,8 @@ describe("slice 15.4: the getting-started guide on the home", () => {
     const faire = screen.getAllByRole("link", { name: "Faire" });
     expect(faire).toHaveLength(1);
     expect(items[3]?.contains(faire[0] as Node)).toBe(true);
-    expect(faire[0]?.getAttribute("href")).toBe("/projets/5");
+    // « Préparer pour Claude » lives on the project's Santé tab.
+    expect(faire[0]?.getAttribute("href")).toBe("/projets/5/sante");
     expect(screen.getByText("Pourquoi cet ordre")).toBeTruthy();
     expect(
       screen.getByText(/Claude ne peut développer que dans un repo préparé/),
