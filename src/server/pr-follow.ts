@@ -178,7 +178,7 @@ export async function followPullRequest(
           blockedAt: users.blockedAt,
         })
         .from(runs)
-        .innerJoin(users, eq(users.id, runs.userId))
+        .leftJoin(users, eq(users.id, runs.userId))
         .where(eq(runs.storyId, story.id))
         .orderBy(desc(runs.id))
         .limit(1);
@@ -208,7 +208,8 @@ export async function followPullRequest(
             .limit(1)
         : [];
       // A blocked owner is never launched for, as in the queue and the routines.
-      if (last && !last.blockedAt) {
+      // An anonymised last run has no launcher to relaunch for (decision 078 C).
+      if (last && last.userId !== null && !last.blockedAt) {
         if (item?.relaunched)
           await tx
             .update(nightItems)

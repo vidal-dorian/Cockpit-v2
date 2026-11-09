@@ -87,7 +87,7 @@ Avec beaucoup de clients, les webhooks GitHub arrivent par rafales, et GitHub co
 
 ## Données personnelles
 
-Un client peut demander l'effacement de ses données (RGPD), alors que l'historique est inaltérable. Pour concilier les deux, **l'historique ne contient pas de données personnelles en clair** : il garde des identifiants (`user_id`), et le nom, le login et l'avatar restent dans `users`. Supprimer un compte rend anonyme sa ligne `users` sans toucher à l'historique. À appliquer dès la tranche 1.4.
+Un client peut demander l'effacement de ses données (RGPD), alors que l'historique est inaltérable. Pour concilier les deux, **l'historique ne contient pas de données personnelles en clair** : il garde des identifiants (`user_id`), et le nom, le login et l'avatar restent dans `users`. Supprimer un compte rend anonyme sa ligne `users` sans toucher à l'historique. À appliquer dès la tranche 1.4. *(Modifié par la [078](078-ses-donnees.md) : la suppression de compte supprime la ligne `users` et efface aussi les entrées de la personne et de ses projets supprimés, par la seule exception à la 010.)*
 
 ## Conséquences sur le découpage
 

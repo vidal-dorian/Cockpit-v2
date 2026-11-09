@@ -10,7 +10,7 @@ import { instanceSettings, sessions, users } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
 
-const SESSION_COOKIE = "cockpit_session";
+export const SESSION_COOKIE = "cockpit_session";
 export const CLAIM_COOKIE = "cockpit_admin_claim";
 const STATE_COOKIE = "cockpit_oauth_state";
 const NEXT_COOKIE = "cockpit_login_next";

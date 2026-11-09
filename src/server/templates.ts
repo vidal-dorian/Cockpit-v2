@@ -57,6 +57,7 @@ export function templateRoutes(
   db: Db,
   readInstance: ReadInstance,
   readGitHub: ReadGitHub,
+  key: Buffer,
 ) {
   /** Without the GitHub App there is nothing to answer, whoever asks (as the gate of the project routes). */
   const gate = createMiddleware<Env>(async (c, next) => {
@@ -165,7 +166,7 @@ export function templateRoutes(
       const config = await readInstance();
       if (!config) return c.json({ error: NOT_CONFIGURED }, 503);
       // Before GitHub is asked anything: a refused 4th repo creates nothing (decision 077 C).
-      if (await overQuota(db, user.userId))
+      if (await overQuota(db, key, user.userId))
         return act(
           db,
           {
@@ -227,7 +228,7 @@ export function templateRoutes(
 }
 
 /** The creation's return from GitHub, handed over by the login's callback: null when the request is not a creation's (no creation cookie, or another state), so the login runs. */
-export function templateReturn(db: Db, readGitHub: ReadGitHub) {
+export function templateReturn(db: Db, readGitHub: ReadGitHub, key: Buffer) {
   return async (c: Context, config: InstanceSettings) => {
     const expected = getCookie(c, STATE_COOKIE);
     const { code, state, error } = c.req.query();
@@ -264,7 +265,7 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
     const land = async (): Promise<Landed> => {
       const token = await exchangeCode(config, code, CALLBACK);
       // Before the repo exists: the quota may have been reached since the request was made (decision 077 C).
-      if (await overQuota(db, user.userId)) return { overQuota: true };
+      if (await overQuota(db, key, user.userId)) return { overQuota: true };
       // From here the repo may exist, whatever happens to the call.
       created = true;
       const generated = await ready.github.generateRepo(
@@ -302,7 +303,7 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
           .from(users)
           .where(eq(users.id, user.userId))
           .for("update");
-        if (await overQuota(tx, user.userId)) throw new Refused("plan");
+        if (await overQuota(tx, key, user.userId)) throw new Refused("plan");
         const project = await trackRepo(
           tx,
           user.userId,

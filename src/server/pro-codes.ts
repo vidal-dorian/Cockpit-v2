@@ -71,12 +71,12 @@ const present = ({
 type Env = { Variables: { adminId: number } };
 
 /** The account's plan, the code it enters (decision 077 H). */
-export function planRoutes(db: Db) {
+export function planRoutes(db: Db, key: Buffer) {
   const body = async (userId: number) => {
     const plan = await planOf(db, userId);
     return {
       ...plan,
-      repos: await ownedRepos(db, userId),
+      repos: await ownedRepos(db, key, userId),
       limit: plan.plan === "pro" ? null : FREE_LIMIT,
     };
   };
