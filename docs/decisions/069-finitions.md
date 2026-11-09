@@ -27,6 +27,16 @@ La 064 garde trois finitions et en écarte trois. S29 montre les étapes d'un ru
 | I | 9.5 B : ce qui est retiré | **Seul l'index `docs/ecrans/README.md` change** (la colonne « À trancher » de S10, S14 et S45), plus la liste de la 045. Les PNG et HTML ne sont pas retouchés : ils sont l'export du canevas validé, un HTML modifié ne correspondrait plus à son PNG, et la règle de l'index « la décision l'emporte » suffit. Retirés : les filtres de S10 (le champ, « Tous », « À toi », « Claude travaille », « Non préparés », « Archivés », « Trier ») sauf « Favoris » (15.3 C), et « Accès donnés à Claude » de S45 |
 | J | Les filtres de l'onglet Tickets | **Gardés.** La loupe, « Ouverts », « Nouveaux » et « Étiquette » de S14 sont construits depuis la 11.2 (055 F) ; la 064 9.5 B reprend la liste de la 045, écrite avant la 11.2. Les retirer supprimerait une fonction décidée et construite, ce que la 064 ne dit pas : l'index note que rien n'est retiré de S14. *À confirmer à la relecture.* |
 
+## Ce que le code a précisé (tranche 9.5)
+
+- **`upcomingSteps`** est au premier niveau de `GET /api/runs/:id`, à côté de `steps`. Un agent hors du plan donne `[]` (B), comme un run fini.
+- **La ligne « PR »** n'est cochée que pour une US `in_review` avec un numéro de PR : une US relancée garde son numéro de PR pendant qu'elle est `in_progress`, ce qui ne veut pas dire qu'une PR est ouverte pour ce run.
+- **Les temps** (« depuis 4 min », « 16 min ») sont calculés à l'affichage, comme le reste de l'application ; l'heure de début vient de `clock` (`when.ts`).
+- **`fetchStory`** vit dans `StoryDecisions.tsx` : la page de l'US et le panneau du Kanban lisent l'US par la même fonction.
+- **Échap** dans le panneau du Kanban : il ne ferme pas le panneau pendant un formulaire de celui-ci, le panneau d'un ticket se ferme lui-même (G).
+- **`catalog/history.json`** a été rétabli à la main (anciennes empreintes ∪ nouvelle) : `scripts/catalog-history.mjs` ne suit que la branche courante.
+- **I et J restent comme décidés** : seul l'index change ; les filtres de Tickets sont gardés, *à confirmer à la relecture*.
+
 ## Limites connues
 
 - **Les étapes à venir sont celles que Claude annonce** : Cockpit ne vérifie pas `steps` contre le fichier d'équipe du repo. Une étape signalée hors du plan efface les étapes à venir jusqu'à la suivante qui y est.
