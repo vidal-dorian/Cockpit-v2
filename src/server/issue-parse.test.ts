@@ -85,6 +85,13 @@ describe("criterion G: parseIssue is the inverse of renderIssue", () => {
       },
     ],
     [
+      "an entity of @ written as is in the notes and a criterion (escaped)",
+      {
+        notesMd: "Écrire &#64; ou &commat; ou &#x40;",
+        criteria: [{ given: "a &#64;b", when: "c", then: "d" }],
+      },
+    ],
+    [
       "commas and full stops in the narrative",
       {
         asA: "lectrice, attentive et pressée",
