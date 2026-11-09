@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { LABELS } from "./ProjectPage.tsx";
+import { QUOTA_REFUSAL } from "./roles.ts";
 import { StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -54,8 +55,7 @@ function ReturnAlert({ installUrl }: { installUrl: string }) {
       "Le repo est peut-être créé sur GitHub ; importe-le depuis « Importer un repo ».",
     "demande-expiree": "Recommence la création.",
     annulee: "La création est annulée.",
-    quota:
-      "Ton abonnement Gratuit couvre 3 repos, archivés compris. Passe à Pro pour en ajouter.",
+    quota: QUOTA_REFUSAL,
     refusee: `GitHub a refusé la création : ${(params.get("raison") ?? "").slice(0, 200)}`,
   }[code ?? ""] as string | undefined;
   return text ? (
@@ -125,11 +125,13 @@ export function ProjectFromTemplate() {
       throw new Error(
         error === "name_taken"
           ? "Ce nom est déjà pris."
-          : error === "not_a_template"
-            ? "Ce repo n'est plus un modèle."
-            : res.status === 502
-              ? GITHUB_DOWN
-              : `Impossible de créer le projet (HTTP ${res.status}).`,
+          : error === "plan"
+            ? QUOTA_REFUSAL
+            : error === "not_a_template"
+              ? "Ce repo n'est plus un modèle."
+              : res.status === 502
+                ? GITHUB_DOWN
+                : `Impossible de créer le projet (HTTP ${res.status}).`,
       );
     },
   });

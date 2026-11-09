@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { atLeast, ROLE_LABELS } from "./roles.ts";
+import { atLeast, QUOTA_REFUSAL, ROLE_LABELS } from "./roles.ts";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
 import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
@@ -23,7 +23,11 @@ async function failure(res: Response) {
   const body: unknown = await res.json().catch(() => null);
   const message = (body as { error?: unknown } | null)?.error;
   return new Error(
-    typeof message === "string" ? message : `HTTP ${res.status}`,
+    message === "plan"
+      ? QUOTA_REFUSAL
+      : typeof message === "string"
+        ? message
+        : `HTTP ${res.status}`,
   );
 }
 

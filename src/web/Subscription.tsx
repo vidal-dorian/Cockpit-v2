@@ -20,13 +20,14 @@ export async function fetchPlan() {
 
 /** The state sentence of Réglages › Abonnement (decision 077 F). */
 export function planSentence(plan: Awaited<ReturnType<typeof fetchPlan>>) {
+  const used = plan.repos > 1 ? "utilisés" : "utilisé";
   if (plan.plan === "free")
     return {
       title: "Ton abonnement : Gratuit.",
       rest:
         plan.repos >= (plan.limit ?? 0)
-          ? `${plural(plan.repos, "repo", "repos")} sur ${plan.limit} utilisés. Passe à Pro pour en ajouter.`
-          : `${plural(plan.repos, "repo", "repos")} sur ${plan.limit} utilisés.`,
+          ? `${plural(plan.repos, "repo", "repos")} sur ${plan.limit} ${used}. Passe à Pro pour en ajouter.`
+          : `${plural(plan.repos, "repo", "repos")} sur ${plan.limit} ${used}.`,
     };
   return {
     title: "Ton abonnement : Pro.",
@@ -137,13 +138,15 @@ export function Subscription() {
           price="10 € par mois ou 96 € par an"
           items={["Repos illimités", "Reprendre une app existante"]}
         >
-          <button
-            type="button"
-            className={primaryButton}
-            onClick={() => setNotOpen(true)}
-          >
-            Passer à Pro
-          </button>
+          {plan.data?.plan !== "pro" && (
+            <button
+              type="button"
+              className={primaryButton}
+              onClick={() => setNotOpen(true)}
+            >
+              Passer à Pro
+            </button>
+          )}
         </Card>
         <Card
           title="Entreprise"

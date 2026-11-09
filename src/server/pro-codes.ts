@@ -97,6 +97,12 @@ export function planRoutes(db: Db) {
       };
       try {
         await act(db, entry, async (tx) => {
+          // Two entries by one account run one after the other.
+          await tx
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.id, user.userId))
+            .for("update");
           const [found] = typed.success
             ? await tx
                 .select()
@@ -220,6 +226,9 @@ export function proCodeRoutes(db: Db) {
     .post("/api/settings/pro-codes/:id/revoke", (c) =>
       change(c, "revoke_pro_code", (code) => {
         if (code.revokedAt) throw new Refused("already_revoked");
+        // Free or used only: a never-entered code past its 30 days is expired.
+        if (!code.usedAt && code.expiresAt <= new Date())
+          throw new Refused("expired");
         return { revokedAt: new Date() };
       }),
     );

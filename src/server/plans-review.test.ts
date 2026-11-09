@@ -2,7 +2,16 @@ import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { send } from "./test-decisions.ts";
 import { withProject } from "./test-mcp.ts";
-import { admin, enter, generate, get, makePro, planOf } from "./test-plans.ts";
+import {
+  admin,
+  enter,
+  generate,
+  get,
+  makePro,
+  planOf,
+  revoke,
+  travel,
+} from "./test-plans.ts";
 
 // Review fixes of slice 13.2 (decision 077 H): a new code replaces the old one, and the typed code is trimmed.
 
@@ -55,5 +64,16 @@ describe("077 H: entering a code", () => {
     );
 
     expect(res.status).toBe(200);
+  });
+
+  it("given a code never entered that is past its 30 days, when the administrator revokes it, then 409 and it stays expired", async () => {
+    const ctx = await withProject();
+    const boss = await admin(ctx.db);
+    const made = await generate(ctx.app, boss.cookie);
+    await travel(ctx.db, 31);
+
+    const res = await revoke(ctx.app, boss.cookie, made.id as number);
+
+    expect(res.status).toBe(409);
   });
 });

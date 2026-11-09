@@ -154,7 +154,7 @@ describe("S49, 077 F: the gauge and the current card", () => {
 
     renderAt("/reglages/abonnement");
 
-    await screen.findByText("1 repo sur 3 utilisés.");
+    await screen.findByText("1 repo sur 3 utilisé.");
   });
 
   it("given a Pro account, when the page loads, then the Pro card is marked and there is no gauge", async () => {
@@ -167,5 +167,16 @@ describe("S49, 077 F: the gauge and the current card", () => {
       screen.getByRole("heading", { name: "Pro" }).parentElement?.textContent,
     ).toContain("ton abonnement");
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+});
+
+describe("S49: the Pro card of a Pro account", () => {
+  it("given a Pro account, when the page loads, then Passer à Pro is not offered", async () => {
+    stubPlans({ plan: PRO });
+
+    renderAt("/reglages/abonnement");
+
+    await screen.findByText("Par un code, sans fin.");
+    expect(screen.queryByRole("button", { name: "Passer à Pro" })).toBeNull();
   });
 });

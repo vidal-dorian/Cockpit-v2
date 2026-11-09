@@ -319,7 +319,11 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
           `${failed("refusee")}&raison=${encodeURIComponent(landed.refused.slice(0, 200))}`,
         );
       if ("outside" in landed) return c.redirect(failed("hors-installation"));
-      if ("overQuota" in landed) return c.redirect(failed("quota"));
+      if (
+        "overQuota" in landed ||
+        (failure instanceof Refused && failure.message === "plan")
+      )
+        return c.redirect(failed("quota"));
       console.error("Creation from a template failed:", failure);
       // The repo may exist on GitHub already: the page says to import it.
       return c.redirect(
