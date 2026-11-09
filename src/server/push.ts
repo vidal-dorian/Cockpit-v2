@@ -37,13 +37,18 @@ type Message = Payload & { type: (typeof notifications.$inferSelect)["type"] };
 const MAX_DEVICES = 10;
 
 /** Whether the host is a name or an address of the machine's own network: the server posts to the endpoint, so it must not reach those. A literal check, no DNS (shortcut: a public name that resolves to a private address passes; upgrade with a resolved-address check). */
-const isLocalHost = (host: string) =>
-  host === "localhost" ||
-  host.endsWith(".localhost") ||
-  /^(0|10|127)\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(
-    host,
-  ) ||
-  /^\[(::|f[cd]|fe[89ab])/i.test(host);
+const isLocalHost = (name: string) => {
+  // A trailing dot names the same host.
+  const host = name.replace(/\.$/, "");
+  return (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    /^(0|10|127)\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(
+      host,
+    ) ||
+    /^\[(::|f[cd]|fe[89ab])/i.test(host)
+  );
+};
 
 const REVIEW_EVERY_MS = 3_600_000;
 // A push carries 4 KB at most; a question can be much longer.
@@ -260,7 +265,10 @@ export function pushRoutes(db: Db, encryptionKey: Buffer, send: SendPush) {
     endpoint: z
       .url({ protocol: /^https$/ })
       .max(2_000)
-      .refine((url) => !isLocalHost(new URL(url).hostname)),
+      // refine still runs after a failed `url()`: parse safely.
+      .refine(
+        (url) => URL.canParse(url) && !isLocalHost(new URL(url).hostname),
+      ),
     keys: z.object({
       p256dh: z.string().min(1).max(200),
       auth: z.string().min(1).max(100),

@@ -55,6 +55,8 @@ async function enableDevice() {
       keys: { p256dh: keys?.p256dh ?? "", auth: keys?.auth ?? "" },
     },
   });
+  if (res.status === 409)
+    throw new Error("10 appareils au plus : retire-en un.");
   if (!res.ok) throw new Error("L'appareil n'a pas pu être enregistré.");
   return "Cet appareil reçoit maintenant les notifications.";
 }

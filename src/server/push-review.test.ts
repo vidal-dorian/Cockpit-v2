@@ -107,6 +107,30 @@ describe("slice 15.2: the pass", () => {
   });
 });
 
+describe("slice 15.2: the review push", () => {
+  it("given a PR row and two passes at once, when both run, then one push goes and the hour starts", async () => {
+    const s = await running();
+    const push = pushDouble();
+    await subscribe(s, s.alice.cookie);
+    await s.db.execute(
+      sql`insert into notifications (user_id, type, title, body, url) values (${s.alice.id}, 'pr_ready', 'PR prête à relire', 'x', '/')`,
+    );
+    const slow = async (...args: Parameters<typeof push.fn>) => {
+      await new Promise((r) => setTimeout(r, 50));
+      return push.fn(...args);
+    };
+    const now = at("2026-11-09T12:00:00Z");
+
+    await Promise.all([pass(s.db, now, slow), pass(s.db, now, slow)]);
+
+    expect(push.calls).toHaveLength(1);
+    const { rows } = (await s.db.execute(
+      sql`select last_review_push_at as at from users where id = ${s.alice.id}`,
+    )) as unknown as { rows: { at: Date | null }[] };
+    expect(rows[0]?.at).not.toBeNull();
+  });
+});
+
 describe("slice 15.2: the devices", () => {
   it.each([
     "https://localhost/x",
@@ -116,6 +140,11 @@ describe("slice 15.2: the devices", () => {
     "https://172.20.0.1/x",
     "https://169.254.169.254/latest",
     "https://[::1]/x",
+    "https://localhost./x",
+    "https://foo.localhost./x",
+    "not a url",
+    "https://",
+    "",
   ])(
     "given the endpoint %s, when the device is subscribed, then 400",
     async (endpoint) => {

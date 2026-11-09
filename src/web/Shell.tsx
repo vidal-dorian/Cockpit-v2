@@ -245,7 +245,8 @@ export function Sidebar() {
         await client.api.push.subscriptions.$delete({
           json: { endpoint: sub.endpoint },
         });
-        await sub.unsubscribe();
+        // The server row is already gone: a browser that cannot reach its push service must not block the logout.
+        await sub.unsubscribe().catch(() => {});
       }
       const res = await client.api.auth.logout.$post();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
