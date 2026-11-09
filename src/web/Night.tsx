@@ -16,9 +16,9 @@ import {
   sectionLabel,
 } from "./ui.ts";
 
-/** What the night did with a story (decision 044 I). */
 const REFUSED = "Cette action a été refusée : recharge la page.";
 
+/** What the night did with a story (decision 044 I). */
 export const OUTCOMES: Record<string, string> = {
   pr: "PR ouverte",
   paused: "En pause : attend ta réponse",

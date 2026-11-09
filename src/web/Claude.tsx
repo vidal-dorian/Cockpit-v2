@@ -35,9 +35,9 @@ const PAUSES: Record<string, string> = {
     "Une session n'a pas démarré en 15 minutes : vérifie le lanceur, puis reprends.",
 };
 
-/** Decision 058 F: the page « Claude », what Claude does now and the queue of stories it launches one by one. */
 const REFUSED = "Cette action a été refusée : recharge la page.";
 
+/** Decision 058 F: the page « Claude », what Claude does now and the queue of stories it launches one by one. */
 export function Claude() {
   const queryClient = useQueryClient();
   // Under "home" so the stream of changes reloads them with the home.
