@@ -78,7 +78,7 @@
 - **Fait** : tranche 9.5 (les étapes à venir et « Pourquoi Claude demande » sur un run, la carte du Kanban ouverte dans le panneau de droite, [décision 069](decisions/069-finitions.md)).
 - **Fait** : tranche 14.7 (le matin de la nuit : le bilan avec les critères prouvés, la frise à l'échelle des heures sur l'accueil, « Relire en série » et la touche R, [décision 070](decisions/070-le-matin-de-la-nuit.md)).
 - **Fait** : tranche 15.1 (les trois gestes au téléphone : la barre du bas, le panneau « Noter une idée » en plein écran avec « Photo », le panneau de l'accueil sous « 1 · Maintenant », [décision 071](decisions/071-trois-gestes-au-telephone.md)).
-- **Fait** : hors tranche, deux demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, [décision 072](decisions/072-equipes-a-la-demande.md)).
+- **Fait** : hors tranche, des demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, avec un avertissement au lancement quand l'équipe du repo a changé, [décision 072](decisions/072-equipes-a-la-demande.md)).
 - **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (15.1 faite), puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
