@@ -28,6 +28,10 @@ const createBody = z.object({
 });
 const changeBody = z.object({ until });
 
+/** A never-entered code that can no longer be entered: past its 30 days or past the end it would give. */
+const unusable = (code: typeof proCodes.$inferSelect, now: Date) =>
+  code.expiresAt <= now || (code.until !== null && code.until <= now);
+
 const selectCodes = (db: Db) =>
   db
     .select({ code: proCodes, login: users.login })
@@ -46,7 +50,7 @@ const present = ({
   const now = new Date();
   const ended = code.usedAt
     ? code.until !== null && code.until <= now
-    : code.expiresAt <= now;
+    : unusable(code, now);
   return {
     id: code.id,
     note: code.note,
@@ -116,7 +120,7 @@ export function planRoutes(db: Db) {
             !found ||
             found.usedAt !== null ||
             found.revokedAt ||
-            found.expiresAt <= new Date()
+            unusable(found, new Date())
           )
             throw new Refused("invalid_code");
           // The new code replaces the old ones: they end, so the list and the plan agree.
@@ -227,7 +231,7 @@ export function proCodeRoutes(db: Db) {
       change(c, "revoke_pro_code", (code) => {
         if (code.revokedAt) throw new Refused("already_revoked");
         // Free or used only: a never-entered code past its 30 days is expired.
-        if (!code.usedAt && code.expiresAt <= new Date())
+        if (!code.usedAt && unusable(code, new Date()))
           throw new Refused("expired");
         return { revokedAt: new Date() };
       }),

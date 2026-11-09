@@ -20,7 +20,7 @@ export async function fetchPlan() {
 
 /** The state sentence of Réglages › Abonnement (decision 077 F). */
 export function planSentence(plan: Awaited<ReturnType<typeof fetchPlan>>) {
-  const used = plan.repos > 1 ? "utilisés" : "utilisé";
+  const used = plan.repos === 1 ? "utilisé" : "utilisés";
   if (plan.plan === "free")
     return {
       title: "Ton abonnement : Gratuit.",

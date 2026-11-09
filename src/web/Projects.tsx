@@ -23,11 +23,7 @@ async function failure(res: Response) {
   const body: unknown = await res.json().catch(() => null);
   const message = (body as { error?: unknown } | null)?.error;
   return new Error(
-    message === "plan"
-      ? QUOTA_REFUSAL
-      : typeof message === "string"
-        ? message
-        : `HTTP ${res.status}`,
+    typeof message === "string" ? message : `HTTP ${res.status}`,
   );
 }
 
@@ -573,7 +569,10 @@ function Importable() {
       starterTeam: StarterLevel;
     }) => {
       const res = await client.api.projects.$post({ json: sent });
-      if (!res.ok) throw await failure(res);
+      if (!res.ok) {
+        const error = await failure(res);
+        throw error.message === "plan" ? new Error(QUOTA_REFUSAL) : error;
+      }
     },
     onSuccess: () => setChoosing(null),
     onSettled: () =>

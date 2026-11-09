@@ -149,6 +149,14 @@ describe("S49, 077 F: the gauge and the current card", () => {
     ).toContain("ton abonnement");
   });
 
+  it("given a Free account with 0 repos, when the page loads, then the sentence says utilisés", async () => {
+    stubPlans({ plan: { ...FREE, repos: 0 } });
+
+    renderAt("/reglages/abonnement");
+
+    await screen.findByText("0 repos sur 3 utilisés.");
+  });
+
   it("given a Free account with 1 repo, when the page loads, then the sentence is singular", async () => {
     stubPlans({ plan: { ...FREE, repos: 1 } });
 

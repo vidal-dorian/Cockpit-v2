@@ -7,6 +7,7 @@ import {
   enter,
   generate,
   get,
+  inDays,
   makePro,
   planOf,
   revoke,
@@ -75,5 +76,22 @@ describe("077 H: entering a code", () => {
     const res = await revoke(ctx.app, boss.cookie, made.id as number);
 
     expect(res.status).toBe(409);
+  });
+
+  it("given a code that ends in 5 days and was never entered, when 6 days pass and it is entered, then 400, the list says expired and the Pro code of the account stays active", async () => {
+    const ctx = await withProject();
+    const boss = await admin(ctx.db);
+    await makePro(ctx.app, boss.cookie, ctx.alice.cookie);
+    const late = await generate(ctx.app, boss.cookie, { until: inDays(5) });
+    await travel(ctx.db, 6);
+
+    const res = await enter(ctx.app, ctx.alice.cookie, late.secret);
+
+    expect(res.status).toBe(400);
+    expect((await planOf(ctx.app, ctx.alice.cookie)).plan).toBe("pro");
+    const list = (await (
+      await get(ctx.app, boss.cookie, "/api/settings/pro-codes")
+    ).json()) as { codes: { id: number; state: string }[] };
+    expect(list.codes.find((c) => c.id === late.id)?.state).toBe("expired");
   });
 });
