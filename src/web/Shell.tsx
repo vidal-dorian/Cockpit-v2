@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Link, NavLink, useMatch } from "react-router";
 import { client } from "./api.ts";
 import { uploadAttachment } from "./attachments.ts";
 import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
 import { Logo } from "./Logo.tsx";
+import { useShortcut } from "./Shortcuts.tsx";
 import { ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
 
@@ -169,6 +170,15 @@ export function Panel({
   /** Keys pressed inside the panel (a shortcut that must not fire from the rest of the page). */
   onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
 }) {
+  // J and K, like the arrows (decision 073 E).
+  useShortcut(
+    "j",
+    counter && counter.index < counter.total - 1 ? counter.onNext : undefined,
+  );
+  useShortcut(
+    "k",
+    counter && counter.index > 0 ? counter.onPrevious : undefined,
+  );
   return (
     <aside
       data-panel
@@ -221,8 +231,8 @@ const subItem = ({ isActive }: { isActive: boolean }) =>
 const sidebarLabel =
   "mx-2.5 mt-3.5 mb-1 text-[11px] font-bold uppercase tracking-[.08em] text-dim";
 
-/** The left column of a logged-in user (045 F): navigation with counters, the projects that are not idle, Réglages, the account and the version. */
-export function Sidebar() {
+/** The left column of a logged-in user (045 F): search, navigation with counters, the favourite projects and the ones that are not idle, Réglages, the account and the version. */
+export function Sidebar({ onSearch }: { onSearch: () => void }) {
   const queryClient = useQueryClient();
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data;
   const health = useQuery({
@@ -258,7 +268,13 @@ export function Sidebar() {
 
   const forYou = home?.forYou ?? [];
   const firstProject = forYou[0]?.project.id;
-  const projects = (home?.projects ?? []).filter((p) => p.state !== "idle");
+  // The favourites first, even idle (decision 073 H), then the active ones that are not.
+  const all = home?.projects ?? [];
+  const favorites = all.filter((p) => p.favorite);
+  const projects = [
+    ...favorites,
+    ...all.filter((p) => !p.favorite && p.state !== "idle"),
+  ];
 
   return (
     <aside
@@ -272,6 +288,16 @@ export function Sidebar() {
         <Logo className="size-5" />
         Cockpit
       </Link>
+      <button
+        type="button"
+        onClick={onSearch}
+        aria-keyshortcuts="Control+K Meta+K"
+        className={`mb-3 flex h-9 items-center gap-2 rounded-[10px] border border-border bg-sunken px-2.5 text-[13px] text-muted-foreground hover:text-foreground ${focusRing}`}
+      >
+        <span aria-hidden="true">⌕</span>
+        Chercher
+        <kbd className={`${kbd} ml-auto`}>Ctrl K</kbd>
+      </button>
       <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">
         <NavLink to="/" end className={navItem}>
           Accueil
@@ -291,7 +317,11 @@ export function Sidebar() {
             <span className={`${badge} ml-auto`}>{night.items.length}</span>
           )}
         </NavLink>
-        {projects.length > 0 && <p className={sidebarLabel}>Projets</p>}
+        {projects.length > 0 && (
+          <p className={sidebarLabel}>
+            {favorites.length > 0 ? "Projets favoris" : "Projets"}
+          </p>
+        )}
         {projects.map((p) => {
           const count = forYou.filter(
             (item) => item.project.id === p.id,
@@ -430,7 +460,12 @@ function PhoneNav({
 }
 
 /** The bar at the bottom of the center (045 F): note an idea as a ticket of a project; `n` anywhere focuses it. The bar is hidden without a project and below md, where the phone nav opens the same panel. */
-export function IdeaBar() {
+export function IdeaBar({
+  ref,
+}: {
+  /** Opens the panel of the idea from elsewhere (the search window); the argument is what gets the focus back, if any. */
+  ref?: React.Ref<(opener: HTMLElement | null) => void>;
+}) {
   const queryClient = useQueryClient();
   const home = useHome();
   const projects = home.data?.projects ?? [];
@@ -466,6 +501,12 @@ export function IdeaBar() {
     }
   }, [open]);
 
+  const openPanel = (el: HTMLElement | null) => {
+    opener.current = el;
+    setOpen(true);
+  };
+  useImperativeHandle(ref, () => openPanel);
+
   // Below md the open panel covers the page: nothing behind it takes the keyboard.
   const wrapper = useRef<HTMLDivElement>(null);
   // shortcut: inert is decided when the panel opens; resizing across md while it is open leaves it stale, subscribe to matchMedia if that matters
@@ -482,19 +523,7 @@ export function IdeaBar() {
     };
   }, [open]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (open || event.key.toLowerCase() !== "n") return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const target = event.target as HTMLElement;
-      if (target.isContentEditable || target.closest("input, textarea, select"))
-        return;
-      event.preventDefault();
-      input.current?.focus();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  useShortcut("n", open ? undefined : () => input.current?.focus());
 
   const exists = (id?: string) => projects.some((p) => String(p.id) === id);
   // A choice holds for the page it was made on: another project page brings its own project back.
@@ -549,14 +578,7 @@ export function IdeaBar() {
       {/* Once the projects are known: the Idée tab depends on them. */}
       {!home.isPending && (
         <PhoneNav
-          onIdea={
-            projects.length > 0
-              ? (el) => {
-                  opener.current = el;
-                  setOpen(true);
-                }
-              : undefined
-          }
+          onIdea={projects.length > 0 ? openPanel : undefined}
           open={open}
           onNavigate={() => setOpen(false)}
         />

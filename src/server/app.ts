@@ -11,6 +11,7 @@ import { costRoutes, metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
+import { favoriteRoutes } from "./favorites.ts";
 import { findingRoutes } from "./findings.ts";
 import { githubReader } from "./github.ts";
 import { alertRoutes } from "./github-alerts.ts";
@@ -28,6 +29,7 @@ import { questionRoutes } from "./questions.ts";
 import { queueRoutes } from "./queue.ts";
 import { type FireRoutine, routineRoutes } from "./routines.ts";
 import { runRoutes } from "./runs.ts";
+import { searchRoutes } from "./search.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
 import { takeoverRoutes } from "./takeover.ts";
@@ -153,6 +155,8 @@ export function createApp(
       .route("/", questionRoutes(db, fireDeps))
       .route("/", homeRoutes(db, now))
       .route("/", claudeRoutes(db))
+      .route("/", searchRoutes(db))
+      .route("/", favoriteRoutes(db))
       .route("/", costRoutes(db, now))
       .route("/", routineRoutes(db, fireDeps, now))
       .route("/", launcherRoutes(db, fireDeps, now))

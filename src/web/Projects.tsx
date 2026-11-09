@@ -9,6 +9,7 @@ import {
   badge,
   button,
   card,
+  chipLink,
   dangerButton,
   focusRing,
   ghostButton,
@@ -81,6 +82,23 @@ function ProjectList() {
     },
   });
 
+  const star = useMutation({
+    mutationFn: async ({ id, favorite }: { id: number; favorite: boolean }) => {
+      const res = await client.api.projects[":id"].favorite.$put({
+        param: { id: String(id) },
+        json: { favorite },
+      });
+      if (!res.ok) throw await failure(res);
+    },
+    // The sidebar lists the favourites from the home.
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["home"] }),
+      ]),
+  });
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
+
   if (projects.isPending)
     return <p className="text-muted-foreground">Chargement…</p>;
   if (projects.isError) {
@@ -102,83 +120,112 @@ function ProjectList() {
     return (
       <p className="text-muted-foreground">Aucun projet pour l'instant.</p>
     );
+  const favorites = projects.data.filter((p) => p.favorite).length;
+  const error = archive.error ?? star.error;
   return (
     <>
+      <button
+        type="button"
+        aria-pressed={onlyFavorites}
+        onClick={() => setOnlyFavorites(!onlyFavorites)}
+        className={`mb-3 ${chipLink({ isActive: onlyFavorites })}`}
+      >
+        Favoris · {favorites}
+      </button>
       <ul className={listCard}>
-        {projects.data.map((project) => (
-          <li
-            key={project.id}
-            className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
-          >
-            <Dot
-              tone={
-                project.id === first
-                  ? "you"
-                  : states.get(project.id) === "claude"
-                    ? "claude"
-                    : "none"
-              }
-              live={project.id !== first && states.get(project.id) === "claude"}
-            />
-            <span className="min-w-0 flex-1 basis-48">
-              <Link
-                to={`/projets/${project.id}`}
-                className={`block truncate font-semibold hover:underline ${focusRing}`}
-              >
-                {project.fullName.split("/").pop()}
-              </Link>
-              <span className="block font-mono text-[11.5px] text-muted-foreground">
-                {project.fullName}
-              </span>
-            </span>
-            <span
-              className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
+        {projects.data
+          .filter((p) => p.favorite || !onlyFavorites)
+          .map((project) => (
+            <li
+              key={project.id}
+              className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
             >
-              {STATE_TEXT[states.get(project.id) ?? "idle"]}
-            </span>
-            <span className="flex gap-2">
-              {project.archived ? (
-                <span className={badge}>Archivé</span>
-              ) : confirming === project.id ? (
-                <>
-                  <span className="basis-full">
-                    Archiver {project.fullName} ? Il n'y a pas encore de
-                    désarchivage.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => archive.mutate(project.id)}
-                    disabled={archive.isPending}
-                    className={dangerButton}
-                  >
-                    Confirmer l'archivage
-                  </button>
-                  <button
-                    type="button"
-                    // The Archiver button is gone: keep the keyboard focus on the safe choice.
-                    // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-                    autoFocus
-                    onClick={() => setConfirming(null)}
-                    className={button}
-                  >
-                    Annuler
-                  </button>
-                </>
-              ) : (
-                // The mockup has no slot for it: a quiet button before the row's end.
-                <button
-                  type="button"
-                  onClick={() => setConfirming(project.id)}
-                  className={ghostButton}
+              <Dot
+                tone={
+                  project.id === first
+                    ? "you"
+                    : states.get(project.id) === "claude"
+                      ? "claude"
+                      : "none"
+                }
+                live={
+                  project.id !== first && states.get(project.id) === "claude"
+                }
+              />
+              <button
+                type="button"
+                aria-pressed={project.favorite}
+                aria-label={
+                  project.favorite
+                    ? "Retirer des favoris"
+                    : "Ajouter aux favoris"
+                }
+                onClick={() =>
+                  star.mutate({ id: project.id, favorite: !project.favorite })
+                }
+                className={`grid size-8 place-items-center rounded-lg hover:text-foreground ${project.favorite ? "text-foreground" : "text-dim"} ${focusRing}`}
+              >
+                {project.favorite ? "★" : "☆"}
+              </button>
+              <span className="min-w-0 flex-1 basis-48">
+                <Link
+                  to={`/projets/${project.id}`}
+                  className={`block truncate font-semibold hover:underline ${focusRing}`}
                 >
-                  Archiver
-                </button>
-              )}
-            </span>
-          </li>
-        ))}
+                  {project.fullName.split("/").pop()}
+                </Link>
+                <span className="block font-mono text-[11.5px] text-muted-foreground">
+                  {project.fullName}
+                </span>
+              </span>
+              <span
+                className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
+              >
+                {STATE_TEXT[states.get(project.id) ?? "idle"]}
+              </span>
+              <span className="flex gap-2">
+                {project.archived ? (
+                  <span className={badge}>Archivé</span>
+                ) : confirming === project.id ? (
+                  <>
+                    <span className="basis-full">
+                      Archiver {project.fullName} ? Il n'y a pas encore de
+                      désarchivage.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => archive.mutate(project.id)}
+                      disabled={archive.isPending}
+                      className={dangerButton}
+                    >
+                      Confirmer l'archivage
+                    </button>
+                    <button
+                      type="button"
+                      // The Archiver button is gone: keep the keyboard focus on the safe choice.
+                      // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                      autoFocus
+                      onClick={() => setConfirming(null)}
+                      className={button}
+                    >
+                      Annuler
+                    </button>
+                  </>
+                ) : (
+                  // The mockup has no slot for it: a quiet button before the row's end.
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(project.id)}
+                    className={ghostButton}
+                  >
+                    Archiver
+                  </button>
+                )}
+              </span>
+            </li>
+          ))}
       </ul>
-      {archive.error && <ErrorAlert error={archive.error} />}
+      {error && <ErrorAlert error={error} />}
     </>
   );
 }

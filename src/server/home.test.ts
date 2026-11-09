@@ -143,7 +143,12 @@ describe("criterion 1: GET /api/home is for the session user", () => {
     expect(body.forYou.map((i) => i.storyId)).toEqual([mine]);
     expect(body.claudeWorks).toEqual([]);
     expect(body.projects).toEqual([
-      { id: ctx.projectId, name: "user1000/app", state: "for_you" },
+      {
+        id: ctx.projectId,
+        name: "user1000/app",
+        favorite: false,
+        state: "for_you",
+      },
     ]);
   });
 });
@@ -391,9 +396,14 @@ describe("criterion 4: the state of each project", () => {
 
     expect(projects).toEqual(
       expect.arrayContaining([
-        { id: ctx.projectId, name: "user1000/app", state: "for_you" },
-        { id: second, name: "user1000/two", state: "claude" },
-        { id: third, name: "user1000/three", state: "idle" },
+        {
+          id: ctx.projectId,
+          name: "user1000/app",
+          favorite: false,
+          state: "for_you",
+        },
+        { id: second, name: "user1000/two", favorite: false, state: "claude" },
+        { id: third, name: "user1000/three", favorite: false, state: "idle" },
       ]),
     );
     expect(projects).toHaveLength(3);

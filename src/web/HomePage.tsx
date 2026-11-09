@@ -8,6 +8,7 @@ import { NightMorning } from "./NightMorning.tsx";
 import { WhyAsked } from "./RunQuestions.tsx";
 import { REASONS } from "./RunVerdict.tsx";
 import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
+import { useShortcut } from "./Shortcuts.tsx";
 import {
   alertBox,
   badge,
@@ -408,19 +409,9 @@ function ReviewSeries({
     const now = [...(next ? seen : []), target.storyId];
     setSeen(reviews.every((r) => now.includes(r.storyId)) ? [] : now);
   };
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      // A held key repeats: one press opens one PR.
-      if (event.key.toLowerCase() !== "r" || event.repeat) return;
-      if (event.ctrlKey || event.metaKey || event.altKey) return;
-      const target = event.target as HTMLElement;
-      if (target.isContentEditable || target.closest("input, textarea, select"))
-        return;
-      event.preventDefault();
-      go();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+  // A held key repeats: one press opens one PR.
+  useShortcut("r", (event) => {
+    if (!event.repeat) go();
   });
   return (
     <button

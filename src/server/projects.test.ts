@@ -426,6 +426,7 @@ describe("GET /api/projects", () => {
       fullName: "user1000/old",
       defaultBranch: "main",
       archived: true,
+      favorite: false,
       starterTeam: "standard",
     });
     expect(JSON.stringify(body)).not.toContain("user2000");
