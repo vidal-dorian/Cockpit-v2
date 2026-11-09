@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
+import { refusedError } from "./roles.ts";
 import { fetchNight, StateSentence, useHome } from "./Shell.tsx";
 import {
   alertBox,
@@ -16,6 +17,8 @@ import {
 } from "./ui.ts";
 
 /** What the night did with a story (decision 044 I). */
+const REFUSED = "Cette action a été refusée : recharge la page.";
+
 export const OUTCOMES: Record<string, string> = {
   pr: "PR ouverte",
   paused: "En pause : attend ta réponse",
@@ -63,7 +66,8 @@ export function Night() {
   const [order, setOrder] = useState<number[]>();
   const act = useMutation({
     mutationFn: async (call: () => Promise<Response>) => {
-      if (!(await call()).ok) throw new Error("Refusé");
+      const res = await call();
+      if (!res.ok) throw await refusedError(res, REFUSED);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
   });
@@ -72,7 +76,7 @@ export function Night() {
       const res = await client.api.stories[":id"].validate.$post({
         param: { id: String(id) },
       });
-      if (!res.ok) throw new Error("Refusé");
+      if (!res.ok) throw await refusedError(res, REFUSED);
       return id;
     },
     onSuccess: (id) => setOrder([...program, id]),
@@ -146,7 +150,7 @@ export function Night() {
         )}
         {(act.isError || validate.isError) && (
           <p role="alert" className={`lg:col-span-2 ${alertBox}`}>
-            Cette action a été refusée : recharge la page.
+            {(act.error ?? validate.error)?.message}
           </p>
         )}
         {data && (

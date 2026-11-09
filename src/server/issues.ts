@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { and, asc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { act, type Entry } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { history, userStories } from "./db/schema.ts";
+import { history, projects, tickets, userStories } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { COCKPIT_LABELS, isIssueStatus, renderIssue } from "./issue-render.ts";
-import { memberStory, storyParts } from "./stories.ts";
+import { storyParts } from "./stories.ts";
 
 type Story = typeof userStories.$inferSelect;
 type Parts = Awaited<ReturnType<typeof storyParts>>;
@@ -85,7 +85,13 @@ async function sync(
   userId: number,
   storyId: number,
 ) {
-  const found = await memberStory(db, userId, storyId);
+  // No membership asked: the caller is already known to act (or to have launched a run that goes on, decision 076 F).
+  const [found] = await db
+    .select({ story: userStories, ticket: tickets, project: projects })
+    .from(userStories)
+    .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+    .innerJoin(projects, eq(projects.id, tickets.projectId))
+    .where(eq(userStories.id, storyId));
   if (!found) return;
   const { story, ticket, project } = found;
   // Someone edited the issue on GitHub: nothing is written there until the user chooses (decision 025 D).

@@ -64,6 +64,27 @@ describe("the ticket panel by role (076 G)", () => {
   );
 });
 
+describe("the tickets tab by role (076 G)", () => {
+  it.each([
+    ["read_only", false],
+    ["can_validate", true],
+  ])(
+    "given a %s member, when the tickets load, then Importer les issues is shown: %s",
+    async (role, shown) => {
+      seed(role);
+      renderAt("/projets/5/tickets");
+
+      await screen.findByRole("button", { name: "Une idée" });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("link", { name: "Importer les issues" }) !== null,
+        ).toBe(shown),
+      );
+    },
+  );
+});
+
 describe("the Santé tab by role (076 G)", () => {
   it.each([
     ["read_only", false],

@@ -424,6 +424,7 @@ export function claudeRoutes(db: Db) {
       .where(
         and(
           mine,
+          inArray(projectMembers.role, ["owner", "can_launch"]),
           eq(projectMembers.inLauncher, true),
           eq(userStories.status, "ready"),
           isNull(queueItems.id),

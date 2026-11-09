@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { refusedError } from "./roles.ts";
 import { StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -35,6 +36,8 @@ const PAUSES: Record<string, string> = {
 };
 
 /** Decision 058 F: the page « Claude », what Claude does now and the queue of stories it launches one by one. */
+const REFUSED = "Cette action a été refusée : recharge la page.";
+
 export function Claude() {
   const queryClient = useQueryClient();
   // Under "home" so the stream of changes reloads them with the home.
@@ -46,7 +49,8 @@ export function Claude() {
   const [adding, setAdding] = useState(false);
   const change = useMutation({
     mutationFn: async (call: () => Promise<Response>) => {
-      if (!(await call()).ok) throw new Error("Refusé");
+      const res = await call();
+      if (!res.ok) throw await refusedError(res, REFUSED);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
   });
@@ -83,7 +87,7 @@ export function Claude() {
         )}
         {change.isError && (
           <p role="alert" className={alertBox}>
-            Cette action a été refusée : recharge la page.
+            {change.error.message}
           </p>
         )}
         {!claude.data && !claude.isError && !queue.isError && (

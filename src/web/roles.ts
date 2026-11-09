@@ -14,6 +14,17 @@ export const atLeast = (role: string | undefined, min: Role) =>
 
 export const ROLE_REFUSAL = "Ton rôle sur ce projet ne le permet pas.";
 
+/** The error of a refused write: the sentence of the role when the server says so, `fallback` otherwise. */
+export async function refusedError(res: Response, fallback: string) {
+  const body = (await res
+    .clone()
+    .json()
+    .catch(() => null)) as {
+    error?: string;
+  } | null;
+  return new Error(roleRefusal(res.status, body?.error) ?? fallback);
+}
+
 /** The sentence of a refusal 403 `role` of the server (decision 076 G); null for any other answer. */
 export const roleRefusal = (status: number, error: unknown) =>
   status === 403 && error === "role" ? ROLE_REFUSAL : null;

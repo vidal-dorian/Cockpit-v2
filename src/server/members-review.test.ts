@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { projectMembers, queueItems } from "./db/schema.ts";
 import { send, withStory } from "./test-decisions.ts";
+import { diverge, entriesOf, publishedStory } from "./test-issue-edit.ts";
 import {
   callTool,
   dataOf,
@@ -97,7 +98,7 @@ describe("076 B: a launched run reports to its end", () => {
 
 describe("076 H: a delivery belongs to the owner", () => {
   it("given a guest whose row comes first, when GitHub delivers an event, then its entry is the owner's", async () => {
-    // The guest has the lower user id, so any join without a role filter meets him first.
+    // The guest has the lower user id and, below, the first row: a join without a role filter meets him first.
     const ctx = await setup({ account: 1000 });
     const guest = await userWithToken(ctx.app, ctx.db, 2000);
     const alice = await userWithToken(ctx.app, ctx.db, 1000);
@@ -108,10 +109,11 @@ describe("076 H: a delivery belongs to the owner", () => {
     await ctx.db
       .insert(projectMembers)
       .values({ projectId, userId: guest.id, role: "read_only" });
-    // The update moves the owner's row after the guest's in the table, whatever the plan.
-    await ctx.db.execute(
-      sql`update project_members set favorite = true where role = 'owner'`,
-    );
+    // The owner's row is written again after the guest's: it comes last in the table, whatever the plan.
+    await ctx.db.execute(sql`delete from project_members where role = 'owner'`);
+    await ctx.db
+      .insert(projectMembers)
+      .values({ projectId, userId: alice.id, role: "owner" });
     const s = { ...ctx, alice };
     const body = JSON.stringify({
       action: "opened",
@@ -138,6 +140,42 @@ describe("076 H: a delivery belongs to the owner", () => {
         (r) => r.user_id,
       ),
     ).toEqual([s.alice.id]);
+  });
+});
+
+describe("076 H: an issue edited on GitHub belongs to the owner", () => {
+  it("given a guest whose row comes first, when an issue is edited, then the entry of the divergence is the owner's", async () => {
+    const s = await publishedStory();
+    const guest = await userWithToken(s.app, s.db, 2000);
+    await s.db
+      .insert(projectMembers)
+      .values({ projectId: s.projectId, userId: guest.id, role: "read_only" });
+    await s.db.execute(sql`delete from project_members where role = 'owner'`);
+    await s.db
+      .insert(projectMembers)
+      .values({ projectId: s.projectId, userId: s.alice.id, role: "owner" });
+
+    await diverge(s, { title: "Un autre titre" });
+
+    expect(
+      (await entriesOf(s.db, "issue_diverged")).map((e) => e.user_id),
+    ).toEqual([s.alice.id]);
+  });
+});
+
+describe("076 A: a role only offers what it may launch", () => {
+  it("given a read_only member with the shared project ticked, when he reads the night, then nothing is ready for him", async () => {
+    const s = await withStory("ready");
+    const bob = await memberWith(s, 2000, "read_only");
+    await s.db.execute(
+      sql`update project_members set in_launcher = true where user_id = ${bob.id}`,
+    );
+
+    const res = await send(s.app, bob.cookie, "GET", "/api/nights/current");
+
+    expect(
+      ((await res.json()) as { ready: unknown[]; toValidate: unknown[] }).ready,
+    ).toEqual([]);
   });
 });
 

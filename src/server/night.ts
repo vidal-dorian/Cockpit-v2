@@ -643,11 +643,18 @@ export function nightRoutes(db: Db, now: () => number) {
       const inNight = planned.length
         ? await stories(userId, inArray(userStories.id, planned), planned)
         : [];
+      // Only what the role may do with it: launch for the ready ones, validate for the others (decision 076 A).
       const notIn = (status: "ready" | "to_validate") =>
         stories(
           userId,
           and(
             eq(userStories.status, status),
+            inArray(
+              projectMembers.role,
+              status === "ready"
+                ? ["owner", "can_launch"]
+                : ["owner", "can_launch", "can_validate"],
+            ),
             eq(projectMembers.inLauncher, true),
             isNull(projects.archivedAt),
             planned.length ? notInArray(userStories.id, planned) : undefined,

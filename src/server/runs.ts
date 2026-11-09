@@ -40,8 +40,11 @@ export const isUniqueViolation = (error: unknown) =>
   );
 
 /** Tells the project's members, after the commit (decision 033 G). */
-export const announce = (db: Db, found: Found, runId: number) =>
-  publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
+export const announce = (
+  db: Db,
+  found: { project: { id: number }; story: { id: number } },
+  runId: number,
+) => publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
 
 /** `start_run` (decision 033 B): a ready or in_review story gets a running run and goes in_progress with its branch. */
 export async function startRun(
@@ -151,11 +154,7 @@ export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
   entry.storyId = found.story.id;
   entry.runId = run.id;
   entry.args = { runId: run.id };
-  // The launcher's own role is not read: it does not matter to a run that is going on.
-  return {
-    ...found,
-    project: { ...found.project, role: "read_only" as const },
-  };
+  return found;
 }
 
 /** Checks the project and locks the run, which must still run (or be paused, for the answer to its question: decision 044 E); answers it as locked. */
