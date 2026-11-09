@@ -189,7 +189,8 @@ describe("criterion 3: the update", () => {
       after: T2,
       agents: [{ name: "doc-writer", before: null, after: DOC_WRITER }],
     });
-    await waitFor(() => expect(calls.agentReads).toBeGreaterThan(reads));
+    // One read by the update itself, one by the refetch of the window.
+    await waitFor(() => expect(calls.agentReads).toBeGreaterThan(reads + 1));
     await waitFor(() => expect(optionNames(ui)).toContain("leger"));
     expect(ui.queryByText(/à mettre à jour/)).toBeNull();
     expect(ui.queryByText(/a changé dans Équipes d'agents/)).toBeNull();

@@ -446,7 +446,10 @@ export function DevelopWindow({
           <select
             className={field}
             value={team}
-            onChange={(e) => setTeam(e.target.value)}
+            onChange={(e) => {
+              addTeam.reset();
+              setTeam(e.target.value);
+            }}
           >
             <option value="">Par défaut</option>
             {teams.data.teams.map(({ name: t }) => (
@@ -468,7 +471,10 @@ export function DevelopWindow({
         )
       )}
       {stale && (
-        <div role="status" className="rounded-[14px] border border-claude/40 bg-claude-soft p-3 text-[13px]">
+        <div
+          role="status"
+          className="rounded-[14px] border border-claude/40 bg-claude-soft p-3 text-[13px]"
+        >
           <p>
             L'équipe {stale.name} a changé dans Équipes d'agents depuis son
             ajout à ce projet. Claude suivra la version du repo tant que tu ne
@@ -477,7 +483,13 @@ export function DevelopWindow({
           <button
             type="button"
             className={`mt-3 ${button}`}
-            disabled={addTeam.isPending}
+            // A pull request already carries the update: a second click would open another one.
+            disabled={
+              addTeam.isPending ||
+              (!!addTeam.data &&
+                "done" in addTeam.data &&
+                addTeam.data.done.pullRequest)
+            }
             onClick={() =>
               addTeam.mutate(
                 { project, team: stale },
