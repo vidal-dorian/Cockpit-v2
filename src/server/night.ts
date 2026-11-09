@@ -341,7 +341,7 @@ async function closeSilent(db: Db, deps: Fire, nightId: number, at: Date) {
       ),
     );
   for (const run of silent) {
-    // An anonymised run (its launcher deleted the account, decision 078 C) is not a night's.
+    // For the type only: a night's runs are its owner's, and deleting the account deletes the night first (decision 078 C).
     if (run.projectId === null || run.userId === null) continue;
     const projectId = run.projectId;
     try {

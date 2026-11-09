@@ -30,6 +30,7 @@ import {
 } from "./db/schema.ts";
 import { findAccountId, githubLogin } from "./members.ts";
 import { fingerprintOf } from "./plans.ts";
+import { endRun } from "./runs.ts";
 
 type Env = { Variables: { adminId: number } };
 
@@ -301,6 +302,18 @@ export function dataRoutes(db: Db, key: Buffer) {
               ),
             )
         ).map((p) => p.id);
+        // Her runs still open on other people's projects end like a manual close: anonymised, they would stay stuck with no launcher.
+        const open = await tx
+          .select({ id: runs.id, storyId: runs.storyId })
+          .from(runs)
+          .where(
+            and(
+              eq(runs.userId, u),
+              inArray(runs.status, ["running", "paused"]),
+            ),
+          );
+        for (const run of open)
+          await endRun(tx, run.id, run.storyId, { status: "closed_manually" });
         // Not a column filter: the same list is used by raw SQL below.
         const P = sql`array[${sql.join(
           owned.map((id) => sql`${id}`),

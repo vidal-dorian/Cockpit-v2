@@ -179,7 +179,7 @@ export function questionRoutes(db: Db, deps: LiveFire) {
               .select({ blockedAt: users.blockedAt })
               .from(users)
               .where(eq(users.id, run.userId));
-      // An anonymised run (decision 078 C) has no launcher to relaunch for.
+      // For the type only: deleting the account closes the person's open runs, so an anonymised run is never paused (decision 078 C).
       if (
         run.status === "paused" &&
         branch &&
