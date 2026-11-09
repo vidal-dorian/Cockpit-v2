@@ -943,4 +943,22 @@ describe("schedulePurge", () => {
     expect(timer.hasRef()).toBe(false);
     clearInterval(timer);
   });
+
+  it("given an expired session whose cookie never comes back, when the purge is scheduled, then it is deleted and a live session is kept", async () => {
+    const { db } = await scheduled();
+    const bob = await userWithSession(db, 6);
+    await db.insert(sessions).values({
+      id: "abandoned",
+      userId: bob.id,
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+
+    const timer = schedulePurge(db);
+
+    const ids = async () =>
+      (await db.select({ id: sessions.id }).from(sessions)).map((s) => s.id);
+    await until(async () => !(await ids()).includes("abandoned"));
+    expect(await ids()).toContain(sha256("cookie-of-6"));
+    clearInterval(timer);
+  });
 });

@@ -7,7 +7,13 @@ import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { history, mcpTokens, users, webhookDeliveries } from "./db/schema.ts";
+import {
+  history,
+  mcpTokens,
+  sessions,
+  users,
+  webhookDeliveries,
+} from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 
 // Limits of decision 015. PostgreSQL text cannot hold a NUL character: refused here, not left to fail as a 500.
@@ -88,6 +94,13 @@ export function schedulePurge(db: Db): NodeJS.Timeout {
       purgeWebhookDeliveries(db).catch((error) =>
         console.error("Purge of webhook deliveries failed:", error),
       ),
+      // A session is otherwise deleted only when its expired cookie comes back, so an abandoned one stayed forever.
+      db
+        .delete(sessions)
+        .where(sql`${sessions.expiresAt} < now()`)
+        .catch((error) =>
+          console.error("Purge of expired sessions failed:", error),
+        ),
     ]);
   void run();
   return setInterval(run, PURGE_EVERY_MS).unref();
