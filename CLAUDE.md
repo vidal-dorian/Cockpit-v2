@@ -44,7 +44,7 @@ Only then open the pull request.
 - Node runs the TypeScript directly (type stripping): only erasable syntax (no `enum`, `namespace` or constructor parameter properties) and relative imports end in `.ts` / `.tsx`.
 - UI text in French; code, comments, commit messages and prompts in English.
 - One changelog line per pull request (release-please, `.github/workflows/cd.yml`, reads every commit of `main`): commits on a branch start with `chore: `, which the changelog hides; the pull request title is the line, `feat(<slice>): <what the user gets>` or `fix(<area>): <what was wrong>`. GitHub copies that title into the merge commit, so merge with a merge commit or a squash, never a rebase.
-- Loading text gets the `loading` class (decision 079). Motion uses the duration and easing tokens of `styles.css`, and nothing under `main` gets a transform (it would re-anchor the fixed right panel).
+- Loading text gets the `loading` class (decision 079). Motion uses the duration and easing tokens of `styles.css`, and no transform on `main` or on an ancestor of the fixed right panel (it would re-anchor the fixed right panel).
 - Colors and fonts are the tokens of `src/web/styles.css` (decisions 003 and 028; « Quatre temps » of decision 045 from slice 9.3, with its colour budget). Never hard-code a color. Every color token has a dark and a light value (decision 073); a new token needs both.
 - Components: Tailwind + shadcn/ui (decision 003).
 - Every route or MCP tool that writes asks its role from `memberProject(db, userId, projectId, min)` (`min`: `read_only` by default, up to `owner`; decision 076); a new write gesture names its `min`.
