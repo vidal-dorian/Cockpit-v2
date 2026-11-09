@@ -8,6 +8,7 @@ import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { findingsSentence, toDecide, useFindings } from "./findings.ts";
 import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { ProjectAgents } from "./ProjectAgents.tsx";
+import { ciSentence, fetchWorkflows, ProjectCi } from "./ProjectCi.tsx";
 import { FILES } from "./ProjectClaudeConfig.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { ProjectDelivered } from "./ProjectDelivered.tsx";
@@ -87,6 +88,7 @@ type ProjectTab =
   | "conception"
   | "sante"
   | "agents"
+  | "ci"
   | "historique"
   | "reglages";
 
@@ -96,6 +98,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "conception", to: "/conception", label: "Conception" },
   { tab: "sante", to: "/sante", label: "Santé" },
   { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "ci", to: "/ci", label: "CI / CD" },
   { tab: "historique", to: "/historique", label: "Historique" },
   { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
@@ -114,6 +117,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
   agents: "Chacun lit le repo, puis passe la main au suivant.",
+  ci: "",
   historique: "",
   reglages: "",
 };
@@ -198,6 +202,12 @@ export function ProjectPage({
     queryFn: () => fetchCodeMap(id),
     enabled: tab === "conception",
   });
+  const workflows = useQuery({
+    queryKey: ["workflows", id],
+    queryFn: () => fetchWorkflows(id),
+    enabled: tab === "ci",
+    retry: false,
+  });
   const schedule = useQuery({
     queryKey: ["routine-schedule", id],
     queryFn: () => fetchSchedule(id),
@@ -271,26 +281,32 @@ export function ProjectPage({
                           title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
                           rest: writingSentence(schedule.data),
                         }
-                      : {
-                          title:
-                            tab === "reglages"
-                              ? `Réglages de ${name}.`
-                              : tab === "agents" && fichier
-                                ? `Ce que Claude lit dans ${project?.fullName ?? name}.`
-                                : tab === "agents"
-                                  ? `Les agents et les équipes de ${name}.`
-                                  : tab === "historique" && view === "delivered"
-                                    ? `Ce que ${name} a livré.`
-                                    : tab === "historique"
-                                      ? `Ce qui s'est passé sur ${name}.`
-                                      : name,
-                          rest:
-                            view === "delivered"
-                              ? "Une ligne par PR, écrite à partir de son titre."
-                              : fichier
-                                ? "Chaque modification passe par un diff, puis un commit."
-                                : TAB_REST[tab],
-                        };
+                      : tab === "ci" && workflows.data?.data
+                        ? {
+                            title: ciSentence(workflows.data.data.workflows)
+                              .title,
+                          }
+                        : {
+                            title:
+                              tab === "reglages"
+                                ? `Réglages de ${name}.`
+                                : tab === "agents" && fichier
+                                  ? `Ce que Claude lit dans ${project?.fullName ?? name}.`
+                                  : tab === "agents"
+                                    ? `Les agents et les équipes de ${name}.`
+                                    : tab === "historique" &&
+                                        view === "delivered"
+                                      ? `Ce que ${name} a livré.`
+                                      : tab === "historique"
+                                        ? `Ce qui s'est passé sur ${name}.`
+                                        : name,
+                            rest:
+                              view === "delivered"
+                                ? "Une ligne par PR, écrite à partir de son titre."
+                                : fichier
+                                  ? "Chaque modification passe par un diff, puis un commit."
+                                  : TAB_REST[tab],
+                          };
 
   return (
     <main className="pb-6">
@@ -514,6 +530,13 @@ export function ProjectPage({
       )}
       {!notFound && tab === "agents" && project && (
         <ProjectAgents
+          projectId={id}
+          fullName={project.fullName}
+          archived={project.archived}
+        />
+      )}
+      {!notFound && tab === "ci" && project && (
+        <ProjectCi
           projectId={id}
           fullName={project.fullName}
           archived={project.archived}

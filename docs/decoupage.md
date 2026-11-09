@@ -73,6 +73,7 @@
 - **Fait** : tranche 11.6 (les équipes de départ Éco, Standard, Premium et Max, [décision 063](decisions/063-equipes-de-depart.md)) ; la phase 11 est terminée.
 - **Fait** : tranche 12.1 (la configuration Claude du repo : `CLAUDE.md`, règles, skills et `.mcp.json`, [décision 065](decisions/065-configuration-du-repo.md)).
 - **Fait** : tranche 12.3 (la configuration commune à tous les projets : un repo de plugins relié, ses agents et skills, installés dans chaque projet par `.claude/settings.json`, [décision 066](decisions/066-configuration-commune.md)).
+- **Fait** : tranche 12.4 (l'onglet CI / CD : les workflows, une CI de départ, les changements que Claude propose, [décision 067](decisions/067-ci-cd.md)).
 - **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7, puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).

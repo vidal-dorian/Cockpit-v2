@@ -173,7 +173,7 @@ describe("slice 9.3: the sentence of the Kanban tab", () => {
 });
 
 describe("slice 9.3: the header and the tabs of a project", () => {
-  it("given a project, when its page loads, then the tabs are Kanban, Tickets, Conception, Santé, Agents, Historique (053 I), Réglages in that order", async () => {
+  it("given a project, when its page loads, then the tabs are Kanban, Tickets, Conception, Santé, Agents, CI / CD (067 A), Historique (053 I), Réglages in that order", async () => {
     stubProjectShell({}, tickets, board);
     renderAt("/projets/5");
 
@@ -190,6 +190,7 @@ describe("slice 9.3: the header and the tabs of a project", () => {
       "Conception",
       "Santé",
       "Agents",
+      "CI / CD",
       "Historique",
       "Réglages",
     ]);

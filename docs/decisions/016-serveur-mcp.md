@@ -6,6 +6,7 @@
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [010 — Historique](010-historique.md), [014 — Tickets](014-tickets.md), [015 — Les jetons MCP](015-jetons-mcp.md)
 - **Tranche** : 4.2 du [découpage](../decoupage.md)
 - **Modifiée par 061** : le serveur compte 24 outils, dont `get_attachment` (les pièces jointes d'un ticket) ; `get_ticket` et `list_tickets_needing_us` rendent les pièces jointes ou leur nombre — voir la [061](061-pieces-jointes.md)
+- **Modifiée par 067** : le serveur compte 25 outils, dont `propose_workflow_change` (un changement de workflow que l'humain committe ou ignore) — voir la [067](067-ci-cd.md)
 - **Modifie** : la [004](004-outils-mcp.md), colonnes `args` et `detail` de son tableau « Journal » (choix F)
 
 ## Contexte

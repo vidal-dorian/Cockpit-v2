@@ -323,7 +323,8 @@ describe("061 H: tools/list", () => {
 
     const tools = await listedTools(app, alice.secret);
 
-    expect(tools).toHaveLength(24);
+    // 25 since slice 12.4 (decision 067 E) adds propose_workflow_change.
+    expect(tools).toHaveLength(25);
     const tool = tools.find((t) => t.name === "get_attachment");
     expect(tool?.inputSchema?.required).toEqual(["attachment_id"]);
     expect(tool?.description).toMatch(/100[, ]?000/);

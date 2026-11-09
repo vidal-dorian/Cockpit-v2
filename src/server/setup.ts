@@ -54,6 +54,8 @@ function manifest(publicUrl: string) {
       dependabot_alerts: "read",
       security_events: "read",
       secret_scanning_alerts: "read",
+      // Decision 067 D: a commit that touches .github/workflows needs it.
+      workflows: "write",
     },
     // The installation events are always sent to an App and cannot be listed here.
     default_events: [

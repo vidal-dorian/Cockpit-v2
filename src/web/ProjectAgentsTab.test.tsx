@@ -90,7 +90,7 @@ describe("decision 030 A: the tab Agents", () => {
       name: "Sections du projet",
     });
     const links = within(nav).getAllByRole("link");
-    expect(links).toHaveLength(7); // decision 053 I adds « Historique »
+    expect(links).toHaveLength(8); // decision 053 I adds « Historique », 067 A « CI / CD »
     const agents = links[4] as HTMLElement;
     expect(agents.textContent?.trim()).toBe("Agents");
     expect(agents.getAttribute("href")).toBe("/projets/5/agents");

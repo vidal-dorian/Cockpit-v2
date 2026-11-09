@@ -28,6 +28,20 @@ const REFUSALS: Record<string, string> = {
   invalid_settings:
     "Le fichier .claude/settings.json de ce projet n'est pas un objet JSON valide : modifie-le sur GitHub.",
   repo_changed: "Le repo a changé entre-temps : regarde de nouveau",
+  wrong_language:
+    "Le langage de ce repo a changé : recharge la page pour voir la CI de départ qui lui correspond.",
+  workflows_forbidden:
+    "Cockpit n'a pas encore le droit d'écrire les workflows. Approuve la nouvelle permission sur GitHub.",
+  already_decided: "Cette proposition a déjà été traitée : recharge la page.",
+  launcher_not_connected:
+    "Le lanceur n'est pas relié : relie-le dans les Réglages.",
+  launcher_needs_reconnect:
+    "Le lanceur est à reconnecter : colle un nouveau jeton dans les Réglages.",
+  project_not_in_launcher:
+    "Ce projet n'est plus coché dans le lanceur : coche-le dans les Réglages.",
+  monthly_budget_reached:
+    "Le plafond par mois est atteint : relève-le dans la page Coût pour lancer.",
+  fire_failed: "Claude n'a pas pu être lancé : réessaie dans un instant.",
   pull_request_forbidden:
     "La branche par défaut est protégée et l'App n'a pas le droit d'ouvrir une pull request : donne-lui « Pull requests » en écriture dans ses réglages, puis recommence.",
 };

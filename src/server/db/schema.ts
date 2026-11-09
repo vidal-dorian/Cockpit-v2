@@ -493,6 +493,8 @@ export const cloudLaunches = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     outcome: text("outcome", { enum: ["succeeded", "failed"] }),
     summary: text("summary"),
+    // The workflow a launch « Demander à Claude » is about (decision 067 G): neither a story nor a routine.
+    workflowPath: text("workflow_path"),
     // Launched by the queue, not by hand (decision 058 C).
     fromQueue: boolean("from_queue").notNull().default(false),
     // Launched by the automatic relaunch after a failed CI (decision 059 C).
@@ -509,8 +511,8 @@ export const cloudLaunches = pgTable(
   },
   (t) => [
     check(
-      "cloud_launches_story_xor_routine",
-      sql`(${t.storyId} is null) <> (${t.routineId} is null)`,
+      "cloud_launches_one_target",
+      sql`num_nonnulls(${t.storyId}, ${t.routineId}, ${t.workflowPath}) = 1`,
     ),
   ],
 );
@@ -901,3 +903,29 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
 
 /** Ids, closed values and numbers only: never free text or personal data (decision 010 D). */
 type HistoryArgs = Record<string, string | number | boolean | null>;
+
+/** Decision 067 E, F: a change of a workflow that Claude proposes; pending while `decision` is null, a new one on the same file takes the place of a pending one. */
+export const workflowProposals = pgTable(
+  "workflow_proposals",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    path: text("path").notNull(),
+    reason: text("reason").notNull(),
+    // The text of the file when it was proposed, null for a new file.
+    before: text("before"),
+    content: text("content").notNull(),
+    decision: text("decision", { enum: ["committed", "ignored"] }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  // One pending proposal per file.
+  (t) => [
+    uniqueIndex("workflow_proposals_pending")
+      .on(t.projectId, t.path)
+      .where(sql`${t.decision} is null`),
+  ],
+);

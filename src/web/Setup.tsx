@@ -93,6 +93,11 @@ const PERMISSIONS = [
     "savoir si les tests passent, sans que tu ouvres GitHub.",
   ],
   ["Actions", "lecture", "voir où en sont tes workflows."],
+  [
+    "Workflows",
+    "écriture",
+    "écrire une CI de départ ou un changement de workflow, seulement quand tu cliques sur « Faire le commit ».",
+  ],
 ] as const;
 
 /** Makes the browser POST the manifest to GitHub, as GitHub's manifest flow requires (a fetch cannot follow its pages). */
