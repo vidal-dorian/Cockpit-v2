@@ -139,3 +139,27 @@ describe("slice 15.3 E: ?", () => {
     ).toBeDefined();
   });
 });
+
+describe("slice 15.3 E: a window open", () => {
+  it("given a story to validate and the ? window open, when V is pressed on Fermer, then no validation is sent", async () => {
+    const api = stubDecisionApi({
+      tickets: [ticket(7, "Idée découpée")],
+      stories: [
+        decisionStory(
+          story(21, 7, "relire les exports", { status: "to_validate" }),
+        ),
+      ],
+    });
+    renderAt("/us/21");
+    await screen.findByRole("button", { name: /Valider/ });
+    fireEvent.keyDown(document.body, { key: "?" });
+    const d = await screen.findByRole("dialog", { name: "Raccourcis clavier" });
+
+    fireEvent.keyDown(within(d).getByRole("button", { name: "Fermer" }), {
+      key: "v",
+    });
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(api.writes()).toEqual([]);
+  });
+});

@@ -27,7 +27,14 @@ import { RunPage } from "./RunPage.tsx";
 import { SearchDialog } from "./SearchDialog.tsx";
 import { Settings } from "./Settings.tsx";
 import { ClaimAdmin, Setup } from "./Setup.tsx";
-import { Dot, fetchHealth, fetchMe, IdeaBar, Sidebar } from "./Shell.tsx";
+import {
+  Dot,
+  fetchHealth,
+  fetchMe,
+  IdeaBar,
+  Sidebar,
+  useHome,
+} from "./Shell.tsx";
 import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
 import { applyTheme } from "./theme.ts";
@@ -233,13 +240,15 @@ function Shell({
   // The one stream of the tab, opened after the page's own: the home, the sidebar and the idea bar read the same query.
   useAnyChange("home");
   const idea = useRef<(opener: HTMLElement | null) => void>(null);
+  // The idea panel only exists with a project.
+  const hasProject = (useHome().data?.projects.length ?? 0) > 0;
   return (
     <div className="md:grid md:grid-cols-[224px_minmax(0,1fr)]">
       <Sidebar onSearch={() => onOverlay("search")} />
       {overlay === "search" && (
         <SearchDialog
           onClose={() => onOverlay(undefined)}
-          onIdea={() => idea.current?.(null)}
+          onIdea={hasProject ? () => idea.current?.(null) : undefined}
         />
       )}
       {overlay === "shortcuts" && (
@@ -430,6 +439,7 @@ export function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey))
         return;
+      if (event.shiftKey || event.altKey) return;
       event.preventDefault();
       setOverlay("search");
     };

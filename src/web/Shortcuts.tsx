@@ -13,7 +13,10 @@ export function useShortcut(
       if (event.key.toLowerCase() !== key) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
-      if (target.isContentEditable || target.closest("input, textarea, select"))
+      if (
+        target.isContentEditable ||
+        target.closest("input, textarea, select, dialog")
+      )
         return;
       event.preventDefault();
       action(event);

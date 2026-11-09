@@ -4,6 +4,15 @@ export const THEME_KEY = "cockpit-theme";
 /** Shows a theme (decision 073 F): `data-theme` on <html> picks the tokens of styles.css; the copy in localStorage spares a dark flash at the next load. */
 export function applyTheme(theme: string) {
   document.documentElement.dataset.theme = theme;
+  // The browser bar follows the page ground, whichever theme "system" resolves to.
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute(
+      "content",
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--color-background",
+      ),
+    );
   try {
     localStorage.setItem(THEME_KEY, theme);
   } catch {

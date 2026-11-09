@@ -171,6 +171,7 @@ export function Panel({
   onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
 }) {
   // J and K, like the arrows (decision 073 E).
+  // shortcut: every mounted Panel with a counter answers J/K; give the shortcut to the topmost one if two ever show together
   useShortcut(
     "j",
     counter && counter.index < counter.total - 1 ? counter.onNext : undefined,

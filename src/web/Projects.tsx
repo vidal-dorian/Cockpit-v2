@@ -132,6 +132,11 @@ function ProjectList() {
       >
         Favoris · {favorites}
       </button>
+      {onlyFavorites && favorites === 0 && (
+        <p className="text-muted-foreground">
+          Aucun favori : l'étoile d'une ligne en ajoute un.
+        </p>
+      )}
       <ul className={listCard}>
         {projects.data
           .filter((p) => p.favorite || !onlyFavorites)

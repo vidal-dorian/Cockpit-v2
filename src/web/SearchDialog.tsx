@@ -5,7 +5,7 @@ import { client } from "./api.ts";
 import { Modal } from "./Modal.tsx";
 import { repoName, useHome } from "./Shell.tsx";
 import { RUN_STATUSES, STEPS, STORY_STATUSES } from "./tickets.ts";
-import { focusRing, kbd } from "./ui.ts";
+import { alertBox, focusRing, kbd } from "./ui.ts";
 
 // The window of S08 (decision 073 B, C, D).
 
@@ -81,12 +81,13 @@ export function SearchDialog({
     const timer = setTimeout(() => setTyped(text.trim()), 200);
     return () => clearTimeout(timer);
   }, [text]);
-  const found = useQuery({
+  const search = useQuery({
     queryKey: ["search", typed],
     queryFn: () => fetchSearch(typed),
     // The server wants 2 characters at least.
     enabled: typed.length >= 2,
-  }).data;
+  });
+  const found = search.data;
 
   const words = text.toLowerCase().split(/\s+/).filter(Boolean);
   const options: Option[] = [
@@ -200,7 +201,12 @@ export function SearchDialog({
         aria-label="Résultats"
         className="max-h-[50vh] overflow-y-auto max-md:max-h-none"
       >
-        {options.length === 0 && (
+        {search.isError && (
+          <p role="alert" className={`m-3 ${alertBox}`}>
+            La recherche a échoué, réessaie.
+          </p>
+        )}
+        {options.length === 0 && !search.isError && (
           <p className="px-5 py-6 text-muted-foreground">Rien trouvé.</p>
         )}
         {options.map((option, i) => (

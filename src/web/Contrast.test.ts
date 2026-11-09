@@ -77,3 +77,19 @@ describe("slice 15.3 G: the palettes", () => {
     expect(failing).toEqual([]);
   });
 });
+
+// Review of slice 15.3 (decision 073 G): the strong borders reach 3:1, and the dim and destructive texts 4.5:1.
+describe("slice 15.3 G: more pairs of the light palette", () => {
+  it("given the light theme, when I count border-strong, dim and destructive, then they reach their ratios", () => {
+    const at = (a: string, b: string) =>
+      ratio(light.get(a) as string, light.get(b) as string);
+    expect(
+      ["background", "card"].filter((g) => at("border-strong", g) < 3),
+    ).toEqual([]);
+    expect(
+      ["dim", "destructive"].flatMap((t) =>
+        GROUNDS.filter((g) => at(t, g) < 4.5).map((g) => `${t} on ${g}`),
+      ),
+    ).toEqual([]);
+  });
+});
