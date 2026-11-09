@@ -36,6 +36,7 @@ La 064 a tranché ce que la 15.2 contient : les deux téléphones à égalité, 
 - **Se déconnecter** retire l'appareil : `DELETE /api/push/subscriptions` côté serveur, puis `unsubscribe` (son échec ne bloque pas la déconnexion), puis vide le cache `cockpit-v1` du service worker.
 - **Le bandeau** est dans la coque connectée, sur toutes les pages ; l'écran de connexion garde son alerte « Serveur injoignable ». La requête `/api/health` n'a pas de nouvel essai et est relue à chaque erreur du flux `EventSource` ou au retour de la page.
 - **Le service worker n'est enregistré que dans le build de production** (`main.tsx`) ; le serveur répond `/sw.js` avec `Cache-Control: no-cache`.
+- **Le récap (C)** est écrit pour l'utilisateur de la nuit seul, pas pour chaque membre du projet (B).
 - **Les icônes PNG** sont rendues depuis `favicon.svg` sur le fond `#0e1015`.
 - **S47** : le sous-titre de la maquette n'est pas montré (la page n'a que le titre « Préférences »).
 
