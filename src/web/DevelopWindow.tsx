@@ -468,7 +468,7 @@ export function DevelopWindow({
         )
       )}
       {stale && (
-        <div role="status" className="rounded-xl border bg-raised p-3">
+        <div role="status" className="rounded-[14px] border border-claude/40 bg-claude-soft p-3 text-[13px]">
           <p>
             L'équipe {stale.name} a changé dans Équipes d'agents depuis son
             ajout à ce projet. Claude suivra la version du repo tant que tu ne
