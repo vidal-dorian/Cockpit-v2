@@ -138,6 +138,14 @@ function ThenEdge({
               transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
             }}
             className="nodrag nopan pointer-events-auto absolute"
+            role="group"
+            // Escape closes the menu only: left alone it reaches the dialog, whose cancel throws away the draft.
+            onKeyDown={(e) => {
+              if (e.key !== "Escape" || !open) return;
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+            }}
           >
             <button
               type="button"
