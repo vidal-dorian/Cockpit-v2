@@ -29,7 +29,7 @@ Le brief (§6.9) veut des agents et des skills définis une fois et disponibles 
 
 - **Le calcul de G** est `pluginSettings` : les clés déjà là gardent leur ordre, les nouvelles sont ajoutées à la fin.
 - **Un refus du lien est journalisé** (010 C) : `repo_unreachable` à `link_plugin_repo` ; un échec GitHub l'est aussi, en 502.
-- **Un projet que l'installation de l'App n'atteint plus est rendu non installé, sans appel à GitHub (limite connue : « Installer » y échouera à l'écriture).
+- **Un projet que l'installation de l'App n'atteint plus** est rendu non installé, sans appel à GitHub (limite connue : « Installer » y échouera à l'écriture).
 - **Un repo sans aucun commit** : 409 `empty_repo`, à la lecture comme à l'écriture.
 - **« Délier »** est proposé sur tout 409 de la lecture, pas seulement `repo_unreachable`.
 
