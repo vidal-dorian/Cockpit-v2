@@ -4,7 +4,7 @@
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 13.2 A à F)
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (point ouvert 7), [008 — Le service en ligne](008-service-en-ligne.md) (les fonctions payantes bloquées côté serveur), [010 — L'historique](010-historique.md), [011 — Importer un projet](011-import-projets.md), [012 — La configuration automatique](012-configuration-automatique.md) (G, Réglages › Instance), [015 — Les jetons MCP](015-jetons-mcp.md) (un secret haché, montré une fois), [068 — Un nouveau projet depuis un modèle](068-repo-modele.md), [076 — Plusieurs utilisateurs](076-plusieurs-utilisateurs.md) (les rôles)
-- **Modifie** : [`offres.md`](../offres.md) (la limite de 3 repos arrive sans le paiement, comme la 064 13.2 E le tranche)
+- **Modifie** : [`offres.md`](../offres.md) (la limite de 3 repos arrive sans le paiement, comme la 064 13.2 E le tranche), [007](007-reprise-app-existante.md) (point ouvert 7 tranché), [076](076-plusieurs-utilisateurs.md) A (le rôle d'un projet verrouillé est ramené à « lecture seule »)
 - **Tranche** : 13.2 du [découpage](../decoupage.md)
 - **Écran** : [S49](../ecrans/S49_Reglages_Offre.png)
 
@@ -32,7 +32,22 @@ L'import n'est pas limité et la reprise (007) est ouverte à tous. La 064 13.2 
 - Les tickets, les US, le Kanban, les runs, la nuit, le MCP et le partage (076) restent dans Gratuit.
 - Aucun paiement, aucune facture : le prestataire se branche dans une tranche à lui (064 13.2 F).
 
+## Ce que le code a précisé (tranche 13.2)
+
+- **Migration `0048`** : table `pro_codes` (`code_hash` unique, `note`, `until` nulle si sans fin, `created_at`, `expires_at` = création + 30 jours, `user_id` vers `users` en `set null`, `used_at`, `revoked_at`). Rien n'est ajouté à `users`.
+- **`plans.ts`** : `planOf(db, userId)` rend `{ plan, via, until }` (`via` : `admin`, `code` ou `null`) ; le code qui compte est le dernier saisi (`used_at`), Pro s'il n'est ni révoqué ni passé son `until`. `ownedRepos` compte les lignes `owner` de `project_members` ; `overQuota` est vrai pour un compte Gratuit à 3 ; `planState(db, ownerId)` rend le plan et l'ensemble des projets verrouillés (au-delà des 3 plus anciens par `created_at`, puis `id`).
+- **Routes** (`pro-codes.ts`) : `GET /api/me/plan` → `{ plan, via, until, repos, limit }` (`limit` nulle en Pro) ; `POST /api/me/pro-code` (`{ code }` → le même corps ; 400 `invalid_code` pour tout refus) ; derrière `adminOnly` : `GET /api/settings/pro-codes` (`{ codes }`, chacun avec `status` libre, utilisé, expiré ou révoqué, et `login`), `POST` (`{ note, until }` : note de 1 à 80 caractères, `until` nulle ou une date future, sinon 400 → 201 `{ code, secret }`, `secret` en `pro_…` montré une fois), `PATCH /api/settings/pro-codes/:id` (`{ until }` ; 409 `not_used`) et `POST /api/settings/pro-codes/:id/revoke` (409 `already_revoked`, ou `expired` pour un code libre passé ses 30 jours) ; 404 sur un code inconnu. Actions journalisées : `create_pro_code`, `enter_pro_code`, `change_pro_code`, `revoke_pro_code`, avec `{ codeId }`.
+- **Saisir un code** : sous un verrou sur la ligne de l'utilisateur (deux saisies d'un compte se suivent) et sur celle du code. Il **révoque les autres codes du compte** (l'état de la liste et le plan s'accordent). Un code passé son `until` ne sert pas : il est refusé comme un code inconnu, et un compte dont le dernier code a pris fin est Gratuit. Les dates viennent de l'horloge de JavaScript (`new Date()`), pas de celle de la base.
+- **Un projet verrouillé** : `memberProject` (`projects.ts`) ramène le rôle à `read_only` quand `planState` du propriétaire le verrouille et lève `RoleRefused` avec la raison `plan` ; `onError` (`app.ts`) rend 403 `{ error: "plan" }` et journalise `refused_<raison>` (`refused_role`, `refused_plan`). `proOnly(db, userId, projectId)` fait de même pour un geste réservé à Pro (les trois outils MCP de la reprise, erreur `plan`). La liste des projets rend `lockedBy` (le login du propriétaire si verrouillé) et `ownerPlan`.
+- **Le quota, relu sous verrou** : à l'import (`projects.ts`), avant `generateRepo` (`templates.ts`, qui refuse en 403 `plan` avant toute question à GitHub) et au retour du modèle, dans la transaction qui ajoute le projet, après un verrou sur la ligne de l'utilisateur : deux imports à la fois ne passent pas tous deux. Au retour du modèle, le refus redirige vers `/projets/nouveau?erreur=quota`.
+- **Le web** : `Subscription.tsx` (Réglages › `abonnement`, `/reglages/abonnement`), `ProCodes.tsx` (la carte « Codes Pro » de Réglages › Instance) ; le bandeau de lecture seule sur la page du projet, `QUOTA_REFUSAL` et le refus `plan` dans `roles.ts` ; `AnalyseWindow` lit `ownerPlan` des projets . Un refus `plan` à l'import (liste des projets, retour du modèle) montre `QUOTA_REFUSAL`.
+- **Écarts avec S49** : 10 € et non 12 € ; pas de « Membres et partage » dans Pro (le partage est ouvert à tous) ; une carte Entreprise ; « J'ai un code Pro ».
+
 ## Limites connues
 
 - **Un nouveau compte GitHub redonne 3 repos** (offres.md, remarque 3) : la 13.5 garde une empreinte qui l'évite après une suppression de compte, rien de plus.
 - **L'administrateur est Pro d'office** : sur une instance où plusieurs comptes sont administrateurs, chacun l'est.
+- **Le bandeau de lecture seule n'est que sur les onglets du projet** ; ailleurs (file, nuit, listes), les boutons d'écriture sont masqués par le rôle ramené à « lecture seule », sans mot sur l'abonnement.
+- **Chaque écriture lit le propriétaire et son offre** (deux requêtes de plus dans `memberProject`) ; acceptable à cette échelle.
+- **Le repo peut exister sur GitHub** si le quota est atteint pendant `generateRepo` : le retour du modèle refuse alors le projet (`?erreur=quota`) sans supprimer le repo.
+- **« Nous contacter » n'a pas d'adresse** avant la 13.4 : il montre la même phrase que « Passer à Pro ».

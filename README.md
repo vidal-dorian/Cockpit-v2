@@ -23,7 +23,7 @@ Une App créée avant la [décision 052](docs/decisions/052-constats-de-github-e
 
 ### Réglages
 
-La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US et le lanceur cloud, voir plus bas), « Préférences » (le thème, les raccourcis clavier et les notifications sur le téléphone, voir plus bas) et « Instance » (pour l'administrateur seulement : les utilisateurs). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US et le lanceur cloud, voir plus bas), « Préférences » (le thème, les raccourcis clavier et les notifications sur le téléphone, voir plus bas) « Abonnement » et « Instance » (pour l'administrateur seulement : les utilisateurs et les codes Pro). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### La page d'un projet
 
@@ -106,6 +106,10 @@ Quand la ligne « CLAUDE.md » ou « Agents et skill de développement » du bil
 **Fichiers de Claude à jour.** Pour un repo déjà préparé, l'onglet Santé a une ligne « Fichiers de Claude à jour ». Elle devient rouge quand un fichier du catalogue a une nouvelle version ou manque, avec le bouton **« Mettre à jour »** : le diff de chaque fichier, puis un seul commit (ou une pull request si la branche est protégée). Un fichier modifié à la main n'est jamais touché : la ligne le liste, « modifié à la main, gardé tel quel ». Le `CLAUDE.md`, fait pour être réécrit par chaque projet, n'est jamais proposé et n'apparaît pas dans la ligne. Cockpit reconnaît une copie non modifiée à l'empreinte qu'il a gardée en l'écrivant, ou à `catalog/history.json` pour un repo préparé avant. Décisions [049](docs/decisions/049-mise-a-jour-du-catalogue.md) et [051](docs/decisions/051-constats-de-claude.md) (le modèle d'un agent, choisi dans l'onglet Agents, ne compte pas comme une modification à la main).
 
 Pour qui change un fichier de `catalog/` : lancer `npm run catalog:history` (dans un clone complet) et committer `catalog/history.json`, sinon un test échoue.
+
+### Abonnement
+
+« Réglages › Abonnement » dit ton offre. **Gratuit** : 3 repos dont tu es propriétaire, archivés compris ; un 4e import est refusé. **Pro** : repos illimités et la reprise d'une app existante ; tu l'es si tu es administrateur de l'instance ou si tu saisis un code Pro (« J'ai un code Pro »). L'administrateur génère les codes dans « Réglages › Instance › Codes Pro » : un code est montré une fois, sert à une personne, et peut avoir une fin. Un compte qui repasse Gratuit ne perd rien : ses 3 projets les plus anciens restent actifs, les autres sont en lecture seule pour tous leurs membres. Un projet partagé compte chez son propriétaire. Le paiement n'est pas encore ouvert. Décision [077](docs/decisions/077-offres-et-quotas.md).
 
 ### Partager un projet
 

@@ -309,7 +309,7 @@ Les citations des objets de la carte restent dans son `data` : elles sont rempla
    *Tranché par la [051](051-constats-de-claude.md) : `security-reviewer` et `architect` en `opus`, `bug-hunter` en `sonnet`, modifiables par projet dans l'onglet Agents.*
 5. **Doublons entre deux analyses** : `list_findings` évite de redéposer ce qui est connu, sans le garantir. À revoir en R5 si le cas se présente.
 6. **`object_names` absent de la carte** : accepté et montré en gris (choix retenu), ou refusé par `create_takeover_stories` ? À confirmer en R2. *Tranché par la [047](047-ecran-de-reprise.md) J : accepté, montré en gris.*
-7. **Offre** : l'analyse et la reprise sont dans l'offre Pro ([offres](../offres.md)), bloquées côté serveur dans l'API **et** le MCP. À trancher avec la tranche « Service payant ».
+7. **Offre** : l'analyse et la reprise sont dans l'offre Pro ([offres](../offres.md)), bloquées côté serveur dans l'API **et** le MCP. Tranché par la [077](077-offres-et-quotas.md) (13.2) : le MCP refuse `plan` sans Pro, la fenêtre « Analyser » renvoie vers Abonnement.
 
 ## Pistes écartées
 
