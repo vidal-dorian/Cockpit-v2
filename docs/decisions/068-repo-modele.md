@@ -1,6 +1,6 @@
 # 068 — Un nouveau projet depuis un repo modèle
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.5)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.5 A et B)
 - **Dépend de** : [009 — La connexion GitHub](009-connexion-github.md) (le flux OAuth), [011 — Importer un projet](011-import-projets.md), [012 — La configuration automatique](012-configuration-automatique.md) (D, le manifeste), [013 — Le bilan de santé](013-bilan-de-sante.md), [052 — Les constats de GitHub](052-constats-de-github-et-versions.md) (une permission ajoutée après coup)
@@ -24,6 +24,15 @@ Le brief (§6.1) veut créer un projet à partir d'un repo modèle déjà prêt 
 | F | La permission | Le manifeste (012 D) demande `repository_creation` en écriture. Une installation qui ne l'a pas encore approuvée : « Créer le projet » est grisé avec « Cockpit n'a pas encore le droit de créer des repos. Approuve la nouvelle permission sur GitHub. » et le lien, comme la 052. Si GitHub refuse quand même : « GitHub a refusé la création : `<raison>` », et rien n'est importé |
 | G | Les refus | Chacun en français, à côté du bouton : le nom est pris (409 `name_taken`), le modèle n'en est plus un (409 `not_a_template`), la demande a expiré ou a déjà servi (« Recommence la création. »), l'utilisateur a refusé l'autorisation sur GitHub (« La création est annulée. »), GitHub injoignable (« Réessayer ») |
 | H | Gérer les modèles | « Gérer mes modèles » mène à « Tous les projets » filtré sur rien de neuf : un modèle se prépare pour Claude comme un projet (027), une fois importé. Pas d'écran à part |
+
+## Ce que le code a précisé (tranche 12.5)
+
+- **Les routes** : `GET /api/templates` rend `owners` (le seul login de l'utilisateur), les modèles avec leurs lignes et `permission` (`repositoryCreation`, `installationUrl`, `appMissing` si l'App elle-même n'a pas la permission, lue d'abord comme celle de la 067) ; `GET /api/templates/name?owner=&name=` rend `available` ; `POST /api/projects/from-template` rend `authorizeUrl`.
+- **La demande en attente** : table `template_requests`, clé le `sha256` du `state`. Une seule lecture : le retour la supprime (`DELETE … RETURNING`), un second retour ne trouve rien. Elle vaut dix minutes d'après `createdAt` ; les périmées sont purgées à chaque nouvelle demande. Le cookie `cockpit_template_state` (chemin `/api/auth/callback`) vit une heure, plus que la ligne, pour qu'un retour tardif arrive jusqu'au serveur et dise « Recommence la création. » plutôt qu'un échec de connexion.
+- **Le passage de relais** : le callback de la connexion appelle d'abord le retour de la création ; sans cookie de création, ou avec un autre `state`, il rend la main et la connexion se déroule.
+- **Les retours** : `/projets/nouveau?erreur=` suivi de `demande-expiree`, `annulee`, `github-injoignable`, `refusee` (avec `raison`, 200 caractères au plus, le message de GitHub), `hors-installation` (E) ou `creee-non-importee` (le repo a pu être créé, l'import a échoué : la page dit de l'importer). Chacun a sa phrase en français sur la page.
+- **Le jeton d'utilisateur** n'est jamais écrit : ni en base, ni dans l'historique, qui ne garde que des codes fixes.
+- **Limite** : la disponibilité du nom est lue avec le jeton de l'installation. Un repo privé de l'utilisateur que l'installation n'atteint pas paraît libre ; GitHub refuse alors la création et l'utilisateur arrive sur `refusee`.
 
 ## Limites connues
 
