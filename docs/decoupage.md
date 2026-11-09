@@ -78,6 +78,7 @@
 - **Fait** : tranche 9.5 (les étapes à venir et « Pourquoi Claude demande » sur un run, la carte du Kanban ouverte dans le panneau de droite, [décision 069](decisions/069-finitions.md)).
 - **Fait** : tranche 14.7 (le matin de la nuit : le bilan avec les critères prouvés, la frise à l'échelle des heures sur l'accueil, « Relire en série » et la touche R, [décision 070](decisions/070-le-matin-de-la-nuit.md)).
 - **Fait** : tranche 15.1 (les trois gestes au téléphone : la barre du bas, le panneau « Noter une idée » en plein écran avec « Photo », le panneau de l'accueil sous « 1 · Maintenant », [décision 071](decisions/071-trois-gestes-au-telephone.md)).
+- **Fait** : hors tranche, deux demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, [décision 072](decisions/072-equipes-a-la-demande.md)).
 - **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (15.1 faite), puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
@@ -304,7 +305,7 @@ Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, m
 | E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
 | E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle, un worktree par branche, et la condition écrite en une phrase ([064](decisions/064-tranches-restantes.md)) | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
 
-Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6.
+Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6. La [072](decisions/072-equipes-a-la-demande.md) construit « une équipe globale à tous les projets » que la 029 et la 032 repoussaient.
 
 ## Après la V1
 
