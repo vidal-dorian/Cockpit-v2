@@ -5,7 +5,7 @@
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.3 A à C)
 - **Dépend de** : [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [065 — La configuration du repo](065-configuration-du-repo.md) (l'éditeur de skill), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
 - **Revient sur** : le brief §9 (`settings.json` hors périmètre), pour deux clés seulement (064 12.3 B)
-- **Modifiée par** : [072 — Les équipes à la demande](072-equipes-a-la-demande.md) : l'entrée « Équipes d'agents » (A) ouvre `/equipes`, les équipes de l'utilisateur ; cette page reste sur `/equipes/commun`, avec un lien depuis `/equipes`
+- **Modifiée par** : [074 — Les équipes à la demande](074-equipes-a-la-demande.md) : l'entrée « Équipes d'agents » (A) ouvre `/equipes`, les équipes de l'utilisateur ; cette page reste sur `/equipes/commun`, avec un lien depuis `/equipes`
 - **Tranche** : 12.3 du [découpage](../decoupage.md)
 - **Écran** : [S39](../ecrans/S39_ConfigGlobale.png)
 

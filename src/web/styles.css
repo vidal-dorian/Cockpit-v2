@@ -181,7 +181,7 @@ body {
   color: var(--color-foreground);
 }
 
-/* The import panel (decision 072 A): the window rises in, the glow of Max breathes. */
+/* The import panel (decision 074 A): the window rises in, the glow of Max breathes. */
 @media (prefers-reduced-motion: no-preference) {
   .dialog-in[open] {
     animation: dialog-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);

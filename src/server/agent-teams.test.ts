@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Row, rows, setup, userWithToken } from "./test-mcp.ts";
 
-// Decision 072 (story B): the agent teams of a user, stored in Cockpit, through `app.request()`.
+// Decision 074 (story B): the agent teams of a user, stored in Cockpit, through `app.request()`.
 //
 // Pinned where the story leaves it open:
 // - GET /api/agent-teams -> 200 { teams: [{ id, name, text }] } (the caller's, sorted by name).
@@ -50,7 +50,7 @@ async function ready() {
   return { ...ctx, alice, bob, send, put, list, history };
 }
 
-describe("decision 072 B: the routes of the agent teams", () => {
+describe("decision 074 B: the routes of the agent teams", () => {
   it("given no session, when the routes are called, then they answer 401", async () => {
     const ctx = await ready();
 

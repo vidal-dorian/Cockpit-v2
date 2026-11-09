@@ -1,4 +1,4 @@
-# 072 — Les équipes à la demande
+# 074 — Les équipes à la demande
 
 - **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit
 - **Date** : 2026-11-09

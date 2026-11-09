@@ -1,4 +1,4 @@
-/** The four starter teams (decision 063 B): the id the server knows, the name and the sentence shown, the agents with their model (a server test checks them against `catalog/teams/<id>.md`) and the consumption (decision 072 A). */
+/** The four starter teams (decision 063 B): the id the server knows, the name and the sentence shown, the agents with their model (a server test checks them against `catalog/teams/<id>.md`) and the consumption (decision 074 A). */
 export const STARTER_LEVELS = [
   {
     id: "eco" as const,

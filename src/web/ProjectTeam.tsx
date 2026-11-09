@@ -518,7 +518,7 @@ export function NewTeamDialog({
   onCreate,
   onCancel,
 }: {
-  /** The name of a team being edited: shown, not editable, and the dialog saves instead of creating (decision 072 B). */
+  /** The name of a team being edited: shown, not editable, and the dialog saves instead of creating (decision 074 B). */
   edit?: string;
   start: Draft;
   taken: string[];

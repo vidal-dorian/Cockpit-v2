@@ -470,7 +470,7 @@ export const routines = pgTable("routines", {
     .defaultNow(),
 });
 
-/** An agent team of a user (decision 072 B): the text of a `team.md`, added to projects on demand. */
+/** An agent team of a user (decision 074 B): the text of a `team.md`, added to projects on demand. */
 export const agentTeams = pgTable(
   "agent_teams",
   {

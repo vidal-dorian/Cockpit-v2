@@ -34,7 +34,7 @@ import {
 
 type Team = { id: number; name: string; text: string };
 const TEAMS_KEY = ["agent-teams"];
-// Decision 072 B: the text of an agent a team needs and the repo lacks comes from the starter teams, in this order.
+// Decision 074 B: the text of an agent a team needs and the repo lacks comes from the starter teams, in this order.
 const LEVEL_ORDER = ["standard", "premium", "max", "eco"];
 
 export async function fetchAgentTeams(): Promise<Team[]> {
@@ -59,7 +59,7 @@ const stepsOf = (text: string) =>
 
 type Added = { done: Done } | { upToDate: true } | { failure: Failure };
 
-/** Adds a team to a project with one commit: its text, and the catalog files of the agents the repo does not have (decision 072 B). */
+/** Adds a team to a project with one commit: its text, and the catalog files of the agents the repo does not have (decision 074 B). */
 async function addTeam(
   queryClient: QueryClient,
   project: { id: number; fullName: string },
@@ -263,7 +263,7 @@ function TeamRow({
   );
 }
 
-/** Decision 072 B: « Tes équipes » on the tab « Agents » of a project, each added (or updated) with one click. */
+/** Decision 074 B: « Tes équipes » on the tab « Agents » of a project, each added (or updated) with one click. */
 export function ProjectGlobalTeams({
   projectId,
   fullName,
@@ -323,7 +323,7 @@ export function ProjectGlobalTeams({
   );
 }
 
-/** Decision 072 B: « Équipes d'agents », the teams of the user, created once and added to projects. */
+/** Decision 074 B: « Équipes d'agents », the teams of the user, created once and added to projects. */
 export function AgentTeams() {
   const queryClient = useQueryClient();
   const teams = useQuery({ queryKey: TEAMS_KEY, queryFn: fetchAgentTeams });

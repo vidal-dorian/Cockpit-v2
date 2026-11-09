@@ -190,7 +190,7 @@ function LoginLink() {
   );
 }
 
-/** The glow of the expensive levels (decision 072 A3): soft on Premium, strong and breathing on Max. */
+/** The glow of the expensive levels (decision 074 A3): soft on Premium, strong and breathing on Max. */
 const GLOW: Record<string, string> = {
   premium: "border-claude/40 shadow-[0_0_36px_var(--color-claude-glow)]",
   max: "border-claude/70 shadow-[0_0_56px_var(--color-claude-glow-strong)] glow-breathe",
@@ -279,7 +279,7 @@ function LevelCard({
   );
 }
 
-/** Decision 072 A: the level of the starter team is chosen in a carousel, once the repo is picked. */
+/** Decision 074 A: the level of the starter team is chosen in a carousel, once the repo is picked. */
 function ImportDialog({
   fullName,
   pending,

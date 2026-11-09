@@ -11,7 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Decision 072 A (modifies 063 D): the level of the starter team is chosen in a carousel dialog opened by « Importer », not above the list.
+// Decision 074 A (modifies 063 D): the level of the starter team is chosen in a carousel dialog opened by « Importer », not above the list.
 //
 // Pinned where the story leaves it open:
 // - « Importer » on a repo opens a modal <dialog> (showModal) named « Quelle équipe pour <owner/name> ? ». Nothing is sent until « Importer avec <Niveau> ».
@@ -185,7 +185,7 @@ const currentName = (dialog: HTMLElement) => {
 const importWith = (ui: Ui, name: string) =>
   ui.getByRole("button", { name: `Importer avec ${name}` });
 
-describe("decision 072 A: the choice of the team after « Importer »", () => {
+describe("decision 074 A: the choice of the team after « Importer »", () => {
   it("given the import screen, when it loads, then there is no level choice above the list and the repo has its « Importer » button", async () => {
     stubApi();
     renderAt("/projets");

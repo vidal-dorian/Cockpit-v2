@@ -16,7 +16,7 @@ const putBody = z.object({
     .refine((text) => parseTeam(text) !== null),
 });
 
-/** Decision 072 B: the agent teams of the user, in the `team.md` format; only theirs are visible or writable. */
+/** Decision 074 B: the agent teams of the user, in the `team.md` format; only theirs are visible or writable. */
 export function agentTeamRoutes(db: Db) {
   const signed = signedIn(db);
   return new Hono<{ Variables: { userId: number } }>()

@@ -161,7 +161,7 @@ const rowOf = (text: string) => {
   return row as HTMLElement;
 };
 
-// jsdom has no showModal on <dialog> (the import dialog of decision 072): a stub, removed after each test.
+// jsdom has no showModal on <dialog> (the import dialog of decision 074): a stub, removed after each test.
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
     this.setAttribute("open", "");

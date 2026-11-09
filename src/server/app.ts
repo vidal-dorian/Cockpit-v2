@@ -72,7 +72,7 @@ const uploadHeaders: MiddlewareHandler = (c, next) => {
   return uploadBodyLimit(c, next);
 };
 const UPLOAD_PATH = /^\/api\/tickets\/[^/]+\/attachments$/;
-// A team text of up to 1 MiB (decision 072 B): its own limit, so that the route answers 400 for a text that is too big.
+// A team text of up to 1 MiB (decision 074 B): its own limit, so that the route answers 400 for a text that is too big.
 const TEAM_PATH = /^\/api\/agent-teams\/[^/]+$/;
 const AGENTS_APPLY_PATH =
   /^\/api\/(plugins|projects\/[^/]+\/(agents|team|claude-config|plugins))\/apply$/;

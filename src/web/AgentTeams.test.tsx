@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 import { DEFAULT_STEPS, readTeam, writeTeam } from "./team-file.ts";
 
-// Decision 072 B: the agent teams of the user, created once on « Équipes d'agents » (/equipes) and added to the projects from that page or from the tab « Agents » of a project.
+// Decision 074 B: the agent teams of the user, created once on « Équipes d'agents » (/equipes) and added to the projects from that page or from the tab « Agents » of a project.
 //
 // Pinned where the story leaves it open:
 // - The page reads GET /api/agent-teams -> { teams: [{ id, name, text }] }, GET /api/projects, GET /api/starter-teams -> { teams: [{ id, team, agents: [{ name, text }] }] }.
@@ -268,7 +268,7 @@ const sorted = (agents: unknown) =>
     a.name.localeCompare(b.name),
   );
 
-describe("decision 072 B1: the entry and the page", () => {
+describe("decision 074 B1: the entry and the page", () => {
   it("given a logged-in user, when « Équipes d'agents » is clicked in the sidebar, then /equipes opens with its two sentences and the link to « Agents et skills communs »", async () => {
     stubApi();
     renderAt("/");
@@ -291,7 +291,7 @@ describe("decision 072 B1: the entry and the page", () => {
   });
 });
 
-describe("decision 072 B2: no team", () => {
+describe("decision 074 B2: no team", () => {
   it("given no team, when the page opens, then it says « Aucune équipe pour l'instant. » and offers « Nouvelle équipe »", async () => {
     stubApi();
     renderAt("/equipes");
@@ -305,7 +305,7 @@ describe("decision 072 B2: no team", () => {
   });
 });
 
-describe("decision 072 B3: creating a team", () => {
+describe("decision 074 B3: creating a team", () => {
   async function openNew() {
     renderAt("/equipes");
     await screen.findByText("Aucune équipe pour l'instant.");
@@ -369,7 +369,7 @@ describe("decision 072 B3: creating a team", () => {
   });
 });
 
-describe("decision 072 B4: a team of the list", () => {
+describe("decision 074 B4: a team of the list", () => {
   it("given teams, when the page opens, then each shows its name and its steps", async () => {
     stubApi({
       teams: [
@@ -613,7 +613,7 @@ describe("decision 072 B4: a team of the list", () => {
   });
 });
 
-describe("decision 072 B5: « Tes équipes » on the tab Agents of a project", () => {
+describe("decision 074 B5: « Tes équipes » on the tab Agents of a project", () => {
   async function openTab() {
     renderAt("/projets/5/agents");
     return screen.findByRole("heading", { name: "Tes équipes" });
