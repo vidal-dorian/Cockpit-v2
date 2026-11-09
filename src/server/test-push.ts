@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { createApp } from "./app.ts";
+import type { SendPush } from "./push.ts";
 import { send } from "./test-decisions.ts";
 import { TEST_KEY, testAppOptions } from "./test-instance.ts";
 import type { TestDb } from "./test-mcp.ts";
@@ -55,7 +56,7 @@ export const subscribe = (
 ) => send(ctx.app, cookie, "POST", "/api/push/subscriptions", device(n));
 
 /** One pass of the minute at `at`, with the double as the sender. */
-export async function pass(db: TestDb, at: Date, sendPush: unknown) {
+export async function pass(db: TestDb, at: Date, sendPush: SendPush) {
   const { runDueRoutines } = await import("./routines.ts");
   const deps = {
     encryptionKey: TEST_KEY,
@@ -66,7 +67,7 @@ export async function pass(db: TestDb, at: Date, sendPush: unknown) {
 }
 
 /** The app of the context, rebuilt over the same database with the sender of the test. */
-export function appWith(db: TestDb, sendPush: unknown) {
+export function appWith(db: TestDb, sendPush: SendPush) {
   const options = { ...testAppOptions, sendPush };
   return createApp(db, "1.2.3", options);
 }

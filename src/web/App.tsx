@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   BrowserRouter,
   Link,
@@ -31,6 +31,7 @@ import { Taches } from "./Taches.tsx";
 import {
   alertBox,
   button,
+  card,
   cardShape,
   panelPrimaryButton,
   primaryButton,
@@ -38,6 +39,7 @@ import {
 } from "./ui.ts";
 import { useAnyChange } from "./useChanges.ts";
 import { Welcome } from "./Welcome.tsx";
+import { clock } from "./when.ts";
 
 // Loaded on first visit: react-markdown stays out of the main bundle.
 const TicketPage = lazy(() =>
@@ -71,7 +73,7 @@ function LoginError() {
   return null;
 }
 
-/** Shown on the home and the login screen when the server does not answer; the version lives in the sidebar. */
+/** Shown on the login screen when the server does not answer; the logged-in shell has the banner below. */
 function ServerAlert() {
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
   if (!health.isError) return null;
@@ -89,10 +91,44 @@ function ServerAlert() {
   );
 }
 
+/** S56 (decision 072 I): on every page of the shell, with the time of the last answer of /api/health; the page asks again every 10 seconds while it fails. */
+function OfflineBanner() {
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: fetchHealth,
+    refetchInterval: (query) =>
+      query.state.status === "error" ? 10_000 : false,
+  });
+  const { refetch } = health;
+  // React Query only listens to the window; a page shown again (a tab back, a phone unlocked) asks at once.
+  useEffect(() => {
+    const ask = () => void refetch();
+    document.addEventListener("visibilitychange", ask);
+    return () => document.removeEventListener("visibilitychange", ask);
+  }, [refetch]);
+  if (!health.isError) return null;
+  return (
+    <div
+      role="alert"
+      className={`mx-[26px] mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${card}`}
+    >
+      <p>
+        Cockpit ne répond plus.{" "}
+        {health.dataUpdatedAt
+          ? `Ce que tu vois date de ${clock(new Date(health.dataUpdatedAt).toISOString())} ; on réessaie`
+          : "On réessaie"}{" "}
+        toutes les 10 secondes.
+      </p>
+      <button type="button" onClick={() => health.refetch()} className={button}>
+        Réessayer
+      </button>
+    </div>
+  );
+}
+
 function Home() {
   return (
     <main>
-      <ServerAlert />
       <HomePage />
     </main>
   );
@@ -187,6 +223,7 @@ function Shell() {
       <Sidebar />
       {/* A page renders its own <main>. */}
       <div className="flex min-h-screen min-w-0 flex-col pb-16 md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
+        <OfflineBanner />
         <InstallBanner />
         <div className="flex-1">
           <Routes>
@@ -278,6 +315,10 @@ function Shell() {
             <Route
               path="/reglages/utilisateurs"
               element={<Settings tab="utilisateurs" />}
+            />
+            <Route
+              path="/reglages/preferences"
+              element={<Settings tab="preferences" />}
             />
             <Route
               path="/reglages/taches-cloud"

@@ -122,6 +122,9 @@ function stubApi(
           configured: true,
           detectedUrl: "http://localhost",
         });
+      // The shell's banner « Cockpit ne répond plus » reads it (decision 072 I).
+      if (path === "/api/health")
+        return Response.json({ status: "ok", version: "0.1.0" });
       if (path === "/api/me")
         return Response.json({ login: "octocat", name: null, avatarUrl: null });
       if (path === "/api/projects" && method === "GET")

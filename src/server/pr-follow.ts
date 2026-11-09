@@ -15,6 +15,7 @@ import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
 import { advance } from "./night.ts";
 import { APP_FILES_KEPT, isTestPath } from "./pr-files.ts";
+import { notify } from "./push.ts";
 import { reserveStory } from "./queue.ts";
 import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
 import type { memberStory } from "./stories.ts";
@@ -222,6 +223,13 @@ export async function followPullRequest(
           retryNight = item.night;
         } else if (last.on && locked.relaunchCount < MAX_RELAUNCHES)
           relaunch = { by: last.userId, branch: locked.branch };
+        else if (last.on)
+          await notify(tx, project.id, {
+            type: "run_failed",
+            title: "Claude renonce à corriger la CI",
+            body: `${story.iWant} : la CI échoue encore après ${MAX_RELAUNCHES} relances.`,
+            url: `/us/${story.id}`,
+          });
       }
     }
     return { transitioned: action !== null, relaunch, retryNight };

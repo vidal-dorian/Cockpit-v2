@@ -6,6 +6,7 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { questions, runSteps, runs, users } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
+import { notify } from "./push.ts";
 import { reserveStory } from "./queue.ts";
 import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
 import { announce, isUniqueViolation, lockRunning, ownRun } from "./runs.ts";
@@ -25,7 +26,7 @@ export async function askUser(
   },
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
-  const [row] = await act(db, entry, async (tx) => {
+  const row = await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
     const [open] = await tx
       .select({ agent: runSteps.agent })
@@ -35,7 +36,7 @@ export async function askUser(
       )
       .orderBy(desc(runSteps.id))
       .limit(1);
-    return tx
+    const [asked] = await tx
       .insert(questions)
       .values({
         runId: args.run_id,
@@ -50,8 +51,20 @@ export async function askUser(
           ? new Refused("question_pending")
           : error;
       });
+    if (!asked) throw new Error("question not created");
+    await notify(tx, found.project.id, {
+      type: "question",
+      title: "Claude pose une question",
+      body: args.question,
+      url: `/runs/${args.run_id}`,
+      // Two buttons at most, the limit of the browsers (decision 072 C); the service worker reads the question id and the answer back from the action.
+      actions: (args.suggested_answers ?? []).slice(0, 2).map((answer) => ({
+        action: `${asked.id}:${answer}`,
+        title: answer.slice(0, 40),
+      })),
+    });
+    return asked;
   });
-  if (!row) throw new Error("question not created");
   await announce(db, found, args.run_id);
   return { question_id: row.id };
 }
