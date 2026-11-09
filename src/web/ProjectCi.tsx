@@ -336,7 +336,9 @@ export function ProjectCi({
   return (
     <>
       {query.isPending && (
-        <p className="px-[26px] pt-5 text-muted-foreground">Chargement…</p>
+        <p className="loading px-[26px] pt-5 text-muted-foreground">
+          Chargement…
+        </p>
       )}
       {failed && (
         <div role="alert" className={`mx-[26px] mt-5 ${alertBox}`}>

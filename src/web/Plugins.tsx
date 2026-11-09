@@ -186,7 +186,7 @@ export function Plugins() {
       />
       <div className="grid gap-6 px-[26px] py-6" aria-live="polite">
         {!plugins.data && !plugins.isError && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {(failed || problem) && (
           <div role="alert" className={alertBox}>

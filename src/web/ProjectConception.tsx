@@ -171,7 +171,9 @@ export function ProjectConception({
   return (
     <section className="mx-[26px] mt-6" aria-label="Conception">
       {chips}
-      {map.isPending && <p className="text-muted-foreground">Chargement…</p>}
+      {map.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
       {map.isError && (
         <div role="alert" className={alertBox}>
           <p>Impossible de lire la carte : réessaie dans un instant.</p>
@@ -285,7 +287,10 @@ export function ProjectConception({
                 </p>
                 <Suspense
                   fallback={
-                    <p role="status" className="p-4 text-muted-foreground">
+                    <p
+                      role="status"
+                      className="loading p-4 text-muted-foreground"
+                    >
                       Chargement du graphe…
                     </p>
                   }

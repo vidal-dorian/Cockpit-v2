@@ -297,7 +297,7 @@ function StepEditor({
             fallback={
               <p
                 role="status"
-                className="hidden text-muted-foreground sm:block"
+                className="loading hidden text-muted-foreground sm:flex"
               >
                 Chargement du graphe…
               </p>

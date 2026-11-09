@@ -214,7 +214,7 @@ export function Tokens() {
 
       <div className="mt-3" aria-live="polite">
         {tokens.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {tokens.isError && (
           <p role="alert" className={alertBox}>

@@ -470,7 +470,7 @@ export function ProjectAgents({
             Les agents du repo
           </h2>
           {agents.isPending && (
-            <p className="mt-3 text-muted-foreground">Chargement…</p>
+            <p className="loading mt-3 text-muted-foreground">Chargement…</p>
           )}
           {failed && (
             <div role="alert" className={`mt-3 ${alertBox}`}>

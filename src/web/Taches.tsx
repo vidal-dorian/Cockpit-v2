@@ -102,7 +102,7 @@ export function Taches() {
           </p>
         )}
         {!loaded && !routines.isError && !launcher.isError && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {loaded && !launcher.data.connected && (
           <p>

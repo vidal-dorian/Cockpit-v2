@@ -599,7 +599,9 @@ export function HomePage({
   const [fromRow, setFromRow] = useState(false);
   if (home.isPending)
     return (
-      <p className="px-[26px] pt-[26px] text-muted-foreground">Chargement…</p>
+      <p className="loading px-[26px] pt-[26px] text-muted-foreground">
+        Chargement…
+      </p>
     );
   if (home.isError)
     return (

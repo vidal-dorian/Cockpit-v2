@@ -580,7 +580,7 @@ export function StoryHistory({ id }: { id: number }) {
     >
       <summary className={`${sectionLabel} ${focusRing}`}>Historique</summary>
       {entries.isPending && opened && (
-        <p className="mt-2 text-muted-foreground">Chargement…</p>
+        <p className="loading mt-2 text-muted-foreground">Chargement…</p>
       )}
       {entries.isError && (
         <p role="alert" className="mt-2 text-destructive">

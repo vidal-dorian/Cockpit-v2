@@ -100,7 +100,7 @@ function ProjectList() {
   const [onlyFavorites, setOnlyFavorites] = useState(false);
 
   if (projects.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (projects.isError) {
     return (
       <div role="alert" className={alertBox}>
@@ -583,7 +583,7 @@ function Importable() {
   });
 
   if (repositories.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (repositories.isError) {
     return (
       <div role="alert" className={alertBox}>

@@ -195,7 +195,7 @@ function Notifications() {
         Notifications sur le téléphone
       </h2>
       {prefs.isPending && (
-        <p className="mt-3 text-muted-foreground">Chargement…</p>
+        <p className="loading mt-3 text-muted-foreground">Chargement…</p>
       )}
       {prefs.isError && (
         <p role="alert" className={`mt-3 ${alertBox}`}>

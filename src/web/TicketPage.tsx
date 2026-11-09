@@ -550,7 +550,7 @@ export function TicketPage() {
     <main className="pb-6">
       <div aria-live="polite">
         {(ticket.isPending || (ticket.data && projects.isPending)) && (
-          <p className="px-[26px] pt-[26px] text-muted-foreground">
+          <p className="loading px-[26px] pt-[26px] text-muted-foreground">
             Chargement…
           </p>
         )}

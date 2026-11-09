@@ -222,7 +222,7 @@ export function ProCodes() {
       )}
       <div className="mt-3" aria-live="polite">
         {codes.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {codes.isError && (
           <p role="alert" className={alertBox}>

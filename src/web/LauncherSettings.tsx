@@ -218,7 +218,7 @@ export function LauncherSettings() {
       </p>
       <div className="mt-4" aria-live="polite">
         {(launcher.isPending || projects.isPending) && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {(launcher.isError || projects.isError) && (
           <p role="alert" className={alertBox}>

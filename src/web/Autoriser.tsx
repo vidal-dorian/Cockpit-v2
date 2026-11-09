@@ -75,7 +75,9 @@ export function Autoriser() {
             : "Autoriser un connecteur"}
         </h1>
         <div className="mt-[18px]" aria-live="polite">
-          {me.isPending && <p className="text-muted-foreground">Chargement…</p>}
+          {me.isPending && (
+            <p className="loading text-muted-foreground">Chargement…</p>
+          )}
           {me.isError && (
             <p role="alert" className={alertBox}>
               Impossible de lire ton compte. Recharge la page ; si cela
@@ -94,7 +96,7 @@ export function Autoriser() {
             </>
           )}
           {request.isPending && me.data && (
-            <p className="text-muted-foreground">Chargement…</p>
+            <p className="loading text-muted-foreground">Chargement…</p>
           )}
           {request.isError && (
             <p role="alert" className={alertBox}>

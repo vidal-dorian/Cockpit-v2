@@ -91,7 +91,7 @@ export function Claude() {
           </p>
         )}
         {!claude.data && !claude.isError && !queue.isError && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {claude.data && queue.data && (
           <>

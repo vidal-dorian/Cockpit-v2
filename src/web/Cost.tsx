@@ -135,7 +135,9 @@ export function Cost() {
             réessaie plus tard.
           </p>
         )}
-        {cost.isPending && <p className="text-muted-foreground">Chargement…</p>}
+        {cost.isPending && (
+          <p className="loading text-muted-foreground">Chargement…</p>
+        )}
         {data && (
           <>
             <section

@@ -166,7 +166,7 @@ export function Members() {
   });
 
   if (members.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (members.isError)
     return (
       <p role="alert" className={alertBox}>

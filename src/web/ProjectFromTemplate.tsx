@@ -137,7 +137,11 @@ export function ProjectFromTemplate() {
   });
 
   if (templates.isPending)
-    return <p className="mx-[26px] mt-6 text-muted-foreground">Chargement…</p>;
+    return (
+      <p className="loading mx-[26px] mt-6 text-muted-foreground">
+        Chargement…
+      </p>
+    );
   if (templates.isError)
     return (
       <div role="alert" className={`m-[26px] ${alertBox}`}>

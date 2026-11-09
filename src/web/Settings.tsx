@@ -67,7 +67,7 @@ function UserList() {
   });
 
   if (users.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (users.isError) {
     return (
       <p role="alert" className={alertBox}>
@@ -273,7 +273,7 @@ export function Settings({ tab }: { tab: SettingsTab }) {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const sentence = useSentence(tab, me.data?.isAdmin === true);
   if (me.isPending)
-    return <p className="p-4 text-muted-foreground">Chargement…</p>;
+    return <p className="loading p-4 text-muted-foreground">Chargement…</p>;
   if (me.isError)
     return (
       <div role="alert" className={`m-4 ${alertBox}`}>

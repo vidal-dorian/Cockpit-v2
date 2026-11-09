@@ -227,7 +227,7 @@ export function RunPage() {
     <main>
       <div aria-live="polite" className="pb-8">
         {result.isPending && (
-          <p className="px-[26px] pt-[26px] text-muted-foreground">
+          <p className="loading px-[26px] pt-[26px] text-muted-foreground">
             Chargement…
           </p>
         )}

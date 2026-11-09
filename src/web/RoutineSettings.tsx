@@ -43,7 +43,7 @@ export function RoutineSettings() {
       </p>
       <div className="mt-4" aria-live="polite">
         {routine.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {routine.isError && (
           <p role="alert" className={alertBox}>

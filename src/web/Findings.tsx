@@ -381,7 +381,9 @@ export function Findings({
 
   return (
     <>
-      {query.isPending && <p className="text-muted-foreground">Chargement…</p>}
+      {query.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
       {query.isError && (
         <div role="alert" className={alertBox}>
           <p>Impossible de lire les constats : réessaie dans un instant.</p>

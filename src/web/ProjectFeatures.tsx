@@ -131,7 +131,7 @@ export function ProjectFeatures({
   return (
     <>
       {(features.isPending || map.isPending) && !failed && (
-        <p className="text-muted-foreground">Chargement…</p>
+        <p className="loading text-muted-foreground">Chargement…</p>
       )}
       {failed && (
         <div role="alert" className={alertBox}>
@@ -179,7 +179,10 @@ export function ProjectFeatures({
             <div className={`mt-4 hidden md:block ${card} overflow-hidden`}>
               <Suspense
                 fallback={
-                  <p role="status" className="p-4 text-muted-foreground">
+                  <p
+                    role="status"
+                    className="loading p-4 text-muted-foreground"
+                  >
                     Chargement du graphe…
                   </p>
                 }

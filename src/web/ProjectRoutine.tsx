@@ -210,7 +210,7 @@ export function ProjectRoutine({
         </h2>
         <div aria-live="polite">
           {(schedule.isPending || routine.isPending) && (
-            <p className="text-muted-foreground">Chargement…</p>
+            <p className="loading text-muted-foreground">Chargement…</p>
           )}
           {(schedule.isError || routine.isError) && (
             <p role="alert" className={alertBox}>

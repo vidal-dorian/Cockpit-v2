@@ -56,7 +56,7 @@ export function Invitation() {
         </div>
         <div className="mt-[18px]" aria-live="polite">
           {(me.isPending || (!!me.data && invitation.isPending)) && (
-            <p className="text-muted-foreground">Chargement…</p>
+            <p className="loading text-muted-foreground">Chargement…</p>
           )}
           {(me.isError || invitation.isError) && (
             <p role="alert" className={alertBox}>

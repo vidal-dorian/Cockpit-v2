@@ -70,7 +70,7 @@ export function SourceCode({
         </span>
       </p>
       {code.isPending && (
-        <p className="text-muted-foreground">Chargement du code…</p>
+        <p className="loading text-muted-foreground">Chargement du code…</p>
       )}
       {code.data && (
         <CodeView
@@ -562,7 +562,9 @@ export function Reprise({
 
   return (
     <>
-      {query.isPending && <p className="text-muted-foreground">Chargement…</p>}
+      {query.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
       {query.isError && (
         <div role="alert" className={alertBox}>
           <p>Impossible de lire les règles : réessaie dans un instant.</p>

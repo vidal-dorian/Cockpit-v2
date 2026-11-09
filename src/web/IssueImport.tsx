@@ -145,7 +145,7 @@ export function IssueImport() {
       />
       <section className="mx-[26px] mt-4" aria-live="polite">
         {issues.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {failed && (
           <p role="alert" className={alertBox}>

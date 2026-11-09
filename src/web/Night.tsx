@@ -314,7 +314,7 @@ export function Night() {
           </>
         )}
         {night.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
       </div>
     </main>

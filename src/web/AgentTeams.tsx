@@ -393,7 +393,7 @@ export function AgentTeams() {
           Mes équipes
         </h2>
         {teams.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {teams.isError && (
           <p role="alert">Impossible de lire tes équipes d'agents.</p>

@@ -338,7 +338,7 @@ export function JournalList({
     <>
       <div className="mt-5 px-[26px] pb-8" aria-live="polite">
         {pages.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {pages.isError && !pages.data && (
           <div role="alert" className={alertBox}>

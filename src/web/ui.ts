@@ -10,7 +10,8 @@ export const markdownStyle =
 // badges are pills, 1px borders, no shadow on what is laid down. Each size is built from the shared base without the
 // classes it sets itself, so no constant needs a conflicting class appended to it.
 
-const buttonBase = `inline-flex items-center justify-center gap-2 whitespace-nowrap border font-semibold disabled:opacity-50 ${focusRing}`;
+// A pressed button settles to 97 % (decision 079 C).
+const buttonBase = `inline-flex items-center justify-center gap-2 whitespace-nowrap border font-semibold not-disabled:active:scale-[.97] disabled:opacity-50 ${focusRing}`;
 const buttonSize = "h-11 rounded-[10px] px-3.5 text-[13px] md:h-[34px]";
 const panelSize = "h-11 w-full rounded-[10px] px-3.5 text-sm md:h-[42px]";
 const secondary =
@@ -82,7 +83,7 @@ export const row =
   "flex min-h-[50px] flex-wrap items-center gap-x-3 px-[18px] py-2.5";
 
 /** A square button of such a row (↑ ↓ ✕). */
-export const iconButton = `grid size-[30px] place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
+export const iconButton = `grid size-[30px] place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover not-disabled:active:scale-[.97] disabled:opacity-40 ${focusRing}`;
 
 /** The ids with the one at `at` moved by `by` places. */
 export function moved(ids: number[], at: number, by: number) {

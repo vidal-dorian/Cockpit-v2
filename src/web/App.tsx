@@ -34,6 +34,7 @@ import {
   fetchHealth,
   fetchMe,
   IdeaBar,
+  ScrollToTop,
   Sidebar,
   useHome,
 } from "./Shell.tsx";
@@ -206,7 +207,7 @@ const LOOP = [
 ] as const;
 
 const loading = (
-  <p role="status" className="p-4 text-muted-foreground">
+  <p role="status" className="loading p-4 text-muted-foreground">
     Chargement…
   </p>
 );
@@ -246,6 +247,7 @@ function Shell({
   const hasProject = (useHome().data?.projects.length ?? 0) > 0;
   return (
     <div className="md:grid md:grid-cols-[224px_minmax(0,1fr)]">
+      <ScrollToTop />
       <Sidebar onSearch={() => onOverlay("search")} />
       {overlay === "search" && (
         <SearchDialog
@@ -421,7 +423,7 @@ function Routed({
           me.data ? (
             <Shell overlay={overlay} onOverlay={onOverlay} />
           ) : me.isPending ? (
-            <p className="p-4 text-muted-foreground">Chargement…</p>
+            <p className="loading p-4 text-muted-foreground">Chargement…</p>
           ) : me.isError ? (
             <div role="alert" className={`m-4 ${alertBox}`}>
               <p>Impossible de lire ton compte : {me.error.message}</p>
@@ -468,7 +470,7 @@ export function App() {
   useShortcut("?", () => setOverlay("shortcuts"));
 
   if (setup.isPending)
-    return <p className="p-4 text-muted-foreground">Chargement…</p>;
+    return <p className="loading p-4 text-muted-foreground">Chargement…</p>;
   if (setup.isError) {
     return (
       <div role="alert" className={`m-4 ${alertBox}`}>

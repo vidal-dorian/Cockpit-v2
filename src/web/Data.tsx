@@ -144,7 +144,7 @@ export function Data() {
   const data = useQuery({ queryKey: ["data"], queryFn: fetchData });
   const [asking, setAsking] = useState(false);
   if (data.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (data.isError)
     return (
       <p role="alert" className={alertBox}>
