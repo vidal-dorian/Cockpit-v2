@@ -20,6 +20,8 @@ type GitHubRepo = {
   full_name: string;
   default_branch: string;
   private: boolean;
+  /** Slice 12.5 (decision 068 B): a repo marked « Template repository »; absent means false. */
+  is_template?: boolean;
 };
 
 export const INSTALLATION_ID = 77;
@@ -133,6 +135,8 @@ export const BASE_PERMISSIONS: Record<string, string> = {
   actions: "read",
   // Slice 12.4 (decision 067 D): the manifest asks for `workflows` in write, so a fully approved installation has it.
   workflows: "write",
+  // Slice 12.5 (decision 068 F): the manifest asks for `repository_creation` in write too.
+  repository_creation: "write",
 };
 export const ALERT_EVENTS = [
   "dependabot_alert",

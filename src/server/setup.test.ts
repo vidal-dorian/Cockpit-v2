@@ -314,7 +314,8 @@ describe("POST /api/setup/start", () => {
       };
     };
     // Changed by decision 052 A (slice R6): the manifest also asks for the three alert permissions in read and the three alert events;
-    // by decision 067 D (slice 12.4): and for `workflows` in write.
+    // by decision 067 D (slice 12.4): and for `workflows` in write;
+    // by decision 068 F (slice 12.5): and for `repository_creation` in write.
     expect(manifest.default_permissions).toEqual({
       metadata: "read",
       contents: "write",
@@ -327,6 +328,7 @@ describe("POST /api/setup/start", () => {
       security_events: "read",
       secret_scanning_alerts: "read",
       workflows: "write",
+      repository_creation: "write",
     });
     expect(manifest.default_events).toEqual(
       expect.arrayContaining([
