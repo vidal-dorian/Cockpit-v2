@@ -331,7 +331,8 @@ export function findingRoutes(db: Db) {
       ? await db.select().from(findings).where(eq(findings.id, id))
       : [];
     const project =
-      found && (await memberProject(db, user.userId, found.projectId));
+      found &&
+      (await memberProject(db, user.userId, found.projectId, "can_validate"));
     if (!found || !project) return c.json({ error: "Not found" }, 404);
     const entry: Entry = {
       userId: user.userId,

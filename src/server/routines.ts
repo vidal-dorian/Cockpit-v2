@@ -737,6 +737,7 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
         db,
         userId,
         Number(c.req.param("id")),
+        "owner",
       );
       if (!project) return c.json(notFound, 404);
       const schedule = c.req.valid("json");
@@ -784,6 +785,7 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
         db,
         userId,
         Number(c.req.param("id")),
+        "owner",
       );
       if (!project) return c.json(notFound, 404);
       if (project.archivedAt)

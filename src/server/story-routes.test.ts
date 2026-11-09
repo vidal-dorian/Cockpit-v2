@@ -201,6 +201,7 @@ describe("criterion 12: GET /api/stories/:id", () => {
       fullName: "user1000/app",
       defaultBranch: "main",
       archived: false,
+      role: "owner",
     });
     expect(await rows(s.db)).toHaveLength(before);
   });

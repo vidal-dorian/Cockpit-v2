@@ -26,6 +26,8 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   // Set by an administrator (decision 012 G): a blocked account cannot log in. Null when active.
   blockedAt: timestamp("blocked_at", { withTimezone: true, mode: "date" }),
+  // Set by each login (decision 076 H); null before the first one after the migration.
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
   // The queue of stories to launch is paused (decision 058 E); the reason is a closed value, null after « Reprendre ».
   queuePausedAt: timestamp("queue_paused_at", {
     withTimezone: true,
@@ -205,7 +207,9 @@ export const projectMembers = pgTable(
     userId: integer("user_id")
       .notNull()
       .references(() => users.id),
-    role: text("role", { enum: ["owner"] }).notNull(),
+    role: text("role", {
+      enum: ["owner", "can_launch", "can_validate", "read_only"],
+    }).notNull(),
     // Ticked by this user once the repo is added to their cloud launcher (decision 054 D).
     inLauncher: boolean("in_launcher").notNull().default(false),
     // Starred by this user (decision 073 H).
@@ -216,9 +220,42 @@ export const projectMembers = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.projectId, t.userId] }),
-    // Enforces one member per project until sharing (decision 008).
-    uniqueIndex("project_members_project_id_idx").on(t.projectId),
-    check("project_members_role_check", sql`${t.role} in ('owner')`),
+    // One owner per project, the one who imported it (decision 076 A).
+    uniqueIndex("project_members_owner_idx")
+      .on(t.projectId)
+      .where(sql`${t.role} = 'owner'`),
+    check(
+      "project_members_role_check",
+      sql`${t.role} in ('owner', 'can_launch', 'can_validate', 'read_only')`,
+    ),
+  ],
+);
+
+/** An invitation to a project, by GitHub account (decision 076 D); the secret of the link is kept hashed, as the MCP tokens are (decision 015). */
+export const projectInvitations = pgTable(
+  "project_invitations",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    // The numeric id of the invited account: only it can accept, even renamed.
+    githubId: bigint("github_id", { mode: "number" }).notNull(),
+    login: text("login").notNull(),
+    role: text("role", {
+      enum: ["can_launch", "can_validate", "read_only"],
+    }).notNull(),
+    secretHash: text("secret_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("project_invitations_invitee_idx").on(t.projectId, t.githubId),
   ],
 );
 

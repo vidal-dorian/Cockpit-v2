@@ -38,6 +38,7 @@ describe("GET /api/stories/:id for the decisions of slice 4.4", () => {
       fullName: "user1000/app",
       defaultBranch: "main",
       archived: false,
+      role: "owner",
     });
 
     await archiveProject(s.db, s.projectId);

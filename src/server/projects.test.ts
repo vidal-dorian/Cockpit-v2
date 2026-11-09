@@ -427,6 +427,8 @@ describe("GET /api/projects", () => {
       defaultBranch: "main",
       archived: true,
       favorite: false,
+      role: "owner",
+      sharedBy: null,
       starterTeam: "standard",
     });
     expect(JSON.stringify(body)).not.toContain("user2000");

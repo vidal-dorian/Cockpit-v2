@@ -320,6 +320,7 @@ export function alertRoutes(db: Db, readGitHub: ReadGitHub) {
       db,
       user.userId,
       Number(c.req.param("id")),
+      "can_validate",
     );
     if (!project) return c.json({ error: "Not found" }, 404);
     const entry: Entry = {

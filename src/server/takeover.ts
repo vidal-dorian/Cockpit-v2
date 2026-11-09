@@ -399,7 +399,13 @@ export function takeoverRoutes(db: Db) {
           .where(eq(acceptanceCriteria.id, id))
       : [];
     const project =
-      found && (await memberProject(db, user.userId, found.ticket.projectId));
+      found &&
+      (await memberProject(
+        db,
+        user.userId,
+        found.ticket.projectId,
+        "can_validate",
+      ));
     if (!found || !project) return c.json({ error: "Not found" }, 404);
     const entry: Entry = {
       userId: user.userId,

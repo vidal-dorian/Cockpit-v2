@@ -16,7 +16,7 @@ import {
 import { publish, subscribe } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
-import { isDatabaseId } from "./projects.ts";
+import { isDatabaseId, type Role } from "./projects.ts";
 import { notify } from "./push.ts";
 import { queueAfterRun } from "./queue.ts";
 import type { Fire } from "./routines.ts";
@@ -127,12 +127,18 @@ export async function startRun(
 }
 
 /** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. */
-export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
+export async function ownRun(
+  db: Db,
+  userId: number,
+  entry: Entry,
+  id: number,
+  min?: Role,
+) {
   const [run] = await db
     .select()
     .from(runs)
     .where(and(eq(runs.id, id), eq(runs.userId, userId)));
-  const found = run && (await memberStory(db, userId, run.storyId));
+  const found = run && (await memberStory(db, userId, run.storyId, min));
   if (!run || !found)
     return act(db, entry, async () => {
       throw new Refused("not_found");
@@ -176,7 +182,7 @@ export async function reportStep(
     summary?: string;
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id);
+  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
   const step = await act(db, entry, async (tx) => {
     const run = await lockRunning(tx, found.project.id, args.run_id);
     const stopRequested = run.stopRequestedAt !== null;
@@ -226,7 +232,7 @@ export async function reportCriterion(
     evidence: string;
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id);
+  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
   await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
     const changed = await tx
@@ -257,7 +263,7 @@ export async function linkPullRequest(
   entry: Entry,
   args: { run_id: number; pr_number: number },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id);
+  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
   const { project, story } = found;
   // Read before the transaction; a failure waits for `act`, which writes its one `error` entry.
   let pull: { branch: string; repo: string | null } | null = null;
@@ -371,7 +377,7 @@ export async function finishRun(
     summary: string;
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id);
+  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
   const { moved, status } = await act(db, entry, async (tx) => {
     const run = await lockRunning(tx, found.project.id, args.run_id);
     if (args.outcome === "succeeded") {
@@ -450,7 +456,8 @@ export function runRoutes(
       const [run] = isDatabaseId(id)
         ? await db.select().from(runs).where(eq(runs.id, id))
         : [];
-      const found = run && (await memberStory(db, user.userId, run.storyId));
+      const found =
+        run && (await memberStory(db, user.userId, run.storyId, "can_launch"));
       if (!found) return c.json({ error: "Not found" }, 404);
       const entry: Entry = {
         userId: user.userId,

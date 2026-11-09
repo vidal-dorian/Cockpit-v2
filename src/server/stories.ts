@@ -27,7 +27,7 @@ import type { ReadGitHub } from "./github.ts";
 import { parseIssue } from "./issue-render.ts";
 import { issueOf, shouldHaveIssue, syncIssue } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
-import { isDatabaseId, memberProject } from "./projects.ts";
+import { isDatabaseId, memberProject, type Role } from "./projects.ts";
 import type { LiveFire } from "./routines.ts";
 import { storyRuns } from "./runs.ts";
 import {
@@ -79,7 +79,12 @@ export const ticketStories = (db: Db, ticketId: number) =>
     .orderBy(asc(userStories.position), asc(userStories.id));
 
 /** A story the user may reach, with its ticket and project: the access goes through the project of the ticket; undefined for anyone else, as if it did not exist (decisions 004 and 017). */
-export async function memberStory(db: Db, userId: number, id: number) {
+export async function memberStory(
+  db: Db,
+  userId: number,
+  id: number,
+  min?: Role,
+) {
   if (!isDatabaseId(id)) return undefined;
   const [found] = await db
     .select({ story: userStories, ticket: tickets })
@@ -87,7 +92,7 @@ export async function memberStory(db: Db, userId: number, id: number) {
     .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
     .where(eq(userStories.id, id));
   const project =
-    found && (await memberProject(db, userId, found.ticket.projectId));
+    found && (await memberProject(db, userId, found.ticket.projectId, min));
   return project && { ...found, project };
 }
 
@@ -309,7 +314,12 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub, fire: LiveFire) {
   ) => {
     const user = await currentUser(db, c);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
-    const found = await memberStory(db, user.userId, Number(c.req.param("id")));
+    const found = await memberStory(
+      db,
+      user.userId,
+      Number(c.req.param("id")),
+      "can_validate",
+    );
     if (!found) return c.json({ error: "Not found" }, 404);
     const entry: Entry = {
       userId: user.userId,
@@ -376,6 +386,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub, fire: LiveFire) {
           fullName: project.fullName,
           defaultBranch: project.defaultBranch,
           archived: project.archivedAt !== null,
+          role: project.role,
         },
       });
     })
@@ -428,6 +439,7 @@ export function storyRoutes(db: Db, readGitHub: ReadGitHub, fire: LiveFire) {
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!found) return c.json({ error: "Not found" }, 404);
       if (found.project.archivedAt)

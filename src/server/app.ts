@@ -2,7 +2,9 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { sql } from "drizzle-orm";
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { HTTPException } from "hono/http-exception";
 import { accountRoutes } from "./accounts.ts";
+import { act } from "./action.ts";
 import { agentTeamRoutes } from "./agent-teams.ts";
 import { attachmentRoutes } from "./attachments.ts";
 import { authRoutes } from "./auth.ts";
@@ -22,9 +24,10 @@ import { instanceReader, WEBHOOK_PATH } from "./instance.ts";
 import { issueImportRoutes } from "./issue-import.ts";
 import { launcherRoutes } from "./launcher.ts";
 import { mcpRoutes } from "./mcp.ts";
+import { invitationReturn, memberRoutes } from "./members.ts";
 import { nightRoutes } from "./night.ts";
 import { oauthRoutes } from "./oauth.ts";
-import { projectRoutes } from "./projects.ts";
+import { projectRoutes, RoleRefused } from "./projects.ts";
 import { pushRoutes, type SendPush, webPushSender } from "./push.ts";
 import { questionRoutes } from "./questions.ts";
 import { queueRoutes } from "./queue.ts";
@@ -102,6 +105,28 @@ export function createApp(
   const fireDeps = { encryptionKey, fireRoutine, now };
   return (
     new Hono()
+      // A role below what a route needs (decision 076 A); the check is in `memberProject`, which every route that writes asks.
+      .onError(async (error, c) => {
+        if (error instanceof HTTPException) return error.getResponse();
+        if (!(error instanceof RoleRefused)) {
+          console.error(error);
+          return c.text("Internal Server Error", 500);
+        }
+        if (!error.journaled)
+          await act(
+            db,
+            {
+              userId: error.userId,
+              projectId: error.projectId,
+              actor: "human",
+              origin: "ui",
+              action: "refused_role",
+              args: {},
+            },
+            () => Promise.reject(error),
+          ).catch(() => {});
+        return c.json({ error: "role" }, 403);
+      })
       // Nobody needs to frame Cockpit: every response forbids it, so the Autoriser button cannot be clickjacked under any spelling of its path (decision 021 C).
       .use("*", async (c, next) => {
         await next();
@@ -135,7 +160,9 @@ export function createApp(
           db,
           readInstance,
           readGitHub,
-          templateReturn(db, readGitHub),
+          async (c, config) =>
+            (await invitationReturn(db)(c, config)) ??
+            templateReturn(db, readGitHub)(c, config),
         ),
       )
       .route("/", historyRoutes(db))
@@ -143,6 +170,7 @@ export function createApp(
       .route("/", webhookRoutes(db, readInstance, fireDeps))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
       .route("/", templateRoutes(db, readInstance, readGitHub))
+      .route("/", memberRoutes(db, readInstance))
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))
       .route("/", findingRoutes(db))

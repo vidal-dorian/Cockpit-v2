@@ -36,10 +36,10 @@ function parseAnswer<T extends z.ZodType>(schema: T, answer: unknown) {
   return parsed.data as z.output<T>;
 }
 
-/** Where a login may lead back to (decision 021 C): the /autoriser page and its query, never another address or page. Printable ASCII only, so nothing can split the redirect header. */
+/** Where a login may lead back to (decisions 021 C and 076 E): the /autoriser page and its query, or an invitation link, never another address or page. Printable ASCII only, so nothing can split the redirect header. */
 function safeNext(value: string | undefined) {
   return value !== undefined &&
-    /^\/autoriser(\?[\x21-\x7e]*)?$/.test(value) &&
+    /^\/(autoriser(\?[\x21-\x7e]*)?|invitations\/[\w-]+)$/.test(value) &&
     !value.includes("\\") &&
     // It travels in a cookie, which browsers drop beyond about 4 KB once encoded.
     encodeURIComponent(value).length <= 4000
@@ -278,6 +278,7 @@ export function authRoutes(
             avatarUrl: profile.avatar_url ?? null,
             // Never promoted by a login: only the claim makes an administrator.
             isAdmin: known?.isAdmin === true || claimed,
+            lastLoginAt: new Date(),
           };
           const [user] = await tx
             .insert(users)

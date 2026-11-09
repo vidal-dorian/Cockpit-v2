@@ -36,7 +36,7 @@ import {
   users,
 } from "./db/schema.ts";
 import { publish } from "./events.ts";
-import { isDatabaseId } from "./projects.ts";
+import { isDatabaseId, memberProject } from "./projects.ts";
 import { changer, reserveSlot, slotBusy } from "./queue.ts";
 import {
   entryOf,
@@ -527,6 +527,17 @@ async function assertPlannable(tx: Tx, userId: number, ids: number[]) {
   if (found.length !== ids.length) throw new Refused("wrong_story");
 }
 
+/** The user may launch in every project of these stories (decision 076 A); a role below is refused before the plan is looked at, a story of a project that is not theirs is left to `assertPlannable`. */
+async function assertMayLaunch(db: Db, userId: number, ids: number[]) {
+  const found = await db
+    .selectDistinct({ projectId: tickets.projectId })
+    .from(userStories)
+    .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+    .where(inArray(userStories.id, ids));
+  for (const { projectId } of found)
+    await memberProject(db, userId, projectId, "can_launch");
+}
+
 /** The night of the user: the hours, the plan, the evening and the stop (decision 044 C, K, C'). */
 export function nightRoutes(db: Db, now: () => number) {
   const signed = signedIn(db);
@@ -660,9 +671,10 @@ export function nightRoutes(db: Db, now: () => number) {
         toValidate: await notIn("to_validate"),
       });
     })
-    .post("/api/nights", body(planBody), (c) => {
+    .post("/api/nights", body(planBody), async (c) => {
       const userId = c.get("userId");
       const { storyIds } = c.req.valid("json");
+      await assertMayLaunch(db, userId, storyIds);
       return change(
         c,
         {
@@ -710,9 +722,10 @@ export function nightRoutes(db: Db, now: () => number) {
         201,
       );
     })
-    .put("/api/nights/current", body(planBody), (c) => {
+    .put("/api/nights/current", body(planBody), async (c) => {
       const userId = c.get("userId");
       const { storyIds } = c.req.valid("json");
+      await assertMayLaunch(db, userId, storyIds);
       return change(
         c,
         {

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
 import type { Db } from "./db/db.ts";
 import { cloudLaunches, projectMembers, routines } from "./db/schema.ts";
-import { isDatabaseId } from "./projects.ts";
+import { isDatabaseId, memberProject } from "./projects.ts";
 import {
   entryOf,
   type Fire,
@@ -153,6 +153,9 @@ export function customRoutineRoutes(db: Db, deps: Fire, now: () => number) {
       weekday: "weekday" in input ? input.weekday : null,
       timeZone: input.timeZone,
     };
+    // A routine launches Claude on its projects by itself: their owner only (decision 076 A); `app.onError` answers the refusal.
+    for (const projectId of projectIds)
+      await memberProject(db, userId, projectId, "owner");
     try {
       const saved = await act(db, entry, async (tx) => {
         const members = await tx

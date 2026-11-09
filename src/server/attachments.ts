@@ -4,7 +4,7 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { attachments, tickets } from "./db/schema.ts";
-import { isDatabaseId } from "./projects.ts";
+import { isDatabaseId, type Role } from "./projects.ts";
 import { assertActive, memberTicket, refusal } from "./tickets.ts";
 
 // Decision 061: files attached to a ticket, kept in PostgreSQL.
@@ -79,13 +79,18 @@ const columns = {
 };
 
 /** An attachment (without its content) of a ticket the user may reach. */
-export async function memberAttachment(db: Db, userId: number, id: number) {
+export async function memberAttachment(
+  db: Db,
+  userId: number,
+  id: number,
+  min?: Role,
+) {
   if (!isDatabaseId(id)) return undefined;
   const [row] = await db
     .select({ ...columns, ticketId: attachments.ticketId })
     .from(attachments)
     .where(eq(attachments.id, id));
-  const found = row && (await memberTicket(db, userId, row.ticketId));
+  const found = row && (await memberTicket(db, userId, row.ticketId, min));
   return found && { attachment: row, ...found };
 }
 
@@ -124,6 +129,7 @@ export function attachmentRoutes(db: Db) {
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!found) return c.json(notFound, 404);
       const form = await c.req.formData().catch(() => new FormData());
@@ -217,6 +223,7 @@ export function attachmentRoutes(db: Db) {
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!found) return c.json(notFound, 404);
       const entry: Entry = {
