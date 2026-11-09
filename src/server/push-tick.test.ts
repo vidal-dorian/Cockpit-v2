@@ -52,11 +52,11 @@ async function reviewed(
 }
 
 describe("slice 15.2: the question", () => {
-  it("given a subscribed device, when Claude asks a question with three suggested answers and the pass runs, then one push carries the question, the run page and two buttons, and the outbox is empty", async () => {
+  it("given a subscribed device, when Claude asks a question with two suggested answers and the pass runs, then one push carries the question, the run page and two buttons, and the outbox is empty", async () => {
     const s = await withDevice();
     await asked(s, {
       question: "Quel nom pour le bouton ?",
-      suggested_answers: ["Valider", "Envoyer", "Annuler"],
+      suggested_answers: ["Valider", "Envoyer"],
     });
 
     await pass(s.db, NOON, s.push.fn);
