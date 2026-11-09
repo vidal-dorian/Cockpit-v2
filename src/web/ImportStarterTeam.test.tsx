@@ -241,9 +241,11 @@ describe("decision 072 A: the choice of the team after « Importer »", () => {
 
       if (level.id !== "standard") goTo(ui, level.name);
 
-      expect(ui.getAllByText(level.sentence).length).toBeGreaterThan(0);
-      expect(ui.getAllByText(level.agents).length).toBeGreaterThan(0);
-      expect(ui.getAllByText(level.use).length).toBeGreaterThan(0);
+      // Every card is mounted; only the current one's content is outside an aria-hidden.
+      const shown = { ignore: '[aria-hidden="true"] *, script, style' };
+      expect(ui.getByText(level.sentence, shown)).toBeDefined();
+      expect(ui.getByText(level.agents, shown)).toBeDefined();
+      expect(ui.getByText(level.use, shown)).toBeDefined();
       expect(importWith(ui, level.name)).toBeDefined();
     },
   );

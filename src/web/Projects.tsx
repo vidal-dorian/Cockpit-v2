@@ -190,7 +190,7 @@ function LoginLink() {
   );
 }
 
-/** The glow of the expensive levels (decision 072 A5): soft on Premium, strong and breathing on Max. */
+/** The glow of the expensive levels (decision 072 A3): soft on Premium, strong and breathing on Max. */
 const GLOW: Record<string, string> = {
   premium: "border-claude/40 shadow-[0_0_36px_var(--color-claude-glow)]",
   max: "border-claude/70 shadow-[0_0_56px_var(--color-claude-glow-strong)] glow-breathe",
@@ -350,11 +350,19 @@ function ImportDialog({
           if (e.key === "ArrowRight") go(at + 1);
           if (e.key === "ArrowLeft") go(at - 1);
         }}
+        // A swipe is a finger (or a pen): a mouse drag selects text, and its click would land on a card that has just moved.
         onPointerDown={(e) => {
-          swipe.current = e.clientX;
+          swipe.current = e.pointerType === "mouse" ? null : e.clientX;
+        }}
+        onPointerCancel={() => {
+          swipe.current = null;
+        }}
+        onPointerLeave={() => {
+          swipe.current = null;
         }}
         onPointerUp={(e) => {
-          const dx = e.clientX - (swipe.current ?? e.clientX);
+          if (swipe.current === null) return;
+          const dx = e.clientX - swipe.current;
           swipe.current = null;
           if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1));
         }}
@@ -367,7 +375,6 @@ function ImportDialog({
               const far = Math.abs(offset) > 1;
               const style = {
                 transform: `translateX(calc(-50% + ${offset} * var(--shift))) rotateY(${offset * -22}deg) scale(${offset === 0 ? 1 : far ? 0.7 : 0.82})`,
-                opacity: offset === 0 ? 1 : far ? 0 : 0.4,
                 zIndex: 10 - Math.abs(offset),
               };
               return (
@@ -376,7 +383,7 @@ function ImportDialog({
                   inert={far}
                   aria-hidden={far || undefined}
                   style={style}
-                  className={`absolute top-16 bottom-16 left-1/2 flex w-[78%] flex-col rounded-[18px] border bg-card p-5 transition-[transform,opacity,box-shadow,border-color] duration-500 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none sm:w-[46%] ${offset === 0 ? "border-border-strong" : "border-border"} ${GLOW[l.id] ?? ""}`}
+                  className={`absolute top-16 bottom-16 left-1/2 flex w-[78%] flex-col rounded-[18px] border bg-card p-5 transition-[transform,opacity,box-shadow,border-color] duration-500 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none sm:w-[46%] overflow-hidden ${offset === 0 ? "border-border-strong opacity-100" : far ? "border-border opacity-0" : "border-border opacity-40 has-[:focus-visible]:opacity-100"} ${far ? "" : (GLOW[l.id] ?? "")}`}
                 >
                   <div
                     aria-hidden={offset !== 0 || undefined}
@@ -415,14 +422,14 @@ function ImportDialog({
             <Chevron />
           </button>
         </div>
-        <div className="relative mx-auto grid w-fit grid-cols-4 rounded-full border border-border bg-sunken p-1">
+        <div className="relative mx-2 grid grid-cols-4 rounded-full sm:mx-auto sm:w-fit border border-border bg-sunken p-1">
           {STARTER_LEVELS.map((l, i) => (
             <button
               key={l.id}
               type="button"
               aria-current={i === at ? "true" : undefined}
               onClick={() => go(i)}
-              className={`relative z-10 h-8 min-w-20 rounded-full px-3 text-[12.5px] font-semibold transition-colors duration-300 ${i === at ? "text-foreground" : "text-muted-foreground hover:text-foreground"} ${focusRing}`}
+              className={`relative z-10 h-8 min-w-0 rounded-full px-1 text-[12.5px] sm:min-w-20 sm:px-3 font-semibold transition-colors duration-300 ${i === at ? "text-foreground" : "text-muted-foreground hover:text-foreground"} ${focusRing}`}
             >
               {l.name}
             </button>
