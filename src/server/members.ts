@@ -29,8 +29,11 @@ const unauthorized = { error: "Unauthorized" };
 const invalid = { error: "invalid_invitation" };
 
 const invitableRole = z.enum(["read_only", "can_validate", "can_launch"]);
+export const githubLogin = z
+  .string()
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
 const inviteBody = z.object({
-  login: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/),
+  login: githubLogin,
   role: invitableRole,
 });
 const roleBody = z.object({ role: invitableRole });
@@ -59,10 +62,16 @@ async function openInvitation(db: Db, secret: string, githubId: number) {
 
 /** The numeric id of a GitHub account, null when GitHub does not know the login (decision 076 D); a public read, so no token is needed. */
 export async function findAccountId(login: string) {
-  const res = await fetch(`https://api.github.com/users/${login}`, {
-    headers: { accept: "application/vnd.github+json", "user-agent": "cockpit" },
-    signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
-  });
+  const res = await fetch(
+    `https://api.github.com/users/${encodeURIComponent(login)}`,
+    {
+      headers: {
+        accept: "application/vnd.github+json",
+        "user-agent": "cockpit",
+      },
+      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+    },
+  );
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`account_http_${res.status}`);
   return z.object({ id: z.number().int() }).parse(await res.json()).id;

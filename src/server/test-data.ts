@@ -1,8 +1,9 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the name of a Given/When/Then field of the criteria (decision 004)
 import { createHmac } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
 import {
+  acceptanceCriteria,
   history,
   nightItems,
   nights,
@@ -128,8 +129,9 @@ export async function signInAgain(app: App) {
 
 /**
  * Alice (user1000) owns `user1000/app` (shared with Bob, user2000, who has a run on it) and `owner1000/old0` (not shared), and is a member of Carol's
- * `user3000/other` (a story queued and in her night there, an invitation for her). She has a token, a push subscription, a routine and a Pro code,
- * and every project holds a ticket, a story with a criterion, a run with a step and a question.
+ * `user3000/other` (a story queued and in her night there, an invitation for her, and a run of hers with a step and a question; the criterion of that
+ * story points at it). She has a token, a push subscription, a routine and a Pro code, and Alice's two projects hold a ticket, a story with a criterion,
+ * a run with a step and a question.
  */
 export async function withLife() {
   const ctx = await withProject();
@@ -174,7 +176,30 @@ export async function withLife() {
   });
 
   const otherTicket = await seedTicket(db, otherId, "Le ticket de Carol");
-  const otherStory = await seedStory(db, otherTicket, { iWant: "chez Carol" });
+  const otherStory = await seedStory(db, otherTicket, {
+    iWant: "chez Carol",
+    criteria: [{ given: "g", when: "w", then: "le critère de Carol" }],
+  });
+  const [carolRun] = await db
+    .insert(runs)
+    .values({
+      storyId: otherStory,
+      userId: alice.id,
+      status: "succeeded",
+      modelActual: "opus",
+    })
+    .returning({ id: runs.id });
+  if (!carolRun) throw new Error("run insert returned no row");
+  await db
+    .insert(runSteps)
+    .values({ runId: carolRun.id, agent: "developer", status: "succeeded" });
+  await db
+    .insert(questions)
+    .values({ runId: carolRun.id, question: "Et chez Carol ?" });
+  await db
+    .update(acceptanceCriteria)
+    .set({ result: "passed", resultRunId: carolRun.id })
+    .where(eq(acceptanceCriteria.storyId, otherStory));
   await db
     .insert(queueItems)
     .values({ userId: alice.id, storyId: otherStory, position: 1 });
@@ -262,6 +287,7 @@ export async function withLife() {
     code: code.id,
     runId: run.id,
     bobRunId: bobRun.id,
+    carolRunId: carolRun.id,
   };
 }
 export type Life = Awaited<ReturnType<typeof withLife>>;

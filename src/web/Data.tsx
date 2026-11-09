@@ -98,8 +98,9 @@ function DeleteWindow({
         <p className="text-muted-foreground">
           Seront effacés : tes projets et tout ce qu'ils contiennent, tes
           appartenances aux projets des autres, ton journal, tes jetons, tes
-          sessions, tes notifications, tes routines et tes réglages. Rien ne
-          change sur GitHub.
+          sessions, tes notifications, tes routines, tes invitations, tes US de
+          leur file et de leur nuit et tes réglages. Tes runs sur leurs projets
+          restent, anonymisés. Rien ne change sur GitHub.
         </p>
         {data.shared.map((p) => (
           <p key={p.id} className="font-semibold">
@@ -177,24 +178,42 @@ export function Data() {
           </li>
         ))}
       </ul>
-      <div className="flex flex-wrap items-center gap-2">
-        <Export login={d.login} />
-        {!d.isAdmin && (
-          <button
-            type="button"
-            className={dangerButton}
-            onClick={() => setAsking(true)}
-          >
-            Supprimer mon compte…
-          </button>
-        )}
-      </div>
-      {d.isAdmin && (
+      <section aria-labelledby="export" className="grid gap-2">
+        <h2 id="export" className={sectionLabel}>
+          Exporter mes données
+        </h2>
         <p className="text-muted-foreground">
-          Tu administres cette instance : ton compte ne peut pas être supprimé
-          ici.
+          Un fichier JSON avec tout ce qui est listé ci-dessus.
         </p>
-      )}
+        <div>
+          <Export login={d.login} />
+        </div>
+      </section>
+      <section aria-labelledby="suppression" className="grid gap-2">
+        <h2 id="suppression" className={sectionLabel}>
+          Supprimer mon compte
+        </h2>
+        <p className="text-muted-foreground">
+          Tes projets, tickets, US et ton journal sont effacés. Rien ne change
+          sur GitHub : tes repos, issues et PR restent.
+        </p>
+        {d.isAdmin ? (
+          <p className="text-muted-foreground">
+            Tu administres cette instance : ton compte ne peut pas être supprimé
+            ici.
+          </p>
+        ) : (
+          <div>
+            <button
+              type="button"
+              className={dangerButton}
+              onClick={() => setAsking(true)}
+            >
+              Supprimer mon compte…
+            </button>
+          </div>
+        )}
+      </section>
       <p className="text-[12.5px] text-muted-foreground">
         Après une suppression, Cockpit garde seulement une empreinte de ton
         compte GitHub et le nombre de repos gratuits utilisés, pour qu'une

@@ -341,7 +341,8 @@ async function closeSilent(db: Db, deps: Fire, nightId: number, at: Date) {
       ),
     );
   for (const run of silent) {
-    if (run.projectId === null) continue;
+    // An anonymised run (its launcher deleted the account, decision 078 C) is not a night's.
+    if (run.projectId === null || run.userId === null) continue;
     const projectId = run.projectId;
     try {
       // shortcut: the issue of the story is not synced here (the pass has no GitHub access); the next change of the story does.

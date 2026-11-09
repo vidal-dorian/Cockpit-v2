@@ -28,7 +28,7 @@ import {
   userStories,
   users,
 } from "./db/schema.ts";
-import { findAccountId } from "./members.ts";
+import { findAccountId, githubLogin } from "./members.ts";
 import { fingerprintOf } from "./plans.ts";
 
 type Env = { Variables: { adminId: number } };
@@ -105,9 +105,9 @@ async function exportOf(
   const ids = mine.map((p) => p.id);
   const inMine = (column: Parameters<typeof inArray>[0]) =>
     inArray(column, ids);
-  const [ticketRows, storyRows, criteria, runRows, steps, asked] =
+  const [ticketRows, storyRows, criteria, runRows] =
     ids.length === 0
-      ? [[], [], [], [], [], []]
+      ? [[], [], [], []]
       : await Promise.all([
           db.select().from(tickets).where(inMine(tickets.projectId)),
           db
@@ -130,10 +130,15 @@ async function exportOf(
             .innerJoin(userStories, eq(userStories.id, runs.storyId))
             .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
             .where(inMine(tickets.projectId)),
-          db.select().from(runSteps),
-          db.select().from(questions),
         ]);
-  const runIds = new Set(runRows.map((r) => r.run.id));
+  const runIds = runRows.map((r) => r.run.id);
+  const [steps, asked] =
+    runIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          db.select().from(runSteps).where(inArray(runSteps.runId, runIds)),
+          db.select().from(questions).where(inArray(questions.runId, runIds)),
+        ]);
   return {
     account: { login: user.login, name: user.name },
     projects: mine.map((p) => ({
@@ -155,10 +160,8 @@ async function exportOf(
         .filter((r) => r.projectId === p.id)
         .map(({ run }) => ({
           ...run,
-          steps: steps.filter((s) => s.runId === run.id && runIds.has(s.runId)),
-          questions: asked.filter(
-            (q) => q.runId === run.id && runIds.has(q.runId),
-          ),
+          steps: steps.filter((s) => s.runId === run.id),
+          questions: asked.filter((q) => q.runId === run.id),
         })),
     })),
   };
@@ -304,7 +307,7 @@ export function dataRoutes(db: Db, key: Buffer) {
           sql`, `,
         )}]::integer[]`;
         const S = sql`(select us.id from user_stories us join tickets t on t.id = us.ticket_id where t.project_id = any(${P}))`;
-        const R = sql`(select id from runs where story_id in ${S} or user_id = ${u})`;
+        const R = sql`(select id from runs where story_id in ${S})`;
         const NI = sql`(select id from night_items where night_id in (select id from nights where user_id = ${u}) or story_id in ${S} or run_id in ${R})`;
         // The fingerprint keeps the repos used, those of an earlier fingerprint included (E).
         if (owned.length > 0) {
@@ -329,11 +332,14 @@ export function dataRoutes(db: Db, key: Buffer) {
           sql`delete from nights where user_id = ${u}`,
           sql`delete from queue_items where user_id = ${u} or story_id in ${S}`,
           sql`delete from runs where id in ${R}`,
+          // The runs on other people's projects stay with them, anonymised (078 C).
+          sql`update runs set user_id = null where user_id = ${u}`,
           sql`delete from story_dependencies where story_id in ${S} or depends_on_id in ${S}`,
           sql`delete from acceptance_criteria where story_id in ${S}`,
           sql`delete from user_stories where id in ${S}`,
           sql`delete from findings where project_id = any(${P})`,
           sql`delete from tickets where project_id = any(${P})`,
+          sql`delete from webhook_deliveries where repo_id in (select github_repo_id from projects where id = any(${P}))`,
           sql`delete from catalog_writes where project_id = any(${P})`,
           sql`delete from code_maps where project_id = any(${P})`,
           sql`delete from workflow_proposals where project_id = any(${P})`,
@@ -342,6 +348,7 @@ export function dataRoutes(db: Db, key: Buffer) {
           sql`update projects set routine_user_id = null where routine_user_id = ${u}`,
           sql`delete from projects where id = any(${P})`,
           sql`delete from routines where user_id = ${u}`,
+          sql`update routines set project_ids = (select coalesce(jsonb_agg(e), '[]'::jsonb) from jsonb_array_elements(project_ids) e where (e #>> '{}')::integer <> all(${P})) where exists (select 1 from jsonb_array_elements(project_ids) e where (e #>> '{}')::integer = any(${P}))`,
           sql`delete from write_us_routines where user_id = ${u}`,
           sql`delete from cloud_launchers where user_id = ${u}`,
           sql`delete from agent_teams where user_id = ${u}`,
@@ -361,7 +368,13 @@ export function dataRoutes(db: Db, key: Buffer) {
 export function fingerprintRoutes(db: Db, key: Buffer) {
   return new Hono<Env>().post("/api/settings/fingerprints/erase", async (c) => {
     const parsed = z
-      .object({ login: z.string().trim().min(1) })
+      .object({
+        login: z
+          .string()
+          .trim()
+          .transform((l) => l.replace(/^@/, ""))
+          .pipe(githubLogin),
+      })
       .safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Bad request" }, 400);
     let githubId: number | null;

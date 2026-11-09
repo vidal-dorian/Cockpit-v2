@@ -173,7 +173,7 @@ export async function followPullRequest(
       const [last] = await tx
         .select({
           runId: runs.id,
-          userId: runs.userId,
+          userId: users.id,
           on: users.autoRelaunch,
           blockedAt: users.blockedAt,
         })

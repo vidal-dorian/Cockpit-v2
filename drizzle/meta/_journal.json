@@ -358,6 +358,13 @@
       "when": 1794250997573,
       "tag": "0050_erase_account_history",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794252715332,
+      "tag": "0051_runs_anonymised",
+      "breakpoints": true
     }
   ]
 }

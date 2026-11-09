@@ -1,4 +1,5 @@
 -- Decision 078 D, the one exception to 010 A: the trigger lets a DELETE through only while erase_account_history runs. The setting is transaction-local (set_config(..., true)), so it is off again when the function returns and nothing is disabled globally. UPDATE and TRUNCATE stay refused.
+-- shortcut: any role of the connection can set cockpit.erasing itself; with a restricted app role at a host (decisions 008 and 010), make erase_account_history SECURITY DEFINER SET search_path = public, owned by a role with DELETE on history, and have the trigger check that role instead.
 CREATE OR REPLACE FUNCTION history_refuse_change() RETURNS trigger AS $$
 BEGIN
 	IF TG_OP = 'DELETE' AND current_setting('cockpit.erasing', true) = 'on' THEN

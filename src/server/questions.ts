@@ -172,11 +172,20 @@ export function questionRoutes(db: Db, deps: LiveFire) {
       const { answer } = c.req.valid("json");
       const { branch } = found.story;
       // A blocked owner is never launched for, as in the queue and the routines.
-      const [owner] = await db
-        .select({ blockedAt: users.blockedAt })
-        .from(users)
-        .where(eq(users.id, run.userId));
-      if (run.status === "paused" && branch && !owner?.blockedAt) {
+      const [owner] =
+        run.userId === null
+          ? []
+          : await db
+              .select({ blockedAt: users.blockedAt })
+              .from(users)
+              .where(eq(users.id, run.userId));
+      // An anonymised run (decision 078 C) has no launcher to relaunch for.
+      if (
+        run.status === "paused" &&
+        branch &&
+        run.userId !== null &&
+        !owner?.blockedAt
+      ) {
         const at = new Date(deps.now());
         // The launcher is the owner of the run's, who may not be the one answering; the answer stays saved when the launch is refused.
         const launched = await launchCloud(

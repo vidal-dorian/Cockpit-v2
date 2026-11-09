@@ -479,9 +479,8 @@ export const runs = pgTable(
     storyId: integer("story_id")
       .notNull()
       .references(() => userStories.id),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
+    // Null once the launcher deleted their account (decision 078 C): the run stays with the project.
+    userId: integer("user_id").references(() => users.id),
     status: text("status", { enum: RUN_STATUSES }).notNull(),
     modelActual: text("model_actual").notNull(),
     stopRequestedAt: timestamp("stop_requested_at", {

@@ -42,8 +42,8 @@ describe("078 A: the lines of the Données page", () => {
       projects: 3,
       tickets: 2,
       stories: 2,
-      runs: 2,
-      questions: 1,
+      runs: 3,
+      questions: 2,
       journal,
       tokens: 1,
       shared: [
@@ -194,9 +194,10 @@ describe("078 C: deleting the account", () => {
       ["tickets", 1],
       ["user_stories", 1],
       ["acceptance_criteria", 1],
-      ["runs", 0],
-      ["run_steps", 0],
-      ["questions", 0],
+      // Alice's run on Carol's project stays, anonymised.
+      ["runs", 1],
+      ["run_steps", 1],
+      ["questions", 1],
     ] as const)
       expect(await countOf(db, table), table).toBe(left);
   });
