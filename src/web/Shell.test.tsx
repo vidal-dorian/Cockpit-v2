@@ -170,4 +170,22 @@ describe("slice 9.3: the shell of a logged-out visitor", () => {
 
     await waitFor(() => expect(document.activeElement).toBe(tab));
   });
+
+  it("given the panel open on a phone, when Nuit is tapped, then the nav is not inert and the panel closes on /nuit", async () => {
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    stubShell({ projects });
+    renderAt("/");
+
+    const nav = await screen.findByRole("navigation", {
+      name: "Navigation du téléphone",
+    });
+    fireEvent.click(within(nav).getByRole("button", { name: /Idée/ }));
+    await screen.findByRole("dialog");
+    expect(nav.closest("[inert]")).toBeNull();
+    expect(screen.getByRole("main").closest("[inert]")).not.toBeNull();
+
+    fireEvent.click(within(nav).getByRole("link", { name: /Nuit/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(window.location.pathname).toBe("/nuit");
+  });
 });

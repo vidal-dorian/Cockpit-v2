@@ -371,7 +371,12 @@ function PhoneNav({
       aria-label="Navigation du téléphone"
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card md:hidden"
     >
-      <NavLink to="/" end className={tab} onClick={onNavigate}>
+      <NavLink
+        to="/"
+        end
+        className={(state) => tab({ isActive: state.isActive && !open })}
+        onClick={onNavigate}
+      >
         <span aria-hidden="true">⌂</span>
         Accueil
       </NavLink>
@@ -386,11 +391,20 @@ function PhoneNav({
           Idée
         </button>
       )}
-      <NavLink to="/nuit" className={tab} onClick={onNavigate}>
+      <NavLink
+        to="/nuit"
+        className={(state) => tab({ isActive: state.isActive && !open })}
+        onClick={onNavigate}
+      >
         <span aria-hidden="true">☾</span>
         Nuit
       </NavLink>
-      <NavLink to="/projets" end className={tab} onClick={onNavigate}>
+      <NavLink
+        to="/projets"
+        end
+        className={(state) => tab({ isActive: state.isActive && !open })}
+        onClick={onNavigate}
+      >
         <span aria-hidden="true">▤</span>
         Projets
       </NavLink>
@@ -426,17 +440,24 @@ export function IdeaBar() {
     if (open) wasOpen.current = true;
     else if (wasOpen.current) {
       wasOpen.current = false;
-      (opener.current ?? input.current)?.focus();
+      // The opener is not displayed once the window grew past md.
+      (opener.current?.checkVisibility?.() === false
+        ? input.current
+        : (opener.current ?? input.current)
+      )?.focus();
       opener.current = null;
     }
   }, [open]);
 
   // Below md the open panel covers the page: nothing behind it takes the keyboard.
   const wrapper = useRef<HTMLDivElement>(null);
+  // shortcut: inert is decided when the panel opens; resizing across md while it is open leaves it stale, subscribe to matchMedia if that matters
   useEffect(() => {
     if (!open || !window.matchMedia?.("(max-width: 767px)").matches) return;
     const behind = [...(wrapper.current?.parentElement?.children ?? [])].filter(
-      (el) => el !== wrapper.current,
+      (el) =>
+        el !== wrapper.current &&
+        !el.matches('nav[aria-label="Navigation du téléphone"]'),
     );
     for (const el of behind) el.setAttribute("inert", "");
     return () => {
