@@ -329,10 +329,10 @@ body {
 /* The import panel (decision 074 A): the window rises in, the glow of Max breathes. */
 @media (prefers-reduced-motion: no-preference) {
   .dialog-in[open] {
-    animation: dialog-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: dialog-in var(--duration-slow) var(--ease-out);
   }
   .dialog-in[open]::backdrop {
-    animation: backdrop-in 0.32s ease-out;
+    animation: backdrop-in var(--duration-slow) var(--ease-out);
   }
   /* A window over the page blurs it a little (decision 079 E). */
   .dialog-in::backdrop {
