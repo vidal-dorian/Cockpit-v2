@@ -82,7 +82,13 @@ export type FakeRun = {
   event?: string;
 };
 /** Slice 12.4: a workflow the Actions API lists, with its runs (ids are 1, 2, ... in the order of `git.workflows`). */
-export type FakeWorkflow = { path: string; name: string; runs: FakeRun[] };
+export type FakeWorkflow = {
+  path: string;
+  name: string;
+  runs: FakeRun[];
+  /** Default: "active". */
+  state?: string;
+};
 
 /** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
 export type FakeGitRepoOptions = {
@@ -872,7 +878,7 @@ export function stubGitHub(initial: {
               id: i + 1,
               name: w.name,
               path: w.path,
-              state: "active",
+              state: w.state ?? "active",
             })),
           });
         const runsOf = /^\/actions\/workflows\/(\d+)\/runs$/.exec(rest);

@@ -49,6 +49,42 @@ describe("summarize", () => {
   });
 });
 
+describe("decision 067 B: which workflows are listed", () => {
+  it("given a disabled workflow and a dynamic one, when the workflows are read, then only the active file under .github/workflows is listed", async () => {
+    const ctx = await withProject({
+      gitRepos: { "user1000/app": { files: { "README.md": "x\n" } } },
+    });
+    ctx.fetchMock
+      .git("user1000/app")
+      .workflows.push(
+        { path: ".github/workflows/ci.yml", name: "CI", runs: [] },
+        {
+          path: ".github/workflows/old.yml",
+          name: "Old",
+          runs: [],
+          state: "disabled_manually",
+        },
+        {
+          path: "dynamic/github-code-scanning/codeql",
+          name: "CodeQL",
+          runs: [],
+        },
+      );
+
+    const res = await ctx.app.request(
+      `/api/projects/${ctx.projectId}/workflows`,
+      {
+        headers: { cookie: ctx.alice.cookie },
+      },
+    );
+
+    const { workflows } = (await res.json()) as {
+      workflows: { path: string }[];
+    };
+    expect(workflows.map((w) => w.path)).toEqual([".github/workflows/ci.yml"]);
+  });
+});
+
 describe("decision 067 D: an App without the permission", () => {
   it("given an App that lacks workflows, when the workflows are read, then the link is the App's permissions page and appMissing is true", async () => {
     const ctx = await withProject({

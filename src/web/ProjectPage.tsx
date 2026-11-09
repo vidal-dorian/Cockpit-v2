@@ -226,62 +226,65 @@ export function ProjectPage({
   const sentence: { title: string; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
-      : tab === "ci" && workflows.data?.data
-        ? { title: ciSentence(workflows.data.data.workflows).title }
-        : tab === "sante" && planned !== null
-          ? {
-              title: `Voici ce que Cockpit va écrire dans ${name}.`,
-              rest: `${plural(planned, "fichier nouveau", "fichiers nouveaux")}, rien n'est écrasé.`,
-            }
-          : tab === "sante" && Array.isArray(health.data)
-            ? red > 0
-              ? {
-                  title: `${name} n'est pas encore prêt pour Claude.`,
-                  rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
-                }
-              : {
-                  title: `${name} est prêt pour Claude.`,
-                  rest: "Tout le bilan est au vert.",
-                }
-            : tab === "conception" && view === "findings" && findings.data
-              ? {
-                  title: findingsSentence(name, toDecide(findings.data)),
-                  rest:
-                    toDecide(findings.data).length > 0
-                      ? "Triés par gravité. Une faille devient un ticket en un clic."
+      : tab === "sante" && planned !== null
+        ? {
+            title: `Voici ce que Cockpit va écrire dans ${name}.`,
+            rest: `${plural(planned, "fichier nouveau", "fichiers nouveaux")}, rien n'est écrasé.`,
+          }
+        : tab === "sante" && Array.isArray(health.data)
+          ? red > 0
+            ? {
+                title: `${name} n'est pas encore prêt pour Claude.`,
+                rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
+              }
+            : {
+                title: `${name} est prêt pour Claude.`,
+                rest: "Tout le bilan est au vert.",
+              }
+          : tab === "conception" && view === "findings" && findings.data
+            ? {
+                title: findingsSentence(name, toDecide(findings.data)),
+                rest:
+                  toDecide(findings.data).length > 0
+                    ? "Triés par gravité. Une faille devient un ticket en un clic."
+                    : undefined,
+              }
+            : tab === "conception" && view === "rules" && rules.data
+              ? { title: rulesSentence(rules.data), rest: undefined }
+              : tab === "conception" && view === "features" && features.data
+                ? {
+                    title: feature
+                      ? featureSentence(feature)
+                      : "Pas encore de fonctionnalité.",
+                    rest: feature
+                      ? "Un clic sur une règle ouvre l'écran de reprise."
                       : undefined,
-                }
-              : tab === "conception" && view === "rules" && rules.data
-                ? { title: rulesSentence(rules.data), rest: undefined }
-                : tab === "conception" && view === "features" && features.data
-                  ? {
-                      title: feature
-                        ? featureSentence(feature)
-                        : "Pas encore de fonctionnalité.",
-                      rest: feature
-                        ? "Un clic sur une règle ouvre l'écran de reprise."
-                        : undefined,
-                    }
-                  : tab === "conception" && view === "features"
-                    ? { title: name, rest: undefined }
-                    : tab === "conception" &&
-                        codeMap.data &&
-                        codeMap.data.length > 0
+                  }
+                : tab === "conception" && view === "features"
+                  ? { title: name, rest: undefined }
+                  : tab === "conception" &&
+                      codeMap.data &&
+                      codeMap.data.length > 0
+                    ? {
+                        title: `Claude a lu ${name} : voici son modèle.`,
+                        rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                          codeMap.data.reduce(
+                            (n, m) => n + m.data.objects.length,
+                            0,
+                          ),
+                          "objet",
+                          "objets",
+                        )}, chacun avec le code qui le prouve.`,
+                      }
+                    : tab === "tickets" && tickets.data
                       ? {
-                          title: `Claude a lu ${name} : voici son modèle.`,
-                          rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                            codeMap.data.reduce(
-                              (n, m) => n + m.data.objects.length,
-                              0,
-                            ),
-                            "objet",
-                            "objets",
-                          )}, chacun avec le code qui le prouve.`,
+                          title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                          rest: writingSentence(schedule.data),
                         }
-                      : tab === "tickets" && tickets.data
+                      : tab === "ci" && workflows.data?.data
                         ? {
-                            title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                            rest: writingSentence(schedule.data),
+                            title: ciSentence(workflows.data.data.workflows)
+                              .title,
                           }
                         : {
                             title:

@@ -265,173 +265,171 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
     };
   };
 
-  return (
-    new Hono<{ Variables: { userId: number } }>()
-      .use("/api/me/launcher", signed)
-      .use("/api/me/launcher/auto-relaunch", signed)
-      .use("/api/me/budgets", signed)
-      .use("/api/projects/:id/launcher", signed)
-      .use("/api/stories/:id/launch", signed)
-      .use("/api/projects/:id/workflows/ask", signed)
-      .get("/api/me/launcher", async (c) => {
+  return new Hono<{ Variables: { userId: number } }>()
+    .use("/api/me/launcher", signed)
+    .use("/api/me/launcher/auto-relaunch", signed)
+    .use("/api/me/budgets", signed)
+    .use("/api/projects/:id/launcher", signed)
+    .use("/api/stories/:id/launch", signed)
+    .use("/api/projects/:id/workflows/ask", signed)
+    .get("/api/me/launcher", async (c) => {
+      const userId = c.get("userId");
+      return c.json(await present(userId, await launcherOf(userId)));
+    })
+    .put("/api/me/launcher", body(connectBody), async (c) => {
+      const userId = c.get("userId");
+      const row = await saveTask(
+        db,
+        deps.encryptionKey,
+        cloudLaunchers,
+        userId,
+        "connect_launcher",
+        c.req.valid("json"),
+      );
+      return c.json(await present(userId, row));
+    })
+    .delete("/api/me/launcher", async (c) => {
+      const userId = c.get("userId");
+      await removeTask(db, cloudLaunchers, userId, "disconnect_launcher");
+      return c.body(null, 204);
+    })
+    .put(
+      "/api/me/launcher/auto-relaunch",
+      body(z.object({ enabled: z.boolean() })),
+      async (c) => {
         const userId = c.get("userId");
-        return c.json(await present(userId, await launcherOf(userId)));
-      })
-      .put("/api/me/launcher", body(connectBody), async (c) => {
-        const userId = c.get("userId");
-        const row = await saveTask(
+        const { enabled } = c.req.valid("json");
+        await act(
           db,
-          deps.encryptionKey,
-          cloudLaunchers,
-          userId,
-          "connect_launcher",
-          c.req.valid("json"),
+          { ...entryOf(userId, "set_auto_relaunch"), args: { enabled } },
+          (tx) =>
+            tx
+              .update(users)
+              .set({ autoRelaunch: enabled })
+              .where(eq(users.id, userId)),
         );
-        return c.json(await present(userId, row));
-      })
-      .delete("/api/me/launcher", async (c) => {
+        return c.json({ enabled });
+      },
+    )
+    .get("/api/me/budgets", async (c) =>
+      c.json(await budgetsOf(db, c.get("userId"))),
+    )
+    .put("/api/me/budgets", body(budgetsBody), async (c) => {
+      const userId = c.get("userId");
+      const { runUsd, nightUsd, monthUsd } = c.req.valid("json");
+      await act(db, entryOf(userId, "set_budgets"), (tx) =>
+        tx
+          .update(users)
+          .set({
+            budgetRunUsd: runUsd,
+            budgetNightUsd: nightUsd,
+            budgetMonthUsd: monthUsd,
+          })
+          .where(eq(users.id, userId)),
+      );
+      return c.json({ runUsd, nightUsd, monthUsd });
+    })
+    .put(
+      "/api/projects/:id/launcher",
+      body(z.object({ inLauncher: z.boolean() })),
+      async (c) => {
         const userId = c.get("userId");
-        await removeTask(db, cloudLaunchers, userId, "disconnect_launcher");
-        return c.body(null, 204);
-      })
-      .put(
-        "/api/me/launcher/auto-relaunch",
-        body(z.object({ enabled: z.boolean() })),
-        async (c) => {
-          const userId = c.get("userId");
-          const { enabled } = c.req.valid("json");
+        const project = await memberProject(
+          db,
+          userId,
+          Number(c.req.param("id")),
+        );
+        if (!project) return c.json({ error: "Not found" }, 404);
+        const { inLauncher } = c.req.valid("json");
+        try {
           await act(
             db,
-            { ...entryOf(userId, "set_auto_relaunch"), args: { enabled } },
-            (tx) =>
-              tx
-                .update(users)
-                .set({ autoRelaunch: enabled })
-                .where(eq(users.id, userId)),
+            {
+              ...entryOf(userId, "set_launcher_project"),
+              projectId: project.id,
+              args: { projectId: project.id, inLauncher },
+            },
+            async (tx) => {
+              await assertActive(tx, project.id);
+              await tx
+                .update(projectMembers)
+                .set({ inLauncher })
+                .where(
+                  and(
+                    eq(projectMembers.projectId, project.id),
+                    eq(projectMembers.userId, userId),
+                  ),
+                );
+            },
           );
-          return c.json({ enabled });
-        },
-      )
-      .get("/api/me/budgets", async (c) =>
-        c.json(await budgetsOf(db, c.get("userId"))),
-      )
-      .put("/api/me/budgets", body(budgetsBody), async (c) => {
+          return c.json({ inLauncher });
+        } catch (error) {
+          return refusal(c, error);
+        }
+      },
+    )
+    .post("/api/stories/:id/launch", body(launchBody), async (c) => {
+      const userId = c.get("userId");
+      const found = await memberStory(db, userId, Number(c.req.param("id")));
+      if (!found) return c.json({ error: "Not found" }, 404);
+      const { story, ticket, project } = found;
+      const { branch, team, comment, budgetUsd } = c.req.valid("json");
+      const entry = {
+        ...entryOf(userId, "launch_story"),
+        userId,
+        projectId: project.id,
+        ticketId: ticket.id,
+        storyId: story.id,
+        args: { storyId: story.id },
+      };
+      const at = new Date(now());
+      const launched = await launchCloud(
+        db,
+        deps,
+        entry,
+        at,
+        [project.id],
+        (tx) =>
+          reserveStory(tx, at, story.id, project.id, {
+            branch,
+            team,
+            comment,
+            budgetUsd,
+          }),
+      );
+      return "error" in launched
+        ? c.json({ error: launched.error }, launched.status)
+        : c.json(launched, 201);
+    })
+    .post(
+      "/api/projects/:id/workflows/ask",
+      body(z.object({ path: workflowPath })),
+      async (c) => {
+        // Decision 067 G: « Demander à Claude » on a failing workflow; GitHub is not read, the path is only checked for its shape.
         const userId = c.get("userId");
-        const { runUsd, nightUsd, monthUsd } = c.req.valid("json");
-        await act(db, entryOf(userId, "set_budgets"), (tx) =>
-          tx
-            .update(users)
-            .set({
-              budgetRunUsd: runUsd,
-              budgetNightUsd: nightUsd,
-              budgetMonthUsd: monthUsd,
-            })
-            .where(eq(users.id, userId)),
-        );
-        return c.json({ runUsd, nightUsd, monthUsd });
-      })
-      .put(
-        "/api/projects/:id/launcher",
-        body(z.object({ inLauncher: z.boolean() })),
-        async (c) => {
-          const userId = c.get("userId");
-          const project = await memberProject(
-            db,
-            userId,
-            Number(c.req.param("id")),
-          );
-          if (!project) return c.json({ error: "Not found" }, 404);
-          const { inLauncher } = c.req.valid("json");
-          try {
-            await act(
-              db,
-              {
-                ...entryOf(userId, "set_launcher_project"),
-                projectId: project.id,
-                args: { projectId: project.id, inLauncher },
-              },
-              async (tx) => {
-                await assertActive(tx, project.id);
-                await tx
-                  .update(projectMembers)
-                  .set({ inLauncher })
-                  .where(
-                    and(
-                      eq(projectMembers.projectId, project.id),
-                      eq(projectMembers.userId, userId),
-                    ),
-                  );
-              },
-            );
-            return c.json({ inLauncher });
-          } catch (error) {
-            return refusal(c, error);
-          }
-        },
-      )
-      .post("/api/stories/:id/launch", body(launchBody), async (c) => {
-        const userId = c.get("userId");
-        const found = await memberStory(db, userId, Number(c.req.param("id")));
-        if (!found) return c.json({ error: "Not found" }, 404);
-        const { story, ticket, project } = found;
-        const { branch, team, comment, budgetUsd } = c.req.valid("json");
-        const entry = {
-          ...entryOf(userId, "launch_story"),
+        const project = await memberProject(
+          db,
           userId,
-          projectId: project.id,
-          ticketId: ticket.id,
-          storyId: story.id,
-          args: { storyId: story.id },
-        };
-        const at = new Date(now());
+          Number(c.req.param("id")),
+        );
+        if (!project) return c.json({ error: "Not found" }, 404);
+        const { path } = c.req.valid("json");
         const launched = await launchCloud(
           db,
           deps,
-          entry,
-          at,
+          {
+            ...entryOf(userId, "ask_workflow_help"),
+            userId,
+            projectId: project.id,
+            args: { path },
+          },
+          new Date(now()),
           [project.id],
-          (tx) =>
-            reserveStory(tx, at, story.id, project.id, {
-              branch,
-              team,
-              comment,
-              budgetUsd,
-            }),
+          async () => ({ projectId: project.id, workflowPath: path }),
         );
         return "error" in launched
           ? c.json({ error: launched.error }, launched.status)
           : c.json(launched, 201);
-      })
-      // Decision 067 G: « Demander à Claude » on a failing workflow. The route does not read GitHub: the path is only checked for its shape.
-      .post(
-        "/api/projects/:id/workflows/ask",
-        body(z.object({ path: workflowPath })),
-        async (c) => {
-          const userId = c.get("userId");
-          const project = await memberProject(
-            db,
-            userId,
-            Number(c.req.param("id")),
-          );
-          if (!project) return c.json({ error: "Not found" }, 404);
-          const { path } = c.req.valid("json");
-          const launched = await launchCloud(
-            db,
-            deps,
-            {
-              ...entryOf(userId, "ask_workflow_help"),
-              userId,
-              projectId: project.id,
-              args: { path },
-            },
-            new Date(now()),
-            [project.id],
-            async () => ({ projectId: project.id, workflowPath: path }),
-          );
-          return "error" in launched
-            ? c.json({ error: launched.error }, launched.status)
-            : c.json(launched, 201);
-        },
-      )
-  );
+      },
+    );
 }
