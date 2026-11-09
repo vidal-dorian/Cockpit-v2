@@ -160,7 +160,7 @@ export function dependabotRoutes(db: Db, readGitHub: ReadGitHub) {
         }
       };
       const project = isDatabaseId(id)
-        ? await memberProject(db, user.userId, id)
+        ? await memberProject(db, user.userId, id, "owner")
         : undefined;
       if (!project) {
         await record(new Refused("not_found"));

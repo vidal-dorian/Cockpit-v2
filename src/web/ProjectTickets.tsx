@@ -5,6 +5,7 @@ import { client } from "./api.ts";
 import { fetchStories } from "./ProjectKanban.tsx";
 import { RunNowButton } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
+import { atLeast } from "./roles.ts";
 import { TicketTags } from "./TagField.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { age, fetchTickets, STEPS, STORY_STATUSES } from "./tickets.ts";
@@ -96,6 +97,10 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
     queryFn: () => fetchTickets(projectId),
   });
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const mayWrite = atLeast(
+    projects.data?.find((p) => String(p.id) === projectId)?.role,
+    "can_validate",
+  );
   const archived = projects.data?.find(
     (p) => String(p.id) === projectId,
   )?.archived;
@@ -165,7 +170,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
       <h2 id="tickets" className="sr-only">
         Tickets
       </h2>
-      {tickets.data && !archived && (
+      {tickets.data && !archived && mayWrite && (
         <div className="mb-3 flex justify-end">
           <Link
             to={`/projets/${projectId}/tickets/importer`}

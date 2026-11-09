@@ -43,7 +43,10 @@ async function projectOfRepo(db: Db | Tx, repoId: number | null) {
     .select({ id: projects.id, userId: projectMembers.userId })
     .from(projects)
     .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-    .where(eq(projects.githubRepoId, repoId));
+    // The owner: the entries of a delivery are his, whoever else is a member (decision 076).
+    .where(
+      and(eq(projects.githubRepoId, repoId), eq(projectMembers.role, "owner")),
+    );
   return project;
 }
 
@@ -82,6 +85,7 @@ async function handleIssueEdited(db: Db, deps: Deps, delivery: Delivery) {
       and(
         eq(projects.githubRepoId, repository.id),
         eq(userStories.issueNumber, issue.number),
+        eq(projectMembers.role, "owner"),
       ),
     );
   if (!found) return;

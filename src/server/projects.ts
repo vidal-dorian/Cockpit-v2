@@ -256,11 +256,36 @@ export const NOT_CONFIGURED =
 export const isDatabaseId = (id: number) =>
   Number.isInteger(id) && id >= 1 && id <= 2147483647;
 
-/** The one place that says whether a user belongs to a project; anyone else gets undefined, as if it did not exist (decisions 004 and 011 E). */
-export async function memberProject(db: Db, userId: number, projectId: number) {
+/** The roles of a project, each with the rights of the one before it (decision 076 A). */
+export const ROLES = [
+  "read_only",
+  "can_validate",
+  "can_launch",
+  "owner",
+] as const;
+export type Role = (typeof ROLES)[number];
+
+/** A member whose role is below what the gesture needs: the route answers 403 `role` (`app.onError`), the MCP tool a refusal; both are journaled. */
+export class RoleRefused extends Refused {
+  userId: number;
+  projectId: number;
+  constructor(userId: number, projectId: number) {
+    super("role");
+    this.userId = userId;
+    this.projectId = projectId;
+  }
+}
+
+/** The one place that says whether a user belongs to a project, and with which role; anyone else gets undefined, as if it did not exist (decisions 004 and 011 E). A member below `min` is refused with a `RoleRefused`: every gesture that writes asks for its role here (decision 076). */
+export async function memberProject(
+  db: Db,
+  userId: number,
+  projectId: number,
+  min: Role = "read_only",
+) {
   if (!isDatabaseId(projectId)) return undefined;
-  const [project] = await db
-    .select({ project: projects })
+  const [found] = await db
+    .select({ project: projects, role: projectMembers.role })
     .from(projectMembers)
     .innerJoin(projects, eq(projects.id, projectMembers.projectId))
     .where(
@@ -269,23 +294,44 @@ export async function memberProject(db: Db, userId: number, projectId: number) {
         eq(projectMembers.projectId, projectId),
       ),
     );
-  return project?.project;
+  if (!found) return undefined;
+  if (ROLES.indexOf(found.role) < ROLES.indexOf(min))
+    throw new RoleRefused(userId, projectId);
+  return { ...found.project, role: found.role };
 }
 
-/** Every project the user belongs to, active ones first (same rule as `memberProject`). */
+/** Every project the user belongs to, active ones first (same rule as `memberProject`), with their role and, on a shared one, the login of its owner. */
 export async function memberProjects(db: Db, userId: number) {
   const rows = await db
-    .select({ project: projects, favorite: projectMembers.favorite })
+    .select({
+      project: projects,
+      favorite: projectMembers.favorite,
+      role: projectMembers.role,
+      owner: sql<string>`(select u.login from project_members o join users u on u.id = o.user_id where o.project_id = ${projects.id} and o.role = 'owner')`,
+    })
     .from(projectMembers)
     .innerJoin(projects, eq(projects.id, projectMembers.projectId))
     .where(eq(projectMembers.userId, userId))
     .orderBy(asc(sql`${projects.archivedAt} is not null`), asc(projects.id));
-  return rows.map((row) => ({ ...row.project, favorite: row.favorite }));
+  return rows.map((row) => ({
+    ...row.project,
+    favorite: row.favorite,
+    role: row.role,
+    sharedBy: row.role === "owner" ? null : row.owner,
+  }));
 }
 
-const present = (p: typeof projects.$inferSelect & { favorite?: boolean }) => ({
+const present = (
+  p: typeof projects.$inferSelect & {
+    favorite?: boolean;
+    role?: Role;
+    sharedBy?: string | null;
+  },
+) => ({
   id: p.id,
   favorite: p.favorite ?? false,
+  role: p.role ?? "owner",
+  sharedBy: p.sharedBy ?? null,
   fullName: p.fullName,
   defaultBranch: p.defaultBranch,
   archived: p.archivedAt !== null,
@@ -495,7 +541,7 @@ export function projectRoutes(
     } = {},
   ) => {
     const id = Number(c.req.param("id"));
-    const project = await memberProject(db, entry.userId, id);
+    const project = await memberProject(db, entry.userId, id, "owner");
     if (!project) {
       await record(entry, new Refused("not_found"));
       return c.json({ error: "Not found" }, 404);
@@ -535,7 +581,8 @@ export function projectRoutes(
           .where(eq(workflowProposals.id, proposalId))
       : [];
     const project =
-      proposal && (await memberProject(db, user.userId, proposal.projectId));
+      proposal &&
+      (await memberProject(db, user.userId, proposal.projectId, "owner"));
     if (!proposal || !project) {
       await record(entry, new Refused("not_found"));
       return c.json({ error: "Not found" }, 404);
@@ -810,6 +857,7 @@ export function projectRoutes(
         db,
         user.userId,
         Number(c.req.param("id")),
+        "owner",
       );
       if (!project) return c.json({ error: "Not found" }, 404);
       if (project.archivedAt) return c.json({ error: "project_archived" }, 409);
@@ -843,7 +891,7 @@ export function projectRoutes(
       const { plan } = parsed.data;
       const id = Number(c.req.param("id"));
       // A non-member is answered 404 below, before anything that depends on the project is read or checked.
-      const member = await memberProject(db, user.userId, id);
+      const member = await memberProject(db, user.userId, id, "owner");
       const recorded = member ? await recordedHashes(db, id) : {};
       const allowed = levelFiles(
         PREPARE_FILES,
@@ -950,6 +998,7 @@ export function projectRoutes(
         db,
         user.userId,
         Number(c.req.param("id")),
+        "owner",
       );
       if (!project) return c.json({ error: "Not found" }, 404);
       if (project.archivedAt) return c.json({ error: "project_archived" }, 409);
@@ -1531,6 +1580,8 @@ export function projectRoutes(
         action: "archive_project",
         args: {},
       };
+      // Before `act`, which would journal the refusal of a role as one more entry; `app.onError` answers it.
+      await memberProject(db, user.userId, id, "owner");
       try {
         await act(db, entry, async (tx) => {
           const project = await memberProject(tx, user.userId, id);

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { HistoryChips } from "./ProjectHistory.tsx";
+import { ROLE_REFUSAL } from "./roles.ts";
 import { button, ghostButton, listCard, sectionLabel } from "./ui.ts";
 
 type Entry = {
@@ -25,6 +26,7 @@ type Changelog = {
 
 // Decision 062 E: why the server refused to delete the branch.
 const REFUSALS: Record<string, string> = {
+  role: ROLE_REFUSAL,
   pr_not_merged: "La PR de cette US n'est pas mergée.",
   branch_gone: "La branche n'existe plus sur GitHub.",
   branch_protected:

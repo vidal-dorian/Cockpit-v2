@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { fetchProjects } from "./Projects.tsx";
+import { refusedError } from "./roles.ts";
 import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -90,7 +91,8 @@ export function IssueImport() {
       if (res.status === 502) throw new GithubDown();
       if (res.status === 409)
         throw new Error("Ce projet est archivé : l'import n'est pas possible.");
-      if (!res.ok) throw new Error("L'import a échoué, réessaie.");
+      if (!res.ok)
+        throw await refusedError(res, "L'import a échoué, réessaie.");
       return res.json();
     },
     onSuccess: async () => {

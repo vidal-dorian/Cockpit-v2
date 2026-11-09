@@ -18,6 +18,7 @@ import {
 import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { chip } from "./ProjectTeam.tsx";
 import { RuleCode, SourceCode } from "./Reprise.tsx";
+import { ROLE_REFUSAL } from "./roles.ts";
 import { Panel } from "./Shell.tsx";
 import {
   alertBox,
@@ -395,14 +396,16 @@ export function Findings({
       )}
       {decision.isError && (
         <p role="alert" className={`mb-3 ${alertBox}`}>
-          La décision n'a pas pu être enregistrée : le constat a peut-être déjà
-          été tranché, la liste est relue.
+          {decision.error.message === ROLE_REFUSAL
+            ? ROLE_REFUSAL
+            : "La décision n'a pas pu être enregistrée : le constat a peut-être déjà été tranché, la liste est relue."}
         </p>
       )}
       {refresh.isError && (
         <p role="alert" className={`mb-3 ${alertBox}`}>
-          Les alertes de GitHub n'ont pas pu être lues : réessaie dans un
-          instant.
+          {refresh.error.message === ROLE_REFUSAL
+            ? ROLE_REFUSAL
+            : "Les alertes de GitHub n'ont pas pu être lues : réessaie dans un instant."}
         </p>
       )}
       {query.data && (

@@ -330,6 +330,13 @@
       "when": 1794239091367,
       "tag": "0046_true_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794241816346,
+      "tag": "0047_fine_vivisector",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@ import {
 } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncTicketIssues } from "./issues.ts";
-import { isDatabaseId, memberProject } from "./projects.ts";
+import { isDatabaseId, memberProject, type Role } from "./projects.ts";
 import { type StoryStatus, storyStatuses } from "./stories.ts";
 
 const unauthorized = { error: "Unauthorized" };
@@ -126,10 +126,16 @@ const present = (t: typeof tickets.$inferSelect, statuses: StoryStatus[]) => ({
 });
 
 /** A ticket the user may reach, with its project; undefined for anyone else, as if it did not exist (decisions 002 and 011 E). */
-export async function memberTicket(db: Db, userId: number, id: number) {
+export async function memberTicket(
+  db: Db,
+  userId: number,
+  id: number,
+  min?: Role,
+) {
   if (!isDatabaseId(id)) return undefined;
   const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id));
-  const project = ticket && (await memberProject(db, userId, ticket.projectId));
+  const project =
+    ticket && (await memberProject(db, userId, ticket.projectId, min));
   return project && { ticket, project };
 }
 
@@ -376,6 +382,7 @@ export function ticketRoutes(
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!project) return c.json(notFound, 404);
 
@@ -439,6 +446,7 @@ export function ticketRoutes(
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!found) return c.json(notFound, 404);
 
@@ -483,6 +491,7 @@ export function ticketRoutes(
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!found) return c.json(notFound, 404);
 
@@ -547,6 +556,7 @@ export function ticketRoutes(
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!found) return c.json(notFound, 404);
 

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { act, type Entry, Refused } from "./action.ts";
@@ -74,6 +74,9 @@ export function accountRoutes(db: Db, readInstance: ReadInstance) {
           isAdmin: users.isAdmin,
           blockedAt: users.blockedAt,
           createdAt: users.createdAt,
+          lastLoginAt: users.lastLoginAt,
+          // Decision 076 H: how many projects they belong to, never which.
+          projects: sql<number>`(select count(*)::int from project_members m where m.user_id = ${users.id})`,
         })
         .from(users)
         .orderBy(asc(users.id));

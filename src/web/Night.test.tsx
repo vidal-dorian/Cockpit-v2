@@ -245,6 +245,32 @@ describe("criterion 11: the pages (M')", () => {
     },
   );
 
+  it("given the server refusing the night with 403 role, when the night is launched, then the sentence of the role is shown (076 G)", async () => {
+    stub({ ready: [story(1)] });
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+        typeof input === "string" &&
+        input === "/api/nights" &&
+        init?.method === "POST"
+          ? Response.json({ error: "role" }, { status: 403 })
+          : inner(input, init),
+      ),
+    );
+    renderAt("/nuit");
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "☾ Lancer la nuit · 1 user story",
+      }),
+    );
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Ton rôle sur ce projet ne le permet pas.",
+    );
+  });
+
   it("given a planned night, when « Annuler la nuit » is clicked, then the cancel is posted", async () => {
     const calls = stub({
       night: { id: 1, status: "planned", items: [story(1)] },

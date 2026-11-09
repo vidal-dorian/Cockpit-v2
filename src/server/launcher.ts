@@ -159,6 +159,7 @@ export function reportLaunch(
     if (launch.projectId === null) throw new Refused("not_found");
     entry.projectId = launch.projectId;
     entry.storyId = launch.storyId ?? undefined;
+    await memberProject(tx, userId, launch.projectId, "can_launch");
     if (launch.runId !== null) throw new Refused("launch_started");
     await tx
       .update(cloudLaunches)
@@ -203,6 +204,11 @@ export function finishLaunch(
     if (!launch) throw new Refused("not_found");
     if (launch.routineId === null && launch.workflowPath === null)
       throw new Refused("not_a_routine");
+    // A workflow launch belongs to one project; a routine's own projects are the user's (decision 076 B).
+    if (launch.projectId !== null) {
+      entry.projectId = launch.projectId;
+      await memberProject(tx, userId, launch.projectId, "can_launch");
+    }
     if (launch.finishedAt) throw new Refused("launch_finished");
     await tx
       .update(cloudLaunches)
@@ -370,7 +376,12 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
     )
     .post("/api/stories/:id/launch", body(launchBody), async (c) => {
       const userId = c.get("userId");
-      const found = await memberStory(db, userId, Number(c.req.param("id")));
+      const found = await memberStory(
+        db,
+        userId,
+        Number(c.req.param("id")),
+        "can_launch",
+      );
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
       const { branch, team, comment, budgetUsd } = c.req.valid("json");
@@ -411,6 +422,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
           db,
           userId,
           Number(c.req.param("id")),
+          "owner",
         );
         if (!project) return c.json({ error: "Not found" }, 404);
         const { path } = c.req.valid("json");

@@ -7,6 +7,7 @@ import { AddResult, fetchAgentTeams, useAddTeam } from "./AgentTeams.tsx";
 import { client } from "./api.ts";
 import { fetchBudgets } from "./Cost.tsx";
 import { fetchLauncher } from "./LauncherSettings.tsx";
+import { ROLE_REFUSAL } from "./roles.ts";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
 import {
@@ -54,6 +55,7 @@ async function fetchTeams(id: string) {
 
 // What the user reads for a refused or failed launch (decision 054 H); the codes of the server are not meant to be read.
 const LAUNCH_ERRORS: Record<string, string> = {
+  role: ROLE_REFUSAL,
   launch_pending:
     "Un lancement de cette US est déjà en cours : attends quelques minutes avant de réessayer.",
   run_active: "Cette US a déjà un run en cours.",

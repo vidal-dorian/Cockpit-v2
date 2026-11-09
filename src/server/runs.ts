@@ -8,9 +8,11 @@ import {
   acceptanceCriteria,
   cloudLaunches,
   history,
+  projects,
   questions,
   runSteps,
   runs,
+  tickets,
   userStories,
 } from "./db/schema.ts";
 import { publish, subscribe } from "./events.ts";
@@ -38,8 +40,11 @@ export const isUniqueViolation = (error: unknown) =>
   );
 
 /** Tells the project's members, after the commit (decision 033 G). */
-export const announce = (db: Db, found: Found, runId: number) =>
-  publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
+export const announce = (
+  db: Db,
+  found: { project: { id: number }; story: { id: number } },
+  runId: number,
+) => publish(db, found.project.id, [`run:${runId}`, `story:${found.story.id}`]);
 
 /** `start_run` (decision 033 B): a ready or in_review story gets a running run and goes in_progress with its branch. */
 export async function startRun(
@@ -126,13 +131,20 @@ export async function startRun(
   }
 }
 
-/** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. */
+/** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. A run reports to its end whatever its launcher's role became, even once removed from the project (decision 076 B, F): no membership is asked. */
 export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
   const [run] = await db
     .select()
     .from(runs)
     .where(and(eq(runs.id, id), eq(runs.userId, userId)));
-  const found = run && (await memberStory(db, userId, run.storyId));
+  const [found] = run
+    ? await db
+        .select({ story: userStories, ticket: tickets, project: projects })
+        .from(userStories)
+        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+        .innerJoin(projects, eq(projects.id, tickets.projectId))
+        .where(eq(userStories.id, run.storyId))
+    : [];
   if (!run || !found)
     return act(db, entry, async () => {
       throw new Refused("not_found");
@@ -450,7 +462,8 @@ export function runRoutes(
       const [run] = isDatabaseId(id)
         ? await db.select().from(runs).where(eq(runs.id, id))
         : [];
-      const found = run && (await memberStory(db, user.userId, run.storyId));
+      const found =
+        run && (await memberStory(db, user.userId, run.storyId, "can_launch"));
       if (!found) return c.json({ error: "Not found" }, 404);
       const entry: Entry = {
         userId: user.userId,

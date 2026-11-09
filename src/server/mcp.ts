@@ -39,7 +39,12 @@ import {
   reportLaunch,
 } from "./launcher.ts";
 import { pdfText } from "./pdf-text.ts";
-import { memberProject, memberProjects } from "./projects.ts";
+import {
+  memberProject,
+  memberProjects,
+  type Role,
+  RoleRefused,
+} from "./projects.ts";
 import { askUser, getAnswer } from "./questions.ts";
 import { queueAfterRun } from "./queue.ts";
 import type { LiveFire } from "./routines.ts";
@@ -137,8 +142,8 @@ const refuse = (db: Db, entry: Entry, error: Refused): Promise<never> =>
   });
 
 /** A project of the caller, or a journaled `not_found` (someone else's project looks like no project). */
-async function ownProject(call: Call, id: number) {
-  const project = await memberProject(call.db, call.userId, id);
+async function ownProject(call: Call, id: number, min?: Role) {
+  const project = await memberProject(call.db, call.userId, id, min);
   if (!project) return refuse(call.db, call.entry, new Refused("not_found"));
   call.entry.projectId = project.id;
   return project;
@@ -428,7 +433,7 @@ const tools = {
     }),
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
-      const project = await ownProject(call, args.project_id);
+      const project = await ownProject(call, args.project_id, "can_validate");
       const ticket = await createTicket(call.db, call.entry, project.id, {
         title: args.title,
         descriptionMd: args.description_md,
@@ -537,7 +542,12 @@ const tools = {
         count: args.stories.length,
         moreToCome: args.more_to_come,
       };
-      const found = await memberTicket(call.db, call.userId, args.ticket_id);
+      const found = await memberTicket(
+        call.db,
+        call.userId,
+        args.ticket_id,
+        "can_validate",
+      );
       if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
       call.entry.projectId = found.project.id;
       call.entry.ticketId = found.ticket.id;
@@ -653,7 +663,12 @@ const tools = {
     }),
     async (call, args) => {
       call.entry.args = { storyId: args.story_id };
-      const found = await memberStory(call.db, call.userId, args.story_id);
+      const found = await memberStory(
+        call.db,
+        call.userId,
+        args.story_id,
+        "can_validate",
+      );
       if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
       const story = await changeStory(
         call.db,
@@ -799,7 +814,12 @@ const tools = {
         ),
     }),
     async (call, args) => {
-      const found = await memberStory(call.db, call.userId, args.story_id);
+      const found = await memberStory(
+        call.db,
+        call.userId,
+        args.story_id,
+        "can_launch",
+      );
       if (!found) return refuse(call.db, call.entry, new Refused("not_found"));
       const { runId, story, criteria } = await startRun(
         call.db,
@@ -864,7 +884,7 @@ const tools = {
     }),
     async (call, { project_id, ...args }) => {
       call.entry.args = { path: args.path };
-      const project = await ownProject(call, project_id);
+      const project = await ownProject(call, project_id, "owner");
       return proposeWorkflowChange(
         call.db,
         call.readGitHub,
@@ -951,7 +971,7 @@ const tools = {
     codeMapArgs,
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
-      const project = await ownProject(call, args.project_id);
+      const project = await ownProject(call, args.project_id, "owner");
       return submitCodeMap(call.db, call.readGitHub, call.entry, project, args);
     },
   ),
@@ -961,7 +981,7 @@ const tools = {
     takeoverArgs,
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
-      const project = await ownProject(call, args.project_id);
+      const project = await ownProject(call, args.project_id, "owner");
       return createTakeoverStories(
         call.db,
         call.readGitHub,
@@ -977,7 +997,7 @@ const tools = {
     findingsArgs,
     async (call, args) => {
       call.entry.args = { projectId: args.project_id };
-      const project = await ownProject(call, args.project_id);
+      const project = await ownProject(call, args.project_id, "owner");
       return submitFindings(
         call.db,
         call.readGitHub,
@@ -1118,6 +1138,11 @@ async function callTool(
     if (data instanceof Rendered) return { content: data.content };
     return { content: [{ type: "text", text: JSON.stringify(data) }] };
   } catch (error) {
+    // A role refused before the tool's own `act` (the check is in `memberProject`): journaled here, as every refusal of a tool is.
+    if (error instanceof RoleRefused && !error.journaled) {
+      entry.projectId = error.projectId;
+      await refuse(base.db, entry, error).catch(() => {});
+    }
     return { isError: true, content: [{ type: "text", text: failure(error) }] };
   }
 }

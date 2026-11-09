@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the name of a Given/When/Then field of the API (decision 017)
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { running } from "./test-criteria.ts";
 import {
   abandonStory,
   editBody,
@@ -17,10 +18,12 @@ import {
   expectRefused,
   listedTools,
   mcpRows,
+  rows,
   seedStory,
   seedTicket,
   storyCounts,
 } from "./test-mcp.ts";
+import { memberWith, ROLES, type Role } from "./test-members.ts";
 
 // Slice 4.4 (decision 018 G): the table of rights of decision 004, one test per row that exists at this slice, on both
 // sides. The table is kept by what does not exist: Claude's side is an invented tool that the server does not know (a
@@ -299,4 +302,135 @@ describe("rights: in_review -> done and in_review -> ready (Claude: never; human
       ["POST", `/api/stories/${s.id}/reopen`],
     ]);
   });
+});
+
+// Slice 13.1 (decision 076 A, 064 13.1 A): the same table with one column per role, one test per row (a gesture of the
+// human). Each role below the minimum is refused 403 { error: "role" } and journaled `refused` { reason: "role" }; each
+// role from the minimum up gets anything but that refusal (a 409 of the story's status is not a refusal of the role).
+// `refuseOnly` rows reach GitHub when they work, so only the refusals are checked.
+
+const ROW_BODY = {
+  comment: "Précise",
+  title: "Une idée",
+  favorite: true,
+};
+
+type Row = {
+  min: Role;
+  call: (
+    s: Awaited<ReturnType<typeof running>>,
+    cookie: string,
+  ) => Response | Promise<Response>;
+  refuseOnly?: boolean;
+};
+
+const ROWS: Record<string, Row> = {
+  "read a story": {
+    min: "read_only",
+    call: (s, c) => send(s.app, c, "GET", `/api/stories/${s.id}`),
+  },
+  "read the tickets": {
+    min: "read_only",
+    call: (s, c) =>
+      send(s.app, c, "GET", `/api/projects/${s.projectId}/tickets`),
+  },
+  "star the project": {
+    min: "read_only",
+    call: (s, c) =>
+      send(s.app, c, "PUT", `/api/projects/${s.projectId}/favorite`, {
+        favorite: ROW_BODY.favorite,
+      }),
+  },
+  "validate a story": {
+    min: "can_validate",
+    call: (s, c) => validate(s.app, c, s.id),
+  },
+  "send a story back": {
+    min: "can_validate",
+    call: (s, c) => sendBack(s.app, c, s.id, { comment: ROW_BODY.comment }),
+  },
+  "edit a story": {
+    min: "can_validate",
+    call: (s, c) => editStory(s.app, c, s.id, editBody(1)),
+  },
+  "abandon a story": {
+    min: "can_validate",
+    call: (s, c) => abandonStory(s.app, c, s.id),
+  },
+  "note an idea": {
+    min: "can_validate",
+    call: (s, c) =>
+      send(s.app, c, "POST", `/api/projects/${s.projectId}/tickets`, {
+        title: ROW_BODY.title,
+      }),
+  },
+  "abandon a ticket": {
+    min: "can_validate",
+    call: (s, c) =>
+      send(s.app, c, "POST", `/api/tickets/${s.ticketId}/abandon`),
+  },
+  "stop a run": {
+    min: "can_launch",
+    call: (s, c) => send(s.app, c, "POST", `/api/runs/${s.runId}/stop`),
+  },
+  "close a run": {
+    min: "can_launch",
+    call: (s, c) => send(s.app, c, "POST", `/api/runs/${s.runId}/close`),
+  },
+  "queue a story": {
+    min: "can_launch",
+    call: (s, c) => send(s.app, c, "POST", "/api/queue", { storyId: s.base }),
+  },
+  "archive the project": {
+    min: "owner",
+    call: (s, c) =>
+      send(s.app, c, "POST", `/api/projects/${s.projectId}/archive`),
+  },
+  "prepare the repo for Claude": {
+    min: "owner",
+    refuseOnly: true,
+    call: (s, c) =>
+      send(s.app, c, "POST", `/api/projects/${s.projectId}/prepare`),
+  },
+};
+
+describe("rights by role (076 A): one column per role", () => {
+  it.each(Object.entries(ROWS))(
+    "given each role, when the human tries to %s, then only the roles from the minimum up are let in",
+    async (_name, row) => {
+      const s = await running();
+      const cookies: Record<Role, string> = {
+        read_only: (await memberWith(s, 2001, "read_only")).cookie,
+        can_validate: (await memberWith(s, 2002, "can_validate")).cookie,
+        can_launch: (await memberWith(s, 2003, "can_launch")).cookie,
+        owner: s.alice.cookie,
+      };
+      const below = ROLES.filter(
+        (r) => ROLES.indexOf(r) < ROLES.indexOf(row.min),
+      );
+
+      for (const role of below) {
+        const res = await row.call(s, cookies[role]);
+        expect([role, res.status, await res.json()]).toEqual([
+          role,
+          403,
+          { error: "role" },
+        ]);
+      }
+      if (!row.refuseOnly)
+        for (const role of ROLES.filter((r) => !below.includes(r))) {
+          const res = await row.call(s, cookies[role]);
+          expect([
+            role,
+            res.status === 403 &&
+              ((await res.json()) as { error?: string }).error === "role",
+          ]).toEqual([role, false]);
+        }
+      const refused = (await rows(s.db)).filter(
+        (r) => r.result === "refused" && r.detail?.reason === "role",
+      );
+      expect(refused).toHaveLength(below.length);
+      for (const entry of refused) expect(entry.project_id).toBe(s.projectId);
+    },
+  );
 });

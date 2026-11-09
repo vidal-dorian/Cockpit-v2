@@ -104,6 +104,7 @@ export function issueImportRoutes(db: Db, readGitHub: ReadGitHub) {
         db,
         user.userId,
         Number(c.req.param("id")),
+        "can_validate",
       );
       if (!project) return c.json({ error: "Not found" }, 404);
       if (project.archivedAt) return c.json({ error: "project_archived" }, 409);

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { client } from "./api.ts";
+import { refusedError } from "./roles.ts";
 
 /** Decision 051 C: the findings of a project as the server gives them, their cited sources and the choice-L reminder (`unprotected`) included. */
 export async function fetchFindings(id: string) {
@@ -35,7 +36,7 @@ export async function decide(id: number, action: Decision, reason?: string) {
           },
         })
       : await client.api.findings[":id"][action].$post(param);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await refusedError(res, `HTTP ${res.status}`);
 }
 
 /** Decision 052 C: reads the open alerts of GitHub; the answer says per tool what was read, and the counts. */
@@ -43,7 +44,7 @@ export async function refreshFindings(id: string) {
   const res = await client.api.projects[":id"].findings.refresh.$post({
     param: { id },
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await refusedError(res, `HTTP ${res.status}`);
   return await res.json();
 }
 

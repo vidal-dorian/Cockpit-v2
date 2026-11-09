@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchRoutine } from "./RoutineSettings.tsx";
+import { ROLE_REFUSAL } from "./roles.ts";
 import {
   alertBox,
   badge,
@@ -50,7 +51,9 @@ const RUN_REFUSALS: Record<string, string> = {
 async function failure(res: Response, refusals: Record<string, string>) {
   const body: { error?: string } | null = await res.json().catch(() => null);
   return new Error(
-    (body?.error && refusals[body.error]) || "L'opération a échoué, réessaie.",
+    (body?.error &&
+      (body.error === "role" ? ROLE_REFUSAL : refusals[body.error])) ||
+      "L'opération a échoué, réessaie.",
   );
 }
 

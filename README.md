@@ -107,6 +107,10 @@ Quand la ligne « CLAUDE.md » ou « Agents et skill de développement » du bil
 
 Pour qui change un fichier de `catalog/` : lancer `npm run catalog:history` (dans un clone complet) et committer `catalog/history.json`, sinon un test échoue.
 
+### Partager un projet
+
+« Réglages › Membres » : « Inviter quelqu'un » prend le @login GitHub, un de tes projets et un rôle (lecture seule, peut valider, peut valider et lancer). Cockpit crée un lien `/invitations/…`, montré une seule fois, valable 7 jours, que tu envoies toi-même (aucun e-mail) ; seul ce compte GitHub peut l'accepter, et seulement s'il a lui-même accès au repo. Dans la liste, « Modifier » change le rôle ou retire le membre, « Nouveau lien » remplace un lien perdu, « Annuler » retire l'invitation. Le propriétaire garde l'archivage, les membres et tout ce qui écrit dans le repo. Un geste que le rôle ne permet pas est refusé (« Ton rôle sur ce projet ne le permet pas. »). Décision [076](docs/decisions/076-plusieurs-utilisateurs.md).
+
 ### Bloquer quelqu'un
 
 Chaque personne crée son compte Cockpit en se connectant avec GitHub ; si elle n'a pas encore installé l'App, elle arrive sur une page qui explique l'installation, et un bandeau le lui rappelle tant qu'elle n'est pas installée. Pour écarter quelqu'un, l'administrateur ouvre « Réglages » (lien en haut de la page), clique sur « Bloquer » en face de son login puis confirme : ses sessions ouvertes sont fermées et il ne peut plus se connecter, même s'il change de login GitHub. « Débloquer » annule le blocage. Un administrateur ne peut pas être bloqué. Chaque utilisateur trouve aussi dans « Réglages » ses **jetons MCP** : « Nouveau jeton » affiche le jeton une seule fois (à copier tout de suite, Cockpit n'en garde que l'empreinte), « Révoquer » le désactive et le retire de la liste (Cockpit le supprime définitivement 3 mois plus tard).

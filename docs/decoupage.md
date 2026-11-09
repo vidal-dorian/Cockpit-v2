@@ -82,7 +82,8 @@
 - **Fait** : tranche 15.3 (ergonomie : recherche `Ctrl K`, raccourcis clavier, thème clair à valider par Dorian, projets favoris, [décision 073](decisions/073-ergonomie.md)).
 - **Fait** : hors tranche, des demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, avec un avertissement au lancement quand l'équipe du repo a changé, [décision 074](decisions/074-equipes-a-la-demande.md)).
 - **Fait** : tranche 15.4 (la mise en route : les sept étapes de S06 en haut de l'accueil, qui se cochent toutes seules, « Masquer ce guide », [décision 075](decisions/075-mise-en-route.md)) ; la phase 15 est terminée.
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.3 et 13.4 attendent Dorian).
+- **Fait** : tranche 13.1 (plusieurs utilisateurs sur un projet : trois rôles, invitation par login GitHub, la liste des membres dans Réglages, [décision 076](decisions/076-plusieurs-utilisateurs.md)).
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.1 faite ; 13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -93,7 +94,7 @@ L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md
 | Langage | TypeScript (Dorian l'apprend) |
 | Distribution | Un service en ligne : les clients se connectent, ils n'installent rien, voir [`decisions/008-service-en-ligne.md`](decisions/008-service-en-ligne.md) |
 | Hébergement | Sur le Raspberry Pi (Cloudflare Tunnel) tant que seuls Dorian et des proches l'utilisent ; chez un hébergeur dès les premiers clients payants (008) |
-| Utilisateurs | Membres d'un projet et connexion GitHub dès le début, avec un seul membre par projet au MVP ; invitations, admin et partage plus tard (008) |
+| Utilisateurs | Membres d'un projet et connexion GitHub dès le début, avec un seul membre par projet au MVP ; invitations, admin et partage plus tard (008) (partage : 13.1, [076](decisions/076-plusieurs-utilisateurs.md)) |
 | Données v1 | Aucune reprise, aucun code de la v1 |
 | Périmètre de départ | La boucle cœur, en local seulement |
 | Lancement local | Claude Desktop installé sur le PC ; Cockpit ouvre la session via `claude://code/new`, voir [`decisions/005-lancement-local.md`](decisions/005-lancement-local.md) |
@@ -269,7 +270,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 
 | # | Tranche | Démo |
 |---|---|---|
-| 13.1 | **Plusieurs utilisateurs** : invitations, partager un projet, l'administrateur voit l'activité des comptes (008, brief §6.19) ; trois rôles, invitation par login GitHub ([064](decisions/064-tranches-restantes.md)) | J'invite quelqu'un, il voit le projet partagé et rien d'autre |
+| 13.1 | **Plusieurs utilisateurs** : invitations, partager un projet, l'administrateur voit l'activité des comptes (008, brief §6.19) ; trois rôles, invitation par login GitHub ([076](decisions/076-plusieurs-utilisateurs.md), [064](decisions/064-tranches-restantes.md)) | J'invite quelqu'un, il voit le projet partagé et rien d'autre |
 | 13.2 | **Offres et quotas** : gratuit (3 repos) et Pro (la reprise), bloqués côté serveur dans l'API et le MCP ; paiement. Idées d'offres et de prix : [`offres.md`](offres.md) ; Pro à 10 € par mois, repos illimités, codes Pro donnés par l'administrateur, paiement branché plus tard ([064](decisions/064-tranches-restantes.md)) | Un compte gratuit se voit refuser le 4e repo, par l'API comme par le MCP |
 | 13.3 | **Hébergeur** : choisir l'hébergeur (en Europe, PostgreSQL géré), y déplacer l'image et la base, faire tenir le serveur sur plusieurs instances (008). **Attend Dorian** : l'hébergeur est choisi au premier client payant ([064](decisions/064-tranches-restantes.md)) | Cockpit répond à son adresse chez l'hébergeur, avec ses données |
 | 13.4 | **Dirigo** : renommer l'app, la passer sur `app.dirigo.dev`, et un site vitrine dans un repo à part ([041](decisions/041-nom-et-site-vitrine.md)). **Attend Dorian** : marque vérifiée et domaine acheté ([064](decisions/064-tranches-restantes.md)) | `dirigo.dev` affiche la vitrine, `app.dirigo.dev` l'application |

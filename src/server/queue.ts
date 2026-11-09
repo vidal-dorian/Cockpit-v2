@@ -437,6 +437,7 @@ export function queueRoutes(db: Db) {
           db,
           userId,
           c.req.valid("json").storyId,
+          "can_launch",
         );
         if (!found) return c.json({ error: "Not found" }, 404);
         const { story, ticket, project } = found;

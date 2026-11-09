@@ -14,7 +14,10 @@ export type Entry = Required<
   >;
 
 /** The work was not allowed; `act` records a `refused` entry. The message goes to the history, so it must be a fixed code: no free text, nothing personal. */
-export class Refused extends Error {}
+export class Refused extends Error {
+  /** Set by `act` once the `refused` entry is written, so a caller up the stack does not write it again. */
+  journaled = false;
+}
 
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -50,6 +53,7 @@ export async function act<T>(
       console.error(`Action ${entry.action} left no history entry:`, error);
       throw writeError;
     }
+    if (error instanceof Refused) error.journaled = true;
     throw error;
   }
 }

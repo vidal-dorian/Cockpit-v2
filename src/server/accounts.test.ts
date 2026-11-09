@@ -107,7 +107,9 @@ describe("GET /api/settings/users", () => {
       "createdAt",
       "id",
       "isAdmin",
+      "lastLoginAt",
       "login",
+      "projects",
     ]);
     expect(
       Math.abs(Date.parse(all[0]?.createdAt ?? "") - Date.now()),

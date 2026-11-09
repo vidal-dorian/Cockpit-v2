@@ -127,7 +127,8 @@ export function questionRoutes(db: Db, deps: LiveFire) {
       const [run] = asked
         ? await db.select().from(runs).where(eq(runs.id, asked.runId))
         : [];
-      const found = run && (await memberStory(db, user.userId, run.storyId));
+      const found =
+        run && (await memberStory(db, user.userId, run.storyId, "can_launch"));
       if (!found) return c.json({ error: "Not found" }, 404);
       const entry: Entry = {
         userId: user.userId,

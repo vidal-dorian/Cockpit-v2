@@ -1,4 +1,5 @@
 import { client } from "./api.ts";
+import { roleRefusal } from "./roles.ts";
 
 /** The step labels of a ticket (decision 002); the codes of the server are never shown. */
 export const STEPS: Record<string, string> = {
@@ -44,6 +45,11 @@ export async function ticketError(res: Response, tagsSent = false) {
       `Le titre doit faire de 1 à 200 caractères et la description 50 000 au plus.${tagsSent ? " Une étiquette n'est pas valide (30 caractères au plus)." : ""}`,
     );
   const body: unknown = await res.json().catch(() => null);
+  const refused = roleRefusal(
+    res.status,
+    (body as { error?: unknown } | null)?.error,
+  );
+  if (refused) return new Error(refused);
   if ((body as { error?: unknown } | null)?.error === "project_archived")
     return new Error("Ce projet est archivé : ses tickets ne changent plus.");
   if ((body as { error?: unknown } | null)?.error === "ticket_has_stories")
@@ -59,6 +65,8 @@ export async function decisionError(res: Response) {
     );
   const body: unknown = await res.json().catch(() => null);
   const error = (body as { error?: unknown } | null)?.error;
+  const refused = roleRefusal(res.status, error);
+  if (refused) return new Error(refused);
   if (error === "project_archived")
     return new Error("Ce projet est archivé : plus rien n'y change.");
   if (error === "ticket_abandoned")

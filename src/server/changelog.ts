@@ -180,6 +180,7 @@ export function changelogRoutes(db: Db, readGitHub: ReadGitHub) {
         db,
         user.userId,
         Number(c.req.param("id")),
+        "owner",
       );
       if (!found) return c.json({ error: "Not found" }, 404);
       const { story, ticket, project } = found;
