@@ -131,7 +131,7 @@ describe("decision 072 B: the routes of the agent teams", () => {
   it.each([
     ["an invalid name", "Bad_Name", LEGER],
     ["a name starting with a dash", "-leger", LEGER],
-    ["a name that is too long", "a".repeat(80), LEGER],
+    ["a name that is too long", "a".repeat(239), LEGER],
     ["a text parseTeam refuses", "leger", "not a team"],
     ["a text over 1 MiB", "leger", `${LEGER}${"x".repeat(1024 * 1024)}`],
   ])(

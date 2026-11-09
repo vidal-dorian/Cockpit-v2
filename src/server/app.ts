@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { accountRoutes } from "./accounts.ts";
+import { agentTeamRoutes } from "./agent-teams.ts";
 import { attachmentRoutes } from "./attachments.ts";
 import { authRoutes } from "./auth.ts";
 import { changelogRoutes } from "./changelog.ts";
@@ -71,6 +72,8 @@ const uploadHeaders: MiddlewareHandler = (c, next) => {
   return uploadBodyLimit(c, next);
 };
 const UPLOAD_PATH = /^\/api\/tickets\/[^/]+\/attachments$/;
+// A team text of up to 1 MiB (decision 072 B): its own limit, so that the route answers 400 for a text that is too big.
+const TEAM_PATH = /^\/api\/agent-teams\/[^/]+$/;
 const AGENTS_APPLY_PATH =
   /^\/api\/(plugins|projects\/[^/]+\/(agents|team|claude-config|plugins))\/apply$/;
 
@@ -108,7 +111,8 @@ export function createApp(
       .use("/api/*", (c, next) =>
         c.req.path === WEBHOOK_PATH
           ? next()
-          : (AGENTS_APPLY_PATH.test(c.req.path)
+          : (AGENTS_APPLY_PATH.test(c.req.path) ||
+              (c.req.method === "PUT" && TEAM_PATH.test(c.req.path))
               ? agentsBodyLimit
               : c.req.method === "POST" && UPLOAD_PATH.test(c.req.path)
                 ? uploadHeaders
@@ -155,6 +159,7 @@ export function createApp(
       .route("/", queueRoutes(db))
       .route("/", nightRoutes(db, now))
       .route("/", customRoutineRoutes(db, fireDeps, now))
+      .route("/", agentTeamRoutes(db))
       // Outside /api: Claude Code's exporter has no session and its own 1 MiB limit (decision 060 A).
       .route("/", metricsRoutes(db))
       .route("/", tokenRoutes(db))

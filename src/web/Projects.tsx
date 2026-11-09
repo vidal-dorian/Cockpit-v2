@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { chip } from "./ProjectTeam.tsx";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
 import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
@@ -191,20 +192,162 @@ function LoginLink() {
   );
 }
 
+const GLOW: Record<string, string> = {
+  premium: "shadow-[0_0_24px_var(--color-claude-glow)]",
+  max: "shadow-[0_0_32px_var(--color-claude-glow-strong)]",
+};
+
+/** Decision 072 A: the level of the starter team is chosen in a carousel, once the repo is picked. */
+function ImportDialog({
+  fullName,
+  pending,
+  error,
+  onImport,
+  onCancel,
+}: {
+  fullName: string;
+  pending: boolean;
+  error: Error | null;
+  onImport: (level: StarterLevel) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [at, setAt] = useState(1); // Standard
+  useEffect(() => {
+    // Unmounting an open modal skips the native close steps: give the focus back by hand.
+    const opener = document.activeElement as HTMLElement | null;
+    ref.current?.showModal();
+    return () => opener?.focus();
+  }, []);
+  const go = (to: number) =>
+    setAt(Math.min(STARTER_LEVELS.length - 1, Math.max(0, to)));
+  const level = STARTER_LEVELS[at] as (typeof STARTER_LEVELS)[number];
+  const side = (to: number) => {
+    const other = STARTER_LEVELS[to];
+    return other ? (
+      <button
+        type="button"
+        onClick={() => go(to)}
+        className={`${card} hidden w-1/4 scale-90 p-3 text-left opacity-50 sm:block ${GLOW[other.id] ?? ""} ${focusRing}`}
+      >
+        <span className="block font-semibold">{other.name}</span>
+        <span className="block text-[12.5px] text-muted-foreground">
+          {other.sentence}
+        </span>
+      </button>
+    ) : (
+      <span className="hidden w-1/4 sm:block" />
+    );
+  };
+  const arrow = `${button} w-11 flex-none px-0`;
+  return (
+    // Escape closes the dialog natively, which is « Annuler ».
+    <dialog
+      ref={ref}
+      aria-labelledby="import-title"
+      onClose={onCancel}
+      className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
+    >
+      <h3 id="import-title" className="font-heading text-lg font-bold">
+        Quelle équipe pour {fullName} ?
+      </h3>
+      <p className="mt-1 text-muted-foreground">
+        Une équipe, c'est les agents qui développent tes US, l'un après l'autre.
+        Plus elle relit, plus elle consomme. Tu pourras la changer ensuite.
+      </p>
+      {/* The keys are read here: keydown bubbles from the buttons inside. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are a shortcut of the buttons */}
+      <div
+        className="mt-4"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight") go(at + 1);
+          if (e.key === "ArrowLeft") go(at - 1);
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Équipe précédente"
+            disabled={at === 0}
+            onClick={() => go(at - 1)}
+            className={arrow}
+          >
+            ←
+          </button>
+          {side(at - 1)}
+          <div className={`${card} min-w-0 flex-1 p-4 ${GLOW[level.id] ?? ""}`}>
+            <p className="text-lg font-semibold">{level.name}</p>
+            <p className="text-muted-foreground">{level.sentence}</p>
+            <p className="mt-3 font-mono text-[12.5px]">
+              {level.agents.map((a) => `${a.name} · ${a.model}`).join(" → ")}
+            </p>
+            <p className="mt-2 text-[12.5px] text-muted-foreground">
+              Consommation : {level.use}
+            </p>
+          </div>
+          {side(at + 1)}
+          <button
+            type="button"
+            aria-label="Équipe suivante"
+            disabled={at === STARTER_LEVELS.length - 1}
+            onClick={() => go(at + 1)}
+            className={arrow}
+          >
+            →
+          </button>
+        </div>
+        <div className="mt-3 flex justify-center gap-1.5">
+          {STARTER_LEVELS.map((l, i) => (
+            <button
+              key={l.id}
+              type="button"
+              aria-current={i === at ? "true" : undefined}
+              onClick={() => go(i)}
+              className={chip(i === at)}
+            >
+              {l.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      {error && <ErrorAlert error={error} />}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onImport(level.id)}
+          className={primaryButton}
+        >
+          Importer avec {level.name}
+        </button>
+        <button type="button" onClick={onCancel} className={button}>
+          Annuler
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
 function Importable() {
   const queryClient = useQueryClient();
   const repositories = useQuery({
     queryKey: ["repositories"],
     queryFn: fetchRepositories,
   });
-  const [starterTeam, setStarterTeam] = useState<StarterLevel>("standard");
+  // The repo whose level is being chosen.
+  const [choosing, setChoosing] = useState<{
+    githubRepoId: number;
+    fullName: string;
+  } | null>(null);
   const importRepo = useMutation({
-    mutationFn: async (githubRepoId: number) => {
-      const res = await client.api.projects.$post({
-        json: { githubRepoId, starterTeam },
-      });
+    mutationFn: async (sent: {
+      githubRepoId: number;
+      starterTeam: StarterLevel;
+    }) => {
+      const res = await client.api.projects.$post({ json: sent });
       if (!res.ok) throw await failure(res);
     },
+    onSuccess: () => setChoosing(null),
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
@@ -255,37 +398,6 @@ function Importable() {
         </p>
       )}
       {repos.length > 0 && (
-        <div
-          role="radiogroup"
-          aria-label="Quelle équipe pour ce projet ?"
-          className="mb-4 grid gap-2 sm:grid-cols-4"
-        >
-          <p className="font-semibold sm:col-span-4">
-            Quelle équipe pour ce projet ?
-          </p>
-          {STARTER_LEVELS.map((level) => (
-            <label
-              key={level.id}
-              className={`${card} flex cursor-pointer items-start gap-2 p-3 has-[:checked]:border-foreground`}
-            >
-              <input
-                type="radio"
-                name="starter-team"
-                checked={starterTeam === level.id}
-                onChange={() => setStarterTeam(level.id)}
-                className="mt-1"
-              />
-              <span>
-                <span className="block font-semibold">{level.name}</span>
-                <span className="block text-[12.5px] text-muted-foreground">
-                  {level.sentence}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-      )}
-      {repos.length > 0 && (
         <ul className={listCard}>
           {repos.map((repo) => (
             <li
@@ -305,8 +417,10 @@ function Importable() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => importRepo.mutate(repo.githubRepoId)}
-                  disabled={importRepo.isPending}
+                  onClick={() => {
+                    importRepo.reset();
+                    setChoosing(repo);
+                  }}
                   className={button}
                 >
                   Importer
@@ -316,7 +430,20 @@ function Importable() {
           ))}
         </ul>
       )}
-      {importRepo.error && <ErrorAlert error={importRepo.error} />}
+      {choosing && (
+        <ImportDialog
+          fullName={choosing.fullName}
+          pending={importRepo.isPending}
+          error={importRepo.error}
+          onImport={(starterTeam) =>
+            importRepo.mutate({
+              githubRepoId: choosing.githubRepoId,
+              starterTeam,
+            })
+          }
+          onCancel={() => setChoosing(null)}
+        />
+      )}
     </>
   );
 }

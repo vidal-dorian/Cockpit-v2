@@ -44,6 +44,7 @@
   --color-claude-soft: #1c2044;
   --color-claude-text: #a9b4ff;
   --color-claude-glow: rgba(124, 140, 255, 0.18);
+  --color-claude-glow-strong: rgba(124, 140, 255, 0.55);
 
   /* Green: the « Terminées » time. */
   --color-done: #34d399;

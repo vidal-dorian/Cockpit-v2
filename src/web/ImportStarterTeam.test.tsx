@@ -140,7 +140,10 @@ function stubApi(options: { failPost?: boolean } = {}) {
       throw new Error(`Unexpected fetch ${method} ${raw}`);
     }),
   );
-  return Object.assign(posted, { reads });
+  // Not enumerable: `toEqual` on the posted bodies must not see it.
+  return Object.defineProperty(posted, "reads", {
+    value: reads,
+  }) as typeof posted & { reads: typeof reads };
 }
 
 function renderAt(path: string) {

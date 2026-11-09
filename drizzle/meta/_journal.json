@@ -302,6 +302,13 @@
       "when": 1794213289814,
       "tag": "0042_previous_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794228302939,
+      "tag": "0043_tiresome_monster_badoon",
+      "breakpoints": true
     }
   ]
 }
