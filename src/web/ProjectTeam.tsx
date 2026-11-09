@@ -1,23 +1,17 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { lazy, Suspense, useId, useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
 import { STARTER_LEVELS } from "./starter-levels.ts";
+import { catalogAgents, StepList, TeamCanvas } from "./TeamCanvas.tsx";
 import {
   addStep,
   DEFAULT_STEPS,
   linkSteps,
   moveStep,
+  parseMax,
   readTeam,
   removeStep,
   type TeamStep,
@@ -31,7 +25,6 @@ import {
   field,
   focusRing,
   ghostButton,
-  listCard,
   primaryButton,
 } from "./ui.ts";
 
@@ -43,9 +36,10 @@ export const chip = (on: boolean) =>
   `inline-flex h-7 items-center whitespace-nowrap rounded-full border px-2.5 text-[12.5px] font-semibold disabled:opacity-50 ${focusRing} ${on ? "border-foreground bg-raised text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`;
 
 const TDD_AGENTS = ["test-writer", "reviewer"];
-// A team name is an agent name that fits `.claude/teams/<name>.md` in 255 characters (decision 032 A).
-const TEAM_NAME = /^[a-z0-9][a-z0-9-]*$/;
-const MAX_TEAM_NAME = 238;
+
+// shortcut: a loop already without `max` in the file is kept as it is (decision 079 A2), so only a limitless loop more than the file (or the starter team) had blocks the commit (one emptied, not one left alone); the canvas checks every loop.
+const limitless = (steps: TeamStep[]) =>
+  steps.filter((s) => s.loopTo !== null && s.max === undefined).length;
 
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
@@ -161,6 +155,8 @@ function StepPanel({
             ...step,
             loopTo: e.target.value || null,
             until: e.target.value ? step.until : "",
+            // A loop always has a limit (decision 079 C).
+            max: e.target.value ? (step.max ?? 3) : undefined,
           })
         }
       >
@@ -181,6 +177,20 @@ function StepPanel({
             className={field}
             value={step.until}
             onChange={(e) => onChange({ ...step, until: e.target.value })}
+          />
+          <label htmlFor={`${uid}-step-max`} className="mt-3 block">
+            Au plus
+          </label>
+          <input
+            id={`${uid}-step-max`}
+            type="number"
+            min={1}
+            max={9}
+            className={field}
+            value={step.max ?? ""}
+            onChange={(e) =>
+              onChange({ ...step, max: parseMax(e.target.value) })
+            }
           />
         </>
       )}
@@ -229,21 +239,9 @@ function StepEditor({
     null,
   );
   const [until, setUntil] = useState("");
+  const [limit, setLimit] = useState(3);
   const [selectedLoop, setSelectedLoop] = useState<string | null>(null);
   const [warn, setWarn] = useState(false);
-  const [moved, setMoved] = useState<{ agent: string; dir: "up" | "down" }>();
-  // A moved row's DOM node is reinserted, which drops the focus: put it back on the button that was used (or its sibling at the end of the list).
-  useEffect(() => {
-    if (!moved) return;
-    const at = (dir: string) =>
-      document.getElementById(
-        `${uid}-move-${dir}-${moved.agent}`,
-      ) as HTMLButtonElement | null;
-    const other = moved.dir === "up" ? "down" : "up";
-    const target = at(moved.dir)?.disabled ? at(other) : at(moved.dir);
-    target?.focus();
-  }, [moved, uid]);
-
   // Any change other than the pending link itself drops the link prompt: it was about the old order.
   const setSteps = (next: TeamStep[]) => {
     setPending(null);
@@ -257,6 +255,7 @@ function StepEditor({
     const toIndex = steps.findIndex((s) => s.agent === to);
     if (toIndex <= steps.findIndex((s) => s.agent === from)) {
       setUntil("");
+      setLimit(3);
       setPending({ from, to });
     } else setSteps(linkSteps(steps, from, to));
   };
@@ -322,7 +321,9 @@ function StepEditor({
           onClick={() => {
             setSteps(
               steps.map((s) =>
-                s.agent === loopShown ? { ...s, loopTo: null, until: "" } : s,
+                s.agent === loopShown
+                  ? { ...s, loopTo: null, until: "", max: undefined }
+                  : s,
               ),
             );
             setSelectedLoop(null);
@@ -346,11 +347,25 @@ function StepEditor({
             autoFocus
             onChange={(e) => setUntil(e.target.value)}
           />
+          <label htmlFor={`${uid}-link-max`} className="mt-3 block">
+            Au plus
+          </label>
+          <input
+            id={`${uid}-link-max`}
+            type="number"
+            min={1}
+            max={9}
+            className={field}
+            value={limit || ""}
+            onChange={(e) => setLimit(parseMax(e.target.value) ?? 0)}
+          />
           <button
             type="button"
-            disabled={until.trim() === ""}
+            disabled={until.trim() === "" || limit === 0}
             onClick={() => {
-              setSteps(linkSteps(steps, pending.from, pending.to, until));
+              setSteps(
+                linkSteps(steps, pending.from, pending.to, until, limit),
+              );
             }}
             className={`mt-3 ${button}`}
           >
@@ -366,58 +381,12 @@ function StepEditor({
         </div>
       )}
       {/* Graph view: the list stays for the keyboard (visually hidden from sm up) and is the only view on a phone (decision 031 F). */}
-      <ul
-        className={`mt-3 ${listCard} ${view === "graph" ? "sm:not-focus-within:sr-only" : ""}`}
-      >
-        {steps.map((s, i) => (
-          <li
-            key={s.agent}
-            className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2"
-          >
-            <span className="font-semibold">{i + 1}</span>{" "}
-            <span className="font-mono font-semibold">{s.agent}</span>{" "}
-            <span>{s.does}</span>
-            {s.loopTo !== null && (
-              <span className="text-muted-foreground">
-                Boucle vers {s.loopTo} : {s.until}
-              </span>
-            )}
-            <span className="flex gap-2 sm:ml-auto">
-              <button
-                type="button"
-                id={`${uid}-move-up-${s.agent}`}
-                disabled={i === 0}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "up"));
-                  setMoved({ agent: s.agent, dir: "up" });
-                }}
-                className={button}
-              >
-                Monter
-              </button>
-              <button
-                type="button"
-                id={`${uid}-move-down-${s.agent}`}
-                disabled={i === steps.length - 1}
-                onClick={() => {
-                  setSteps(moveStep(steps, s.agent, "down"));
-                  setMoved({ agent: s.agent, dir: "down" });
-                }}
-                className={button}
-              >
-                Descendre
-              </button>
-              <button
-                type="button"
-                onClick={() => select(s.agent)}
-                className={button}
-              >
-                Modifier
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <StepList
+        steps={steps}
+        className={`mt-3 ${view === "graph" ? "sm:not-focus-within:sr-only" : ""}`}
+        onMove={(key, dir) => setSteps(moveStep(steps, key, dir))}
+        onSelect={select}
+      />
       <p role="status" className="mt-3 empty:hidden">
         {warn && "Le TDD du CLAUDE.md du projet s'appuie sur cette étape"}
       </p>
@@ -506,109 +475,6 @@ function Problem({ problem }: { problem: Failure }) {
   );
 }
 
-/** Decision 042: a new team is configured in a modal window, on its own draft, so the team shown behind it is never edited by mistake. */
-export function NewTeamDialog({
-  edit,
-  start,
-  taken,
-  agents,
-  archived,
-  pending,
-  problem,
-  onCreate,
-  onCancel,
-}: {
-  /** The name of a team being edited: shown, not editable, and the dialog saves instead of creating (decision 074 B). */
-  edit?: string;
-  start: Draft;
-  taken: string[];
-  agents: Agent[];
-  archived: boolean;
-  pending: boolean;
-  problem: Failure | null;
-  onCreate: (name: string, draft: Draft) => void;
-  onCancel: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const [newName, setNewName] = useState(edit ?? "");
-  const [draft, setDraft] = useState(start);
-  // The graph measures its box when it mounts: only once the dialog is shown, or it fits into nothing.
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    // Unmounting an open modal skips the native close steps: give the focus back by hand.
-    const opener = document.activeElement as HTMLElement | null;
-    ref.current?.showModal();
-    setShown(true);
-    return () => opener?.focus();
-  }, []);
-  const nameProblem =
-    edit !== undefined || !newName
-      ? null
-      : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
-        ? "Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début"
-        : taken.includes(newName)
-          ? "Ce nom est déjà pris"
-          : null;
-  const { steps } = draft;
-  return (
-    // Escape closes the dialog natively, which is « Annuler ».
-    <dialog
-      ref={ref}
-      aria-labelledby="team-new-title"
-      onClose={onCancel}
-      className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
-    >
-      <h3 id="team-new-title" className="font-heading text-lg font-bold">
-        {edit === undefined ? "Nouvelle équipe" : "Modifier l'équipe"}
-      </h3>
-      <label htmlFor="team-new" className="mt-3 block">
-        Nom de l'équipe
-      </label>
-      <input
-        id="team-new"
-        className={field}
-        value={newName}
-        readOnly={edit !== undefined}
-        aria-describedby="team-new-problem"
-        onChange={(e) => setNewName(e.target.value)}
-      />
-      <p id="team-new-problem" className="mt-2 empty:hidden">
-        {nameProblem}
-      </p>
-      {shown && (
-        <StepEditor
-          steps={steps}
-          onSteps={(next) => setDraft({ ...draft, steps: next })}
-          agents={agents}
-          archived={archived}
-          view="both"
-        />
-      )}
-      {problem && <Problem problem={problem} />}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={
-            archived ||
-            pending ||
-            !newName ||
-            nameProblem !== null ||
-            steps.length === 0 ||
-            !steps.every((s) => s.loopTo === null || s.until.trim() !== "")
-          }
-          onClick={() => onCreate(newName, draft)}
-          className={primaryButton}
-        >
-          {edit === undefined ? "Créer l'équipe" : "Enregistrer"}
-        </button>
-        <button type="button" onClick={onCancel} className={button}>
-          Annuler
-        </button>
-      </div>
-    </dialog>
-  );
-}
-
 /** Decisions 031 and 032: a team (`.claude/team.md` or `.claude/teams/<name>.md`) as a graph and a list sharing one draft, saved by a commit shown before as a diff. */
 export function ProjectTeam({
   projectId,
@@ -650,8 +516,10 @@ export function ProjectTeam({
   const key = `${name ?? ""}:${current}`;
   const [seen, setSeen] = useState(key);
   const [switchTo, setSwitchTo] = useState<string | null>(null);
-  // The draft of the new team while its dialog is open, started from the current team as read.
-  const [creating, setCreating] = useState<Draft | null>(null);
+  // The canvas (decision 079) while it is open: a new team or the team shown, on its own draft started from the team as read.
+  const [canvas, setCanvas] = useState<{ draft: Draft; edit: boolean } | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [view, setView] = useState<"graph" | "list">("graph");
@@ -662,11 +530,15 @@ export function ProjectTeam({
   const [starter, setStarter] = useState<{
     id: string;
     agents: StarterAgent[];
+    /** The loops without `max` the starter team brings: kept as they are (decision 079 A2). */
+    loose: number;
   } | null>(null);
   const [choosing, setChoosing] = useState(false);
-  useEffect(() => {
-    void queryClient.prefetchQuery(starterQuery);
-  }, [queryClient]);
+  const starters = useQuery(starterQuery);
+  const catalog = useMemo(
+    () => (starters.data ? catalogAgents(starters.data) : new Map()),
+    [starters.data],
+  );
   // The level asked for over unsaved changes, until « Confirmer le changement » or « Annuler ».
   const [levelSwitch, setLevelSwitch] = useState<string | null>(null);
   // Another team or a new text read (after a commit or a conflict) starts a new draft; a re-read of the same text keeps the edits.
@@ -715,8 +587,8 @@ export function ProjectTeam({
           // Not in `teams` until the reload below answers: the picker and the draft start from what was sent.
           setCopy(created);
           setName(savedName);
-          setCreating(null);
         }
+        setCanvas(null);
         setDone({
           url:
             pullRequest?.url ??
@@ -729,6 +601,8 @@ export function ProjectTeam({
     onError: () => setProblem({ code: "", status: 0 }),
   });
 
+  // A group or an id is edited on the canvas only (decision 079 F).
+  const grouped = draft?.steps.some((st) => st.parallel || st.id !== undefined);
   const agentChanges =
     starter && draft ? starterChanges(starter.agents, draft.steps, agents) : [];
   const dirty =
@@ -740,7 +614,7 @@ export function ProjectTeam({
   const goTo = (next: string | null) => {
     setName(next);
     setSwitchTo(null);
-    setCreating(null);
+    setCanvas(null);
     setDeleting(false);
     setProblem(null);
     setDone(null);
@@ -761,7 +635,11 @@ export function ProjectTeam({
       const read = chosen && readTeam(chosen.team);
       if (!chosen || !read) throw new Error("starter team");
       setDraft(read);
-      setStarter({ id: chosen.id, agents: chosen.agents });
+      setStarter({
+        id: chosen.id,
+        agents: chosen.agents,
+        loose: limitless(read.steps),
+      });
       setShowDiff(false);
       setChoosing(false);
     } catch {
@@ -802,7 +680,7 @@ export function ProjectTeam({
               onClick={() => {
                 if (n === name) return;
                 if (!dirty) return goTo(n);
-                setCreating(null);
+                setCanvas(null);
                 setDeleting(false);
                 setLevelSwitch(null);
                 setSwitchTo(n ?? "");
@@ -821,13 +699,32 @@ export function ProjectTeam({
             setDeleting(false);
             setProblem(null);
             setDone(null);
-            setCreating(initial ?? { steps: DEFAULT_STEPS, body: "" });
+            setCanvas({
+              draft: initial ?? { steps: DEFAULT_STEPS, body: "" },
+              edit: false,
+            });
           }}
           className={`${chip(false)} border-transparent`}
         >
           Nouvelle équipe
         </button>
-        {viewSwitch}
+        {initial && (
+          <button
+            type="button"
+            disabled={archived || commit.isPending}
+            onClick={() => {
+              setSwitchTo(null);
+              setDeleting(false);
+              setProblem(null);
+              setDone(null);
+              setCanvas({ draft: initial, edit: true });
+            }}
+            className={`${chip(false)} border-transparent`}
+          >
+            Modifier sur le canevas
+          </button>
+        )}
+        {!grouped && viewSwitch}
       </div>
       {name === null && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -904,24 +801,38 @@ export function ProjectTeam({
           </code>
         </p>
       )}
-      {creating && (
-        <NewTeamDialog
-          start={creating}
+      {canvas && (
+        <TeamCanvas
+          back={`‹ ${fullName} · Agents`}
+          edit={canvas.edit ? (name ?? "par défaut") : undefined}
+          defaultTeam={canvas.edit && name === null}
+          start={canvas.draft}
           taken={teams.map((t) => t.name)}
-          agents={agents}
+          repo={agents}
+          catalog={catalog}
           archived={archived}
           pending={commit.isPending}
           problem={problem}
-          onCreate={(newName, created) =>
-            commit.mutate({
-              name: newName,
-              before: null,
-              after: writeTeam(created.steps, created.body),
-              created,
-            })
+          onSave={(newName, draft, added) =>
+            commit.mutate(
+              canvas.edit
+                ? {
+                    name,
+                    before: current,
+                    after: writeTeam(draft.steps, draft.body),
+                    agents: added,
+                  }
+                : {
+                    name: newName,
+                    before: null,
+                    after: writeTeam(draft.steps, draft.body),
+                    created: draft,
+                    agents: added,
+                  },
+            )
           }
           onCancel={() => {
-            setCreating(null);
+            setCanvas(null);
             setProblem(null);
           }}
         />
@@ -998,7 +909,8 @@ export function ProjectTeam({
     !commit.isPending &&
     !unchanged &&
     steps.length > 0 &&
-    steps.every((s) => s.loopTo === null || s.until.trim() !== "");
+    steps.every((s) => s.loopTo === null || s.until.trim() !== "") &&
+    limitless(steps) <= (starter?.loose ?? limitless(initial?.steps ?? []));
 
   return (
     // `contents`: the chips span the page, the editor and the commit row are the left column of the grid of ProjectAgents.
@@ -1006,16 +918,22 @@ export function ProjectTeam({
       {heading}
       <div className="lg:col-span-2">{picker}</div>
       <div className="min-w-0">
-        <StepEditor
-          key={key}
-          steps={steps}
-          onSteps={(next) => setDraft({ steps: next, body })}
-          agents={agents}
-          archived={archived}
-          view={view}
-          onEditAgent={onEditAgent}
-        />
-        {problem && !creating && <Problem problem={problem} />}
+        {grouped ? (
+          <p className="mt-3">
+            Cette équipe a des étapes en parallèle : modifie-la sur le canevas.
+          </p>
+        ) : (
+          <StepEditor
+            key={key}
+            steps={steps}
+            onSteps={(next) => setDraft({ steps: next, body })}
+            agents={agents}
+            archived={archived}
+            view={view}
+            onEditAgent={onEditAgent}
+          />
+        )}
+        {problem && !canvas && <Problem problem={problem} />}
         {done && (
           <div className="mt-3 rounded-[14px] border border-border bg-raised p-4 text-foreground">
             <p>
@@ -1067,7 +985,7 @@ export function ProjectTeam({
               disabled={archived || commit.isPending}
               onClick={() => {
                 setSwitchTo(null);
-                setCreating(null);
+                setCanvas(null);
                 setDeleting(true);
               }}
               className={ghostButton}
