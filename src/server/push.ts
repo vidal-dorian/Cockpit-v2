@@ -38,12 +38,12 @@ const MAX_DEVICES = 10;
 
 /** Whether the host is a name or an address of the machine's own network: the server posts to the endpoint, so it must not reach those. A literal check, no DNS (shortcut: a public name that resolves to a private address passes; upgrade with a resolved-address check). */
 const isLocalHost = (name: string) => {
-  // A trailing dot names the same host.
-  const host = name.replace(/\.$/, "");
+  // Trailing dots name the same host.
+  const host = name.replace(/\.+$/, "");
   return (
     host === "localhost" ||
     host.endsWith(".localhost") ||
-    /^(0|10|127)\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(
+    /^(0|10|127)\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\.|^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(
       host,
     ) ||
     /^\[(::|f[cd]|fe[89ab])/i.test(host)

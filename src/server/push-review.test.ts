@@ -142,6 +142,8 @@ describe("slice 15.2: the devices", () => {
     "https://[::1]/x",
     "https://localhost./x",
     "https://foo.localhost./x",
+    "https://localhost../x",
+    "https://100.64.0.1/x",
     "not a url",
     "https://",
     "",
