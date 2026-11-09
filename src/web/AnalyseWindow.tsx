@@ -84,7 +84,7 @@ export function AnalyseWindow({
   const read = useQuery({
     queryKey: ["analyse-plan", projectId],
     queryFn: () => readPlan(projectId),
-    enabled: !free,
+    enabled: projects.isSuccess && !free,
     retry: false,
     gcTime: 0,
     refetchOnWindowFocus: false,

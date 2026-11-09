@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
@@ -44,7 +44,7 @@ const present = ({
   login: string | null;
 }) => {
   const now = new Date();
-  const ended = code.userId
+  const ended = code.usedAt
     ? code.until !== null && code.until <= now
     : code.expiresAt <= now;
   return {
@@ -54,7 +54,7 @@ const present = ({
       ? ("revoked" as const)
       : ended
         ? ("expired" as const)
-        : code.userId
+        : code.usedAt
           ? ("used" as const)
           : ("free" as const),
     until: code.until,
@@ -86,7 +86,7 @@ export function planRoutes(db: Db) {
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
       const typed = z
-        .object({ code: z.string() })
+        .object({ code: z.string().trim() })
         .safeParse(await c.req.json().catch(() => null));
       const entry: Entry = {
         userId: user.userId,
@@ -108,11 +108,18 @@ export function planRoutes(db: Db) {
           // One answer for every reason: the code is free, not revoked and not past its 30 days.
           if (
             !found ||
-            found.userId !== null ||
+            found.usedAt !== null ||
             found.revokedAt ||
             found.expiresAt <= new Date()
           )
             throw new Refused("invalid_code");
+          // The new code replaces the old ones: they end, so the list and the plan agree.
+          await tx
+            .update(proCodes)
+            .set({ revokedAt: new Date() })
+            .where(
+              and(eq(proCodes.userId, user.userId), isNull(proCodes.revokedAt)),
+            );
           await tx
             .update(proCodes)
             .set({ userId: user.userId, usedAt: new Date() })
@@ -206,7 +213,7 @@ export function proCodeRoutes(db: Db) {
       const parsed = changeBody.safeParse(await c.req.json().catch(() => null));
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       return change(c, "change_pro_code", (code) => {
-        if (!code.userId) throw new Refused("not_used");
+        if (!code.usedAt) throw new Refused("not_used");
         return { until: parsed.data.until };
       });
     })

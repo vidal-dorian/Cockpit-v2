@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { plural } from "./tickets.ts";
 import {
   alertBox,
   button,
@@ -24,8 +25,8 @@ export function planSentence(plan: Awaited<ReturnType<typeof fetchPlan>>) {
       title: "Ton abonnement : Gratuit.",
       rest:
         plan.repos >= (plan.limit ?? 0)
-          ? `${plan.repos} repos sur ${plan.limit} utilisés. Passe à Pro pour en ajouter.`
-          : `${plan.repos} repos sur ${plan.limit} utilisés.`,
+          ? `${plural(plan.repos, "repo", "repos")} sur ${plan.limit} utilisés. Passe à Pro pour en ajouter.`
+          : `${plural(plan.repos, "repo", "repos")} sur ${plan.limit} utilisés.`,
     };
   return {
     title: "Ton abonnement : Pro.",
@@ -43,17 +44,26 @@ const NOT_OPEN =
 
 const Card = ({
   title,
+  current,
   price,
   items,
   children,
 }: {
   title: string;
+  current?: boolean;
   price: string;
   items: string[];
   children?: React.ReactNode;
 }) => (
   <section className={`${card} flex flex-col gap-2 p-4`}>
-    <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="flex items-baseline gap-2">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {current && (
+        <span className="text-[12.5px] text-muted-foreground">
+          · ton abonnement
+        </span>
+      )}
+    </div>
     <p className="font-semibold">{price}</p>
     <ul className="grow list-disc pl-5 text-[13.5px] text-muted-foreground">
       {items.map((item) => (
@@ -67,6 +77,7 @@ const Card = ({
 /** Réglages › Abonnement (S49 as amended by decision 077 F and G): the three offers, the code field, the invoices. */
 export function Subscription() {
   const queryClient = useQueryClient();
+  const plan = useQuery({ queryKey: ["plan"], queryFn: fetchPlan });
   const [code, setCode] = useState("");
   const [notOpen, setNotOpen] = useState(false);
   const activate = useMutation({
@@ -101,16 +112,28 @@ export function Subscription() {
       <div className="grid gap-3 lg:grid-cols-3">
         <Card
           title="Gratuit"
+          current={plan.data?.plan === "free"}
           price="0 €"
           items={[
             "3 repos, archivés compris",
             "Tickets, US, Kanban",
             "Runs et la nuit de Claude",
-            "La jauge « N repos sur 3 »",
           ]}
-        />
+        >
+          {plan.data?.limit != null && (
+            <label className="text-[12.5px] text-muted-foreground">
+              {plural(plan.data.repos, "repo", "repos")} sur {plan.data.limit}
+              <progress
+                value={plan.data.repos}
+                max={plan.data.limit}
+                className="mt-1 block h-2 w-full accent-foreground"
+              />
+            </label>
+          )}
+        </Card>
         <Card
           title="Pro"
+          current={plan.data?.plan === "pro"}
           price="10 € par mois ou 96 € par an"
           items={["Repos illimités", "Reprendre une app existante"]}
         >

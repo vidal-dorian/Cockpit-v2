@@ -54,6 +54,8 @@ function ReturnAlert({ installUrl }: { installUrl: string }) {
       "Le repo est peut-être créé sur GitHub ; importe-le depuis « Importer un repo ».",
     "demande-expiree": "Recommence la création.",
     annulee: "La création est annulée.",
+    quota:
+      "Ton abonnement Gratuit couvre 3 repos, archivés compris. Passe à Pro pour en ajouter.",
     refusee: `GitHub a refusé la création : ${(params.get("raison") ?? "").slice(0, 200)}`,
   }[code ?? ""] as string | undefined;
   return text ? (

@@ -131,3 +131,41 @@ describe("S49, 077 H: « J'ai un code Pro »", () => {
     );
   });
 });
+
+describe("S49, 077 F: the gauge and the current card", () => {
+  it("given a Free account with 2 repos, when the page loads, then the gauge says 2 repos sur 3 and the Gratuit card is marked as the subscription", async () => {
+    stubPlans({ plan: FREE });
+
+    renderAt("/reglages/abonnement");
+
+    const gauge = await screen.findByRole("progressbar");
+    expect(gauge.getAttribute("value")).toBe("2");
+    expect(gauge.getAttribute("max")).toBe("3");
+    expect(screen.getByText("2 repos sur 3")).toBeDefined();
+    expect(screen.getAllByText("· ton abonnement")).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { name: "Gratuit" }).parentElement
+        ?.textContent,
+    ).toContain("ton abonnement");
+  });
+
+  it("given a Free account with 1 repo, when the page loads, then the sentence is singular", async () => {
+    stubPlans({ plan: { ...FREE, repos: 1 } });
+
+    renderAt("/reglages/abonnement");
+
+    await screen.findByText("1 repo sur 3 utilisés.");
+  });
+
+  it("given a Pro account, when the page loads, then the Pro card is marked and there is no gauge", async () => {
+    stubPlans({ plan: PRO });
+
+    renderAt("/reglages/abonnement");
+
+    await screen.findByText("· ton abonnement");
+    expect(
+      screen.getByRole("heading", { name: "Pro" }).parentElement?.textContent,
+    ).toContain("ton abonnement");
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+});

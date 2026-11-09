@@ -1,0 +1,59 @@
+import { sql } from "drizzle-orm";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { send } from "./test-decisions.ts";
+import { withProject } from "./test-mcp.ts";
+import { admin, enter, generate, get, makePro, planOf } from "./test-plans.ts";
+
+// Review fixes of slice 13.2 (decision 077 H): a new code replaces the old one, and the typed code is trimmed.
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("077 H: entering a code", () => {
+  it("given a Pro account by a first code, when it enters a second one, then the first one is revoked in the list and the plan follows the second", async () => {
+    const ctx = await withProject();
+    const boss = await admin(ctx.db);
+    const first = await makePro(ctx.app, boss.cookie, ctx.alice.cookie);
+    const second = await generate(ctx.app, boss.cookie);
+
+    await enter(ctx.app, ctx.alice.cookie, second.secret);
+
+    const list = (await (
+      await get(ctx.app, boss.cookie, "/api/settings/pro-codes")
+    ).json()) as { codes: { id: number; state: string }[] };
+    expect(list.codes.find((c) => c.id === first)?.state).toBe("revoked");
+    expect(list.codes.find((c) => c.id === second.id)?.state).toBe("used");
+    expect((await planOf(ctx.app, ctx.alice.cookie)).plan).toBe("pro");
+  });
+
+  it("given a code of an account that was deleted (no user any more), when it is entered, then it is still refused as used", async () => {
+    const ctx = await withProject();
+    const boss = await admin(ctx.db);
+    const made = await generate(ctx.app, boss.cookie);
+    await enter(ctx.app, ctx.alice.cookie, made.secret);
+    await ctx.db.execute(sql`update pro_codes set user_id = null`);
+
+    const res = await enter(ctx.app, boss.cookie, made.secret);
+
+    expect(res.status).toBe(400);
+  });
+
+  it("given a good code typed with spaces around, when it is entered, then it works", async () => {
+    const ctx = await withProject();
+    const boss = await admin(ctx.db);
+    const made = await generate(ctx.app, boss.cookie);
+
+    const res = await send(
+      ctx.app,
+      ctx.alice.cookie,
+      "POST",
+      "/api/me/pro-code",
+      {
+        code: `  ${made.secret}\n`,
+      },
+    );
+
+    expect(res.status).toBe(200);
+  });
+});

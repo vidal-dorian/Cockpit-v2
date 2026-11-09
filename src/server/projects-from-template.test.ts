@@ -24,6 +24,7 @@ import {
   TEST_KEY,
   testAppOptions,
 } from "./test-instance.ts";
+import { ownMore } from "./test-plans.ts";
 
 // Slice 12.5, decision 068: a new project from a template repo. The contract these tests assume:
 //
@@ -566,6 +567,22 @@ describe("the return from GitHub (decision 068 D)", () => {
         args: { template: TEMPLATE, fullName: "user1000/planning-chantiers" },
       },
     ]);
+  });
+
+  it("given a request made at 2 repos, when the user reaches 3 before GitHub sends them back, then nothing is generated or imported and the page says the quota", async () => {
+    const calls = stubTemplates();
+    const ctx = await setup();
+    await ownMore(ctx.db, ctx.userId, 2);
+    const { state, cookies } = await begin(ctx);
+    await ctx.db.execute(
+      sql`with p as (insert into projects (github_repo_id, full_name, default_branch, installation_id) values (555, 'user1000/extra', 'main', 77) returning id) insert into project_members (project_id, user_id, role) select id, ${ctx.userId}, 'owner' from p`,
+    );
+
+    const res = await callback(ctx, `code=gh-code&state=${state}`, cookies);
+
+    expect(res.headers.get("location")).toBe(failed("quota"));
+    expect(calls.filter((c) => c.url.endsWith("/generate"))).toHaveLength(0);
+    expect(await ctx.db.select().from(projects)).toHaveLength(3);
   });
 
   it("given a repo generated, when the return is over, then the user token is nowhere in the database", async () => {

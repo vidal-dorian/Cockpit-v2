@@ -278,6 +278,20 @@ export class RoleRefused extends Refused {
   }
 }
 
+/** The account that owns a project. */
+async function ownerOf(db: Db, projectId: number) {
+  const [owner] = await db
+    .select({ id: projectMembers.userId })
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, projectId),
+        eq(projectMembers.role, "owner"),
+      ),
+    );
+  return owner;
+}
+
 /** The one place that says whether a user belongs to a project, and with which role; anyone else gets undefined, as if it did not exist (decisions 004 and 011 E). A member below `min` is refused with a `RoleRefused`: every gesture that writes asks for its role here (decision 076). */
 export async function memberProject(
   db: Db,
@@ -298,15 +312,7 @@ export async function memberProject(
     );
   if (!found) return undefined;
   // A project the plan of its owner locks is read-only for everyone (decision 077 E).
-  const [owner] = await db
-    .select({ id: projectMembers.userId })
-    .from(projectMembers)
-    .where(
-      and(
-        eq(projectMembers.projectId, projectId),
-        eq(projectMembers.role, "owner"),
-      ),
-    );
+  const owner = await ownerOf(db, projectId);
   const locked = owner
     ? (await planState(db, owner.id)).locked.has(projectId)
     : false;
@@ -318,15 +324,7 @@ export async function memberProject(
 
 /** Refuses a gesture that is Pro only when the owner of the project is Free (decision 077 D). */
 export async function proOnly(db: Db, userId: number, projectId: number) {
-  const [owner] = await db
-    .select({ id: projectMembers.userId })
-    .from(projectMembers)
-    .where(
-      and(
-        eq(projectMembers.projectId, projectId),
-        eq(projectMembers.role, "owner"),
-      ),
-    );
+  const owner = await ownerOf(db, projectId);
   if (owner && (await planOf(db, owner.id)).plan === "free")
     throw new RoleRefused(userId, projectId, "plan");
 }
@@ -802,6 +800,12 @@ export function projectRoutes(
         try {
           const project = await act(db, entry, async (tx) => {
             if (!found || !repo) throw new Refused("repo_not_available");
+            // The user row is locked, so two imports at once cannot both pass.
+            await tx
+              .select({ id: users.id })
+              .from(users)
+              .where(eq(users.id, user.userId))
+              .for("update");
             if (await overQuota(tx, user.userId)) throw new Refused("plan");
             const created = await trackRepo(
               tx,
