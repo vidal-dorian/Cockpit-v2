@@ -2,14 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { chip } from "./ProjectTeam.tsx";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
 import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
   alertBox,
   badge,
   button,
-  card,
   dangerButton,
   focusRing,
   ghostButton,
@@ -192,10 +190,94 @@ function LoginLink() {
   );
 }
 
+/** The glow of the expensive levels (decision 072 A5): soft on Premium, strong and breathing on Max. */
 const GLOW: Record<string, string> = {
-  premium: "shadow-[0_0_24px_var(--color-claude-glow)]",
-  max: "shadow-[0_0_32px_var(--color-claude-glow-strong)]",
+  premium: "border-claude/40 shadow-[0_0_36px_var(--color-claude-glow)]",
+  max: "border-claude/70 shadow-[0_0_56px_var(--color-claude-glow-strong)] glow-breathe",
 };
+
+const MODEL_PILL: Record<string, string> = {
+  opus: "bg-claude-soft text-claude-text",
+  sonnet: "bg-raised text-foreground",
+  haiku: "bg-raised text-muted-foreground",
+};
+
+function Chevron({ left }: { left?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      className={`size-5 ${left ? "rotate-180" : ""}`}
+    >
+      <path
+        d="M7.5 4.5 13 10l-5.5 5.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** One level of the carousel: its name, its pipeline of agents and its consumption gauge. */
+function LevelCard({
+  level,
+  rank,
+}: {
+  level: (typeof STARTER_LEVELS)[number];
+  rank: number;
+}) {
+  const agents = level.agents.map((a) => `${a.name} · ${a.model}`).join(" → ");
+  return (
+    <>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-heading text-2xl font-bold">{level.name}</p>
+        <span className="font-mono text-[11px] text-dim">
+          {level.agents.length} agents
+        </span>
+      </div>
+      <p className="mt-1 text-[13.5px] text-muted-foreground">
+        {level.sentence}
+      </p>
+      <p className="sr-only">{agents}</p>
+      <ol aria-hidden="true" className="mt-4 grid gap-1.5">
+        {level.agents.map((a, i) => (
+          <li key={a.name} className="relative flex items-center gap-2.5">
+            {i > 0 && (
+              <span className="absolute -top-1.5 left-[9.5px] h-1.5 w-px bg-border-strong" />
+            )}
+            <span className="grid size-5 flex-none place-items-center rounded-full border border-border-strong bg-sunken font-mono text-[10px] text-muted-foreground">
+              {i + 1}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">
+              {a.name}
+            </span>
+            <span
+              className={`rounded-full px-2 py-px font-mono text-[11px] ${MODEL_PILL[a.model] ?? MODEL_PILL.sonnet}`}
+            >
+              {a.model}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-auto pt-4">
+        <div aria-hidden="true" className="flex gap-1">
+          {STARTER_LEVELS.map((l, i) => (
+            <span
+              key={l.id}
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${i <= rank ? (rank === STARTER_LEVELS.length - 1 ? "bg-claude shadow-[0_0_8px_var(--color-claude-glow-strong)]" : "bg-claude") : "bg-raised"}`}
+            />
+          ))}
+        </div>
+        <p className="mt-1.5 text-[12px] text-muted-foreground">
+          Consommation : {level.use}
+        </p>
+      </div>
+    </>
+  );
+}
 
 /** Decision 072 A: the level of the starter team is chosen in a carousel, once the repo is picked. */
 function ImportDialog({
@@ -213,6 +295,7 @@ function ImportDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [at, setAt] = useState(1); // Standard
+  const swipe = useRef<number | null>(null);
   useEffect(() => {
     // Unmounting an open modal skips the native close steps: give the focus back by hand.
     const opener = document.activeElement as HTMLElement | null;
@@ -220,14 +303,15 @@ function ImportDialog({
     return () => opener?.focus();
   }, []);
   const carousel = useRef<HTMLDivElement>(null);
-  // A move can disable the focused arrow or unmount the focused side card: the focus goes to the current dot, so the keys keep working.
+  // A move can disable the focused arrow or hide the focused side card: the focus goes to the current dot, so the keys keep working.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on every move of the carousel
   useEffect(() => {
     const focused = document.activeElement;
     if (
       !focused ||
       focused === document.body ||
-      (focused instanceof HTMLButtonElement && focused.disabled)
+      (focused instanceof HTMLButtonElement && focused.disabled) ||
+      focused.closest("[inert]")
     )
       carousel.current
         ?.querySelector<HTMLElement>('[aria-current="true"]')
@@ -236,24 +320,7 @@ function ImportDialog({
   const go = (to: number) =>
     setAt(Math.min(STARTER_LEVELS.length - 1, Math.max(0, to)));
   const level = STARTER_LEVELS[at] as (typeof STARTER_LEVELS)[number];
-  const side = (to: number) => {
-    const other = STARTER_LEVELS[to];
-    return other ? (
-      <button
-        type="button"
-        onClick={() => go(to)}
-        className={`${card} hidden w-1/4 scale-90 p-3 text-left opacity-50 sm:block ${GLOW[other.id] ?? ""} ${focusRing}`}
-      >
-        <span className="block font-semibold">{other.name}</span>
-        <span className="block text-[12.5px] text-muted-foreground">
-          {other.sentence}
-        </span>
-      </button>
-    ) : (
-      <span className="hidden w-1/4 sm:block" />
-    );
-  };
-  const arrow = `${button} w-11 flex-none px-0`;
+  const arrow = `absolute top-1/2 z-20 grid size-10 -translate-y-1/2 place-items-center rounded-full border border-border-strong bg-raised/80 text-foreground backdrop-blur transition hover:bg-raised-hover disabled:pointer-events-none disabled:opacity-0 ${focusRing}`;
   return (
     // Escape closes the dialog natively, which is « Annuler ».
     <dialog
@@ -262,89 +329,133 @@ function ImportDialog({
       onClose={onCancel}
       // Escape while the import is sent would hide its error.
       onCancel={(e) => pending && e.preventDefault()}
-      className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
+      className="dialog-in m-auto max-h-[calc(100dvh-2rem)] w-[min(56rem,calc(100%-2rem))] overflow-x-hidden overflow-y-auto rounded-[20px] border border-border-strong bg-background bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,var(--color-claude-glow),transparent)] p-0 text-foreground backdrop:bg-background/70 backdrop:backdrop-blur-sm"
     >
-      <h3 id="import-title" className="font-heading text-lg font-bold">
-        Quelle équipe pour {fullName} ?
-      </h3>
-      <p className="mt-1 text-muted-foreground">
-        Une équipe, c'est les agents qui développent tes US, l'un après l'autre.
-        Plus elle relit, plus elle consomme. Tu pourras la changer ensuite.
-      </p>
-      {/* The keys are read here: keydown bubbles from the buttons inside. */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are a shortcut of the buttons */}
+      <div className="px-6 pt-6">
+        <p className={sectionLabel}>Importer depuis GitHub</p>
+        <h3 id="import-title" className="mt-1.5 font-heading text-xl font-bold">
+          Quelle équipe pour {fullName} ?
+        </h3>
+        <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-muted-foreground">
+          Une équipe, c'est les agents qui développent tes US, l'un après
+          l'autre. Plus elle relit, plus elle consomme. Tu pourras la changer
+          ensuite.
+        </p>
+      </div>
+      {/* The keys are read here: keydown bubbles from the buttons inside; a swipe moves it on a phone. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys and the swipe are shortcuts of the buttons */}
       <div
         ref={carousel}
-        className="mt-4"
+        className="mt-2"
         onKeyDown={(e) => {
           if (e.key === "ArrowRight") go(at + 1);
           if (e.key === "ArrowLeft") go(at - 1);
         }}
+        onPointerDown={(e) => {
+          swipe.current = e.clientX;
+        }}
+        onPointerUp={(e) => {
+          const dx = e.clientX - (swipe.current ?? e.clientX);
+          swipe.current = null;
+          if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1));
+        }}
       >
-        <div className="flex items-center gap-2">
+        <div className="relative">
+          {/* The edges fade out, the arrows stay outside the fade. */}
+          <div className="relative -my-10 h-[452px] touch-pan-y [--shift:64%] [mask-image:linear-gradient(to_right,transparent,black_14%,black_86%,transparent)] [perspective:1200px] sm:[--shift:58%]">
+            {STARTER_LEVELS.map((l, i) => {
+              const offset = i - at;
+              const far = Math.abs(offset) > 1;
+              const style = {
+                transform: `translateX(calc(-50% + ${offset} * var(--shift))) rotateY(${offset * -22}deg) scale(${offset === 0 ? 1 : far ? 0.7 : 0.82})`,
+                opacity: offset === 0 ? 1 : far ? 0 : 0.4,
+                zIndex: 10 - Math.abs(offset),
+              };
+              return (
+                <div
+                  key={l.id}
+                  inert={far}
+                  aria-hidden={far || undefined}
+                  style={style}
+                  className={`absolute top-16 bottom-16 left-1/2 flex w-[78%] flex-col rounded-[18px] border bg-card p-5 transition-[transform,opacity,box-shadow,border-color] duration-500 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none sm:w-[46%] ${offset === 0 ? "border-border-strong" : "border-border"} ${GLOW[l.id] ?? ""}`}
+                >
+                  <div
+                    aria-hidden={offset !== 0 || undefined}
+                    className="flex h-full flex-col"
+                  >
+                    <LevelCard level={l} rank={i} />
+                  </div>
+                  {offset !== 0 && (
+                    <button
+                      type="button"
+                      aria-label={`Voir ${l.name} : ${l.sentence}`}
+                      onClick={() => go(i)}
+                      className={`absolute inset-0 rounded-[18px] ${focusRing}`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
           <button
             type="button"
             aria-label="Équipe précédente"
             disabled={at === 0}
             onClick={() => go(at - 1)}
-            className={arrow}
+            className={`${arrow} left-3`}
           >
-            ←
+            <Chevron left />
           </button>
-          {side(at - 1)}
-          <div className={`${card} min-w-0 flex-1 p-4 ${GLOW[level.id] ?? ""}`}>
-            <p className="text-lg font-semibold">{level.name}</p>
-            <p className="text-muted-foreground">{level.sentence}</p>
-            <p className="mt-3 font-mono text-[12.5px]">
-              {level.agents.map((a) => `${a.name} · ${a.model}`).join(" → ")}
-            </p>
-            <p className="mt-2 text-[12.5px] text-muted-foreground">
-              Consommation : {level.use}
-            </p>
-          </div>
-          {side(at + 1)}
           <button
             type="button"
             aria-label="Équipe suivante"
             disabled={at === STARTER_LEVELS.length - 1}
             onClick={() => go(at + 1)}
-            className={arrow}
+            className={`${arrow} right-3`}
           >
-            →
+            <Chevron />
           </button>
         </div>
-        <div className="mt-3 flex justify-center gap-1.5">
+        <div className="relative mx-auto grid w-fit grid-cols-4 rounded-full border border-border bg-sunken p-1">
           {STARTER_LEVELS.map((l, i) => (
             <button
               key={l.id}
               type="button"
               aria-current={i === at ? "true" : undefined}
               onClick={() => go(i)}
-              className={chip(i === at)}
+              className={`relative z-10 h-8 min-w-20 rounded-full px-3 text-[12.5px] font-semibold transition-colors duration-300 ${i === at ? "text-foreground" : "text-muted-foreground hover:text-foreground"} ${focusRing}`}
             >
               {l.name}
             </button>
           ))}
+          {/* The pill under the current level slides from one to the other. */}
+          <span
+            aria-hidden="true"
+            style={{ transform: `translateX(${at * 100}%)` }}
+            className="absolute top-1 left-1 h-8 w-[calc((100%-0.5rem)/4)] rounded-full border border-border-strong bg-raised transition-transform duration-500 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none"
+          />
         </div>
       </div>
-      {error && <ErrorAlert error={error} />}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => onImport(level.id)}
-          className={primaryButton}
-        >
-          Importer avec {level.name}
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onCancel}
-          className={button}
-        >
-          Annuler
-        </button>
+      <div className="px-6 pb-6">
+        {error && <ErrorAlert error={error} />}
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onCancel}
+            className={ghostButton}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onImport(level.id)}
+            className={primaryButton}
+          >
+            Importer avec {level.name}
+          </button>
+        </div>
       </div>
     </dialog>
   );

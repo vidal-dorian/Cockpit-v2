@@ -180,3 +180,32 @@ body {
 .react-flow__node {
   color: var(--color-foreground);
 }
+
+/* The import panel (decision 072 A): the window rises in, the glow of Max breathes. */
+@media (prefers-reduced-motion: no-preference) {
+  .dialog-in[open] {
+    animation: dialog-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .dialog-in[open]::backdrop {
+    animation: backdrop-in 0.32s ease-out;
+  }
+  .glow-breathe {
+    animation: glow-breathe 3.2s ease-in-out infinite;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes glow-breathe {
+  50% {
+    box-shadow: 0 0 72px var(--color-claude-glow-strong);
+  }
+}
