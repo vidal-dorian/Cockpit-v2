@@ -660,7 +660,7 @@ export function githubClient(config: GitHubAppConfig) {
       return z.array(repoSchema).parse(repos);
     },
 
-    /** Whether `owner/name` exists on GitHub, as the installation sees it: a private repo of someone else reads as free (decision 068, then `generateRepo` refuses). */
+    /** Whether `owner/name` exists on GitHub, as the installation sees it: the user's own private repo, not opened to an installation limited to chosen repos, reads as free (decision 068, then `generateRepo` refuses). */
     async repoExists(installationId: number, owner: string, name: string) {
       const octokit = await app.getInstallationOctokit(installationId);
       try {

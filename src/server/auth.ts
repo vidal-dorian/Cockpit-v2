@@ -127,6 +127,11 @@ export function authRoutes(
   db: Db,
   readInstance: ReadInstance,
   readGitHub: ReadGitHub,
+  /** Completes a project creation from a template when the return is one (decision 068 D), null otherwise. */
+  templateReturn: (
+    c: Context,
+    config: InstanceSettings,
+  ) => Promise<Response | null>,
 ) {
   /** Where a fresh login lands (decision 012 H); a failing check never blocks the login. */
   async function landingPage(login: string, githubId: number) {
@@ -198,6 +203,8 @@ export function authRoutes(
     .get("/api/auth/callback", async (c) => {
       const config = await readInstance();
       if (!config) return c.redirect("/installation");
+      const creation = await templateReturn(c, config);
+      if (creation) return creation;
       const secure = config.publicUrl.startsWith("https:");
       const expectedState = getCookie(c, STATE_COOKIE);
       // The state is single-use: whatever happens next, it is gone.

@@ -8,6 +8,7 @@ import {
   projectMembers,
   projects,
   sessions,
+  templateRequests,
   users,
 } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
@@ -37,11 +38,11 @@ import {
 // GET /api/templates/name?owner=&name= (session)  200 { available: boolean } (read on GitHub as the installation: GET /repos/{owner}/{name}, 404 means free);
 //   400 when the name is not a valid repo name or the owner is not the user's.
 // POST /api/projects/from-template  { template: "<owner>/<repo>", owner, name, description?, private }
-//   200 { authorizeUrl } = https://github.com/login/oauth/authorize?client_id&redirect_uri=<publicUrl>/api/projects/from-template/callback&state,
+//   200 { authorizeUrl } = https://github.com/login/oauth/authorize?client_id&redirect_uri=<publicUrl>/api/auth/callback&state,
 //   plus a Set-Cookie (HttpOnly) carrying that state (whatever its name); the request is kept server side, single use, ten minutes at most. Nothing is created yet.
 //   400 { error: "Bad request" } (template missing, owner not the user's, name not [A-Za-z0-9._-]{1,100} or "."/"..", description over 350 characters, private not a boolean),
 //   401 without session, 409 { error: "name_taken" }, 409 { error: "not_a_template" } (not a template, or not reached by the installation).
-// GET /api/projects/from-template/callback?code=&state= (session + the state cookie), always a 302:
+// GET /api/auth/callback?code=&state= (the login's callback, taken over when the creation's state cookie matches the state; session needed), always a 302:
 //   success: the code is exchanged at https://github.com/login/oauth/access_token (client_id, client_secret, code, redirect_uri), then
 //   POST https://api.github.com/repos/{template}/generate { owner, name, description, private, include_all_branches: false } with `Bearer <user token>`,
 //   the token is forgotten, the repo is imported as in 011 (owner member, installation of the user), history `create_from_template` ok { template, fullName } -> /projets/<project id>.
@@ -49,13 +50,13 @@ import {
 //     demande-expiree     state missing or different, request unknown, expired (> 10 minutes) or already used (nothing is exchanged)
 //     annulee             GitHub answered error=access_denied
 //     github-injoignable  the code exchange failed
+//     creee-non-importee  the repo was generated but reading the installation or the import then failed
 //     refusee&raison=<GitHub's message>  GitHub refused POST .../generate (nothing imported)
 //     hors-installation   the repo is created but the installation does not reach it (not imported)
 
 const AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const TOKEN_URL = "https://github.com/login/oauth/access_token";
-const CALLBACK =
-  "https://cockpit.example.com/api/projects/from-template/callback";
+const CALLBACK = "https://cockpit.example.com/api/auth/callback";
 const USER_TOKEN = "gho_user_token";
 const SETTINGS_PERMISSIONS =
   "https://github.com/settings/apps/cockpit-test/permissions";
@@ -87,6 +88,8 @@ type Options = {
   /** GitHub refuses the generation with this status and message. */
   generateFailure?: { status: number; message: string };
   tokenStatus?: number;
+  /** The installation cannot be listed once the repo is generated. */
+  listFailsAfterGenerate?: boolean;
   repositoriesStatus?: number;
   appPermissions?: Record<string, string>;
   installationPermissions?: Record<string, string>;
@@ -144,6 +147,12 @@ function stubTemplates(options: Options = {}) {
         authorization: headers.get("authorization") ?? "",
         body: text ? (JSON.parse(text) as Record<string, unknown>) : {},
       };
+      if (
+        options.listFailsAfterGenerate &&
+        url.pathname === "/installation/repositories" &&
+        calls.some((c) => c.url.endsWith("/generate"))
+      )
+        return Response.json({}, { status: 500 });
       if (call.url === TOKEN_URL) {
         calls.push(call);
         return options.tokenStatus
@@ -241,7 +250,7 @@ async function begin(ctx: Ctx, sent: unknown = body) {
 }
 
 const callback = (ctx: Ctx, query: string, cookies: string) =>
-  ctx.app.request(`/api/projects/from-template/callback?${query}`, {
+  ctx.app.request(`/api/auth/callback?${query}`, {
     headers: { cookie: cookies },
   });
 
@@ -600,11 +609,22 @@ describe("the return from GitHub (decision 068 D)", () => {
     expect(await ctx.db.select().from(projects)).toEqual([]);
   });
 
+  it("given the repo generated and the installation unreadable after, when the user comes back, then the page is told the repo may exist already", async () => {
+    stubTemplates({ listFailsAfterGenerate: true });
+    const ctx = await setup();
+
+    const res = await createAndReturn(ctx);
+
+    expect(res.headers.get("location")).toBe(failed("creee-non-importee"));
+    expect(await ctx.db.select().from(projects)).toEqual([]);
+  });
+
   it.each([
     ["the state differs from the cookie", "wrong-state", true],
     ["there is no state cookie", undefined, false],
   ])(
-    "given %s, when GitHub sends the user back, then the request has expired and nothing is exchanged",
+    // Not a creation's return any more: the login's callback runs, and fails for lack of its own state.
+    "given %s, when GitHub sends the user back, then it is no creation return and nothing is exchanged",
     async (_name, state, withCookie) => {
       const calls = stubTemplates();
       const ctx = await setup();
@@ -616,11 +636,37 @@ describe("the return from GitHub (decision 068 D)", () => {
         withCookie ? begun.cookies : ctx.cookie,
       );
 
-      expect(res.headers.get("location")).toBe(failed("demande-expiree"));
+      expect(res.headers.get("location")).toBe("/?erreur=connexion-echouee");
       expect(calls.some((c) => c.method === "POST")).toBe(false);
       expect(await ctx.db.select().from(projects)).toEqual([]);
     },
   );
+
+  it("given the state cookie of another user, when their session comes back with it, then the request has expired, nothing is generated and the first user's request survives", async () => {
+    const calls = stubTemplates();
+    const ctx = await setup();
+    const { state, cookies } = await begin(ctx);
+    const [other] = await ctx.db
+      .insert(users)
+      .values({ githubId: 2000, login: "user2000" })
+      .returning({ id: users.id });
+    assert(other);
+    await ctx.db.insert(sessions).values({
+      id: createHash("sha256").update("cookie-of-2000").digest("hex"),
+      userId: other.id,
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+
+    const res = await callback(
+      ctx,
+      `code=gh-code&state=${state}`,
+      cookies.replace(ctx.cookie, "cockpit_session=cookie-of-2000"),
+    );
+
+    expect(res.headers.get("location")).toBe(failed("demande-expiree"));
+    expect(calls.some((c) => c.url.endsWith("/generate"))).toBe(false);
+    expect(await ctx.db.select().from(templateRequests)).toHaveLength(1);
+  });
 
   it("given a request kept for more than ten minutes, when the user comes back, then it has expired and nothing is exchanged", async () => {
     const calls = stubTemplates();

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, gt, lt } from "drizzle-orm";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
@@ -8,9 +8,9 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser, exchangeCode, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { templateRequests } from "./db/schema.ts";
-import type { ReadGitHub } from "./github.ts";
+import type { githubClient, ReadGitHub } from "./github.ts";
 import { healthLines } from "./health.ts";
-import type { ReadInstance } from "./instance.ts";
+import type { InstanceSettings, ReadInstance } from "./instance.ts";
 import {
   installedRepos,
   NOT_CONFIGURED,
@@ -18,7 +18,8 @@ import {
   writeAccess,
 } from "./projects.ts";
 
-const CALLBACK = "/api/projects/from-template/callback";
+// The login's callback is the only redirect address the App declares (decision 068 D); the creation's own cookie tells the two returns apart.
+const CALLBACK = "/api/auth/callback";
 const STATE_COOKIE = "cockpit_template_state";
 const REQUEST_MS = 10 * 60_000;
 const failed = (code: string) => `/projets/nouveau?erreur=${code}`;
@@ -37,7 +38,10 @@ const createBody = z.object({
 });
 
 type Ready = NonNullable<Awaited<ReturnType<ReadGitHub>>>;
-type Env = { Variables: { ready: Ready } };
+// `github` is set by the gate of the project routes, which covers /api/projects/*.
+type Env = {
+  Variables: { ready: Ready; github: ReturnType<typeof githubClient> };
+};
 type Landed =
   | {
       installationId: number;
@@ -63,7 +67,6 @@ export function templateRoutes(
   return new Hono<Env>()
     .use("/api/templates", gate)
     .use("/api/templates/*", gate)
-    .use("/api/projects/from-template", gate)
     .get("/api/templates", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
@@ -160,14 +163,14 @@ export function templateRoutes(
       const config = await readInstance();
       if (!config) return c.json({ error: NOT_CONFIGURED }, 503);
       try {
-        const { github } = c.get("ready");
+        const github = c.get("github");
         const found = await installedRepos(github, user.login, user.githubId);
         // A template of the installation of the user only, never any repo that is named.
         if (
           !found?.repos.some((r) => r.full_name === template && r.is_template)
         )
           return c.json({ error: "not_a_template" }, 409);
-        // shortcut: read as the installation, so a private repo of someone else can look free; GitHub's `generate` then refuses and the user lands on `refusee`.
+        // shortcut: read as the installation, so the user's own private repo, not opened to an installation limited to chosen repos, reads as free; GitHub's `generate` then refuses and the user lands on `refusee`.
         if (await github.repoExists(found.installationId, owner, name))
           return c.json({ error: "name_taken" }, 409);
       } catch (error) {
@@ -204,95 +207,96 @@ export function templateRoutes(
         state,
       }).toString();
       return c.json({ authorizeUrl: authorize.href });
-    })
-    .get(CALLBACK, async (c) => {
-      const config = await readInstance();
-      const ready = await readGitHub();
-      const user = await currentUser(db, c);
-      if (!config || !ready || !user) return c.redirect("/");
-      const expected = getCookie(c, STATE_COOKIE);
-      // The state is single-use: whatever happens next, it is gone.
-      deleteCookie(c, STATE_COOKIE, { path: CALLBACK });
-      const { code, state, error } = c.req.query();
-      if (!expected || state !== expected)
-        return c.redirect(failed("demande-expiree"));
-      // Deleting decides, so a second return with the same state finds nothing.
-      const [request] = await db
-        .delete(templateRequests)
-        .where(
-          and(
-            eq(templateRequests.stateHash, sha256(expected)),
-            eq(templateRequests.userId, user.userId),
-            gt(templateRequests.createdAt, new Date(Date.now() - REQUEST_MS)),
-          ),
-        )
-        .returning();
-      if (!request) return c.redirect(failed("demande-expiree"));
-      if (error || !code) return c.redirect(failed("annulee"));
-
-      const fullName = `${request.owner}/${request.name}`;
-      const entry: Entry = {
-        userId: user.userId,
-        actor: "human",
-        origin: "ui",
-        action: "create_from_template",
-        args: { template: request.template, fullName },
-      };
-      let token: string;
-      try {
-        token = await exchangeCode(config, code, CALLBACK);
-      } catch (failure) {
-        console.error("GitHub code exchange failed:", failure);
-        return c.redirect(failed("github-injoignable"));
-      }
-      // The GitHub calls run with no transaction open (decisions 016 and 020 F): only the import and its entry are written in one. The token goes out of scope here and is never stored.
-      const land = async (): Promise<Landed> => {
-        const generated = await ready.github.generateRepo(
-          token,
-          request.template,
-          {
-            owner: request.owner,
-            name: request.name,
-            description: request.description ?? undefined,
-            private: request.private,
-          },
-        );
-        if ("refused" in generated) return { refused: generated.refused };
-        const found = await installedRepos(
-          ready.github,
-          user.login,
-          user.githubId,
-        );
-        const repo = found?.repos.find((r) => r.id === generated.repo.id);
-        return found && repo
-          ? { installationId: found.installationId, repo }
-          : { outside: true };
-      };
-      const landed = await land().catch((failure: unknown) => ({ failure }));
-      try {
-        const project = await act(db, entry, async (tx) => {
-          if ("failure" in landed) throw landed.failure;
-          // Fixed codes only: GitHub's message goes to the page, never to the history.
-          if ("refused" in landed) throw new Refused("generate_refused");
-          if ("outside" in landed) throw new Refused("outside_installation");
-          const created = await trackRepo(
-            tx,
-            user.userId,
-            landed.repo,
-            landed.installationId,
-          );
-          entry.projectId = created.id;
-          return created;
-        });
-        return c.redirect(`/projets/${project.id}`);
-      } catch (failure) {
-        if ("refused" in landed)
-          return c.redirect(
-            `${failed("refusee")}&raison=${encodeURIComponent(landed.refused)}`,
-          );
-        if ("outside" in landed) return c.redirect(failed("hors-installation"));
-        console.error("Creation from a template failed:", failure);
-        return c.redirect(failed("github-injoignable"));
-      }
     });
+}
+
+/** The creation's return from GitHub, handed over by the login's callback: null when the request is not a creation's (no creation cookie, or another state), so the login runs. */
+export function templateReturn(db: Db, readGitHub: ReadGitHub) {
+  return async (c: Context, config: InstanceSettings) => {
+    const expected = getCookie(c, STATE_COOKIE);
+    const { code, state, error } = c.req.query();
+    if (!expected || state !== expected) return null;
+    // The state is single-use: whatever happens next, it is gone.
+    deleteCookie(c, STATE_COOKIE, { path: CALLBACK });
+    const ready = await readGitHub();
+    const user = await currentUser(db, c);
+    if (!ready || !user) return c.redirect("/");
+    // Deleting decides, so a second return with the same state finds nothing.
+    const [request] = await db
+      .delete(templateRequests)
+      .where(
+        and(
+          eq(templateRequests.stateHash, sha256(expected)),
+          eq(templateRequests.userId, user.userId),
+          gt(templateRequests.createdAt, new Date(Date.now() - REQUEST_MS)),
+        ),
+      )
+      .returning();
+    if (!request) return c.redirect(failed("demande-expiree"));
+    if (error || !code) return c.redirect(failed("annulee"));
+
+    const fullName = `${request.owner}/${request.name}`;
+    const entry: Entry = {
+      userId: user.userId,
+      actor: "human",
+      origin: "ui",
+      action: "create_from_template",
+      args: { template: request.template, fullName },
+    };
+    let created = false;
+    // The GitHub calls run with no transaction open (decisions 016 and 020 F): only the import and its entry are written in one. The token goes out of scope here and is never stored.
+    const land = async (): Promise<Landed> => {
+      const token = await exchangeCode(config, code, CALLBACK);
+      const generated = await ready.github.generateRepo(
+        token,
+        request.template,
+        {
+          owner: request.owner,
+          name: request.name,
+          description: request.description ?? undefined,
+          private: request.private,
+        },
+      );
+      if ("refused" in generated) return { refused: generated.refused };
+      created = true;
+      const found = await installedRepos(
+        ready.github,
+        user.login,
+        user.githubId,
+      );
+      const repo = found?.repos.find((r) => r.id === generated.repo.id);
+      return found && repo
+        ? { installationId: found.installationId, repo }
+        : { outside: true };
+    };
+    const landed = await land().catch((failure: unknown) => ({ failure }));
+    try {
+      const project = await act(db, entry, async (tx) => {
+        if ("failure" in landed) throw landed.failure;
+        // Fixed codes only: GitHub's message goes to the page, never to the history.
+        if ("refused" in landed) throw new Refused("generate_refused");
+        if ("outside" in landed) throw new Refused("outside_installation");
+        const project = await trackRepo(
+          tx,
+          user.userId,
+          landed.repo,
+          landed.installationId,
+        );
+        entry.projectId = project.id;
+        return project;
+      });
+      return c.redirect(`/projets/${project.id}`);
+    } catch (failure) {
+      if ("refused" in landed)
+        return c.redirect(
+          `${failed("refusee")}&raison=${encodeURIComponent(landed.refused.slice(0, 200))}`,
+        );
+      if ("outside" in landed) return c.redirect(failed("hors-installation"));
+      console.error("Creation from a template failed:", failure);
+      // The repo may exist on GitHub already: the page says to import it.
+      return c.redirect(
+        failed(created ? "creee-non-importee" : "github-injoignable"),
+      );
+    }
+  };
 }

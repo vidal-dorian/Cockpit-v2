@@ -373,6 +373,14 @@ describe("decision 068 F and G: the refusals, in French next to the button", () 
     ["?erreur=demande-expiree", "Recommence la création."],
     ["?erreur=annulee", "La création est annulée."],
     [
+      "?erreur=github-injoignable",
+      "GitHub ne répond pas comme prévu, réessaie dans un instant.",
+    ],
+    [
+      "?erreur=creee-non-importee",
+      "Le repo est peut-être créé sur GitHub ; importe-le depuis « Importer un repo ».",
+    ],
+    [
       "?erreur=refusee&raison=Resource%20not%20accessible",
       "GitHub a refusé la création : Resource not accessible",
     ],

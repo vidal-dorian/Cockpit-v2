@@ -32,7 +32,7 @@ async function fetchTemplates() {
 
 /** The sentence for the code the server sent the user back with (decision 068 D, E, G). */
 function ReturnAlert({ installUrl }: { installUrl: string }) {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const code = params.get("erreur");
   if (code === "hors-installation")
     return (
@@ -49,14 +49,31 @@ function ReturnAlert({ installUrl }: { installUrl: string }) {
       </div>
     );
   const text = {
+    "github-injoignable": GITHUB_DOWN,
+    "creee-non-importee":
+      "Le repo est peut-être créé sur GitHub ; importe-le depuis « Importer un repo ».",
     "demande-expiree": "Recommence la création.",
     annulee: "La création est annulée.",
-    refusee: `GitHub a refusé la création : ${params.get("raison") ?? ""}`,
-  }[code ?? ""];
+    refusee: `GitHub a refusé la création : ${(params.get("raison") ?? "").slice(0, 200)}`,
+  }[code ?? ""] as string | undefined;
   return text ? (
-    <p role="alert" className={alertBox}>
-      {text}
-    </p>
+    <div role="alert" className={alertBox}>
+      <p>{text}</p>
+      {code === "github-injoignable" && (
+        <button
+          type="button"
+          onClick={() => setParams({})}
+          className={`mt-3 ${button}`}
+        >
+          Réessayer
+        </button>
+      )}
+      {code === "creee-non-importee" && (
+        <Link to="/projets#importer" className={`mt-3 ${button}`}>
+          Importer un repo
+        </Link>
+      )}
+    </div>
   ) : null;
 }
 
@@ -148,11 +165,13 @@ export function ProjectFromTemplate() {
     ? null
     : !VALID_NAME.test(name)
       ? "Lettres, chiffres, point, tiret et tiret bas, 100 au plus."
-      : !judged || availability.isPending
-        ? "Vérification…"
-        : availability.data?.available
-          ? "Disponible."
-          : "Ce nom est déjà pris.";
+      : availability.isError
+        ? "Impossible de vérifier ce nom, réessaie dans un instant."
+        : !judged || availability.isPending
+          ? "Vérification…"
+          : availability.data?.available
+            ? "Disponible."
+            : "Ce nom est déjà pris.";
 
   return (
     <main className="pb-6">
