@@ -62,6 +62,7 @@ export async function currentUser(db: Db, c: Context) {
           isAdmin: users.isAdmin,
           githubId: users.githubId,
           login: users.login,
+          pluginRepo: users.pluginRepo,
           name: users.name,
           avatarUrl: users.avatarUrl,
         })

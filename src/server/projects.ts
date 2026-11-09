@@ -22,7 +22,7 @@ import {
   textToWrite,
 } from "./catalog-update.ts";
 import type { Db } from "./db/db.ts";
-import { projectMembers, projects } from "./db/schema.ts";
+import { projectMembers, projects, users } from "./db/schema.ts";
 import {
   checkWriteFiles,
   type githubClient,
@@ -38,6 +38,11 @@ import {
   updatesLine,
   webhookLine,
 } from "./health.ts";
+import {
+  marketplaceOf,
+  pluginInstalled,
+  pluginSettings,
+} from "./plugin-settings.ts";
 import { levelFiles, STARTER_LEVELS, STARTER_TEAMS } from "./starter-teams.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
 
@@ -154,6 +159,37 @@ const claudeConfigBody = z
       !(kind === "skill" && CATALOG_SKILLS.has(name ?? "")),
   );
 
+// Decision 066 E: the path is built by the server from `kind` and `name`, in the plugin `commun` of the plugin repo.
+const PLUGIN_FILES = {
+  agent: (n: string) => `plugins/commun/agents/${n}.md`,
+  skill: (n: string) => `plugins/commun/skills/${n}/SKILL.md`,
+};
+const SETTINGS_PATH = ".claude/settings.json";
+const pluginFileBody = z
+  .object({
+    kind: z.enum(["agent", "skill"]),
+    name: z
+      .string()
+      .max(255 - PLUGIN_FILES.skill("").length)
+      .regex(AGENT_NAME),
+    before: z.string().nullable(),
+    after: z
+      .string()
+      .refine((text) => Buffer.byteLength(text) <= 1_048_576)
+      .nullable(),
+  })
+  .refine(({ before, after }) => before !== after);
+const pluginRepoBody = z.object({
+  fullName: z
+    .string()
+    .regex(/^[^/\s]+\/[^/\s]+$/)
+    .nullable(),
+});
+const pluginInstallBody = z.object({
+  install: z.boolean(),
+  before: z.string().nullable(),
+});
+
 // Decision 031 H: `after` is a team that `parseTeam` reads, at most 1 MiB, never null.
 // Decision 032 F: an optional `name` picks `.claude/teams/<name>.md`; only then may `after` be null (a removal).
 const teamBody = z
@@ -239,6 +275,11 @@ const present = (p: typeof projects.$inferSelect) => ({
 });
 
 type GitHub = ReturnType<typeof githubClient>;
+type Repo = { installationId: number; fullName: string };
+/** A refusal code to answer 409 and record, asked with the repo to write; it reads GitHub, so a failure is a 502. */
+type Refuse = (
+  repo: Repo,
+) => Promise<string | { error: string; at?: string } | null>;
 type Env = {
   Variables: {
     github: GitHub;
@@ -297,68 +338,54 @@ export function projectRoutes(
     }
   };
 
-  // The write of one file of the repo by a human, as the agent and team editors do it (decisions 030 E, 031 H).
-  const saveFile = async (
+  const record = async (entry: Entry, error: unknown) => {
+    try {
+      await act(db, entry, async () => {
+        throw error;
+      });
+    } catch (thrown) {
+      if (thrown !== error) throw thrown;
+    }
+  };
+
+  // The commit of the changes in a repo by a human (decisions 030 E, 031 H, 066 E): the part of `saveFile` that does not depend on a project.
+  const writeChanges = async (
     c: Context<Env, string>,
     entry: Entry & { userId: number },
+    /** The repo to write, or the refusal code when there is none; it may read GitHub, so a failure is a 502. */
+    repo: () => Promise<Repo | string>,
     changes: { path: string; before: string | null; after: string | null }[],
     message: string,
     hooks: {
-      /** Whether the request is valid for this project, asked once it is known to be the member's and not archived: no, and it is a 400. */
-      valid?: (projectId: number) => Promise<boolean>;
-      /** A refusal code to answer 409 and record, asked after `valid` with the member's project; it reads GitHub, so a failure is a 502. */
-      refuse?: (project: {
-        installationId: number;
-        fullName: string;
-      }) => Promise<string | { error: string; at?: string } | null>;
+      refuse?: Refuse;
       /** Run in the transaction of the `ok` entry. */
-      onWritten?: (tx: Tx, projectId: number) => Promise<void>;
+      onWritten?: (tx: Tx) => Promise<void>;
     } = {},
   ) => {
-    const record = async (error: unknown) => {
-      try {
-        await act(db, entry, async () => {
-          throw error;
-        });
-      } catch (thrown) {
-        if (thrown !== error) throw thrown;
-      }
-    };
-    const id = Number(c.req.param("id"));
-    const project = await memberProject(db, entry.userId, id);
-    if (!project) {
-      await record(new Refused("not_found"));
-      return c.json({ error: "Not found" }, 404);
-    }
-    entry.projectId = id;
-    if (project.archivedAt) {
-      await record(new Refused("project_archived"));
-      return c.json({ error: "project_archived" }, 409);
-    }
-    if (hooks.valid && !(await hooks.valid(id)))
-      return c.json({ error: "Bad request" }, 400);
     let result: Awaited<ReturnType<GitHub["applyRepoChanges"]>>;
     try {
-      const code = await hooks.refuse?.(project);
+      const target = await repo();
+      const code =
+        typeof target === "string" ? target : await hooks.refuse?.(target);
       if (code) {
         const refusal = typeof code === "string" ? { error: code } : code;
-        await record(new Refused(refusal.error));
+        await record(entry, new Refused(refusal.error));
         return c.json(refusal, 409);
       }
       result = await c
         .get("github")
         .applyRepoChanges(
-          project.installationId,
-          project.fullName,
+          (target as Repo).installationId,
+          (target as Repo).fullName,
           changes,
           message,
         );
     } catch (error) {
-      await record(error);
+      await record(entry, error);
       return c.json({ error: "github_unavailable" }, 502);
     }
     if ("refused" in result) {
-      await record(new Refused(result.refused));
+      await record(entry, new Refused(result.refused));
       return result.refused === "pull_request_forbidden"
         ? c.json(
             {
@@ -379,13 +406,46 @@ export function projectRoutes(
         },
       },
       async (tx) => {
-        await hooks.onWritten?.(tx, id);
+        await hooks.onWritten?.(tx);
       },
     );
     return c.json({
       commitSha: result.commitSha,
       changed: result.changed,
       ...(result.pullRequest && { pullRequest: result.pullRequest }),
+    });
+  };
+
+  // The write of one file of the repo by a human, as the agent and team editors do it (decisions 030 E, 031 H).
+  const saveFile = async (
+    c: Context<Env, string>,
+    entry: Entry & { userId: number },
+    changes: { path: string; before: string | null; after: string | null }[],
+    message: string,
+    hooks: {
+      /** Whether the request is valid for this project, asked once it is known to be the member's and not archived: no, and it is a 400. */
+      valid?: (projectId: number) => Promise<boolean>;
+      /** Run in the transaction of the `ok` entry. */
+      onWritten?: (tx: Tx, projectId: number) => Promise<void>;
+      refuse?: Refuse;
+    } = {},
+  ) => {
+    const id = Number(c.req.param("id"));
+    const project = await memberProject(db, entry.userId, id);
+    if (!project) {
+      await record(entry, new Refused("not_found"));
+      return c.json({ error: "Not found" }, 404);
+    }
+    entry.projectId = id;
+    if (project.archivedAt) {
+      await record(entry, new Refused("project_archived"));
+      return c.json({ error: "project_archived" }, 409);
+    }
+    if (hooks.valid && !(await hooks.valid(id)))
+      return c.json({ error: "Bad request" }, 400);
+    return writeChanges(c, entry, async () => project, changes, message, {
+      refuse: hooks.refuse,
+      onWritten: (tx) => hooks.onWritten?.(tx, id) ?? Promise.resolve(),
     });
   };
 
@@ -406,6 +466,8 @@ export function projectRoutes(
     .use("/api/attachments/*", gate)
     .use("/api/stories/*", gate)
     .use("/api/github/*", gate)
+    .use("/api/plugins", gate)
+    .use("/api/plugins/*", gate)
     .use("/api/installation", gate)
     .get("/api/installation", async (c) => {
       const user = await currentUser(db, c);
@@ -964,6 +1026,233 @@ export function projectRoutes(
           // Decision 065 C: a secret never reaches the repo, whatever the server.
           refuse: async () =>
             kind === "mcp_json" && after !== null ? mcpRefusal(after) : null,
+        },
+      );
+    })
+    .put("/api/plugins/repo", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = pluginRepoBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { fullName } = parsed.data;
+      const entry = {
+        userId: user.userId,
+        actor: "human" as const,
+        origin: "ui" as const,
+        action: fullName ? "link_plugin_repo" : "unlink_plugin_repo",
+        args: {},
+      };
+      try {
+        // The repo must be one the installation of the user reaches (decision 066 B).
+        const found =
+          fullName !== null &&
+          (await installedRepos(c.get("github"), user.login, user.githubId));
+        if (
+          found !== false &&
+          !found?.repos.some((r) => r.full_name === fullName)
+        ) {
+          await record(entry, new Refused("repo_unreachable"));
+          return c.json({ error: "repo_unreachable" }, 409);
+        }
+      } catch (error) {
+        await record(entry, error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+      await act(db, entry, async (tx) => {
+        await tx
+          .update(users)
+          .set({ pluginRepo: fullName })
+          .where(eq(users.id, user.userId));
+      });
+      return c.json({ repo: fullName });
+    })
+    .get("/api/plugins", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      if (!user.pluginRepo)
+        return c.json({ repo: null, agents: [], skills: [] });
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const github = c.get("github");
+        const installationId = await github.findUserInstallation(
+          user.login,
+          user.githubId,
+        );
+        if (installationId === null)
+          return c.json({ error: "repo_unreachable" }, 409);
+        const read = await github.readPlugins(installationId, user.pluginRepo);
+        if ("refused" in read) return c.json({ error: read.refused }, 409);
+        return c.json({ repo: user.pluginRepo, ...read });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/plugins/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = pluginFileBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { kind, name, before, after } = parsed.data;
+      const path = PLUGIN_FILES[kind](name);
+      const verb =
+        after === null ? "remove" : before === null ? "add" : "update";
+      const changes = [{ path, before, after }];
+      const github = c.get("github");
+      return writeChanges(
+        c,
+        {
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action: `${after === null ? "delete" : "save"}_shared_${kind}`,
+          args: { path },
+        },
+        async () => {
+          if (!user.pluginRepo) return "no_plugin_repo";
+          const installationId = await github.findUserInstallation(
+            user.login,
+            user.githubId,
+          );
+          return installationId === null
+            ? "repo_unreachable"
+            : { installationId, fullName: user.pluginRepo };
+        },
+        changes,
+        `feat: ${verb} the shared ${kind} ${name} (Cockpit)`,
+        {
+          // Decision 066 C: the two files of the marketplace join the commit when they are missing, and are never rewritten.
+          refuse: async ({ installationId, fullName }) => {
+            const { inspect, head } = await github.fileReader(
+              installationId,
+              fullName,
+            );
+            const at = await head();
+            if ("refused" in at) return at.refused;
+            const description = `Les agents et skills communs de ${user.login}, écrits par Cockpit`;
+            const json = (o: unknown) => `${JSON.stringify(o, null, 2)}\n`;
+            for (const file of after === null
+              ? []
+              : [
+                  {
+                    path: ".claude-plugin/marketplace.json",
+                    text: json({
+                      name: marketplaceOf(user.login),
+                      owner: { name: user.login },
+                      plugins: [
+                        {
+                          name: "commun",
+                          source: "./plugins/commun",
+                          description,
+                        },
+                      ],
+                    }),
+                  },
+                  {
+                    path: "plugins/commun/.claude-plugin/plugin.json",
+                    text: json({ name: "commun", description }),
+                  },
+                ])
+              if ((await inspect(file.path, at.sha)) === null)
+                changes.push({
+                  path: file.path,
+                  before: null,
+                  after: file.text,
+                });
+            return null;
+          },
+        },
+      );
+    })
+    .get("/api/plugins/projects", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const mine = (await memberProjects(db, user.userId)).filter(
+          (p) => !p.archivedAt,
+        );
+        // Keeps an uninstalled App, or a repo it no longer reaches, from turning the list into a 502: such a project has no settings to read.
+        const reached = new Set(
+          (
+            await installedRepos(c.get("github"), user.login, user.githubId)
+          )?.repos.map((r) => r.full_name),
+        );
+        // shortcut: one GitHub read per project in parallel, unbounded; batch if users have dozens of projects.
+        const projects = await Promise.all(
+          mine.map(async (p) => {
+            let settings: string | null = null;
+            if (reached.has(p.fullName)) {
+              const { inspect, head } = await c
+                .get("github")
+                .fileReader(p.installationId, p.fullName);
+              const at = await head();
+              // null only for no file, as for team.md.
+              const found =
+                "refused" in at ? null : await inspect(SETTINGS_PATH, at.sha);
+              settings = found === null ? null : (found.text ?? "");
+            }
+            return {
+              id: p.id,
+              fullName: p.fullName,
+              installed: pluginInstalled(settings, user.login),
+              settings,
+            };
+          }),
+        );
+        return c.json({ projects });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/projects/:id/plugins/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = pluginInstallBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { install, before } = parsed.data;
+      // Decision 066 G: the page and the server compute the same text; a file that is not a JSON object is refused below.
+      let after = "";
+      let invalid = false;
+      try {
+        after = pluginSettings(
+          before,
+          { login: user.login, repo: user.pluginRepo ?? "" },
+          install,
+        );
+      } catch {
+        invalid = true;
+      }
+      return saveFile(
+        c,
+        {
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action: `${install ? "install" : "remove"}_shared_plugin`,
+          args: { path: SETTINGS_PATH },
+        },
+        [{ path: SETTINGS_PATH, before, after }],
+        `feat: ${install ? "install" : "remove"} the shared plugin (Cockpit)`,
+        {
+          // No commit that changes nothing: the text is already as it would be written, or a removal where the plugin is not installed.
+          valid: async () =>
+            invalid ||
+            (after !== before &&
+              (install || pluginInstalled(before, user.login))),
+          refuse: async () =>
+            !user.pluginRepo
+              ? "no_plugin_repo"
+              : invalid
+                ? "invalid_settings"
+                : null,
         },
       );
     })

@@ -302,6 +302,9 @@ export function Sidebar() {
           + Importer un repo
         </Link>
         <p className={sidebarLabel}>Configurer</p>
+        <NavLink to="/equipes/commun" className={navItem}>
+          Équipes d'agents
+        </NavLink>
         <NavLink to="/journal" className={navItem}>
           Journal
         </NavLink>

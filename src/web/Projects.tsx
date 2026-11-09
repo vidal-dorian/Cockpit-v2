@@ -35,7 +35,7 @@ export async function fetchProjects() {
 }
 
 /** What the App can see on GitHub, or null when the server answers 401. */
-async function fetchRepositories() {
+export async function fetchRepositories() {
   const res = await client.api.github.repositories.$get();
   if (res.status === 401) return null;
   if (!res.ok) throw await failure(res);

@@ -19,6 +19,7 @@ import { Journal } from "./JournalPage.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { Logo } from "./Logo.tsx";
 import { Night } from "./Night.tsx";
+import { Plugins } from "./Plugins.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
@@ -264,6 +265,7 @@ function Shell() {
             <Route path="/nuit" element={<Night />} />
             <Route path="/claude/taches" element={<Taches />} />
             <Route path="/claude/cout" element={<Cost />} />
+            <Route path="/equipes/commun" element={<Plugins />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/reglages" element={<Settings tab="claude" />} />
             <Route

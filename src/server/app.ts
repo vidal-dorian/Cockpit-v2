@@ -71,7 +71,7 @@ const uploadHeaders: MiddlewareHandler = (c, next) => {
 };
 const UPLOAD_PATH = /^\/api\/tickets\/[^/]+\/attachments$/;
 const AGENTS_APPLY_PATH =
-  /^\/api\/projects\/[^/]+\/(agents|team|claude-config)\/apply$/;
+  /^\/api\/(plugins|projects\/[^/]+\/(agents|team|claude-config|plugins))\/apply$/;
 
 export function createApp(
   db: Db,

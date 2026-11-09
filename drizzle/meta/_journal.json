@@ -274,6 +274,13 @@
       "when": 1794162470849,
       "tag": "0038_short_yellowjacket",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794180476273,
+      "tag": "0039_red_moon_knight",
+      "breakpoints": true
     }
   ]
 }

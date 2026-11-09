@@ -433,6 +433,42 @@ export function githubClient(config: GitHubAppConfig) {
       .filter((name) => name.length <= max && AGENT_NAME.test(name))
       .sort();
 
+  /** The files `<mdDir>/<name>.md` and the skills `<skillsDir>/<name>/SKILL.md` of a commit, by name, a text that cannot be read being "" (decisions 065 A, 066 D). */
+  const readNamed = async (
+    repo: Awaited<ReturnType<typeof writeAccess>>,
+    sha: string,
+    mdDir: string,
+    skillsDir: string,
+  ) => {
+    // null only for no file.
+    const read = async (path: string) => {
+      const found = await repo.inspect(path, sha);
+      return found === null ? null : (found.text ?? "");
+    };
+    const names = mdNames(await entriesOf(repo, sha, mdDir, "blob"), Infinity);
+    const dirs = (await entriesOf(repo, sha, skillsDir, "tree"))
+      .map((e) => e.path)
+      .filter((name) => AGENT_NAME.test(name))
+      .sort();
+    return {
+      files: await Promise.all(
+        names.map(async (name) => ({
+          name,
+          text: (await read(`${mdDir}/${name}.md`)) ?? "",
+        })),
+      ),
+      // A directory without SKILL.md is not a skill.
+      skills: (
+        await Promise.all(
+          dirs.map(async (name) => ({
+            name,
+            text: await read(`${skillsDir}/${name}/SKILL.md`),
+          })),
+        )
+      ).flatMap(({ name, text }) => (text === null ? [] : [{ name, text }])),
+    };
+  };
+
   /** Commits `entries` on top of `head` and advances the default branch without force, once; when it is protected, the commit goes to a branch `cockpit/<7>` and a pull request listing `paths` is opened (decision 026 G). Shared by `applyRepoWrite` and `applyRepoChanges`. */
   const commitToHead = async (
     { octokit, owner, name }: Awaited<ReturnType<typeof writeAccess>>,
@@ -1337,33 +1373,41 @@ export function githubClient(config: GitHubAppConfig) {
         const found = await repo.inspect(path, head.sha);
         return found === null ? null : (found.text ?? "");
       };
-      const rules = mdNames(
-        await entriesOf(repo, head.sha, ".claude/rules", "blob"),
-        Infinity,
+      const { files: rules, skills } = await readNamed(
+        repo,
+        head.sha,
+        ".claude/rules",
+        ".claude/skills",
       );
-      const dirs = (await entriesOf(repo, head.sha, ".claude/skills", "tree"))
-        .map((e) => e.path)
-        .filter((name) => AGENT_NAME.test(name))
-        .sort();
       return {
         claudeMd: await read("CLAUDE.md"),
         mcpJson: await read(".mcp.json"),
-        rules: await Promise.all(
-          rules.map(async (name) => ({
-            name,
-            text: (await read(`.claude/rules/${name}.md`)) ?? "",
-          })),
-        ),
-        // A directory without SKILL.md is not a skill.
-        skills: (
-          await Promise.all(
-            dirs.map(async (name) => ({
-              name,
-              text: await read(`.claude/skills/${name}/SKILL.md`),
-            })),
-          )
-        ).flatMap(({ name, text }) => (text === null ? [] : [{ name, text }])),
+        rules,
+        skills,
       };
+    },
+
+    /** The agents `plugins/commun/agents/<name>.md` and skills `plugins/commun/skills/<name>/SKILL.md` of the plugin repo (decision 066 D), as `readClaudeConfig` reads rules and skills. Reads only. */
+    async readPlugins(
+      installationId: number,
+      fullName: string,
+    ): Promise<
+      | {
+          agents: { name: string; text: string }[];
+          skills: { name: string; text: string }[];
+        }
+      | RepoWriteRefusal
+    > {
+      const repo = await writeAccess(installationId, fullName);
+      const head = await repo.head();
+      if ("refused" in head) return head;
+      const { files, skills } = await readNamed(
+        repo,
+        head.sha,
+        "plugins/commun/agents",
+        "plugins/commun/skills",
+      );
+      return { agents: files, skills };
     },
 
     /** Replaces, removes or adds files in ONE commit on the default branch (decision 030 E). Each path is read again at the head of the branch with the rules of `inspect`: when one is not exactly its `before` (absent for null, a regular file of that text otherwise) nothing is written and the refusal is `repo_changed`. Then as `applyRepoWrite`: no force, a pull request when the branch is protected. */
