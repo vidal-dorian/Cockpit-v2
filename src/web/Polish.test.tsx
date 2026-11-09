@@ -79,6 +79,13 @@ describe("079 E: every window rises in", () => {
   });
 });
 
+describe("079 E: the page entrance cannot fight the panel or the loading", () => {
+  it("given styles.css, when I read the page entrance, then only <main> fades: no rule animates its children", () => {
+    expect(css).toMatch(/main\s*\{[^}]*animation:\s*fade-in/);
+    expect(css).not.toMatch(/^\s*main\s*>/m);
+  });
+});
+
 describe("079 F: every « Chargement… » waits and spins", () => {
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".tsx"))

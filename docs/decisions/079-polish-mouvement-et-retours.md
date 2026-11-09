@@ -34,14 +34,14 @@ Vus et **gardés tels quels** : les états vides en une phrase (« Aucune équip
 |---|---|---|
 | A | Les durées et la courbe | Trois durées dans `styles.css` : **120 ms** (`--duration-fast` : survol, pression), **180 ms** (`--duration-base` : couleurs, apparition d'un message), **280 ms** (`--duration-slow` : une page, le panneau, une fenêtre). Une seule courbe, qui part vite et se pose (`--ease-out`, `cubic-bezier(0.22, 1, 0.36, 1)`, celle de la fenêtre d'import). Rien au-delà de 320 ms pour une réponse à un geste |
 | B | Les transitions (1, 3) | Une règle de base sur `a`, `button`, `summary`, `input`, `select`, `textarea`, `[role="button"]` : couleur, fond, bordure, contour, opacité et transformation glissent en 120 ms. Le curseur est une main sur ce qui se clique, « interdit » sur ce qui est désactivé |
-| C | La pression | Les boutons de `ui.ts` (et les flèches du panneau) se tassent à 97 % quand on appuie, s'ils sont actifs |
+| C | La pression | Les boutons de `ui.ts` (et les flèches du panneau) se tassent à 97 % quand on appuie, s'ils sont actifs (ni `disabled`, ni `aria-disabled`) |
 | D | Le défilement (2) | À chaque nouvelle page (lien, `navigate`), la fenêtre remonte en haut ; **Précédent / Suivant** gardent ce que fait le navigateur. Un changement de `?us=` ou `?ticket=` (le panneau du Kanban) ne fait pas remonter |
-| E | Les entrées (5) | Une page (`<main>`) monte de 6 px en apparaissant (280 ms) ; le panneau de droite glisse de 16 px depuis la droite (lg) ; chaque `Modal` reprend l'entrée de la fenêtre d'import et son fond floute légèrement la page. Pas d'animation de sortie : fermer doit être immédiat |
+| E | Les entrées (5) | Une page (`<main>`) apparaît en fondu (280 ms), sans montée : une transformation sur `<main>` ou un de ses enfants décrocherait le panneau fixe, et l'exclure de l'animation la ferait rejouer à la fermeture du panneau ; le panneau de droite glisse de 16 px depuis la droite (lg) ; chaque `Modal` reprend l'entrée de la fenêtre d'import et son fond floute légèrement la page. Pas d'animation de sortie : fermer doit être immédiat |
 | F | Les chargements (4) | La classe `loading` sur chaque « Chargement… » : le texte reste (lecteurs d'écran, tests), précédé d'un petit anneau qui tourne, et **n'apparaît qu'après 300 ms** : une réponse rapide ne fait plus clignoter la page |
 | G | Les messages (6) | Tout `role="status"` et `role="alert"` apparaît en fondu, en montant de 4 px (180 ms) |
-| H | Le point vivant (7) | Le point reste allumé ; un halo de sa couleur s'en échappe toutes les 2 s, comme une respiration |
+| H | Le point vivant (7) | Le point reste allumé ; un halo de sa couleur s'en échappe toutes les 2 s, comme une respiration ; sous « réduire les animations », un anneau fixe |
 | I | Les onglets au téléphone (8) | Sous `md`, la rangée d'onglets d'un projet défile horizontalement sur une ligne, sans barre de défilement visible |
-| J | La barre d'idée (9) | Un dégradé du fond, de 20 px, au-dessus de la barre : le contenu s'efface en passant dessous |
+| J | La barre d'idée (9) | Un dégradé du fond, de 16 px (la marge au-dessus de la barre), au-dessus de la barre : le contenu s'efface en passant dessous |
 | K | Les sections repliables (10) | La flèche tourne de 90° à l'ouverture ; le contenu s'ouvre en hauteur dans les navigateurs qui savent animer `::details-content` (Chromium), d'un coup ailleurs |
 | L | Sélection et défilement (11) | La sélection prend la teinte « Claude » à 35 % ; les barres de défilement sont fines, couleur `border-strong`. Aucun nouveau jeton de couleur |
 | M | Réduire les animations (12) | Sous `prefers-reduced-motion: reduce`, toute animation et toute transition durent 0,01 ms : les états changent, sans mouvement |
@@ -50,5 +50,7 @@ Vus et **gardés tels quels** : les états vides en une phrase (« Aucune équip
 
 - **Pas d'animation de sortie** (fenêtres, panneau, messages) : elle demanderait de garder l'élément monté le temps de l'animation. Choisi : fermer est immédiat.
 - **Un même écran qui change de paramètre** (`/us/1` → `/us/2`) garde son `<main>` : il ne rejoue pas l'entrée, seul le défilement remonte.
+- **Un message déjà affiché dont seul le texte change** (`role="status"` qui reste monté) ne rejoue pas le fondu ; le panneau de droite qui change de clé (J / K, une autre carte) rejoue son entrée.
+- **Le titre « Chargement… » du Kanban** (dans le `h1`) n'a pas d'anneau : un anneau n'a pas sa place dans un titre.
 - **Les boutons ne montrent pas d'attente** pendant une requête (ils se désactivent, sans anneau) : à faire bouton par bouton, hors de ce passage.
 - **Les animations ne sont vérifiées qu'à l'œil dans Chromium** : les tests (jsdom) ne jouent pas le CSS ; ils vérifient le défilement, la classe des fenêtres et des chargements.

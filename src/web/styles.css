@@ -80,6 +80,10 @@ body {
 
 /* Decision 079 B: what is clicked says so, and changes state smoothly instead of at once. */
 @layer base {
+  /* Not inherited: every scroll area gets the thin bar, a utility can still hide it. */
+  * {
+    scrollbar-width: thin;
+  }
   a,
   button,
   summary,
@@ -357,12 +361,9 @@ body {
 
 /* Decision 079 E, G: a page rises in, the right panel slides in, a message fades in. No exit animation: closing is immediate. */
 @media (prefers-reduced-motion: no-preference) {
-  /* A transform on an ancestor would pin the fixed panel to it: <main> only fades, its children that hold no panel rise. */
+  /* Only a fade: a transform on <main> or a child would re-anchor the fixed panel, and a :has() exclusion would replay when the panel closes. */
   main {
     animation: fade-in var(--duration-slow) var(--ease-out);
-  }
-  main > :not([data-panel], :has([data-panel])) {
-    animation: page-in var(--duration-slow) var(--ease-out);
   }
   aside[data-panel] {
     animation: fade-in var(--duration-slow) var(--ease-out);
@@ -375,11 +376,6 @@ body {
   [role="status"]:not(.loading),
   [role="alert"] {
     animation: message-in var(--duration-base) var(--ease-out);
-  }
-}
-@keyframes page-in {
-  from {
-    transform: translateY(6px);
   }
 }
 @keyframes panel-in {
@@ -427,6 +423,10 @@ body {
 }
 
 /* Decision 079 H: the live dot stays lit, a halo of its colour breathes out of it. */
+/* Still under reduced motion: a steady ring keeps the cue. */
+.live-dot {
+  box-shadow: 0 0 0 3px var(--color-claude-glow);
+}
 @media (prefers-reduced-motion: no-preference) {
   .live-dot {
     animation: live-halo 2s var(--ease-out) infinite;
@@ -465,7 +465,8 @@ details[open] > summary::before {
     }
     details::details-content {
       block-size: 0;
-      overflow: clip;
+      /* Vertical only: a focus ring at the left edge stays whole. */
+      overflow-y: clip;
       transition:
         block-size var(--duration-slow) var(--ease-out),
         content-visibility var(--duration-slow) allow-discrete;
