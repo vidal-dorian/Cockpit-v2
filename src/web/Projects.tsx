@@ -339,9 +339,14 @@ export function Projects() {
         }
         rest="Les autres avancent seuls ou dorment."
         actions={
-          <a href="#importer" className={`mt-1 ${button}`}>
-            + Importer un repo
-          </a>
+          <span className="mt-1 flex gap-2">
+            <Link to="/projets/nouveau" className={button}>
+              Nouveau depuis un modèle
+            </Link>
+            <a href="#importer" className={button}>
+              + Importer un repo
+            </a>
+          </span>
         }
       />
       <section className="mx-[26px] mt-5" aria-labelledby="mes-projets">

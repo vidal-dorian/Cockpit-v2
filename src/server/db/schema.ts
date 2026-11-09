@@ -929,3 +929,19 @@ export const workflowProposals = pgTable(
       .where(sql`${t.decision} is null`),
   ],
 );
+
+// Decision 068 D: a creation from a template waits here, ten minutes at most, for the user to come back from GitHub; the row is deleted when it is used. Keyed by the hash of the state, never the state itself. No user token is ever stored.
+export const templateRequests = pgTable("template_requests", {
+  stateHash: text("state_hash").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  template: text("template").notNull(),
+  owner: text("owner").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  private: boolean("private").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});

@@ -98,6 +98,11 @@ const PERMISSIONS = [
     "écriture",
     "écrire une CI de départ ou un changement de workflow, seulement quand tu cliques sur « Faire le commit ».",
   ],
+  [
+    "Création de repos",
+    "écriture",
+    "créer un nouveau repo à partir d'un de tes modèles, seulement quand tu cliques sur « Créer le projet ».",
+  ],
 ] as const;
 
 /** Makes the browser POST the manifest to GitHub, as GitHub's manifest flow requires (a fetch cannot follow its pages). */

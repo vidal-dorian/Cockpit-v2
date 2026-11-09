@@ -56,6 +56,8 @@ function manifest(publicUrl: string) {
       secret_scanning_alerts: "read",
       // Decision 067 D: a commit that touches .github/workflows needs it.
       workflows: "write",
+      // Decision 068 F: a new repo from a template.
+      repository_creation: "write",
     },
     // The installation events are always sent to an App and cannot be listed here.
     default_events: [

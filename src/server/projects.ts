@@ -307,12 +307,58 @@ type Env = {
 };
 
 /** The repos the user opened to the App on GitHub; null when the App is not installed on their account. */
-async function installedRepos(github: GitHub, login: string, githubId: number) {
+export async function installedRepos(
+  github: GitHub,
+  login: string,
+  githubId: number,
+) {
   const installationId = await github.findUserInstallation(login, githubId);
   if (installationId === null) return null;
   return {
     installationId,
     repos: await github.listInstallationRepos(installationId),
+  };
+}
+
+/** Tracks a repo of the user's installation, who becomes its owner (decision 011). The unique github_repo_id decides, so two parallel imports cannot both win. */
+export async function trackRepo(
+  tx: Tx,
+  userId: number,
+  repo: { id: number; full_name: string; default_branch: string },
+  installationId: number,
+  starterTeam: (typeof STARTER_TEAMS)[number] = "standard",
+) {
+  const [created] = await tx
+    .insert(projects)
+    .values({
+      githubRepoId: repo.id,
+      fullName: repo.full_name,
+      defaultBranch: repo.default_branch,
+      installationId,
+      starterTeam,
+    })
+    .onConflictDoNothing({ target: projects.githubRepoId })
+    .returning();
+  if (!created) throw new Refused("already_tracked");
+  await tx
+    .insert(projectMembers)
+    .values({ projectId: created.id, userId, role: "owner" });
+  return created;
+}
+
+/** Whether a write permission of the App is granted (decision 067 D, as the alerts of 052): the App is blamed first (an App made before the permission lacks it), then the installation. */
+export function writeAccess(
+  access: Awaited<ReturnType<GitHub["readAppAccess"]>>,
+  permission: string,
+  appSettingsUrl: string,
+) {
+  const appHas = access.app[permission] === "write";
+  return {
+    granted: appHas && access.installation[permission] === "write",
+    installationUrl: appHas
+      ? access.installationUrl
+      : `${appSettingsUrl}/permissions`,
+    ...(!appHas && { appMissing: true as const }),
   };
 }
 
@@ -659,24 +705,13 @@ export function projectRoutes(
         try {
           const project = await act(db, entry, async (tx) => {
             if (!found || !repo) throw new Refused("repo_not_available");
-            // The unique github_repo_id decides, so two parallel imports cannot both win.
-            const [created] = await tx
-              .insert(projects)
-              .values({
-                githubRepoId: repo.id,
-                fullName: repo.full_name,
-                defaultBranch: repo.default_branch,
-                installationId: found.installationId,
-                starterTeam,
-              })
-              .onConflictDoNothing({ target: projects.githubRepoId })
-              .returning();
-            if (!created) throw new Refused("already_tracked");
-            await tx.insert(projectMembers).values({
-              projectId: created.id,
-              userId: user.userId,
-              role: "owner",
-            });
+            const created = await trackRepo(
+              tx,
+              user.userId,
+              repo,
+              found.installationId,
+              starterTeam,
+            );
             entry.projectId = created.id;
             entry.args = { projectId: created.id, starterTeam };
             return created;
@@ -1077,6 +1112,11 @@ export function projectRoutes(
           files.listFiles(WORKFLOWS_DIR, tip.sha),
         ]);
         const language = starterLanguage(rootFiles);
+        const { granted, ...permission } = writeAccess(
+          access,
+          "workflows",
+          c.get("appSettingsUrl"),
+        );
         return c.json({
           workflows: summarize(runs),
           // Decision 067 C: offered only when `.github/workflows` holds no file at all.
@@ -1089,17 +1129,7 @@ export function projectRoutes(
                   path: STARTER_PATH,
                   content: starterText(language),
                 },
-          // As the alerts of decision 052: the App is blamed first (an App made before decision 067 lacks the permission), then the installation.
-          permission: {
-            workflows:
-              access.app.workflows === "write" &&
-              access.installation.workflows === "write",
-            installationUrl:
-              access.app.workflows === "write"
-                ? access.installationUrl
-                : `${c.get("appSettingsUrl")}/permissions`,
-            ...(access.app.workflows !== "write" && { appMissing: true }),
-          },
+          permission: { workflows: granted, ...permission },
           proposal,
         });
       } catch (error) {
