@@ -3,6 +3,7 @@
 - **Statut** : validée
 - **Date** : 2026-10-18
 - **Décidé par** : Dorian, avec Claude
+- **Modifiée par 076** : `project_members.role` prend quatre valeurs et l'index « un membre par projet » devient un index « un propriétaire par projet » — voir la [076](076-plusieurs-utilisateurs.md)
 - **Modifiée par** : [008 — Service en ligne](008-service-en-ligne.md) : `project_members` remplace `projects.owner_id` ; `github_repo_id` devient unique pour toute l'instance (un repo = un projet) ; dates en `timestamptz`, JSON en `jsonb`, transactions asynchrones ; [017 — Claude écrit les US](017-user-stories.md) : `tickets.stories_written_at`, un gros ticket s'écrit en plusieurs envois
 - **Dépend de** : [001 — Stack technique](001-stack.md) (PostgreSQL, Drizzle)
 
@@ -163,7 +164,7 @@ La table `history` n'apparaît pas dans le schéma : elle n'a **volontairement a
 | Table | Rôle | Règles |
 |---|---|---|
 | `projects` | Un repo GitHub suivi par Cockpit | `github_repo_id` unique : **un repo GitHub = un projet Cockpit**, ce qui dit sans ambiguïté à quel projet va un webhook ; avec le partage, une deuxième personne sur le même repo y sera ajoutée comme membre (008). **Au MVP**, comme un projet n'a qu'un membre, une deuxième personne qui ajoute un repo déjà suivi est refusée avec un message neutre (« Ce repo est déjà suivi dans Cockpit »), sans dire par qui. *(Avant la 008 : unique sur (`owner_id`, `github_repo_id`), chacun pouvait suivre le même repo de son côté.)* Le repo est identifié par `github_repo_id`, qui survit aux renommages ; `full_name` n'est qu'un affichage. Archivé = `archived_at` rempli |
-| `project_members` | Une personne qui travaille sur un projet (008) | Clé primaire sur (`project_id`, `user_id`). `role` ∈ `owner` (`CHECK`) pour l'instant. **Un seul membre par projet au MVP**, garanti par un index unique sur `project_id`, que le partage retirera |
+| `project_members` | Une personne qui travaille sur un projet (008) | Clé primaire sur (`project_id`, `user_id`). `role` ∈ `owner`, `can_launch`, `can_validate`, `read_only` (`CHECK`, [076](076-plusieurs-utilisateurs.md)). **Un seul propriétaire par projet**, garanti par l'index unique `project_members_owner_idx` sur `project_id` où `role = 'owner'` (migration `0047`) |
 
 Le **bilan de santé** n'a pas de table : il est relu sur GitHub à chaque affichage (la 013 y ajoute un cache en mémoire adressé par le commit, le `sha` que GitHub renvoie pour `HEAD` : ce n'est pas une source de vérité, donc cela ne contredit pas « on ne stocke pas ce qui se calcule »). Avec une GitHub App, le webhook est celui **de l'App** et non un webhook par repo : la ligne « webhook installé » du bilan devient « l'App est installée sur ce repo ».
 

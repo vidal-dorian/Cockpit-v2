@@ -94,7 +94,7 @@ L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md
 | Langage | TypeScript (Dorian l'apprend) |
 | Distribution | Un service en ligne : les clients se connectent, ils n'installent rien, voir [`decisions/008-service-en-ligne.md`](decisions/008-service-en-ligne.md) |
 | Hébergement | Sur le Raspberry Pi (Cloudflare Tunnel) tant que seuls Dorian et des proches l'utilisent ; chez un hébergeur dès les premiers clients payants (008) |
-| Utilisateurs | Membres d'un projet et connexion GitHub dès le début, avec un seul membre par projet au MVP ; invitations, admin et partage plus tard (008) |
+| Utilisateurs | Membres d'un projet et connexion GitHub dès le début, avec un seul membre par projet au MVP ; invitations, admin et partage plus tard (008) (partage : 13.1, [076](decisions/076-plusieurs-utilisateurs.md)) |
 | Données v1 | Aucune reprise, aucun code de la v1 |
 | Périmètre de départ | La boucle cœur, en local seulement |
 | Lancement local | Claude Desktop installé sur le PC ; Cockpit ouvre la session via `claude://code/new`, voir [`decisions/005-lancement-local.md`](decisions/005-lancement-local.md) |
