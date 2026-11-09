@@ -490,6 +490,23 @@ export const routines = pgTable("routines", {
     .defaultNow(),
 });
 
+/** An agent team of a user (decision 074 B): the text of a `team.md`, added to projects on demand. */
+export const agentTeams = pgTable(
+  "agent_teams",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    name: text("name").notNull(),
+    text: text("text").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("agent_teams_user_name_idx").on(t.userId, t.name)],
+);
+
 /** One session asked of the launcher (decision 054 E): reserved before `/fire` is called, `result` null until it answers. A launch is of a story or of a routine (056 B). */
 export const cloudLaunches = pgTable(
   "cloud_launches",

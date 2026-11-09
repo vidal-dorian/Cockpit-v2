@@ -350,7 +350,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           + Importer un repo
         </Link>
         <p className={sidebarLabel}>Configurer</p>
-        <NavLink to="/equipes/commun" className={navItem}>
+        <NavLink to="/equipes" className={navItem}>
           Équipes d'agents
         </NavLink>
         <NavLink to="/journal" className={navItem}>

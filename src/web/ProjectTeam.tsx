@@ -51,11 +51,11 @@ type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type Done = { url: string; pullRequest: boolean };
 type StarterAgent = { name: string; text: string };
-type StarterTeams = {
+export type StarterTeams = {
   teams: { id: string; team: string; agents: StarterAgent[] }[];
 };
 const STARTER_KEY = ["starter-teams"];
-const starterQuery = {
+export const starterQuery = {
   queryKey: STARTER_KEY,
   queryFn: async (): Promise<StarterTeams> => {
     const res = await client.api["starter-teams"].$get();
@@ -507,7 +507,8 @@ function Problem({ problem }: { problem: Failure }) {
 }
 
 /** Decision 042: a new team is configured in a modal window, on its own draft, so the team shown behind it is never edited by mistake. */
-function NewTeamDialog({
+export function NewTeamDialog({
+  edit,
   start,
   taken,
   agents,
@@ -517,6 +518,8 @@ function NewTeamDialog({
   onCreate,
   onCancel,
 }: {
+  /** The name of a team being edited: shown, not editable, and the dialog saves instead of creating (decision 074 B). */
+  edit?: string;
   start: Draft;
   taken: string[];
   agents: Agent[];
@@ -527,7 +530,7 @@ function NewTeamDialog({
   onCancel: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState(edit ?? "");
   const [draft, setDraft] = useState(start);
   // The graph measures its box when it mounts: only once the dialog is shown, or it fits into nothing.
   const [shown, setShown] = useState(false);
@@ -538,13 +541,14 @@ function NewTeamDialog({
     setShown(true);
     return () => opener?.focus();
   }, []);
-  const nameProblem = !newName
-    ? null
-    : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
-      ? "Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début"
-      : taken.includes(newName)
-        ? "Ce nom est déjà pris"
-        : null;
+  const nameProblem =
+    edit !== undefined || !newName
+      ? null
+      : !TEAM_NAME.test(newName) || newName.length > MAX_TEAM_NAME
+        ? "Nom invalide : lettres minuscules, chiffres et tirets, sans tiret au début"
+        : taken.includes(newName)
+          ? "Ce nom est déjà pris"
+          : null;
   const { steps } = draft;
   return (
     // Escape closes the dialog natively, which is « Annuler ».
@@ -555,7 +559,7 @@ function NewTeamDialog({
       className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
     >
       <h3 id="team-new-title" className="font-heading text-lg font-bold">
-        Nouvelle équipe
+        {edit === undefined ? "Nouvelle équipe" : "Modifier l'équipe"}
       </h3>
       <label htmlFor="team-new" className="mt-3 block">
         Nom de l'équipe
@@ -564,6 +568,7 @@ function NewTeamDialog({
         id="team-new"
         className={field}
         value={newName}
+        readOnly={edit !== undefined}
         aria-describedby="team-new-problem"
         onChange={(e) => setNewName(e.target.value)}
       />
@@ -594,7 +599,7 @@ function NewTeamDialog({
           onClick={() => onCreate(newName, draft)}
           className={primaryButton}
         >
-          Créer l'équipe
+          {edit === undefined ? "Créer l'équipe" : "Enregistrer"}
         </button>
         <button type="button" onClick={onCancel} className={button}>
           Annuler

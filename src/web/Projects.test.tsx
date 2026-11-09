@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
 const INSTALL_URL = "https://github.com/apps/cockpit-test/installations/new";
@@ -161,7 +161,15 @@ const rowOf = (text: string) => {
   return row as HTMLElement;
 };
 
+// jsdom has no showModal on <dialog> (the import dialog of decision 074): a stub, removed after each test.
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute("open", "");
+  };
+});
+
 afterEach(() => {
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
   cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState({}, "", "/");
@@ -353,6 +361,9 @@ describe("Projets page, import", () => {
     });
     renderAt("/projets");
     fireEvent.click(await screen.findByRole("button", { name: "Importer" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Importer avec Standard" }),
+    );
 
     await waitFor(() => {
       const post = calls.find(
@@ -394,6 +405,9 @@ describe("Projets page, import", () => {
     });
     renderAt("/projets");
     fireEvent.click(await screen.findByRole("button", { name: "Importer" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Importer avec Standard" }),
+    );
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain(ALREADY_TRACKED);

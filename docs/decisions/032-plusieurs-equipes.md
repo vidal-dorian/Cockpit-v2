@@ -7,6 +7,7 @@
 - **Modifie** : la règle F de la [013](013-bilan-de-sante.md), déjà modifiée par la 029 E : elle vérifie aussi les équipes nommées
 - **Tranche** : E4 du [découpage](../decoupage.md)
 - **Modifiée par** : [042](042-nouvelle-equipe-fenetre.md) : « Nouvelle équipe » (E) s'ouvre dans une fenêtre, et l'onglet passe sur deux colonnes
+- **Modifiée par** : [074 — Les équipes à la demande](074-equipes-a-la-demande.md) : une équipe de l'utilisateur, ajoutée à un projet, devient une équipe nommée du repo
 
 ## Contexte
 

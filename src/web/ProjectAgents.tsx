@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
+import { ProjectGlobalTeams } from "./AgentTeams.tsx";
 import { type AgentFields, parseAgent, writeAgent } from "./agent-file.ts";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
@@ -545,6 +546,14 @@ export function ProjectAgents({
             />
           )}
         </section>
+        {list && !editing && (
+          <ProjectGlobalTeams
+            projectId={projectId}
+            fullName={fullName}
+            archived={archived}
+            repoTeams={list.teams ?? []}
+          />
+        )}
         {list && !editing && analysis.length > 0 && (
           <section className="lg:col-span-2" aria-labelledby="analysis-agents">
             <h2 id="analysis-agents" className={sectionLabel}>
