@@ -12,6 +12,7 @@ import {
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
+import { clock } from "./when.ts";
 
 // What the Journal page and the Historique tab of a project share (decision 053): the periods, the chip menu, the list by day and the panel of an entry.
 
@@ -185,11 +186,6 @@ const dayLabel = (at: string) => {
   if (day(date) === day(new Date(now.getTime() - 86_400_000))) return "Hier";
   return day(date);
 };
-const clock = (at: string) =>
-  new Date(at).toLocaleTimeString("fr-FR", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 
 function EntryPanel({
   entry,

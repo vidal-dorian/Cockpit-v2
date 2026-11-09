@@ -56,6 +56,8 @@ const answer = {
   storyId: 21,
   iWant: "relire les exports",
   project: PROJECT,
+  context: null,
+  agent: "developer",
 };
 const validate = {
   kind: "validate",
@@ -368,12 +370,10 @@ describe("slice 9.3 review: the answer panel", () => {
     await show({ forYou: [answer] });
 
     const p = within(panel());
-    expect(p.getByText(/relire les exports/)).toBeDefined();
-    expect(
-      p
-        .getByRole("link", { name: /US 21 · relire les exports/ })
-        .getAttribute("href"),
-    ).toBe("/us/21");
+    expect(panel().textContent).toContain("US 21 · étape developer · Run 12 ↗");
+    expect(p.getByRole("link", { name: /US 21/ }).getAttribute("href")).toBe(
+      "/us/21",
+    );
     expect(p.getByRole("link", { name: /Run 12/ }).getAttribute("href")).toBe(
       "/runs/12",
     );
