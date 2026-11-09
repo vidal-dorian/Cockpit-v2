@@ -169,17 +169,19 @@ async function tabs() {
 }
 
 describe("Project page, the tabs (decision 028 G)", () => {
-  it("given a project, when /projets/:id opens, then the seven tabs are links to their routes, Kanban is open and only the Kanban section is shown", async () => {
+  it("given a project, when /projets/:id opens, then the eight tabs are links to their routes, Kanban is open and only the Kanban section is shown", async () => {
     stubApi();
 
     renderAt("/projets/5");
 
     const { links, find } = await tabs();
-    // Decision 053 I: « Historique » between « Agents » and « Réglages ».
-    expect(links).toHaveLength(7);
+    // Decision 053 I: « Historique » before « Réglages »; decision 067 A: « CI / CD » between « Agents » and « Historique ».
+    expect(links).toHaveLength(8);
     expect(links[2]?.textContent?.trim()).toBe("Conception");
     expect(links[4]?.textContent?.trim()).toBe("Agents");
-    expect(links[5]?.textContent?.trim()).toBe("Historique");
+    expect(links[5]?.textContent?.trim()).toBe("CI / CD");
+    expect(links[5]?.getAttribute("href")).toBe("/projets/5/ci");
+    expect(links[6]?.textContent?.trim()).toBe("Historique");
     for (const name of NAMES) {
       const link = find(name);
       expect(link, `the tab ${name}`).toBeDefined();

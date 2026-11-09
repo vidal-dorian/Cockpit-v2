@@ -71,6 +71,19 @@ const servedPull = (fullName: string, p: FakePull) => ({
   head: { ref: p.headRef, sha: p.headSha },
 });
 
+/** Slice 12.4 (decision 067 B): a run of a workflow, newest first in `FakeWorkflow.runs`. `branch` defaults to the default branch, `status` to "completed", `event` to "push". */
+export type FakeRun = {
+  conclusion: "success" | "failure" | "cancelled" | null;
+  /** ISO date the run started; it ends `seconds` later (`updated_at`). */
+  at: string;
+  seconds: number;
+  branch?: string;
+  status?: "completed" | "in_progress";
+  event?: string;
+};
+/** Slice 12.4: a workflow the Actions API lists, with its runs (ids are 1, 2, ... in the order of `git.workflows`). */
+export type FakeWorkflow = { path: string; name: string; runs: FakeRun[] };
+
 /** A repo with a Git history, for `stubGitHub`'s `gitRepos` (decision 026). */
 export type FakeGitRepoOptions = {
   /** Default: "main". */
@@ -112,6 +125,8 @@ export const BASE_PERMISSIONS: Record<string, string> = {
   checks: "read",
   statuses: "read",
   actions: "read",
+  // Slice 12.4 (decision 067 D): the manifest asks for `workflows` in write, so a fully approved installation has it.
+  workflows: "write",
 };
 export const ALERT_EVENTS = [
   "dependabot_alert",
@@ -507,6 +522,8 @@ export function stubGitHub(initial: {
         pulls: [] as FakePull[],
         /** Slice 11.5: the releases of the repo as GitHub lists them (see `FakeRelease`), seeded by the test. */
         releases: [] as FakeRelease[],
+        /** Slice 12.4 (decision 067 B): the workflows of the Actions API, seeded by the test: `GET .../actions/workflows` and `GET .../actions/workflows/{id}/runs?branch&per_page` (newest first, `branch` filters, `per_page` cuts, 100 at most). */
+        workflows: [] as FakeWorkflow[],
         /** Slice 11.5: the branches GitHub says are protected (the default branch included when named). */
         protectedBranches: new Set<string>(),
         pullRequests: [] as {
@@ -846,6 +863,47 @@ export function stubGitHub(initial: {
               created_at: r.publishedAt,
             })),
           );
+        }
+        // Slice 12.4 (decision 067 B): the Actions API. A run is served with `created_at` = `run_started_at` = `at` and `updated_at` = `at` + `seconds`.
+        if (verb === "GET" && rest === "/actions/workflows")
+          return reply(200, {
+            total_count: git.workflows.length,
+            workflows: git.workflows.map((w, i) => ({
+              id: i + 1,
+              name: w.name,
+              path: w.path,
+              state: "active",
+            })),
+          });
+        const runsOf = /^\/actions\/workflows\/(\d+)\/runs$/.exec(rest);
+        if (verb === "GET" && runsOf) {
+          const workflow = git.workflows[Number(runsOf[1]) - 1];
+          if (!workflow) return reply(404, { message: "Not Found" });
+          const branch = url.searchParams.get("branch");
+          const size = Math.min(
+            Number(url.searchParams.get("per_page") ?? 30),
+            100,
+          );
+          const wanted = workflow.runs.filter(
+            (r) => !branch || (r.branch ?? git.defaultBranch) === branch,
+          );
+          return reply(200, {
+            total_count: wanted.length,
+            workflow_runs: wanted.slice(0, size).map((r, i) => ({
+              id: Number(runsOf[1]) * 1000 + i,
+              name: workflow.name,
+              status: r.status ?? "completed",
+              conclusion: r.conclusion,
+              event: r.event ?? "push",
+              head_branch: r.branch ?? git.defaultBranch,
+              created_at: r.at,
+              run_started_at: r.at,
+              updated_at: new Date(
+                new Date(r.at).getTime() + r.seconds * 1000,
+              ).toISOString(),
+              html_url: `https://github.com/${gitRoute[2]}/actions/runs/${Number(runsOf[1]) * 1000 + i}`,
+            })),
+          });
         }
         const ref = /^\/git\/ref\/(.+)$/.exec(rest);
         if (verb === "GET" && ref) {
