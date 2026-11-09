@@ -1,6 +1,6 @@
 # 067 — L'onglet CI / CD
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.4)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.4 A à D)
 - **Dépend de** : [012 — La configuration automatique](012-configuration-automatique.md) (D, le manifeste), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [052 — Les constats de GitHub](052-constats-de-github-et-versions.md) (une permission ajoutée après coup), [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur), [016 — Le serveur MCP](016-serveur-mcp.md)
@@ -24,6 +24,14 @@ Le brief (§6.10) veut lister les workflows d'un projet, proposer une CI de dép
 | F | L'humain décide | La section **« Ce que Claude propose · un changement à la fois »** montre la plus ancienne proposition en attente : sa raison, le fichier et le diff, puis **« Faire le commit »** et **« Ignorer »**, et dessous « Cockpit ne modifie un workflow qu'avec ton accord. ». `POST /api/workflow-proposals/:id/commit` écrit `content` avec le `before` gardé (026 : refusé si le fichier a changé depuis, `repo_changed`) ; `POST /api/workflow-proposals/:id/ignore` l'écarte. Historique `commit_workflow_change` et `ignore_workflow_change`. Une proposition traitée ne se traite plus (409 `already_decided`) |
 | G | « Demander à Claude » | Sur un workflow en échec, **« Demander à Claude »** lance une session cloud par le lanceur de la 054, sur le repo du projet, avec la consigne : lire les journaux de la dernière exécution en échec de ce workflow, en trouver la cause, appeler `propose_workflow_change` si un changement de workflow la corrige, ne jamais committer ni pousser un workflow, puis finir par `finish_launch` avec un résumé. Les refus du lancement sont ceux de la 054 (pas de lanceur, budget du mois atteint…), dits à côté du bouton. Historique `ask_workflow_help` avec `{ path }` |
 | H | La couleur | Le budget de la 045 : le ✕ d'un workflow en échec est la seule chose en rouge ; « Faire le commit » est le seul bouton blanc de la section |
+
+## Ce que le code a précisé (tranche 12.4)
+
+- **Rouge** : une exécution terminée en `failure`, `timed_out` ou `startup_failure`. Une exécution en cours, `cancelled` ou `skipped` est ignorée : elle ne compte ni dans « échoue depuis », ni dans la moyenne, ni comme dernière exécution.
+- **Les workflows listés** sont les actifs de `.github/workflows/`. Un workflow sans exécution qui compte le dit (« Pas encore d'exécution »), et si aucun n'en a, la phrase d'état est « Pas encore d'exécution. », pas « La CI passe. ».
+- **La permission (D)** : la permission de l'App elle-même est vérifiée d'abord (une App créée avant la 067 ne l'a pas) : le message renvoie alors aux réglages de l'App, avec `appMissing`. Sinon on regarde l'installation. `workflows_forbidden` se reconnaît au message de GitHub (« without `workflows` permission »), quel que soit le statut, y compris à la création de la branche d'une PR.
+- **Une proposition (E)** sur un chemin qui n'est pas un fichier (dossier, lien symbolique) : `not_a_file`. Un index unique partiel garde **une seule proposition en attente par fichier** ; la décision (F) ne s'applique qu'à une proposition encore en attente, donc deux clics simultanés n'en font qu'une, et un commit déjà parti sur GitHub la marque décidée quoi qu'il arrive.
+- **« Demander à Claude » (G)** : `POST /api/projects/:id/workflows/ask` avec `{ path }` (forme vérifiée, GitHub n'est pas lu), un lancement de nature `workflow` (`cloud_launches.workflow_path`), fini par `finish_launch`. Contrairement à une routine, il n'est jamais abandonné au bout de deux heures : rien n'attend dessus. Le bouton n'est montré que pour un chemin sur lequel Claude pourrait proposer (celui de E).
 
 ## Ce qui est repoussé
 

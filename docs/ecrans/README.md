@@ -44,7 +44,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | |
-| [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 | | tranché ([064](../decisions/064-tranches-restantes.md) 12.4) : permission `workflows`, `propose_workflow_change` ; pas de « 2 tests sur 31 » |
+| [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 (existe) | 067 | tranché ([064](../decisions/064-tranches-restantes.md) 12.4) : pas de « 2 tests sur 31 » (067) |
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 (existe) | 062 | |
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 (existe) | 026, 065 | |
