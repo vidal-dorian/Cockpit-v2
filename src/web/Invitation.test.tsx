@@ -104,10 +104,14 @@ describe("/invitations/<secret> (076 E)", () => {
   it("given a valid link, when Carol clicks Accepter, then the accept route is called and the page goes to GitHub's authorization", async () => {
     const calls = stubApi(VALID());
     const assign = vi.fn();
+    // The URL is set before the stub, which copies its pathname for React Router.
+    window.history.replaceState({}, "", `/invitations/${SECRET}`);
     vi.stubGlobal("location", {
       ...window.location,
       assign,
       href: window.location.href,
+      pathname: window.location.pathname,
+      search: window.location.search,
     });
     renderAt(`/invitations/${SECRET}`);
 
