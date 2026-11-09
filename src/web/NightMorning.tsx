@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "./api.ts";
 import { duration, OUTCOMES } from "./Night.tsx";
+import { plural } from "./tickets.ts";
 import { button, card } from "./ui.ts";
 
 type Item = {
@@ -12,11 +13,10 @@ type Item = {
 };
 
 const BOXES: Record<string, string> = {
-  pr: "✓ bg-done-soft text-done-text",
-  paused: "✦ bg-you-soft text-you-text",
+  pr: "✓ bg-raised border border-border-strong",
+  paused: "✦ bg-you-ground border border-you-line text-you-text",
 };
 const HOUR = 3_600_000;
-const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 /** « 4 h 10 »: the time of day, in the browser's time zone. */
 const clock = (iso: string) => {
@@ -94,7 +94,7 @@ export function NightMorning({
         </p>
       )}
       <p>
-        La nuit · {duration(work)} de travail · {proven}{" "}
+        La nuit · {work === 0 ? "0 min" : duration(work)} de travail · {proven}{" "}
         {plural(proven, "critère prouvé", "critères prouvés")} ·{" "}
         {failures === 0
           ? "aucun échec"
@@ -116,7 +116,7 @@ export function NightMorning({
           const box =
             item.startedAt || item.outcome === "paused"
               ? (BOXES[item.outcome ?? ""] ??
-                "✕ bg-destructive-soft text-destructive")
+                "✕ bg-raised border border-border-strong text-muted-foreground")
               : null;
           const start = item.startedAt
             ? new Date(item.startedAt).getTime()
@@ -127,7 +127,10 @@ export function NightMorning({
           return (
             <li key={item.storyId} className="grid gap-1">
               <span className="flex flex-wrap gap-x-3">
-                <span>{item.iWant}</span>
+                <span>
+                  <span className="sr-only">US {item.storyId} · </span>
+                  {item.iWant}
+                </span>
                 <span className="text-muted-foreground">
                   {item.outcome ? (OUTCOMES[item.outcome] ?? item.outcome) : ""}
                   {item.startedAt &&

@@ -405,7 +405,7 @@ function ReviewSeries({
     const target = next ?? reviews[0];
     if (!target) return;
     window.open(prUrl(target), "_blank", "noopener");
-    const now = [...seen, target.storyId];
+    const now = [...(next ? seen : []), target.storyId];
     setSeen(reviews.every((r) => now.includes(r.storyId)) ? [] : now);
   };
   useEffect(() => {
