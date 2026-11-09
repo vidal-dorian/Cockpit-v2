@@ -186,7 +186,7 @@ function Shell() {
     <div className="md:grid md:grid-cols-[224px_minmax(0,1fr)]">
       <Sidebar />
       {/* A page renders its own <main>. */}
-      <div className="flex min-h-screen min-w-0 flex-col lg:has-[aside[data-panel]]:pr-[380px]">
+      <div className="flex min-h-screen min-w-0 flex-col pb-16 md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
         <InstallBanner />
         <div className="flex-1">
           <Routes>

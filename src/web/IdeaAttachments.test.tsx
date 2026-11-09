@@ -52,7 +52,7 @@ const dialog = () => screen.findByRole("dialog", { name: "Noter une idée" });
 const inPanel = async () => within(await dialog());
 const input = async () => {
   const found = (await dialog()).querySelectorAll<HTMLInputElement>(
-    'input[type="file"]',
+    'input[type="file"]:not([capture])',
   );
   expect(found).toHaveLength(1);
   return found[0] as HTMLInputElement;

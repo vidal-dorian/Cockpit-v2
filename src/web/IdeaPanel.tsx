@@ -46,6 +46,7 @@ export function IdeaPanel({
   const [rejected, setRejected] = useState<
     { key: number; name: string; code: string }[]
   >([]);
+  const camera = useRef<HTMLInputElement>(null);
   const set = onChange;
   // The tags already used in the chosen project, offered as suggestions.
   const used = useQuery({
@@ -55,6 +56,25 @@ export function IdeaPanel({
   const suggestions = [
     ...new Set((used.data ?? []).flatMap((t) => t.tags ?? [])),
   ];
+  const addFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const chosen = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    const checked = chosen.map((file) => ({
+      file,
+      code: checkFile(file),
+    }));
+    setRejected(
+      checked.flatMap((c) =>
+        c.code ? [{ key: nextKey(), name: c.file.name, code: c.code }] : [],
+      ),
+    );
+    set({
+      files: [
+        ...idea.files,
+        ...checked.flatMap((c) => (c.code ? [] : [c.file])),
+      ],
+    });
+  };
   const canSend = idea.title.trim() !== "" && !pending;
   const send = () =>
     canSend && onSubmit({ ...idea, tags: withPending(idea.tags, tagText) });
@@ -70,7 +90,7 @@ export function IdeaPanel({
           send();
         }
       }}
-      className="mb-2 flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4"
+      className="mb-2 flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-30 max-md:mb-0 max-md:overflow-y-auto max-md:rounded-none max-md:pb-20"
     >
       <div>
         <h2 id={heading} className="font-semibold">
@@ -102,7 +122,7 @@ export function IdeaPanel({
           aria-label="Projet"
           value={idea.projectId}
           onChange={(event) => set({ projectId: event.target.value })}
-          className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
+          className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 text-base font-semibold md:text-sm ${focusRing}`}
         >
           {projects.map((p) => (
             <option key={p.id} value={p.id} className="bg-card">
@@ -116,7 +136,7 @@ export function IdeaPanel({
           onChange={(event) =>
             set({ priority: event.target.value as Idea["priority"] })
           }
-          className={`rounded-[10px] bg-transparent px-2 py-1 ${focusRing}`}
+          className={`rounded-[10px] bg-transparent px-2 py-1 text-base md:text-sm ${focusRing}`}
         >
           {Object.entries(PRIORITIES).map(([value, label]) => (
             <option key={value} value={value} className="bg-card">
@@ -132,32 +152,15 @@ export function IdeaPanel({
           suggestions={suggestions}
         />
       </div>
+      <input ref={picker} type="file" multiple hidden onChange={addFiles} />
+      {/* The camera of the phone (decision 071 D): same path as « Pièce jointe ». */}
       <input
-        ref={picker}
+        ref={camera}
         type="file"
-        multiple
+        accept="image/*"
+        capture="environment"
         hidden
-        onChange={(event) => {
-          const chosen = Array.from(event.target.files ?? []);
-          event.target.value = "";
-          const checked = chosen.map((file) => ({
-            file,
-            code: checkFile(file),
-          }));
-          setRejected(
-            checked.flatMap((c) =>
-              c.code
-                ? [{ key: nextKey(), name: c.file.name, code: c.code }]
-                : [],
-            ),
-          );
-          set({
-            files: [
-              ...idea.files,
-              ...checked.flatMap((c) => (c.code ? [] : [c.file])),
-            ],
-          });
-        }}
+        onChange={addFiles}
       />
       {idea.files.length > 0 && (
         <ul className="flex flex-wrap gap-2">
@@ -197,6 +200,14 @@ export function IdeaPanel({
           className={ghostButton}
         >
           + Pièce jointe
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => camera.current?.click()}
+          className={`md:hidden ${ghostButton}`}
+        >
+          Photo
         </button>
         <p className="mr-auto text-[12.5px] text-muted-foreground">
           Seuls le titre et le projet sont obligatoires.

@@ -117,10 +117,10 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S52](S52_Tel_Accueil.png) | Accueil sur le téléphone | 15.1 | 003 | |
-| [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 | 036 | |
-| [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 | 018 | |
-| [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 | 014 | tranché ([064](../decisions/064-tranches-restantes.md) 15.1) : « Photo » oui, « Dicter » retiré |
+| [S52](S52_Tel_Accueil.png) | Accueil sur le téléphone | 15.1 (existe) | 003, 071 | « à relire sur ordinateur » d'une PR non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) |
+| [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 (existe) | 036, 071 | le panneau de l'accueil vient sous « 1 · Maintenant » ([071](../decisions/071-trois-gestes-au-telephone.md) E) |
+| [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 (existe) | 018, 071 | « Plus tard » non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) |
+| [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 (existe) | 014, 071 | « Photo » construit, « Dicter » retiré ([064](../decisions/064-tranches-restantes.md) 15.1) ; le titre de l'idée en gros n'est pas construit, et le panneau montre aussi la priorité et les étiquettes, absentes de S55 ([071](../decisions/071-trois-gestes-au-telephone.md)) |
 | [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : tranche 15.2 ([064](../decisions/064-tranches-restantes.md)) |
 
 Sur le téléphone, la barre du bas (Accueil, Idée, Nuit, Projets) est la même sur chaque écran.

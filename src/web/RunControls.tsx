@@ -99,7 +99,7 @@ export function RunControls({
       </Link>
     );
   return (
-    <div className="flex max-w-[320px] shrink-0 flex-col items-end gap-2 text-right text-[13px]">
+    <div className="flex max-w-full shrink-0 md:max-w-[320px] flex-col items-end gap-2 text-right text-[13px]">
       <div className="flex flex-wrap justify-end gap-2">
         {!stopRequested && (
           <button

@@ -274,7 +274,9 @@ describe("navigation", () => {
 
     const journal = await screen.findByRole("link", { name: "Journal" });
     expect(journal.getAttribute("aria-current")).toBe("page");
-    const home = screen.getByRole("link", { name: "Accueil" });
+    const home = within(
+      screen.getByRole("complementary", { name: "Barre latérale" }),
+    ).getByRole("link", { name: "Accueil" });
     expect(home.getAttribute("aria-current")).toBeNull();
   });
 });
