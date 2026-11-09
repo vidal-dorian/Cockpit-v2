@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { Dot } from "./Shell.tsx";
 import { fetchStory, StoryDecisions } from "./StoryDecisions.tsx";
+import { TicketTags } from "./TagField.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { fetchTickets, plural, STORY_STATUSES } from "./tickets.ts";
 import {
@@ -228,6 +229,12 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 </span>{" "}
                                 <span className="block text-xs text-muted-foreground">
                                   ticket
+                                </span>
+                                <span className="mt-1 flex flex-wrap gap-1.5 empty:hidden">
+                                  <TicketTags
+                                    tags={t.tags}
+                                    priority={t.priority}
+                                  />
                                 </span>
                               </Link>
                             </li>

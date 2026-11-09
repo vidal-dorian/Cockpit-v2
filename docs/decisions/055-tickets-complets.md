@@ -56,6 +56,7 @@ Le brief (§6.2) veut une capture rapide depuis n'importe quel écran, une prior
 - **Le panneau** : `<aside>` nommé « Ticket », avec le compteur et les flèches. Échap ou un second clic sur la ligne le ferme. « Modifier » ouvre `/tickets/:id?modifier=1` (le formulaire est déjà ouvert, sauf si le ticket est abandonné) ; le paramètre est retiré de l'adresse après l'enregistrement. Un « Supprimer » refusé (Claude a écrit des US entre-temps) relit les US du projet, ce qui cache le bouton.
 - **Le détail d'une ligne** : « N US · 1 à valider, 2 prêtes, 1 en cours, 1 en revue » : les statuts à zéro sont omis, et « en revue » compte aussi.
 - **La page du ticket** : « Modifier » change la priorité et les étiquettes ; la page montre « priorité haute » ou « priorité basse » (rien pour « normale ») et les étiquettes sous le titre.
+- **Où se montrent les étiquettes** : sur une ligne de l'onglet, sur la carte « Idées » du Kanban ([069](069-finitions.md) G) et dans le panneau du ticket, par le même composant `TicketTags` (`TagField.tsx`) : les étiquettes, puis « priorité haute » ; rien pour une priorité normale ou basse, ni sans étiquette.
 - **`get_ticket`** (MCP) rend `priority` et `tags`.
 - **Les différences avec S09 et S14** : la pièce jointe de S09 existe depuis la 11.4 ([061](061-pieces-jointes.md)) ; « Importer les issues » de S14, attendu alors, existe depuis la 11.3 ([057](057-importer-les-issues.md)) ; le détail d'une ligne n'écrit que « N US · … » (les autres textes de la maquette ne sont pas construits).
 
