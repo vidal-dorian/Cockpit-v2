@@ -294,8 +294,7 @@ describe("decision 072 A: the choice of the team after « Importer »", () => {
 
     expect(currentName(dialog)).toBe("Max");
     const focused = document.activeElement as HTMLElement;
-    expect(focused).not.toBe(document.body);
-    expect(dialog.contains(focused)).toBe(true);
+    expect(focused.getAttribute("aria-current")).toBe("true");
     fireEvent.keyDown(focused, { key: "ArrowLeft" });
     expect(currentName(dialog)).toBe("Premium");
   });

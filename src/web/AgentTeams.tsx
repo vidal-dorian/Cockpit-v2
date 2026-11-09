@@ -152,11 +152,13 @@ function TeamRow({
   team,
   projects,
   onEdit,
+  deleting,
   onDelete,
 }: {
   team: Team;
   projects: { id: number; fullName: string }[];
   onEdit: () => void;
+  deleting: boolean;
   onDelete: () => void;
 }) {
   const [mode, setMode] = useState<"delete" | "add" | null>(null);
@@ -205,6 +207,7 @@ function TeamRow({
           <button
             type="button"
             aria-describedby={`delete-${team.id}`}
+            disabled={deleting}
             onClick={onDelete}
             className={`mt-2 ${dangerButton}`}
           >
@@ -231,7 +234,10 @@ function TeamRow({
               <select
                 className={field}
                 value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
+                onChange={(e) => {
+                  add.reset();
+                  setProjectId(e.target.value);
+                }}
               >
                 <option value="">Choisir un projet</option>
                 {projects.map((p) => (
@@ -406,6 +412,7 @@ export function AgentTeams() {
                   setProblem(null);
                   setDialog(team);
                 }}
+                deleting={remove.isPending}
                 onDelete={() => remove.mutate(team.name)}
               />
             ))}
