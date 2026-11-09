@@ -98,7 +98,7 @@ describe("076 B: a launched run reports to its end", () => {
 
 describe("076 H: a delivery belongs to the owner", () => {
   it("given a guest whose row comes first, when GitHub delivers an event, then its entry is the owner's", async () => {
-    // The guest has the lower user id: the join follows the key (project, user), so without a role filter it meets him first.
+    // The guest comes first both ways a join without a role filter could meet the members: lower user id, and the owner's row written last.
     const ctx = await setup({ account: 1000 });
     const guest = await userWithToken(ctx.app, ctx.db, 2000);
     const alice = await userWithToken(ctx.app, ctx.db, 1000);
@@ -109,6 +109,10 @@ describe("076 H: a delivery belongs to the owner", () => {
     await ctx.db
       .insert(projectMembers)
       .values({ projectId, userId: guest.id, role: "read_only" });
+    await ctx.db.execute(sql`delete from project_members where role = 'owner'`);
+    await ctx.db
+      .insert(projectMembers)
+      .values({ projectId, userId: alice.id, role: "owner" });
     const s = { ...ctx, alice };
     const body = JSON.stringify({
       action: "opened",
@@ -141,7 +145,7 @@ describe("076 H: a delivery belongs to the owner", () => {
 describe("076 H: an issue edited on GitHub belongs to the owner", () => {
   it("given a guest with the lower user id, when an issue is edited, then the entry of the divergence is the owner's", async () => {
     const s = await publishedStory();
-    // The join follows the key (project, user): the owner has the higher user id, so a join without a role filter meets the guest first.
+    // The guest comes first both ways a join without a role filter could meet the members: lower user id, and the owner's row written last.
     const owner = await userWithToken(s.app, s.db, 2000);
     await s.db.execute(
       sql`update project_members set role = 'read_only' where user_id = ${s.alice.id}`,
