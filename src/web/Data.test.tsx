@@ -48,7 +48,10 @@ function stub(
       const path = new URL(raw, "http://localhost").pathname;
       const text = typeof init?.body === "string" ? init.body : "";
       calls.push({ method, path, body: text ? JSON.parse(text) : undefined });
-      if (method === "DELETE" && path === "/api/me") signedIn = false;
+      if (method === "DELETE" && path === "/api/me") {
+        signedIn = false;
+        return Response.json({ ok: true });
+      }
       const answer = options.answers?.[`${method} ${path}`];
       if (answer) return answer();
       if (path === "/api/setup/status")
@@ -121,8 +124,12 @@ function renderAt(path: string) {
   );
 }
 
-const rowOf = (label: string) => {
-  const row = screen.getByText(label).closest("li, tr, div");
+// The shell's navigation also says « Projets »: take the label whose row holds the value.
+const rowOf = (label: string, value = "") => {
+  const row = screen
+    .getAllByText(label)
+    .map((el) => el.closest("li, tr, div"))
+    .find((el) => el?.textContent?.includes(value));
   expect(row, `${label} must sit in a row`).not.toBeNull();
   return within(row as HTMLElement);
 };
@@ -136,13 +143,14 @@ describe("078 A: the page", () => {
     await screen.findByRole("heading", {
       name: /Ce que Cockpit garde sur toi/,
     });
+    await screen.findByText(/8 entrées/);
     screen.getByText("Et comment tout effacer.", { exact: false });
     expect(
       screen.getByRole("link", { name: "Données" }).getAttribute("href"),
     ).toBe("/reglages/donnees");
     expect(rowOf("Compte").getByText(/Dorian/)).toBeDefined();
     expect(rowOf("Compte").getByText(/@dorian/)).toBeDefined();
-    expect(rowOf("Projets").getByText(/14/)).toBeDefined();
+    expect(rowOf("Projets", "14").getByText(/14/)).toBeDefined();
     expect(rowOf("Journal").getByText(/8 entrées/)).toBeDefined();
     expect(
       rowOf("Journal").getByText(/gardées tant que le compte existe/),

@@ -23,8 +23,8 @@ afterEach(() => {
 });
 
 const ME = "/api/me";
-const del = (ctx: Life, login: unknown = "user1000") =>
-  send(ctx.app, ctx.alice.cookie, "DELETE", ME, { login });
+const del = (ctx: Life, body: object = { login: "user1000" }) =>
+  send(ctx.app, ctx.alice.cookie, "DELETE", ME, body);
 const mine = (ctx: Life) => `user_id = ${ctx.alice.id}`;
 
 describe("078 A: the lines of the Données page", () => {
@@ -74,7 +74,7 @@ describe("078 B: the export", () => {
     expect(body.account).toMatchObject({ login: "user1000" });
     const names = body.projects.map((p: { fullName: string }) => p.fullName);
     expect(names.sort()).toEqual([
-      "owner1000/old0",
+      "owner1/old0",
       "user1000/app",
       "user3000/other",
     ]);
@@ -155,8 +155,8 @@ describe("078 C: deleting the account", () => {
   it("given a wrong or missing login, when she deletes, then it answers 400 and nothing is deleted", async () => {
     const ctx = await withLife();
 
-    for (const login of ["user1001", "USER1000", undefined]) {
-      const res = await del(ctx, login);
+    for (const body of [{ login: "user1001" }, { login: "USER1000" }, {}]) {
+      const res = await del(ctx, body);
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "login_mismatch" });
     }
@@ -282,7 +282,12 @@ describe("078 D: the journal", () => {
     await db.execute(sql`select erase_account_history(11, array[21])`);
 
     const left = (await rows(db)).map((r) => r.action).sort();
-    expect(left).toEqual(["account_deleted", "someone_else", "unrelated"]);
+    expect(left).toEqual([
+      "account_deleted",
+      "create_token", // the setup's own entry, another user's
+      "someone_else",
+      "unrelated",
+    ]);
     const [gone] = await rows(db, sql`action = 'account_deleted'`);
     expect(gone).toMatchObject({
       user_id: null,
@@ -298,7 +303,7 @@ describe("078 D: the journal", () => {
       sql`truncate table history`,
     ])
       await expect(db.execute(statement)).rejects.toThrow();
-    expect(await rows(db)).toHaveLength(3);
+    expect(await rows(db)).toHaveLength(4);
   });
 
   it("given the route, when she deletes, then none of her entries nor those of her projects remain, Bob's elsewhere stay, and one anonymous account_deleted is left", async () => {
