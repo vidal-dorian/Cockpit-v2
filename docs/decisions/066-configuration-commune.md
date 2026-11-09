@@ -27,11 +27,9 @@ Le brief (§6.9) veut des agents et des skills définis une fois et disponibles 
 
 ## Ce que le code a précisé (tranche 12.3)
 
-- **Le calcul de G** est `pluginSettings` (`src/server/plugin-settings.ts`), que la page importe : les clés déjà là gardent leur ordre, les nouvelles sont ajoutées à la fin. `POST /api/projects/:id/plugins/apply` ne reçoit que `{ install, before }`.
-- **Aucun commit à vide** : installer un `settings.json` qui serait écrit tel quel, ou retirer là où le plugin n'est pas installé, est un 400.
+- **Le calcul de G** est `pluginSettings` : les clés déjà là gardent leur ordre, les nouvelles sont ajoutées à la fin.
 - **Un refus du lien est journalisé** (010 C) : `repo_unreachable` à `link_plugin_repo` ; un échec GitHub l'est aussi, en 502.
-- **`GET /api/plugins/projects`** rend `{ projects: [{ id, fullName, installed, settings }] }`, `settings` étant le texte lu (`null` sans fichier). Un projet que l'installation de l'App n'atteint plus est rendu non installé, sans appel à GitHub (limite connue : « Installer » y échouera à l'écriture).
-- **Les écritures** passent par `writeChanges`, tiré de `saveFile` : il écrit dans n'importe quel repo de l'installation de l'utilisateur, pas seulement dans un projet. `POST /api/plugins/apply` répond 409 `no_plugin_repo` sans repo relié, et `repo_unreachable` sans installation.
+- **Un projet que l'installation de l'App n'atteint plus est rendu non installé, sans appel à GitHub (limite connue : « Installer » y échouera à l'écriture).
 - **Un repo sans aucun commit** : 409 `empty_repo`, à la lecture comme à l'écriture.
 - **« Délier »** est proposé sur tout 409 de la lecture, pas seulement `repo_unreachable`.
 
