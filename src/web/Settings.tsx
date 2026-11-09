@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
+import { Data, FingerprintErase, fetchData } from "./Data.tsx";
 import { LauncherSettings } from "./LauncherSettings.tsx";
 import { fetchMembers, Members } from "./Members.tsx";
 import { Preferences } from "./Preferences.tsx";
@@ -168,7 +169,8 @@ type SettingsTab =
   | "taches-cloud"
   | "preferences"
   | "membres"
-  | "abonnement";
+  | "abonnement"
+  | "donnees";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
 const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
@@ -186,6 +188,7 @@ const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
     rest: "Invite quelqu'un sur un de tes projets.",
   },
   abonnement: { title: "Ton abonnement" },
+  donnees: { title: "Tes données" },
   utilisateurs: {
     title: "Voici ceux qui ont accès à ton instance.",
     rest: "Toute personne avec un compte GitHub peut se connecter.",
@@ -220,7 +223,17 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
     queryFn: fetchPlan,
     enabled: on("abonnement"),
   });
+  const data = useQuery({
+    queryKey: ["data"],
+    queryFn: fetchData,
+    enabled: on("donnees"),
+  });
   if (tab === "abonnement" && plan.data) return planSentence(plan.data);
+  if (tab === "donnees" && data.data)
+    return {
+      title: "Ce que Cockpit garde sur toi.",
+      rest: "Et comment tout effacer.",
+    };
   if (tab === "utilisateurs" && !isAdmin)
     return { title: "L'instance est gérée par son administrateur." };
   if (tab === "claude" && connect.data?.connected && connect.data.connectedAt)
@@ -302,6 +315,9 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           <NavLink to="/reglages/abonnement" className={menuItem}>
             Abonnement
           </NavLink>
+          <NavLink to="/reglages/donnees" className={menuItem}>
+            Données
+          </NavLink>
           {me.data?.isAdmin && (
             <NavLink to="/reglages/utilisateurs" className={menuItem}>
               Instance
@@ -333,11 +349,13 @@ export function Settings({ tab }: { tab: SettingsTab }) {
                   </div>
                 </section>
                 <ProCodes />
+                <FingerprintErase />
               </div>
             ) : (
               <p>Cette page est réservée à l'administrateur.</p>
             ))}
           {tab === "abonnement" && <Subscription />}
+          {tab === "donnees" && <Data />}
           {tab === "preferences" && <Preferences />}
           {tab === "membres" && <Members />}
           {tab === "taches-cloud" && (

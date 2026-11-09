@@ -12,6 +12,7 @@ import { changelogRoutes } from "./changelog.ts";
 import { codeMapRoutes } from "./code-map.ts";
 import { costRoutes, metricsRoutes } from "./cost.ts";
 import { customRoutineRoutes } from "./custom-routines.ts";
+import { dataRoutes } from "./data.ts";
 import type { Db } from "./db/db.ts";
 import { dependabotRoutes } from "./dependabot.ts";
 import { favoriteRoutes } from "./favorites.ts";
@@ -163,15 +164,19 @@ export function createApp(
           readGitHub,
           async (c, config) =>
             (await invitationReturn(db)(c, config)) ??
-            templateReturn(db, readGitHub)(c, config),
+            templateReturn(db, readGitHub, encryptionKey)(c, config),
         ),
       )
       .route("/", historyRoutes(db))
-      .route("/", accountRoutes(db, readInstance))
-      .route("/", planRoutes(db))
+      .route("/", accountRoutes(db, readInstance, encryptionKey))
+      .route("/", dataRoutes(db, encryptionKey))
+      .route("/", planRoutes(db, encryptionKey))
       .route("/", webhookRoutes(db, readInstance, fireDeps))
-      .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
-      .route("/", templateRoutes(db, readInstance, readGitHub))
+      .route(
+        "/",
+        projectRoutes(db, readGitHub, healthCacheSize, now, encryptionKey),
+      )
+      .route("/", templateRoutes(db, readInstance, readGitHub, encryptionKey))
       .route("/", memberRoutes(db, readInstance))
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))

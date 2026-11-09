@@ -344,6 +344,20 @@
       "when": 1794247741929,
       "tag": "0048_easy_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1794250996752,
+      "tag": "0049_account_fingerprints",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794250997573,
+      "tag": "0050_erase_account_history",
+      "breakpoints": true
     }
   ]
 }

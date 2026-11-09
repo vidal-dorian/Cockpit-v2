@@ -3,6 +3,7 @@ import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
+import { fingerprintRoutes } from "./data.ts";
 import type { Db } from "./db/db.ts";
 import { sessions, users } from "./db/schema.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
@@ -12,7 +13,7 @@ import { NOT_CONFIGURED } from "./projects.ts";
 type Env = { Variables: { adminId: number; settings: InstanceSettings } };
 
 /** The administrator's user list and block list (decision 012 G). */
-export function accountRoutes(db: Db, readInstance: ReadInstance) {
+export function accountRoutes(db: Db, readInstance: ReadInstance, key: Buffer) {
   /** 503 before the session check, as the other routes; then 401 without a session and 403 for a non-administrator. */
   const adminOnly = createMiddleware<Env>(async (c, next) => {
     const settings = await readInstance();
@@ -68,6 +69,7 @@ export function accountRoutes(db: Db, readInstance: ReadInstance) {
   return new Hono<Env>()
     .use("/api/settings/*", adminOnly)
     .route("/", proCodeRoutes(db))
+    .route("/", fingerprintRoutes(db, key))
     .get("/api/settings/users", async (c) => {
       const all = await db
         .select({

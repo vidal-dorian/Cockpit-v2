@@ -461,6 +461,7 @@ export function projectRoutes(
   readGitHub: ReadGitHub,
   healthCacheSize: number,
   now: () => number,
+  key: Buffer,
 ) {
   // Decision 013: the health lines of the repos shown lately, by installation and repo, with the commit they were computed from. Least recently used out first (a Map keeps insertion order).
   type HealthEntry = {
@@ -806,7 +807,8 @@ export function projectRoutes(
               .from(users)
               .where(eq(users.id, user.userId))
               .for("update");
-            if (await overQuota(tx, user.userId)) throw new Refused("plan");
+            if (await overQuota(tx, key, user.userId))
+              throw new Refused("plan");
             const created = await trackRepo(
               tx,
               user.userId,

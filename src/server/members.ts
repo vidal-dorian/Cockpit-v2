@@ -58,7 +58,7 @@ async function openInvitation(db: Db, secret: string, githubId: number) {
 }
 
 /** The numeric id of a GitHub account, null when GitHub does not know the login (decision 076 D); a public read, so no token is needed. */
-async function findAccountId(login: string) {
+export async function findAccountId(login: string) {
   const res = await fetch(`https://api.github.com/users/${login}`, {
     headers: { accept: "application/vnd.github+json", "user-agent": "cockpit" },
     signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),

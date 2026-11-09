@@ -1085,3 +1085,9 @@ export const proCodes = pgTable("pro_codes", {
   usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
   revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
 });
+
+/** What a deleted account leaves (decision 078 E): the HMAC of its GitHub id and the repos it had used, nothing else. */
+export const accountFingerprints = pgTable("account_fingerprints", {
+  fingerprint: text("fingerprint").primaryKey(),
+  reposUsed: integer("repos_used").notNull(),
+});

@@ -368,6 +368,10 @@ function Shell({
               element={<Settings tab="abonnement" />}
             />
             <Route
+              path="/reglages/donnees"
+              element={<Settings tab="donnees" />}
+            />
+            <Route
               path="/reglages/taches-cloud"
               element={<Settings tab="taches-cloud" />}
             />

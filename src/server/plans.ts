@@ -1,6 +1,13 @@
+import { createHmac } from "node:crypto";
 import { and, asc, count, desc, eq } from "drizzle-orm";
 import type { Db } from "./db/db.ts";
-import { proCodes, projectMembers, projects, users } from "./db/schema.ts";
+import {
+  accountFingerprints,
+  proCodes,
+  projectMembers,
+  projects,
+  users,
+} from "./db/schema.ts";
 
 /** Repos a Free account owns, archived included (decision 077 B). */
 export const FREE_LIMIT = 3;
@@ -26,20 +33,44 @@ export async function planOf(db: Db, userId: number) {
 const owned = (userId: number) =>
   and(eq(projectMembers.userId, userId), eq(projectMembers.role, "owner"));
 
-/** The one count of the quota (decision 077 B). */
-export async function ownedRepos(db: Db, userId: number) {
+/** The HMAC of a GitHub id, keyed from the instance key: what a deleted account leaves (decision 078 E). */
+export const fingerprintOf = (key: Buffer, githubId: number) =>
+  createHmac(
+    "sha256",
+    createHmac("sha256", key).update("account-fingerprint").digest(),
+  )
+    .update(String(githubId))
+    .digest("hex");
+
+/** The one count of the quota (decision 077 B): the repos owned, plus those used by this GitHub account before a deletion (078 E). */
+export async function ownedRepos(db: Db, key: Buffer, userId: number) {
   const [row] = await db
     .select({ n: count() })
     .from(projectMembers)
     .where(owned(userId));
-  return row?.n ?? 0;
+  const [user] = await db
+    .select({ githubId: users.githubId })
+    .from(users)
+    .where(eq(users.id, userId));
+  const [kept] = user
+    ? await db
+        .select({ n: accountFingerprints.reposUsed })
+        .from(accountFingerprints)
+        .where(
+          eq(
+            accountFingerprints.fingerprint,
+            fingerprintOf(key, user.githubId),
+          ),
+        )
+    : [];
+  return (row?.n ?? 0) + (kept?.n ?? 0);
 }
 
 /** Whether a Free account already has its 3 repos: the 4th is refused (decision 077 C). */
-export async function overQuota(db: Db, userId: number) {
+export async function overQuota(db: Db, key: Buffer, userId: number) {
   return (
     (await planOf(db, userId)).plan === "free" &&
-    (await ownedRepos(db, userId)) >= FREE_LIMIT
+    (await ownedRepos(db, key, userId)) >= FREE_LIMIT
   );
 }
 
