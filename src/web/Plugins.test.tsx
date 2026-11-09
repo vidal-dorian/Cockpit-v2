@@ -13,7 +13,7 @@ import { renderAt } from "./test-tickets.tsx";
 // Slice 12.3 (decision 066 A, B, E, F, G): the page « Équipes d'agents › Commun » on /equipes/commun and its sidebar entry.
 //
 // Assumed contract (server tests: src/server/plugins.test.ts):
-// - The « Configurer » section of the sidebar has a link « Équipes d'agents » to /equipes/commun. The page says « Ce que tous tes projets partagent. » and « Défini une fois, dans ton repo de plugins. ».
+// - The « Configurer » section of the sidebar has a link « Équipes d'agents » to /equipes (decision 072; /equipes/commun is reached from the page). The page says « Ce que tous tes projets partagent. » and « Défini une fois, dans ton repo de plugins. ».
 // - The page reads GET /api/plugins -> { repo, agents, skills } and, once a repo is linked, GET /api/plugins/projects -> { projects: [{ id, fullName, installed, settings }] }.
 // - No repo: « Crée un repo sur GitHub avec un premier commit (un README suffit), ouvre-le à Cockpit, puis relie-le ici. » (066 B as amended) and the repos of GET /api/github/repositories, one list item each with a button « Relier »
 //   that sends PUT /api/plugins/repo { fullName }. A 409 { error: "repo_unreachable" } on GET /api/plugins is a role="alert" in French.
@@ -122,14 +122,16 @@ const diffItems = () =>
     .filter((t) => /Retirée|Ajoutée/.test(t));
 
 describe("decision 066 A: the entry and the page", () => {
-  it("given a logged-in user, when the sidebar shows, then « Équipes d'agents » links to /equipes/commun and the page opens with its two sentences", async () => {
+  it("given a logged-in user, when the sidebar shows, then « Équipes d'agents » links to /equipes (slice 072) and /equipes/commun still opens with its two sentences", async () => {
     stubPlugins();
     renderAt("/");
 
     const link = await screen.findByRole("link", { name: "Équipes d'agents" });
-    expect(link.getAttribute("href")).toBe("/equipes/commun");
-    fireEvent.click(link);
+    expect(link.getAttribute("href")).toBe("/equipes");
+    cleanup();
 
+    stubPlugins();
+    renderAt("/equipes/commun");
     expect(
       await screen.findByText(/Ce que tous tes projets partagent\./),
     ).toBeDefined();
