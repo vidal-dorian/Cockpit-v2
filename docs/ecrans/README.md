@@ -77,7 +77,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 (existe) | 044 | |
 | [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; pas de frise à l'échelle des heures sur le soir ([070](../decisions/070-le-matin-de-la-nuit.md) G) |
 | [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6, 14.7 (existe) | 044, 070 | « Ce matin · 8 h 12 » et « Compte 20 minutes pour tout traiter » non construits ([070](../decisions/070-le-matin-de-la-nuit.md)) |
-| [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 | 044 | la notification attend la 15.2 (044 M') |
+| [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 (existe) | 044, 072 | la notification de 044 M' est construite ([072](../decisions/072-pwa-et-notifications.md)) |
 
 ## 6 · Équipes d'agents et journal
 
@@ -107,7 +107,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 |---|---|---|---|---|
 | [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | « Accès donnés à Claude » retiré ([069](../decisions/069-finitions.md) I) |
 | [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1, 14.6 (existent) | 022, 044, 054 | |
-| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | tranché ([064](../decisions/064-tranches-restantes.md) 15.2, 15.3) : thème clair proposé par Claude, validé par Dorian |
+| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2 (notifications, existe), 15.3 | 072 | la carte « Notifications sur le téléphone » est construite, sans le sous-titre de la maquette ([072](../decisions/072-pwa-et-notifications.md)) ; le thème et les raccourcis sont la 15.3 (tranché ([064](../decisions/064-tranches-restantes.md) 15.3) : thème clair proposé par Claude, validé par Dorian) |
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | tranché ([064](../decisions/064-tranches-restantes.md) 13.1) : les trois rôles de l'écran ; invitation par login GitHub, pas par e-mail |
 | [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | tranché ([064](../decisions/064-tranches-restantes.md) 13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités ; codes Pro ; paiement plus tard |
 | [S50](S50_Reglages_Donnees.png) | Données : exporter, supprimer son compte | 13.5 | | |
@@ -121,6 +121,6 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 (existe) | 036, 071 | le panneau de l'accueil vient sous « 1 · Maintenant » ([071](../decisions/071-trois-gestes-au-telephone.md) E) |
 | [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 (existe) | 018, 071 | « Plus tard » non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) |
 | [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 (existe) | 014, 071 | « Photo » construit, « Dicter » retiré ([064](../decisions/064-tranches-restantes.md) 15.1) ; le titre de l'idée en gros n'est pas construit, et le panneau montre aussi la priorité et les étiquettes, absentes de S55 ([071](../decisions/071-trois-gestes-au-telephone.md)) |
-| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite) | | « Cockpit hors ligne » : tranche 15.2 ([064](../decisions/064-tranches-restantes.md)) |
+| [S56](S56_Erreurs.png) | Page introuvable, Cockpit hors ligne | 9.3 (page introuvable faite), 15.2 (hors ligne, existe) | 072 | « Cockpit hors ligne » est le bandeau de la coque ([072](../decisions/072-pwa-et-notifications.md) I) |
 
 Sur le téléphone, la barre du bas (Accueil, Idée, Nuit, Projets) est la même sur chaque écran.

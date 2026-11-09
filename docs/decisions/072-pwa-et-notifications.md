@@ -1,6 +1,6 @@
 # 072 — PWA et notifications
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 15.2)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.2 A, B et C)
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md) (les secrets chiffrés), [036 — Questions de Claude](036-questions-de-claude.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md) (M', le récap), [059 — Relance automatique](059-relance-automatique.md), [060 — Coût et budget](060-cout-et-budget.md), [071 — Les trois gestes au téléphone](071-trois-gestes-au-telephone.md)
@@ -25,10 +25,28 @@ La 064 a tranché ce que la 15.2 contient : les deux téléphones à égalité, 
 | H | L'iPhone (064 A) | Si la page n'a pas `PushManager` et tourne sur un iPhone, la carte le dit à la place du bouton « Activer » : « Sur iPhone, ajoute d'abord Cockpit à l'écran d'accueil (Partager, puis Sur l'écran d'accueil), puis ouvre-le depuis là. » |
 | I | « Cockpit ne répond plus » (S56, 064 C) | Le service worker répond **réseau d'abord** aux pages, aux fichiers de l'application et aux lectures `GET /api/…`, et garde la dernière réponse réussie ; sans réseau, il rend la copie. Jamais `/api/health` ni `/api/events`, pour que la page voie la coupure. Le bandeau de S56 remplace `ServerAlert` et passe dans la coque, sur toutes les pages : « Cockpit ne répond plus. Ce que tu vois date de 9 h 42 ; on réessaie toutes les 10 secondes. » avec « Réessayer ». L'heure est celle de la dernière réponse de `/api/health` ; la page la redemande toutes les 10 secondes tant qu'elle échoue |
 
+## Ce que le code a précisé (tranche 15.2)
+
+- **Les routes** (`push.ts`, toutes avec session) : `GET /api/push/key` (la clé publique), `POST` et `DELETE /api/push/subscriptions`, `POST /api/push/test` (409 `no_device` sans appareil abonné), `GET` et `PUT /api/me/notifications` (le `PUT` accepte une partie des champs). Migration `0043` : tables `push_subscriptions` et `notifications`, colonnes `notify_question`, `notify_run_failed`, `notify_pr_ready`, `notify_night_recap`, `quiet_start_hour`, `quiet_end_hour` et `last_review_push_at` sur `users`, `vapid_public_key` et `vapid_private_key` sur `instance_settings`. Nouvelle dépendance : `web-push` (et ses types).
+- **L'adresse d'un appareil** : en https seulement, et ni `localhost`, ni adresse de boucle, privée, locale au lien ou `100.64.0.0/10` écrite en littéral, car le serveur poste le message à cette adresse. **Pas de résolution DNS** (`shortcut:` du code). Dix appareils au plus par utilisateur : le onzième est refusé en 409 `too_many_devices` (ré-enregistrer un appareil connu passe).
+- **Le sujet VAPID** est l'adresse publique si elle est en https, sinon `mailto:cockpit@localhost` (`web-push` refuse un autre sujet).
+- **Une ligne est supprimée avant l'envoi** (`DELETE … RETURNING`) et seules les lignes réellement supprimées par le passage sont envoyées : deux passages qui se chevauchent n'envoient jamais deux fois.
+- **« Run en échec » (C)** : `finish_run` avec `failed`, un arrêt demandé pour le plafond (060) et le suivi de la PR qui renonce après la 3ᵉ relance (adresse : la page de l'US). Un arrêt demandé par l'utilisateur n'envoie rien.
+- **« PR prête à relire »** n'est écrite que par `link_pull_request`, pas par un autre passage en `in_review`. La première part tout de suite, puis une par heure au plus (`last_review_push_at`, posé seulement si un appareil a reçu).
+- **Se déconnecter** retire l'appareil : `DELETE /api/push/subscriptions` côté serveur, puis `unsubscribe` (son échec ne bloque pas la déconnexion), puis vide le cache `cockpit-v1` du service worker.
+- **Le bandeau** est dans la coque connectée, sur toutes les pages ; l'écran de connexion garde son alerte « Serveur injoignable ». La requête `/api/health` n'a pas de nouvel essai et est relue à chaque erreur du flux `EventSource` ou au retour de la page.
+- **Le service worker n'est enregistré que dans le build de production** (`main.tsx`) ; le serveur répond `/sw.js` avec `Cache-Control: no-cache`.
+- **S47** : le sous-titre de la maquette n'est pas montré (la page n'a que le titre « Préférences »).
+
 ## Limites connues
 
 - **Une minute de délai** au plus (B), le pas du passage.
 - **Une notification ratée n'est pas renvoyée** (F) ; une notification pendant le silence est perdue (E), l'accueil la montre.
-- **Pas vérifié sur un vrai iPhone ni un vrai Android** : les tests n'appellent aucun service de push (l'envoyeur est remplacé), et Chromium sans interface ne reçoit pas de push. Les boutons sur iPhone (064, point ouvert) restent à essayer.
+- **Rien n'a été essayé sur un vrai iPhone, un vrai Android ni avec un vrai service de push** : les tests n'appellent aucun service de push (l'envoyeur est remplacé), et Chromium sans interface ne reçoit pas de push. Les boutons sur iPhone (064, point ouvert) restent à essayer.
 - **La copie hors ligne** est celle du dernier passage sur chaque adresse ; une page jamais ouverte n'en a pas.
 - **Pas construits** : le thème et les raccourcis de S47 (15.3) ; le « changement de workflow proposé » du brief §6.17, que S47 n'a pas retenu.
+- **Pas de vérification DNS** de l'adresse d'un appareil : un nom public qui pointe vers une adresse privée passe le filtre.
+- **Le cache du service worker n'est jamais élagué** (une entrée par adresse visitée).
+- **On ne peut pas se déconnecter depuis un téléphone** : « Se déconnecter » n'est que dans la barre latérale, cachée sous `md` (071).
+- **Une session expirée** laisse en place le cache et l'abonnement de l'appareil : seul « Se déconnecter » les retire.
+- **Le service worker n'est pas couvert par les tests** : les boutons de réponse et la copie hors ligne ne sont vérifiés par aucun test automatique.

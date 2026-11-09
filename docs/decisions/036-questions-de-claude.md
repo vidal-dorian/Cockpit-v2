@@ -30,7 +30,7 @@ La 004 a fixé les deux outils : Claude dépose sa question avec `ask_user`, qui
 
 - **La question en tête de l'accueil**, et les touches `1` et `2` des réponses rapides : 8.1.
 - **Demander l'arrêt pendant qu'une question attend** : 7.5, qui remplira `stop_requested`.
-- **Une notification sur le téléphone** : après le MVP.
+- **Une notification sur le téléphone** : après le MVP ; construite par la [072](072-pwa-et-notifications.md) (tranche 15.2).
 
 ## Limites connues
 
