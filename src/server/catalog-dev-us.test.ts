@@ -87,3 +87,46 @@ describe("slice 9.5 (decision 069 F): the steps and the context", () => {
     expect(text).toMatch(/`mcp__cockpit__ask_user`[^.]*`context`/);
   });
 });
+
+describe("slice E6 (decision 079 B): groups and limits in /dev-us", () => {
+  const text = readFileSync(SKILL, "utf8");
+  const develop = text.slice(
+    text.indexOf("## Develop"),
+    text.indexOf("## At night"),
+  );
+
+  it.each([
+    ["parallel", /`parallel: true`/],
+    ["at the same time, by sub-agents", /same time[\s\S]*sub-agent/i],
+    ["each in its own git worktree", /own git worktree/i],
+    [
+      "merged into the story branch",
+      /merge[\s\S]*branch of the story|story branch/i,
+    ],
+    ["wait: first", /`wait: first`/],
+    [
+      "the first finished branch merged, the others abandoned",
+      /first[\s\S]*(abandon|discard)/i,
+    ],
+    ["a merge conflict asks the user", /conflict[\s\S]*`?ask_user`?/i],
+    ["max", /`max`/],
+    ["at the limit, stop and ask", /limit[\s\S]*ask_user/i],
+    [
+      "until: always follows the loop exactly max times",
+      /`until: always`|always[\s\S]*exactly/i,
+    ],
+    ["id is the key that loop_to names", /`id`[\s\S]*`loop_to`/],
+    ["a loop into a step of a group redoes only that step", /only that step/i],
+  ])(
+    "given the skill dev-us, when its Develop section is read, then it explains %s",
+    (_n, pattern) => {
+      expect(develop).toMatch(pattern);
+    },
+  );
+
+  it("given the skill dev-us, when its Develop section is read, then it says always follows the loop exactly `max` times", () => {
+    expect(develop).toMatch(
+      /always[^.]*exactly[^.]*`max`|exactly[^.]*`max`[^.]*always/is,
+    );
+  });
+});

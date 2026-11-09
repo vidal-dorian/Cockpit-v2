@@ -24,6 +24,7 @@ import { readTeam } from "./team-file.ts";
 // - « Ajouter une étape » reveals a select « Agent à ajouter » (repo agents not in the team) and a button « Ajouter à l'équipe » that appends the step last.
 // - « Voir les changements » shows the DiffList of team.md; « Faire le commit » is always rendered in the section and is enabled only with a difference, a step, and a condition on every loop; it posts to /api/projects/:id/team/apply.
 //   The tests click « Voir les changements » (when it is enabled) before they look at « Faire le commit ».
+// - Slice E6 (decision 079 C, F): the loop of the step panel gains a number field « Au plus » (1 to 9, 3 by default, written as `max`); a loop without a limit disables « Faire le commit ». A loop already in a file without `max` is kept as it is.
 // - After the commit: « C'est fait » with the commit link, and the agents (with team) are read again. Refusals are shown as in the agent editor.
 
 afterEach(() => {
@@ -53,6 +54,7 @@ steps:
     does: "reviews the diff"
     loop_to: developer
     until: "the verdict is ready"
+    max: 3
 ---
 Body kept.
 `;
@@ -391,7 +393,53 @@ describe("decision 031 D: the step panel", () => {
       does: "implements",
       loopTo: "test-writer",
       until: "tests agree",
+      max: 3,
     });
+  });
+
+  it("given a loop chosen in the panel, when it opens its fields, then « Au plus » is 3 by default, and a changed value is written as max", async () => {
+    const calls = stubApi();
+    await openTeam();
+    edit("developer");
+
+    fireEvent.change(control("Boucle"), { target: { value: "test-writer" } });
+    fireEvent.change(control("Condition"), { target: { value: "ok" } });
+
+    expect(control("Au plus").value).toBe("3");
+    fireEvent.change(control("Au plus"), { target: { value: "5" } });
+    review();
+    fireEvent.click(commitButton());
+    await screen.findByText(/C'est fait/);
+    expect(posted(calls).after?.steps[1]).toMatchObject({ max: 5 });
+    expect(posted(calls).raw).toContain("    max: 5\n");
+  });
+
+  it("given the loop of the reviewer, when « Au plus » is emptied, then « Faire le commit » is disabled, and with a value again it is enabled", async () => {
+    stubApi();
+    await openTeam();
+    edit("reviewer");
+    expect(control("Au plus").value).toBe("3");
+
+    fireEvent.change(control("Au plus"), { target: { value: "" } });
+    review();
+    expect(commitButton().disabled).toBe(true);
+
+    fireEvent.change(control("Au plus"), { target: { value: "2" } });
+    review();
+    expect(commitButton().disabled).toBe(false);
+  });
+
+  it("given a team.md whose loop has no max, when the tab opens and the loop is looked at, then it is readable, « Au plus » is empty and « Faire le commit » stays disabled until a limit is set", async () => {
+    stubApi({ team: TEAM.replace("    max: 3\n", "") });
+    await openTeam();
+    edit("reviewer");
+
+    expect(control("Au plus").value).toBe("");
+    review();
+    expect(commitButton().disabled).toBe(true);
+    fireEvent.change(control("Au plus"), { target: { value: "3" } });
+    review();
+    expect(commitButton().disabled).toBe(false);
   });
 
   it.each(["test-writer", "reviewer"])(
