@@ -42,11 +42,10 @@ La 064 a tranché le contenu de la 15.3 : un thème clair proposé par Claude et
 
 ## Limites connues
 
-- **La recherche est un `ILIKE` par mot** (comme l'outil MCP) : pas de fautes de frappe, pas de synonymes, pas de classement par pertinence.
+- **La recherche est un `ILIKE` par mot** (comme l'outil MCP) : pas de fautes de frappe, pas de synonymes, pas de classement par pertinence : rien d'indexé, elle ralentira sur de gros volumes.
 - **`J` / `K` et `V` n'agissent que là où la page a déjà le geste** (un compteur, un bouton « Valider ») ; ailleurs, rien.
 - **La palette claire n'est validée qu'à la relecture** : si Dorian la refuse, le choix Clair reste construit et seules les valeurs changent.
 - **Pas construits** : le tri de Tous les projets et ses autres filtres (retirés, 069 I) ; « Ouvrir à droite » (D).
 - **Deux `Panel` avec un compteur** montrés ensemble répondraient tous deux à `J` / `K` (`shortcut:` de `Shell.tsx`).
 - **« Comme le système » laisse `theme-color` en retard** si le système change de thème pendant que la page est ouverte : la couleur n'est relue qu'à `applyTheme` (le reste de la page suit tout de suite, par la requête CSS).
-- **La recherche fait un `ILIKE` par mot** : rien d'indexé, elle ralentira sur de gros volumes.
-- **Les fenêtres natives** (`<dialog>` : focus, page inerte, raccourcis muets derrière, point B1 de la relecture) n'ont été vérifiées que dans Chromium ; les tests, eux, simulent le navigateur.
+- **Les fenêtres natives** (`<dialog>` : focus gardé dans la fenêtre, page inerte, `Échap`) n'ont été vérifiées que dans Chromium ; les tests simulent le navigateur. Les raccourcis se taisent dès qu'un `<dialog>` est ouvert, quel que soit le focus.
