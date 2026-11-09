@@ -4,10 +4,12 @@ import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
 import { LauncherSettings } from "./LauncherSettings.tsx";
+import { fetchMembers, Members } from "./Members.tsx";
 import { Preferences } from "./Preferences.tsx";
 import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
 import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
+import { plural } from "./tickets.ts";
 import {
   alertBox,
   button,
@@ -16,6 +18,7 @@ import {
   listCard,
   sectionLabel,
 } from "./ui.ts";
+import { ago } from "./when.ts";
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
@@ -88,6 +91,11 @@ function UserList() {
                 ) : (
                   `inscrit le ${day(user.createdAt)}`
                 )}
+                {" · "}
+                {user.lastLoginAt
+                  ? `connecté ${ago(user.lastLoginAt)}`
+                  : "jamais connecté"}
+                {` · ${plural(user.projects, "projet", "projets")}`}
                 {user.blockedAt && (
                   <>
                     {" · "}
@@ -152,7 +160,12 @@ function UserList() {
   );
 }
 
-type SettingsTab = "claude" | "utilisateurs" | "taches-cloud" | "preferences";
+type SettingsTab =
+  | "claude"
+  | "utilisateurs"
+  | "taches-cloud"
+  | "preferences"
+  | "membres";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
 const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
@@ -165,6 +178,10 @@ const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
     rest: "Créées une fois sur claude.ai, lancées par Cockpit.",
   },
   preferences: { title: "Préférences" },
+  membres: {
+    title: "Personne ne voit tes projets.",
+    rest: "Invite quelqu'un sur un de tes projets.",
+  },
   utilisateurs: {
     title: "Voici ceux qui ont accès à ton instance.",
     rest: "Toute personne avec un compte GitHub peut se connecter.",
@@ -189,6 +206,11 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
     queryFn: fetchUsers,
     enabled: on("utilisateurs") && isAdmin,
   });
+  const members = useQuery({
+    queryKey: ["members"],
+    queryFn: fetchMembers,
+    enabled: on("membres"),
+  });
   if (tab === "utilisateurs" && !isAdmin)
     return { title: "L'instance est gérée par son administrateur." };
   if (tab === "claude" && connect.data?.connected && connect.data.connectedAt)
@@ -206,6 +228,18 @@ function useSentence(tab: SettingsTab, isAdmin: boolean) {
           title: "La tâche de Claude est reliée.",
           rest: "Elle écrit tes US, lancée par Cockpit.",
         };
+  if (tab === "membres" && members.data) {
+    // Decision 076 F: the people, not their lines: one who is on two projects counts once.
+    const people = new Set(members.data.members.map((m) => m.userId)).size;
+    if (people > 0)
+      return {
+        title: `${people} ${people === 1 ? "personne voit" : "personnes voient"} tes projets partagés.`,
+        rest:
+          people === 1
+            ? "Elle ne voit que ce que tu lui partages."
+            : "Chacune ne voit que ce que tu lui partages.",
+      };
+  }
   if (tab === "utilisateurs" && users.data)
     return {
       title: SENTENCES.utilisateurs.title,
@@ -252,6 +286,9 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           <NavLink to="/reglages/preferences" className={menuItem}>
             Préférences
           </NavLink>
+          <NavLink to="/reglages/membres" className={menuItem}>
+            Membres
+          </NavLink>
           {me.data?.isAdmin && (
             <NavLink to="/reglages/utilisateurs" className={menuItem}>
               Instance
@@ -285,6 +322,7 @@ export function Settings({ tab }: { tab: SettingsTab }) {
               <p>Cette page est réservée à l'administrateur.</p>
             ))}
           {tab === "preferences" && <Preferences />}
+          {tab === "membres" && <Members />}
           {tab === "taches-cloud" && (
             <div className="grid gap-[22px]">
               <RoutineSettings />

@@ -15,6 +15,7 @@ import { Claude } from "./Claude.tsx";
 import { Cost } from "./Cost.tsx";
 import { HomePage } from "./HomePage.tsx";
 import { InstallBanner } from "./InstallBanner.tsx";
+import { Invitation } from "./Invitation.tsx";
 import { IssueImport } from "./IssueImport.tsx";
 import { Journal } from "./JournalPage.tsx";
 import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
@@ -359,6 +360,10 @@ function Shell({
               element={<Settings tab="preferences" />}
             />
             <Route
+              path="/reglages/membres"
+              element={<Settings tab="membres" />}
+            />
+            <Route
               path="/reglages/taches-cloud"
               element={<Settings tab="taches-cloud" />}
             />
@@ -401,6 +406,7 @@ function Routed({
   return (
     <Routes>
       <Route path="/autoriser" element={<Autoriser />} />
+      <Route path="/invitations/:secret" element={<Invitation />} />
       <Route
         path="*"
         element={

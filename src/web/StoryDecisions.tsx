@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
+import { atLeast } from "./roles.ts";
 import { Panel } from "./Shell.tsx";
 import { useShortcut } from "./Shortcuts.tsx";
 import { decisionError, STORY_STATUSES } from "./tickets.ts";
@@ -72,7 +73,12 @@ export function StoryDecisions({
   children,
 }: {
   story: DecidedStory;
-  project: { id: number; fullName: string; defaultBranch?: string };
+  project: {
+    id: number;
+    fullName: string;
+    defaultBranch?: string;
+    role?: string;
+  };
   archived: boolean;
   /** The status of the story on the page (tabIndex -1): where the focus goes when the button that was used is gone. */
   statusRef: RefObject<HTMLElement | null>;
@@ -145,7 +151,12 @@ export function StoryDecisions({
   const blank = comment.trim() === "";
   // Claude cannot rewrite a takeover story and its narrative is not edited: only its rules are corrected, on the takeover screen.
   const takeover = story.kind === "takeover";
-  const canDevelop = ["ready", "in_review"].includes(status) && !archived;
+  // The buttons of a gesture the role does not allow are not shown (decision 076 G).
+  const mayValidate = atLeast(project.role, "can_validate");
+  const canDevelop =
+    ["ready", "in_review"].includes(status) &&
+    !archived &&
+    atLeast(project.role, "can_launch");
   const prLink =
     status === "in_review" && story.prNumber != null
       ? `https://github.com/${project.fullName}/pull/${story.prNumber}`
@@ -162,6 +173,7 @@ export function StoryDecisions({
   useShortcut(
     "v",
     mode === null &&
+      mayValidate &&
       (status === "to_validate" || status === "to_rewrite") &&
       canValidate
       ? validate
@@ -186,18 +198,21 @@ export function StoryDecisions({
       footer={
         mode === null && (
           <>
-            {(status === "to_validate" || status === "to_rewrite") && (
-              <button
-                type="button"
-                disabled={!canValidate}
-                aria-keyshortcuts="V"
-                aria-describedby={toDecide.length > 0 ? "to-decide" : undefined}
-                onClick={validate}
-                className={panelPrimaryButton}
-              >
-                Valider
-              </button>
-            )}
+            {mayValidate &&
+              (status === "to_validate" || status === "to_rewrite") && (
+                <button
+                  type="button"
+                  disabled={!canValidate}
+                  aria-keyshortcuts="V"
+                  aria-describedby={
+                    toDecide.length > 0 ? "to-decide" : undefined
+                  }
+                  onClick={validate}
+                  className={panelPrimaryButton}
+                >
+                  Valider
+                </button>
+              )}
             {prLink && (
               <a href={prLink} className={panelPrimaryButton}>
                 Relire sur GitHub ↗
@@ -214,7 +229,8 @@ export function StoryDecisions({
               </button>
             )}
             <div className="grid grid-flow-col auto-cols-fr gap-2.5">
-              {["to_validate", "to_rewrite", "ready"].includes(status) &&
+              {mayValidate &&
+                ["to_validate", "to_rewrite", "ready"].includes(status) &&
                 !takeover && (
                   <button
                     ref={opener("edit")}
@@ -226,7 +242,7 @@ export function StoryDecisions({
                     Modifier
                   </button>
                 )}
-              {status === "to_validate" && !takeover && (
+              {mayValidate && status === "to_validate" && !takeover && (
                 <button
                   ref={opener("sendBack")}
                   type="button"
@@ -238,15 +254,17 @@ export function StoryDecisions({
                 </button>
               )}
             </div>
-            <button
-              ref={opener("abandon")}
-              type="button"
-              disabled={archived}
-              onClick={() => open("abandon")}
-              className={ghostButton}
-            >
-              Abandonner
-            </button>
+            {mayValidate && (
+              <button
+                ref={opener("abandon")}
+                type="button"
+                disabled={archived}
+                onClick={() => open("abandon")}
+                className={ghostButton}
+              >
+                Abandonner
+              </button>
+            )}
           </>
         )
       }

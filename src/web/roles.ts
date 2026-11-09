@@ -1,0 +1,19 @@
+/** The roles of a member on a project, as the page says them (decision 076 A), each with the rights of the one before it. */
+export const ROLE_LABELS = {
+  read_only: "lecture seule",
+  can_validate: "peut valider",
+  can_launch: "peut valider et lancer",
+  owner: "propriétaire",
+} as const;
+export type Role = keyof typeof ROLE_LABELS;
+
+/** Whether the role allows a gesture that needs `min`; a project that does not say its role is the viewer's own. */
+export const atLeast = (role: string | undefined, min: Role) =>
+  Object.keys(ROLE_LABELS).indexOf(role ?? "owner") >=
+  Object.keys(ROLE_LABELS).indexOf(min);
+
+/** The sentence of a refusal 403 `role` of the server (decision 076 G); null for any other answer. */
+export const roleRefusal = (status: number, error: unknown) =>
+  status === 403 && error === "role"
+    ? "Ton rôle sur ce projet ne le permet pas."
+    : null;

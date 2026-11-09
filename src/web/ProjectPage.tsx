@@ -19,6 +19,7 @@ import { ProjectPrepare } from "./ProjectPrepare.tsx";
 import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
+import { atLeast } from "./roles.ts";
 import { rulesSentence, useRules } from "./rules.ts";
 import { Breadcrumb, StateSentence } from "./Shell.tsx";
 import { fetchTickets } from "./tickets.ts";
@@ -152,6 +153,8 @@ export function ProjectPage({
     refetchOnWindowFocus: false,
   });
   const project = projects.data?.find((p) => String(p.id) === id);
+  // What writes in the repo is the owner's (decision 076 G): the other roles read the bilan.
+  const owner = atLeast(project?.role, "owner");
   const stories = useQuery({
     queryKey: ["stories", id],
     queryFn: () => fetchStories(id),
@@ -437,7 +440,7 @@ export function ProjectPage({
             )}
             {Array.isArray(health.data) && (
               <>
-                {project && (
+                {project && owner && (
                   <ProjectPrepare
                     projectId={id}
                     fullName={project.fullName}
@@ -472,7 +475,7 @@ export function ProjectPage({
                         line={line}
                         projectId={id}
                         fullName={project.fullName}
-                        archived={project.archived}
+                        archived={project.archived || !owner}
                       />
                     ) : line.key === "updates" && project ? (
                       <UpdatesLine
@@ -480,7 +483,7 @@ export function ProjectPage({
                         line={line}
                         projectId={id}
                         fullName={project.fullName}
-                        archived={project.archived}
+                        archived={project.archived || !owner}
                       />
                     ) : (
                       <li

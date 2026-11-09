@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
 import { fetchRun } from "./RunPage.tsx";
 import { RunVerdict } from "./RunVerdict.tsx";
+import { atLeast } from "./roles.ts";
 import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
 import { fetchStory, StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
@@ -95,6 +96,10 @@ export function StoryPage() {
   useChanges(`story:${id}`);
   const statusRef = useRef<HTMLSpanElement>(null);
   const found = result.data && result.data !== "not_found" && result.data;
+  const mayValidate = atLeast(
+    found ? found.project.role : undefined,
+    "can_validate",
+  );
   const diverged = found ? found.story.issue?.diverged : null;
   const pr =
     found && found.story.prNumber != null
@@ -183,7 +188,7 @@ export function StoryPage() {
               <StoryDiverged
                 id={found.story.id}
                 diverged={diverged}
-                archived={found.project.archived}
+                archived={found.project.archived || !mayValidate}
                 statusRef={statusRef}
               />
             )}
@@ -286,7 +291,7 @@ export function StoryPage() {
               <StoryIssue
                 id={found.story.id}
                 issue={found.story.issue}
-                archived={found.project.archived}
+                archived={found.project.archived || !mayValidate}
               />
             )}
             {found.story.dependsOn.length > 0 && (

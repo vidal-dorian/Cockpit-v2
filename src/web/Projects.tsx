@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { atLeast, ROLE_LABELS } from "./roles.ts";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
 import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
@@ -181,6 +182,12 @@ function ProjectList() {
                 <span className="block font-mono text-[11.5px] text-muted-foreground">
                   {project.fullName}
                 </span>
+                {project.sharedBy && (
+                  <span className="block text-[12.5px] text-muted-foreground">
+                    partagé par @{project.sharedBy} ·{" "}
+                    {ROLE_LABELS[project.role]}
+                  </span>
+                )}
               </span>
               <span
                 className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
@@ -216,14 +223,16 @@ function ProjectList() {
                     </button>
                   </>
                 ) : (
-                  // The mockup has no slot for it: a quiet button before the row's end.
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(project.id)}
-                    className={ghostButton}
-                  >
-                    Archiver
-                  </button>
+                  // The mockup has no slot for it: a quiet button before the row's end; archiving is the owner's (decision 076 A).
+                  atLeast(project.role, "owner") && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(project.id)}
+                      className={ghostButton}
+                    >
+                      Archiver
+                    </button>
+                  )
                 )}
               </span>
             </li>

@@ -1,4 +1,5 @@
 import { client } from "./api.ts";
+import { roleRefusal } from "./roles.ts";
 
 /** The step labels of a ticket (decision 002); the codes of the server are never shown. */
 export const STEPS: Record<string, string> = {
@@ -59,6 +60,8 @@ export async function decisionError(res: Response) {
     );
   const body: unknown = await res.json().catch(() => null);
   const error = (body as { error?: unknown } | null)?.error;
+  const refused = roleRefusal(res.status, error);
+  if (refused) return new Error(refused);
   if (error === "project_archived")
     return new Error("Ce projet est archivé : plus rien n'y change.");
   if (error === "ticket_abandoned")
