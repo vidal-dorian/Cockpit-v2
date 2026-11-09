@@ -282,6 +282,24 @@ describe("decision 072 A: the choice of the team after « Importer »", () => {
     expect(currentName(dialog)).toBe("Éco");
   });
 
+  it("given the carousel, when « Équipe suivante » is pressed until Max, then the focus stays in the carousel and the keys still work", async () => {
+    stubApi();
+    renderAt("/projets");
+    const { dialog, ui } = await openDialog();
+    const next = ui.getByRole("button", { name: "Équipe suivante" });
+    next.focus();
+
+    fireEvent.keyDown(next, { key: "ArrowRight" });
+    fireEvent.keyDown(next, { key: "ArrowRight" });
+
+    expect(currentName(dialog)).toBe("Max");
+    const focused = document.activeElement as HTMLElement;
+    expect(focused).not.toBe(document.body);
+    expect(dialog.contains(focused)).toBe(true);
+    fireEvent.keyDown(focused, { key: "ArrowLeft" });
+    expect(currentName(dialog)).toBe("Premium");
+  });
+
   it("given the carousel, when a dot is clicked, then that level becomes current", async () => {
     stubApi();
     renderAt("/projets");

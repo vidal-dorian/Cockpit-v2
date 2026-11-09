@@ -508,6 +508,32 @@ describe("decision 072 B4: a team of the list", () => {
     expect(link.getAttribute("href")).toBe(COMMIT_URL);
   });
 
+  it("given a repo lacking test-writer and reviewer, when the team is added, then their texts are those of the level standard", async () => {
+    const { sent } = stubApi({
+      teams: [{ id: 1, name: "leger", text: TEAM }],
+      repoAgents: ["developer"],
+    });
+    renderAt("/equipes");
+    const { li, select } = await addTo("leger");
+    fireEvent.change(select, { target: { value: "5" } });
+
+    fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+
+    await waitFor(() => expect(applies(sent)).toHaveLength(1));
+    expect(sorted(applies(sent)[0]?.agents)).toEqual([
+      {
+        name: "reviewer",
+        before: null,
+        after: agentText("reviewer", "standard"),
+      },
+      {
+        name: "test-writer",
+        before: null,
+        after: agentText("test-writer", "standard"),
+      },
+    ]);
+  });
+
   it("given a repo that has the team with another text, when the team is added, then before is the text read in the repo", async () => {
     const { sent } = stubApi({
       teams: [{ id: 1, name: "leger", text: TEAM }],

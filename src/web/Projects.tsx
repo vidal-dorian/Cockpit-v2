@@ -219,6 +219,20 @@ function ImportDialog({
     ref.current?.showModal();
     return () => opener?.focus();
   }, []);
+  const carousel = useRef<HTMLDivElement>(null);
+  // A move can disable the focused arrow or unmount the focused side card: the focus goes to the current dot, so the keys keep working.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on every move of the carousel
+  useEffect(() => {
+    const focused = document.activeElement;
+    if (
+      !focused ||
+      focused === document.body ||
+      (focused instanceof HTMLButtonElement && focused.disabled)
+    )
+      carousel.current
+        ?.querySelector<HTMLElement>('[aria-current="true"]')
+        ?.focus();
+  }, [at]);
   const go = (to: number) =>
     setAt(Math.min(STARTER_LEVELS.length - 1, Math.max(0, to)));
   const level = STARTER_LEVELS[at] as (typeof STARTER_LEVELS)[number];
@@ -246,6 +260,8 @@ function ImportDialog({
       ref={ref}
       aria-labelledby="import-title"
       onClose={onCancel}
+      // Escape while the import is sent would hide its error.
+      onCancel={(e) => pending && e.preventDefault()}
       className="m-auto w-[min(48rem,calc(100%-2rem))] rounded-xl border border-border-strong bg-background p-4 text-foreground backdrop:bg-background/80"
     >
       <h3 id="import-title" className="font-heading text-lg font-bold">
@@ -258,6 +274,7 @@ function ImportDialog({
       {/* The keys are read here: keydown bubbles from the buttons inside. */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are a shortcut of the buttons */}
       <div
+        ref={carousel}
         className="mt-4"
         onKeyDown={(e) => {
           if (e.key === "ArrowRight") go(at + 1);
@@ -320,7 +337,12 @@ function ImportDialog({
         >
           Importer avec {level.name}
         </button>
-        <button type="button" onClick={onCancel} className={button}>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onCancel}
+          className={button}
+        >
           Annuler
         </button>
       </div>

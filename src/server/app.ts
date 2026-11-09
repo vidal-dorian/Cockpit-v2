@@ -107,7 +107,7 @@ export function createApp(
         );
         c.res.headers.set("X-Frame-Options", "DENY");
       })
-      // A JSON body is read whole in memory: 256 KiB at most on every API route (the apply routes of the agent and team editors have a larger one), before the session and the validation (decision 014). GitHub's webhook has its own limit (decision 024 A).
+      // A JSON body is read whole in memory: 256 KiB at most on every API route (the apply routes of the agent and team editors and PUT /api/agent-teams/:name have a larger one), before the session and the validation (decision 014). GitHub's webhook has its own limit (decision 024 A).
       .use("/api/*", (c, next) =>
         c.req.path === WEBHOOK_PATH
           ? next()

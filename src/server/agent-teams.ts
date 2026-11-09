@@ -12,7 +12,7 @@ const MAX_TEXT = 1024 * 1024;
 const putBody = z.object({
   text: z
     .string()
-    .max(MAX_TEXT)
+    .refine((text) => Buffer.byteLength(text) <= MAX_TEXT)
     .refine((text) => parseTeam(text) !== null),
 });
 
@@ -41,7 +41,7 @@ export function agentTeamRoutes(db: Db) {
         return c.json({ error: "Bad request" }, 400);
       const userId = c.get("userId");
       const { text } = c.req.valid("json");
-      const entry = { ...entryOf(userId, "save_agent_team") };
+      const entry = entryOf(userId, "save_agent_team");
       const saved = await act(db, entry, async (tx) => {
         const [row] = await tx
           .insert(agentTeams)

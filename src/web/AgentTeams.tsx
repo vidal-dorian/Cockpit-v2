@@ -71,8 +71,9 @@ async function addTeam(
   const { agents, teams } = await read.json();
   const before = teams?.find((t) => t.name === team.name)?.text ?? null;
   const catalog = catalogAgents(await queryClient.fetchQuery(starterQuery));
-  const missing = (readTeam(team.text)?.steps ?? [])
-    .map((s) => s.agent)
+  const missing = [
+    ...new Set((readTeam(team.text)?.steps ?? []).map((s) => s.agent)),
+  ]
     .filter((name) => !agents.some((a) => a.name === name))
     .flatMap((name) => {
       const after = catalog.get(name);
@@ -349,7 +350,7 @@ export function AgentTeams() {
       const res = await client.api["agent-teams"][":name"].$delete({
         param: { name },
       });
-      if (!res.ok) throw await failure(res);
+      return res.ok ? null : failure(res);
     },
     onSettled: reload,
   });
@@ -369,6 +370,7 @@ export function AgentTeams() {
             </Link>
             <button
               type="button"
+              disabled={!starters.data}
               onClick={() => {
                 setProblem(null);
                 setDialog({ text: writeTeam(DEFAULT_STEPS, "") });
@@ -409,7 +411,10 @@ export function AgentTeams() {
             ))}
           </ul>
         )}
-        {remove.isError && <ProblemAlert problem={{ code: "", status: 0 }} />}
+        {(remove.data || remove.isError) && (
+          <ProblemAlert problem={remove.data ?? { code: "", status: 0 }} />
+        )}
+        {starters.isError && <ProblemAlert problem={{ code: "", status: 0 }} />}
       </section>
       {dialog && start && starters.data && (
         <NewTeamDialog
