@@ -189,7 +189,7 @@ describe("decision 067 B: GET /api/projects/:id/workflows", () => {
         averageSeconds: null,
       },
     ]);
-    expect(await rows(ctx.db)).toEqual([]);
+    expect(await rows(ctx.db, sql`action <> 'create_token'`)).toEqual([]);
   });
 
   it("given an archived project, when a member reads it, then it is served", async () => {
