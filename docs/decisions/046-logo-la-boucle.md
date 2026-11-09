@@ -29,7 +29,7 @@ Pour l'animation, il a proposé **le vortex**, comparé à trois autres idées (
 ## Ce qui est repoussé
 
 - **Une version en une couleur** (les quatre arcs dans la couleur du texte), pour les fonds chargés ou l'impression : à ajouter quand le besoin vient.
-- **Les icônes d'app pour le téléphone** (PNG en plusieurs tailles, manifeste) : avec la PWA, tranche 15.2.
+- **Les icônes d'app pour le téléphone** (PNG en plusieurs tailles, manifeste) : avec la PWA, tranche 15.2, construite par la [072](072-pwa-et-notifications.md) (icônes 192 et 512 px, `apple-touch-icon`, manifeste).
 - **Le logo animé comme indicateur de chargement** et les autres idées d'animation : pas retenues.
 
 ## Limites connues

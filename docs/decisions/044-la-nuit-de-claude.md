@@ -34,7 +34,7 @@ Les briques existent déjà. Une tâche planifiée de claude.ai (anciennement «
 
 ## Ce qui est repoussé
 
-- **La notification du matin sur le téléphone**, avec les boutons de réponse dedans (maquette Nuit3) : la 15.2 (PWA et notifications). D'ici là, le matin, c'est l'accueil.
+- **La notification du matin sur le téléphone**, avec les boutons de réponse dedans (maquette Nuit3) : la 15.2 (PWA et notifications), construite par la [072](072-pwa-et-notifications.md). D'ici là, le matin, c'est l'accueil.
 - **Un plafond de coût pour la nuit** : la 14.5. D'ici là, la nuit est bornée par son programme, l'heure de fin et la règle G.
 - **Plusieurs US en parallèle** la même nuit : une à la fois suffit pour commencer et évite deux US qui se marchent dessus.
 - **Une tâche par projet** (repos clonés plus vite, modèle par projet) : à envisager si le clonage de tous les repos à chaque run devient lent (voir les limites).

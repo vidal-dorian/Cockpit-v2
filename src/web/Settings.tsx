@@ -4,6 +4,7 @@ import { NavLink } from "react-router";
 import { client } from "./api.ts";
 import { ConnectClaude, fetchConnect } from "./ConnectClaude.tsx";
 import { LauncherSettings } from "./LauncherSettings.tsx";
+import { Preferences } from "./Preferences.tsx";
 import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
 import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
@@ -151,10 +152,10 @@ function UserList() {
   );
 }
 
-type SettingsTab = "claude" | "utilisateurs" | "taches-cloud";
+type SettingsTab = "claude" | "utilisateurs" | "taches-cloud" | "preferences";
 
 // The state sentence of each entry (045 D): what the entry is, not a bare title.
-const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
+const SENTENCES: Record<SettingsTab, { title: string; rest?: string }> = {
   claude: {
     title: "Connecte Claude à Cockpit.",
     rest: "Une seule fois, sur claude.ai ; ça marche ensuite partout.",
@@ -163,6 +164,7 @@ const SENTENCES: Record<SettingsTab, { title: string; rest: string }> = {
     title: "Des tâches de Claude écrivent tes US et développent dans le cloud.",
     rest: "Créées une fois sur claude.ai, lancées par Cockpit.",
   },
+  preferences: { title: "Préférences" },
   utilisateurs: {
     title: "Voici ceux qui ont accès à ton instance.",
     rest: "Toute personne avec un compte GitHub peut se connecter.",
@@ -247,6 +249,9 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           <NavLink to="/reglages/taches-cloud" className={menuItem}>
             Tâches cloud
           </NavLink>
+          <NavLink to="/reglages/preferences" className={menuItem}>
+            Préférences
+          </NavLink>
           {me.data?.isAdmin && (
             <NavLink to="/reglages/utilisateurs" className={menuItem}>
               Instance
@@ -279,6 +284,7 @@ export function Settings({ tab }: { tab: SettingsTab }) {
             ) : (
               <p>Cette page est réservée à l'administrateur.</p>
             ))}
+          {tab === "preferences" && <Preferences />}
           {tab === "taches-cloud" && (
             <div className="grid gap-[22px]">
               <RoutineSettings />

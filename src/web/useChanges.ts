@@ -25,6 +25,9 @@ export function useAnyChange(key: string, enabled = true) {
     source.addEventListener("change", () =>
       queryClient.invalidateQueries({ queryKey: [key] }),
     );
+    // A dead stream means a dead server: the banner learns it without waiting.
+    source.onerror = () =>
+      queryClient.invalidateQueries({ queryKey: ["health"] });
     return () => source.close();
   }, [key, enabled, queryClient]);
 }

@@ -28,7 +28,7 @@ Claude Code exporte sa télémétrie en OpenTelemetry ([doc](https://code.claude
 ## Ce qui est repoussé
 
 - **Le coût des runs locaux** : il faudrait un jeton d'envoi par utilisateur dans ses réglages Claude Code, et rattacher une session locale à son run.
-- **Prévenir sur le téléphone** au plafond : la 15.2.
+- **Prévenir sur le téléphone** au plafond : la 15.2, construite par la [072](072-pwa-et-notifications.md).
 - **Le mois dans le fuseau de l'utilisateur** : UTC suffit pour commencer.
 
 ## Limites connues

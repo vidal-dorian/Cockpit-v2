@@ -29,6 +29,7 @@ import {
 } from "./db/schema.ts";
 import { runNights } from "./night.ts";
 import { memberProject } from "./projects.ts";
+import { type SendPush, sendDue } from "./push.ts";
 import { runQueues } from "./queue.ts";
 import { decrypt, encrypt } from "./secrets.ts";
 import { storyToRewrite, ticketNeedsStories } from "./stories.ts";
@@ -39,7 +40,12 @@ export type FireRoutine = (
   url: string,
   init?: RequestInit,
 ) => Promise<Response>;
-export type Fire = { encryptionKey: Buffer; fireRoutine: FireRoutine };
+/** `sendPush` is the Web Push sender of the pass (decision 072); the real one when absent. */
+export type Fire = {
+  encryptionKey: Buffer;
+  fireRoutine: FireRoutine;
+  sendPush?: SendPush;
+};
 /** A `Fire` with the app's clock, for what launches outside the pass and outside a request's own clock (the end of a run, a webhook); the pass has its own time. */
 export type LiveFire = Fire & { now: () => number };
 
@@ -314,6 +320,7 @@ export async function runDueRoutines(db: Db, deps: Fire, now: Date) {
   // Before the queues: the queue yields to a running night (decision 044 D').
   await runNights(db, deps, now);
   await runQueues(db, deps, now);
+  await sendDue(db, deps, now);
   try {
     // A blocked scheduling user (012 G) is skipped, without an entry.
     const due = await db
