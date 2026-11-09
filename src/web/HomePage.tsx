@@ -429,7 +429,7 @@ function ReviewSeries({
   );
 }
 
-/** Steps 1 to 7 of S06: what each says, a hint while it is not done, and where « Faire » leads. Step 5 goes to the project page, where the idea bar is. */
+/** Steps 1 to 7 of S06: what each says, a hint while it is not done, and where « Faire » leads. */
 const GUIDE = [
   {
     key: "install",
@@ -476,13 +476,18 @@ type Guide = NonNullable<
 function OnboardingGuide({
   guide,
   installed,
+  onIdea,
 }: {
   guide: Guide;
   installed: boolean;
+  onIdea: () => void;
 }) {
   const queryClient = useQueryClient();
   const hide = useMutation({
-    mutationFn: () => client.api.me.onboarding.hide.$post(),
+    mutationFn: async () => {
+      const res = await client.api.me.onboarding.hide.$post();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
   });
   const rows = [
@@ -495,29 +500,37 @@ function OnboardingGuide({
     const key = GUIDE[i]?.key;
     if (key === "install") return "/bienvenue";
     if (key === "claude") return "/reglages";
-    if (key === "prepare" || key === "idea")
-      return r.projectId ? `/projets/${r.projectId}` : "/projets";
+    // « Préparer pour Claude » is on the Santé tab of the project.
+    if (key === "prepare")
+      return r.projectId ? `/projets/${r.projectId}/sante` : "/projets";
     if (key === "validate" || key === "develop")
       return r.storyId ? `/us/${r.storyId}` : "/projets";
     return "/projets";
   };
   return (
     <section className="px-[26px] pt-[22px]">
-      <h2 className="mb-2 flex items-center gap-2">
-        <span className={sectionLabel}>Mise en route</span>
-        <span className="text-[12.5px] font-normal text-muted-foreground">
-          · {count} sur 7
-        </span>
+      <div className="mb-2 flex items-center gap-2">
+        <h2 className="flex items-center gap-2">
+          <span className={sectionLabel}>Mise en route</span>
+          <span className="text-[12.5px] font-normal text-muted-foreground">
+            · {count} sur 7
+          </span>
+        </h2>
         <button
           type="button"
           onClick={() => hide.mutate()}
           disabled={hide.isPending}
-          className={`ml-auto text-[12.5px] font-normal text-muted-foreground hover:text-foreground ${focusRing}`}
+          className={`ml-auto text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
         >
           Masquer ce guide
         </button>
-      </h2>
-      <ol className={`${listCard} divide-y divide-border`}>
+      </div>
+      {hide.isError && (
+        <p role="alert" className="mb-2 text-[12.5px] text-destructive">
+          Le guide n'a pas pu être masqué, réessaie.
+        </p>
+      )}
+      <ol className={listCard}>
         {rows.map((r, i) => (
           <li
             key={GUIDE[i]?.key}
@@ -538,11 +551,17 @@ function OnboardingGuide({
                 {r.done ? r.detail : GUIDE[i]?.hint}
               </span>
             </span>
-            {i === next && (
-              <Link to={target(i, r)} className={rowAction}>
-                Faire
-              </Link>
-            )}
+            {i === next &&
+              (GUIDE[i]?.key === "idea" ? (
+                // The idea bar is hidden below md: this opens its panel, which a project makes possible.
+                <button type="button" onClick={onIdea} className={rowAction}>
+                  Faire
+                </button>
+              ) : (
+                <Link to={target(i, r)} className={rowAction}>
+                  Faire
+                </Link>
+              ))}
           </li>
         ))}
       </ol>
@@ -558,7 +577,7 @@ function OnboardingGuide({
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 /** The home of a logged-in user (045 D): the state in a sentence, what to do now, then next, what Claude does, the latest events; the first item is open in the right panel. */
-export function HomePage() {
+export function HomePage({ onIdea }: { onIdea: () => void }) {
   const home = useHome();
   // The same key as the shell's banner: one request for both.
   const installation = useQuery({
@@ -639,10 +658,11 @@ export function HomePage() {
   return (
     <>
       <StateSentence {...sentence} headingRef={headingRef} />
-      {guide && (
+      {guide && !installation.isPending && (
         <OnboardingGuide
           guide={guide}
           installed={installation.data?.installed === true}
+          onIdea={onIdea}
         />
       )}
       {home.data.night && (

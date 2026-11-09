@@ -138,10 +138,10 @@ function OfflineBanner() {
   );
 }
 
-function Home() {
+function Home({ onIdea }: { onIdea: () => void }) {
   return (
     <main>
-      <HomePage />
+      <HomePage onIdea={onIdea} />
     </main>
   );
 }
@@ -260,7 +260,10 @@ function Shell({
         <InstallBanner />
         <div className="flex-1">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route
+              path="/"
+              element={<Home onIdea={() => idea.current?.(null)} />}
+            />
             <Route path="/projets" element={<Projects />} />
             <Route path="/projets/nouveau" element={<ProjectFromTemplate />} />
             <Route path="/projets/:id" element={<ProjectPage tab="kanban" />} />
