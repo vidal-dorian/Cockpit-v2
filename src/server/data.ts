@@ -311,7 +311,9 @@ export function dataRoutes(db: Db, key: Buffer) {
               eq(runs.userId, u),
               inArray(runs.status, ["running", "paused"]),
             ),
-          );
+          )
+          // A finish_run committing meanwhile is waited for, then filtered out, instead of being overwritten.
+          .for("update");
         for (const run of open)
           await endRun(tx, run.id, run.storyId, { status: "closed_manually" });
         // Not a column filter: the same list is used by raw SQL below.
