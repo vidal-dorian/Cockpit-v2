@@ -22,9 +22,8 @@ import {
 // - MCP tool `propose_workflow_change`, input { project_id: number, path: string, content: string, reason: string } (all four required, English description). It answers
 //   the JSON { proposal_id: number, replaced: boolean } (`replaced` is true when it took the place of a pending proposal on the same path). A refusal is a tool result with
 //   isError and a text "Refused: ...", journaled with detail { reason }: `invalid_arguments` (path not `.github/workflows/<name>.yml|.yaml` with <name> in a-z, 0-9, `-` and not
-//   starting with `-`; content over 1 MiB = 1,048,576 characters; reason over 2,000 characters), `no_change` (content equal to the file), `not_found` (not a member),
+//   starting with `-`; content over 200,000 characters (decision 067 E as amended: under the 256 KiB body limit of /mcp); reason over 2,000 characters), `no_change` (content equal to the file), `not_found` (not a member),
 //   `project_archived`. A call that fits is journaled propose_workflow_change, claude / mcp, args { path }, never the content or the reason. Nothing is ever written to GitHub.
-//   The server accepts a body of 1 MiB of content on this tool (the 256 KiB of the other calls is not enough for it).
 // - GET /api/projects/:id/workflows (workflows.test.ts) also gives `proposal`: null, or the OLDEST pending one { id, path, reason, before, content, createdAt } (`before` null for a new file).
 // - POST /api/workflow-proposals/:id/commit answers 200 { commitSha, pullRequest? } like claude-config/apply; POST /api/workflow-proposals/:id/ignore answers 200.
 //   Refusals are 409 { error } (`repo_changed`, `already_decided`, `workflows_forbidden`) and 404 for a proposal of a project the user is not a member of.
@@ -192,9 +191,9 @@ describe("decision 067 E: the tool propose_workflow_change", () => {
     },
   );
 
-  it("given a content of exactly 1 MiB, when Claude proposes it, then it is kept; one character more is not", async () => {
+  it("given a content of exactly 200,000 characters, when Claude proposes it, then it is kept; one character more is not", async () => {
     const ctx = await ready();
-    await proposed(ctx, { content: "x".repeat(1_048_576) });
+    await proposed(ctx, { content: "x".repeat(200_000) });
 
     const over = await rpc(
       ctx.app,
@@ -204,7 +203,7 @@ describe("decision 067 E: the tool propose_workflow_change", () => {
         arguments: {
           project_id: ctx.projectId,
           path: NEW_PATH,
-          content: "x".repeat(1_048_577),
+          content: "x".repeat(200_001),
           reason: "Too long",
         },
       },
