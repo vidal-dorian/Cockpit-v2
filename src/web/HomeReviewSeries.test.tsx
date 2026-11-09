@@ -26,7 +26,11 @@ const review = (prNumber: number) => ({
 const url = (n: number) => `https://github.com/octocat/hello/pull/${n}`;
 const opened = (prs: number[]) => {
   const open = vi.spyOn(window, "open").mockReturnValue(null);
-  stubShell({ forYou: prs.map(review) });
+  // A project, so that the idea bar and its « Idée » field are rendered.
+  stubShell({
+    forYou: prs.map(review),
+    projects: [{ ...PROJECT, state: "idle" }],
+  });
   renderAt("/");
   return open;
 };
