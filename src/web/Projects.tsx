@@ -396,7 +396,8 @@ function ImportDialog({
                       type="button"
                       aria-label={`Voir ${l.name} : ${l.sentence}`}
                       onClick={() => go(i)}
-                      className={`absolute inset-0 rounded-[18px] ${focusRing}`}
+                      // The card clips its overflow: the ring is drawn inside it.
+                      className="absolute inset-0 rounded-[18px] focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-foreground"
                     />
                   )}
                 </div>
