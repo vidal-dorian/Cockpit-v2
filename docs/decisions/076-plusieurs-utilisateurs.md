@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 13.1 A à D)
 - **Dépend de** : [004 — Les outils MCP](004-outils-mcp.md) (un jeton atteint les projets dont son utilisateur est membre), [008 — Le service en ligne](008-service-en-ligne.md) (F, la table des membres), [009 — La connexion GitHub](009-connexion-github.md), [010 — L'historique](010-historique.md), [012 — La configuration automatique](012-configuration-automatique.md) (G, l'inscription ouverte et la liste des utilisateurs), [015 — Les jetons MCP](015-jetons-mcp.md) (un secret haché, montré une fois), [018 — Les décisions humaines](018-decisions-humaines.md) (la table des droits), [068 — Un nouveau projet depuis un modèle](068-repo-modele.md) (D, le retour d'une autorisation GitHub par `/api/auth/callback`)
 - **Modifie** : 008 F (l'index « un membre par projet » est retiré, `role` s'élargit) ; 064 13.1 D (l'accès GitHub de l'invité, voir C)
+- **Complétée par 077** : un projet verrouillé par l'offre de son propriétaire se lit `read_only` pour tous ses membres, le refus est `plan` (tranche 13.2) — voir la [077](077-offres-et-quotas.md)
 - **Tranche** : 13.1 du [découpage](../decoupage.md)
 - **Écran** : [S48](../ecrans/S48_Reglages_Membres.png)
 

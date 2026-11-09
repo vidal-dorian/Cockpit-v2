@@ -7,10 +7,11 @@ import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser, exchangeCode, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { templateRequests } from "./db/schema.ts";
+import { templateRequests, users } from "./db/schema.ts";
 import type { githubClient, ReadGitHub } from "./github.ts";
 import { healthLines } from "./health.ts";
 import type { InstanceSettings, ReadInstance } from "./instance.ts";
+import { overQuota } from "./plans.ts";
 import {
   installedRepos,
   NOT_CONFIGURED,
@@ -49,6 +50,7 @@ type Landed =
     }
   | { refused: string }
   | { outside: true }
+  | { overQuota: true }
   | { failure: unknown };
 
 export function templateRoutes(
@@ -162,6 +164,19 @@ export function templateRoutes(
       const { template, owner, name, description } = parsed.data;
       const config = await readInstance();
       if (!config) return c.json({ error: NOT_CONFIGURED }, 503);
+      // Before GitHub is asked anything: a refused 4th repo creates nothing (decision 077 C).
+      if (await overQuota(db, user.userId))
+        return act(
+          db,
+          {
+            userId: user.userId,
+            actor: "human",
+            origin: "ui",
+            action: "create_from_template",
+            args: {},
+          },
+          () => Promise.reject(new Refused("plan")),
+        ).catch(() => c.json({ error: "plan" }, 403));
       try {
         const github = c.get("github");
         const found = await installedRepos(github, user.login, user.githubId);
@@ -248,6 +263,8 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
     // The GitHub calls run with no transaction open (decisions 016 and 020 F): only the import and its entry are written in one. The token goes out of scope here and is never stored.
     const land = async (): Promise<Landed> => {
       const token = await exchangeCode(config, code, CALLBACK);
+      // Before the repo exists: the quota may have been reached since the request was made (decision 077 C).
+      if (await overQuota(db, user.userId)) return { overQuota: true };
       // From here the repo may exist, whatever happens to the call.
       created = true;
       const generated = await ready.github.generateRepo(
@@ -278,6 +295,14 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
         // Fixed codes only: GitHub's message goes to the page, never to the history.
         if ("refused" in landed) throw new Refused("generate_refused");
         if ("outside" in landed) throw new Refused("outside_installation");
+        if ("overQuota" in landed) throw new Refused("plan");
+        // The user row is locked, so two imports at once cannot both pass.
+        await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, user.userId))
+          .for("update");
+        if (await overQuota(tx, user.userId)) throw new Refused("plan");
         const project = await trackRepo(
           tx,
           user.userId,
@@ -294,6 +319,11 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
           `${failed("refusee")}&raison=${encodeURIComponent(landed.refused.slice(0, 200))}`,
         );
       if ("outside" in landed) return c.redirect(failed("hors-installation"));
+      if (
+        "overQuota" in landed ||
+        (failure instanceof Refused && failure.message === "plan")
+      )
+        return c.redirect(failed("quota"));
       console.error("Creation from a template failed:", failure);
       // The repo may exist on GitHub already: the page says to import it.
       return c.redirect(

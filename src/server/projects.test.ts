@@ -429,6 +429,8 @@ describe("GET /api/projects", () => {
       favorite: false,
       role: "owner",
       sharedBy: null,
+      lockedBy: null,
+      ownerPlan: "free",
       starterTeam: "standard",
     });
     expect(JSON.stringify(body)).not.toContain("user2000");

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { type Ctx, cite, ready } from "./test-code-map.ts";
+import { type Ctx, cite, readyPro as ready } from "./test-code-map.ts";
 import { callTool, dataOf, type TestDb } from "./test-mcp.ts";
 
 // Shared by the tests of slice R5 (decision 051): the arguments of `submit_findings` and `list_findings`, and the tables read with raw SQL

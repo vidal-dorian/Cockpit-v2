@@ -4,6 +4,7 @@
 - **Date** : 2026-10-22, complétée le 2026-10-25 (carte du modèle, constats, écran « Conception »)
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [004 — Outils MCP](004-outils-mcp.md), [005 — Lancement local](005-lancement-local.md), [012 — Configuration automatique](012-configuration-automatique.md)
+- **Complétée par 077** : le point ouvert 7 (offre) est tranché, la reprise est réservée à Pro (tranche 13.2) — voir la [077](077-offres-et-quotas.md)
 - **Ajoute** : une fonctionnalité au brief, après le MVP. Ne revient sur aucune décision prise ; ajoute une ligne à la table des droits de la 004 (le tri des constats)
 
 ## Contexte
@@ -309,7 +310,7 @@ Les citations des objets de la carte restent dans son `data` : elles sont rempla
    *Tranché par la [051](051-constats-de-claude.md) : `security-reviewer` et `architect` en `opus`, `bug-hunter` en `sonnet`, modifiables par projet dans l'onglet Agents.*
 5. **Doublons entre deux analyses** : `list_findings` évite de redéposer ce qui est connu, sans le garantir. À revoir en R5 si le cas se présente.
 6. **`object_names` absent de la carte** : accepté et montré en gris (choix retenu), ou refusé par `create_takeover_stories` ? À confirmer en R2. *Tranché par la [047](047-ecran-de-reprise.md) J : accepté, montré en gris.*
-7. **Offre** : l'analyse et la reprise sont dans l'offre Pro ([offres](../offres.md)), bloquées côté serveur dans l'API **et** le MCP. À trancher avec la tranche « Service payant ».
+7. **Offre** : l'analyse et la reprise sont dans l'offre Pro ([offres](../offres.md)), bloquées côté serveur dans l'API **et** le MCP. Tranché par la [077](077-offres-et-quotas.md) (13.2) : le MCP refuse `plan` sans Pro, la fenêtre « Analyser » renvoie vers Abonnement.
 
 ## Pistes écartées
 

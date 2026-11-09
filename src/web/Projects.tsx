@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
-import { atLeast, ROLE_LABELS } from "./roles.ts";
+import { atLeast, QUOTA_REFUSAL, ROLE_LABELS } from "./roles.ts";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
 import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
@@ -569,7 +569,10 @@ function Importable() {
       starterTeam: StarterLevel;
     }) => {
       const res = await client.api.projects.$post({ json: sent });
-      if (!res.ok) throw await failure(res);
+      if (!res.ok) {
+        const error = await failure(res);
+        throw error.message === "plan" ? new Error(QUOTA_REFUSAL) : error;
+      }
     },
     onSuccess: () => setChoosing(null),
     onSettled: () =>

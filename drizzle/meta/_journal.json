@@ -337,6 +337,13 @@
       "when": 1794241816346,
       "tag": "0047_fine_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1794247741929,
+      "tag": "0048_easy_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

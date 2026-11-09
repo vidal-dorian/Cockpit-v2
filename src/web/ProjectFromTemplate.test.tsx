@@ -338,6 +338,11 @@ describe("decision 068 F and G: the refusals, in French next to the button", () 
       "Ce nom est déjà pris.",
     ],
     [
+      "plan",
+      Response.json({ error: "plan" }, { status: 403 }),
+      "Ton abonnement Gratuit couvre 3 repos, archivés compris. Passe à Pro pour en ajouter.",
+    ],
+    [
       "not_a_template",
       Response.json({ error: "not_a_template" }, { status: 409 }),
       "Ce repo n'est plus un modèle.",
@@ -372,6 +377,10 @@ describe("decision 068 F and G: the refusals, in French next to the button", () 
   it.each([
     ["?erreur=demande-expiree", "Recommence la création."],
     ["?erreur=annulee", "La création est annulée."],
+    [
+      "?erreur=quota",
+      "Ton abonnement Gratuit couvre 3 repos, archivés compris. Passe à Pro pour en ajouter.",
+    ],
     [
       "?erreur=github-injoignable",
       "GitHub ne répond pas comme prévu, réessaie dans un instant.",

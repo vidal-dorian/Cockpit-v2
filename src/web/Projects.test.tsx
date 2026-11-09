@@ -396,6 +396,25 @@ describe("Projets page, import", () => {
     expect(screen.queryByRole("button", { name: "Importer" })).toBeNull();
   });
 
+  it("given the server answers 403 plan to an import, when Importer is clicked, then the alert says the Free subscription covers 3 repos", async () => {
+    stubApi({
+      projects: [],
+      installed: true,
+      repositories: [repo(10, "octocat/available")],
+      importAnswer: Response.json({ error: "plan" }, { status: 403 }),
+    });
+    renderAt("/projets");
+    fireEvent.click(await screen.findByRole("button", { name: "Importer" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Importer avec Standard" }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(
+      "Ton abonnement Gratuit couvre 3 repos, archivés compris. Passe à Pro pour en ajouter.",
+    );
+  });
+
   it("given the server answers 409 to an import, when Importer is clicked, then an alert says the repo is already tracked", async () => {
     stubApi({
       projects: [],

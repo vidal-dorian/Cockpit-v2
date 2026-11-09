@@ -4,7 +4,7 @@ import {
   type Ctx,
   cite,
   FILES,
-  ready,
+  readyPro as ready,
   stored,
   submit,
   text,

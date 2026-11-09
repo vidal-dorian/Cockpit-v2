@@ -384,6 +384,15 @@ export function ProjectPage({
           </div>
         )
       )}
+      {project?.lockedBy && (
+        <p
+          role="status"
+          className="mx-[26px] mt-4 rounded-[14px] bg-raised p-4"
+        >
+          Ce projet est en lecture seule : l'abonnement Gratuit de @
+          {project.lockedBy} couvre 3 projets.
+        </p>
+      )}
       {!notFound && (
         <nav
           aria-label="Sections du projet"

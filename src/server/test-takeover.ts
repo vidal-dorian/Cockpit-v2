@@ -4,7 +4,7 @@ import {
   apiModule,
   type Ctx,
   cite,
-  ready,
+  readyPro as ready,
   submit,
   webModule,
 } from "./test-code-map.ts";

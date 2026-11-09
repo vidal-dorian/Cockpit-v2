@@ -25,6 +25,7 @@ export const ACTIONS: Record<string, string> = {
   logout: "Déconnexion",
   create_ticket: "Ticket créé",
   refused_role: "Refusé : rôle insuffisant",
+  refused_plan: "Refusé : abonnement Gratuit",
   create_invitation: "Invitation créée",
   renew_invitation: "Invitation renouvelée",
   cancel_invitation: "Invitation annulée",

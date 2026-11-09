@@ -4,6 +4,7 @@
 - **Date** : 2026-10-22
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [001 — Stack technique](001-stack.md), [002 — Modèle de données](002-modele-donnees.md), [004 — Outils MCP](004-outils-mcp.md), [006 — Connexion OAuth](006-connexion-oauth.md)
+- **Complétée par 077** : les fonctions payantes bloquées côté serveur (tranche 13.2) — voir la [077](077-offres-et-quotas.md)
 - **Modifiée par 076** : F, l'index « un membre par projet » est retiré et `role` s'élargit à quatre valeurs (tranche 13.1) — voir la [076](076-plusieurs-utilisateurs.md)
 - **Modifiée par 012** : la règle « seuls les comptes listés entrent sur le Pi » (tranche 1.3) est remplacée par l'inscription ouverte et une liste de comptes bloqués, à la demande de Dorian — voir la [012](012-configuration-automatique.md), choix G
 - **Modifie** : la base de données de la [001](001-stack.md) (SQLite → PostgreSQL) ; le propriétaire, l'unicité de `github_repo_id` et les types de colonnes de la [002](002-modele-donnees.md) ; l'accès d'un jeton dans la [004](004-outils-mcp.md) ; le brief §3 (hébergement) et §9 (plusieurs personnes sur un projet)

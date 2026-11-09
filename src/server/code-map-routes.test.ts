@@ -5,7 +5,7 @@ import {
   type Ctx,
   contentsReads,
   REPO,
-  ready,
+  readyPro as ready,
   submit,
   webModule,
 } from "./test-code-map.ts";
