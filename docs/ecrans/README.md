@@ -75,8 +75,8 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 056 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
 | [S33](S33_CoutBudget.png) | Coût et plafonds | 14.5 (existe) | 060 | le coût des runs locaux est repoussé (060) |
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 (existe) | 044 | |
-| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; la frise à l'échelle des heures : tranche 14.7 ([064](../decisions/064-tranches-restantes.md)) |
-| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6 (existe) | 044 | bilan et « Relire en série » : tranche 14.7 ([064](../decisions/064-tranches-restantes.md)) |
+| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; pas de frise à l'échelle des heures sur le soir ([070](../decisions/070-le-matin-de-la-nuit.md) G) |
+| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6, 14.7 (existe) | 044, 070 | « Ce matin · 8 h 12 » et « Compte 20 minutes pour tout traiter » non construits ([070](../decisions/070-le-matin-de-la-nuit.md)) |
 | [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 | 044 | la notification attend la 15.2 (044 M') |
 
 ## 6 · Équipes d'agents et journal

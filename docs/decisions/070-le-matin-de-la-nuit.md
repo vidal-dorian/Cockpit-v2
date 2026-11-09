@@ -26,6 +26,15 @@ La tranche 14.6 a construit la nuit et un bloc « Cette nuit » minimal sur l'ac
 | H | « Relire en série » | Dans l'en-tête du groupe « À relire » de « 2 · Ensuite », dès qu'au moins **2 PR** sont à relire sur l'accueil (toutes, pas seulement celles de la nuit : la série sert aussi un autre matin). Un bouton : il ouvre dans un nouvel onglet (`window.open(url, "_blank", "noopener")`) la première PR à relire pas encore ouverte dans la série, dans l'ordre de l'accueil, puis se lit « PR suivante · #53 ». Après la dernière, la série recommence et le bouton se relit « Relire en série » (le bouton reste en place, le focus clavier aussi). La série est retenue par la page, par US : une PR fusionnée qui disparaît de la liste ne la décale pas. Rien n'est écrit au serveur ni dans l'historique |
 | I | Le raccourci « R » | Comme « N » (Shell) : la touche R, sans Ctrl, Cmd ni Alt, hors d'un champ de saisie, fait le même geste que le bouton quand il est affiché. `<kbd>R</kbd>` dans le bouton et `aria-keyshortcuts="R"` |
 
+## Ce que le code a précisé (tranche 14.7)
+
+- **Les couleurs des cases** (045 C) : une PR et un échec sont en gris (`raised`, `border-strong`), une US en pause aux couleurs « toi » comme `.seg.q` de N2. Le signe (✓, ✕, ✦) double la couleur.
+- **Une nuit sans run** affiche « 0 min de travail ».
+- **« Relire en série »** repart de la PR qui vient d'être ouverte quand la dernière de la série a quitté la liste ; une touche R maintenue n'ouvre qu'une PR.
+- **« fini à »** est dans le texte de la ligne (celle du dernier run), pas sur l'axe.
+- **« US n »** est lu par les lecteurs d'écran devant le titre ; la case dessinée est cachée (`aria-hidden`).
+- **Écarts à la 064, gardés** : C (« critères prouvés » au lieu de « tests ajoutés ») et G (pas de frise à l'échelle des heures sur le soir, N1), *à confirmer à la relecture*.
+
 ## Limites connues
 
 - **Pas de nombre de tests** (C) : un critère peut couvrir plusieurs tests, et un test hors critères n'est pas compté.

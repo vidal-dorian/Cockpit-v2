@@ -76,7 +76,8 @@
 - **Fait** : tranche 12.4 (l'onglet CI / CD : les workflows, une CI de départ, les changements que Claude propose, [décision 067](decisions/067-ci-cd.md)).
 - **Fait** : tranche 12.5 (un nouveau projet depuis un repo modèle, [décision 068](decisions/068-repo-modele.md)) ; la phase 12 est terminée (la 12.2 est couverte par la 11.6).
 - **Fait** : tranche 9.5 (les étapes à venir et « Pourquoi Claude demande » sur un run, la carte du Kanban ouverte dans le panneau de droite, [décision 069](decisions/069-finitions.md)).
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 (faite) et 14.7, puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
+- **Fait** : tranche 14.7 (le matin de la nuit : le bilan avec les critères prouvés, la frise à l'échelle des heures sur l'accueil, « Relire en série » et la touche R, [décision 070](decisions/070-le-matin-de-la-nuit.md)).
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
