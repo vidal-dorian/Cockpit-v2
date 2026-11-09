@@ -1,6 +1,6 @@
 # 071 — Les trois gestes au téléphone
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 15.1)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.1)
 - **Dépend de** : [003 — Interface](003-interface.md) (point ouvert 4), [018 — Décisions humaines](018-decisions-humaines.md), [036 — Questions de Claude](036-questions-de-claude.md), [045 — L'interface « Quatre temps » et les écrans de référence](045-interface-quatre-temps.md) (F, J), [055 — Les tickets complets](055-tickets-complets.md) (D, le panneau « Noter une idée »), [061 — Les pièces jointes](061-pieces-jointes.md) (F)
@@ -24,9 +24,20 @@ Sur un téléphone, Cockpit montre aujourd'hui la barre latérale entière en ha
 | F | Valider une US (S54) | La page d'une US (`/us/:id`) : l'histoire et ses critères, puis le panneau avec « Valider » et « Renvoyer à Claude » (018), dans cet ordre, comme S54. Sur l'accueil, « Valider » d'une ligne agit sur place comme aujourd'hui. Pas de nouvel écran |
 | G | « Sans zoom ni défilement latéral » | À 360 px de large, l'accueil, la page d'une US, la page d'un run avec une question et le panneau « Noter une idée » ne défilent pas de côté : ce qui déborde passe à la ligne ou se coupe (`min-w-0`, `truncate`, `break-words`, grilles qui passent à une colonne). Les champs de saisie font **16 px** sous `md` : en dessous, Safari sur iPhone zoome sur le champ touché. Les boutons et les onglets de la barre font au moins 44 px de haut (cible tactile) |
 
+## Ce que le code a précisé (tranche 15.1)
+
+- **La barre du bas est rendue par `IdeaBar`** (`Shell.tsx`), donc elle partage l'état du panneau ; elle apparaît quand `/api/home` a répondu (l'onglet Idée dépend des projets).
+- **Toucher un onglet pendant que le panneau est ouvert** le ferme et garde le brouillon. À la fermeture, le focus revient à l'onglet Idée, ou au champ de la barre d'idée si l'onglet n'est pas affiché.
+- **Seul « Idée » est en blanc** tant que le panneau est ouvert, avec `aria-expanded` ; les autres onglets ne le sont pas.
+- **Sous `md`, panneau ouvert**, la colonne de la page derrière lui est `inert` ; la barre du bas ne l'est pas. C'est décidé à l'ouverture : redimensionner la fenêtre de part et d'autre de `md` pendant que le panneau est ouvert laisse l'état périmé (`shortcut:` du code).
+- **Les jetons de `src/web/ui.ts` changent pour toutes les pages sous `md`**, pas seulement pour les trois gestes : `field` fait 16 px et 44 px de haut, `buttonSize` et `panelSize` font 44 px. Au-dessus de `md`, tailles et interligne sont inchangés.
+- **L'en-tête de page** (`StateSentence`) passe à la ligne sous `md` seulement. **La colonne d'âge** des lignes de « 2 · Ensuite » est cachée sous `sm`.
+- **Sur ordinateur aussi**, l'ordre de lecture et de Tab de l'accueil change : le panneau vient après « 1 · Maintenant » et avant « 2 · Ensuite ».
+- **La ligne d'état de la barre d'idée** (erreur, « Idée notée… ») monte au-dessus de la barre du bas (`max-md:bottom-16`).
+
 ## Limites connues
 
 - **Ce que la barre du bas n'atteint pas** : Claude, Équipes d'agents, Journal, Réglages et « Se déconnecter » n'ont pas d'onglet ; sur le téléphone, on y arrive par leur adresse. La 15.1 couvre les trois gestes (064), pas tout Cockpit en largeur téléphone.
-- **Les autres pages** (Kanban, Conception, équipes, réglages…) ne sont pas vérifiées à 360 px.
+- **Les autres pages** (Kanban, Conception, équipes, réglages…) ne sont pas vérifiées à 360 px, mais les jetons de 44 px et de 16 px (voir plus haut) les atteignent : leurs champs et leurs boutons y sont plus grands qu'avant.
 - **« Sans défilement latéral » n'est pas testé par la CI** : les tests (jsdom) ne calculent pas la mise en page ; la vérification à 360 px se fait dans un vrai navigateur au développement.
 - **Pas construits, de S52 à S55** : « à relire sur ordinateur » d'une PR, « Plus tard » de S54 et le titre de l'idée en gros de S55 ; le panneau « Noter une idée » garde sa priorité et ses étiquettes, que S55 ne montre pas.
