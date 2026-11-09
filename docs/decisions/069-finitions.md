@@ -35,7 +35,6 @@ La 064 garde trois finitions et en écarte trois. S29 montre les étapes d'un ru
 - **`fetchStory`** vit dans `StoryDecisions.tsx` : la page de l'US et le panneau du Kanban lisent l'US par la même fonction.
 - **Échap** dans le panneau du Kanban : il ne ferme pas le panneau pendant un formulaire de celui-ci, le panneau d'un ticket se ferme lui-même (G).
 - **`catalog/history.json`** a été rétabli à la main (anciennes empreintes ∪ nouvelle) : `scripts/catalog-history.mjs` ne suit que la branche courante.
-- **I et J restent comme décidés** : seul l'index change ; les filtres de Tickets sont gardés, *à confirmer à la relecture*.
 
 ## Limites connues
 

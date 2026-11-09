@@ -5,7 +5,7 @@
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [017 — Claude écrit les US](017-user-stories.md), [018 — Les décisions humaines](018-decisions-humaines.md)
 - **Modifiée par** : [045](045-interface-quatre-temps.md) : le Kanban a six colonnes, la première est « Idées » (B)
-- **Modifiée par 069** : une carte s'ouvre dans le panneau de droite, plus sur sa page (C, choix G)
+- **Modifiée par** : [069](069-finitions.md) : une carte s'ouvre dans le panneau de droite, plus sur sa page (C, choix G)
 - **Tranche** : 4.5 du [découpage](../decoupage.md)
 
 ## Contexte
