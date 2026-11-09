@@ -6,6 +6,7 @@ import { fetchAttachments } from "./attachments.ts";
 import { ImportedFrom } from "./IssueImport.tsx";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Panel, useHome } from "./Shell.tsx";
+import { TicketTags } from "./TagField.tsx";
 import { STORY_STATUSES, ticketError } from "./tickets.ts";
 import {
   alertBox,
@@ -25,6 +26,8 @@ type Ticket = {
   descriptionMd: string;
   githubIssueNumber?: number | null;
   attachmentsCount?: number;
+  tags?: string[];
+  priority?: string;
 };
 type Story = { id: number; iWant: string; status: string };
 
@@ -142,6 +145,9 @@ export function TicketPanel({
       }
     >
       <h2 className="text-lg font-semibold">{ticket.title}</h2>
+      <div className="flex flex-wrap gap-1.5 empty:hidden">
+        <TicketTags tags={ticket.tags} priority={ticket.priority} />
+      </div>
       {fullName && ticket.githubIssueNumber != null && (
         <ImportedFrom fullName={fullName} number={ticket.githubIssueNumber} />
       )}

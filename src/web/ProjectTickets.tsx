@@ -5,11 +5,11 @@ import { client } from "./api.ts";
 import { fetchStories } from "./ProjectKanban.tsx";
 import { RunNowButton } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
+import { TicketTags } from "./TagField.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { age, fetchTickets, STEPS, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
-  badge,
   button,
   chipLink,
   focusRing,
@@ -79,14 +79,7 @@ function TicketRow({
         </span>
       </div>
       <div className="flex flex-none items-center gap-2 text-[12.5px] text-muted-foreground">
-        {(ticket.tags ?? []).map((tag) => (
-          <span key={tag} className={badge}>
-            {tag}
-          </span>
-        ))}
-        {ticket.priority === "high" && (
-          <span className={badge}>priorité haute</span>
-        )}
+        <TicketTags tags={ticket.tags} priority={ticket.priority} />
         {(ticket.attachmentsCount ?? 0) > 0 && (
           <span>📎 {ticket.attachmentsCount}</span>
         )}
