@@ -7,11 +7,12 @@ import { isDatabaseId } from "./projects.ts";
 import { signedIn } from "./routines.ts";
 import { body } from "./tickets.ts";
 
-/** The star of a project and the theme of the user (decision 073 F, H): preferences of the user, so no history entry (like the notification switches). */
+/** The star of a project, the theme of the user and the hiding of the getting-started guide (decisions 073 F, H and 074 E): preferences of the user, so no history entry (like the notification switches). */
 export function favoriteRoutes(db: Db) {
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/projects/:id/favorite", signedIn(db))
     .use("/api/me/theme", signedIn(db))
+    .use("/api/me/onboarding/hide", signedIn(db))
     .put(
       "/api/projects/:id/favorite",
       body(z.object({ favorite: z.boolean() })),
@@ -45,5 +46,12 @@ export function favoriteRoutes(db: Db) {
           .returning({ theme: users.theme });
         return c.json(row);
       },
-    );
+    )
+    .post("/api/me/onboarding/hide", async (c) => {
+      await db
+        .update(users)
+        .set({ onboardingHiddenAt: new Date() })
+        .where(eq(users.id, c.get("userId")));
+      return c.json({ ok: true });
+    });
 }

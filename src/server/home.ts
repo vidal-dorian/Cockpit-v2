@@ -4,7 +4,10 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
+  catalogWrites,
   cloudLaunches,
+  history,
+  mcpTokens,
   projectMembers,
   projects,
   questions,
@@ -80,6 +83,84 @@ async function runningRuns(
 }
 
 /** The home of the user (decision 040 A to D): what waits for them, what Claude does, the state of each project; read in a few set-based queries, nothing stored. */
+/** The getting-started guide (decision 074 A, B): steps 2 to 7 read from today's rows, archived projects included; null once all are done or hidden. */
+async function onboardingOf(db: Db, userId: number) {
+  const member = eq(projectMembers.userId, userId);
+  const [mine, token, [seen], [validated]] = await Promise.all([
+    db
+      .select({
+        id: projects.id,
+        name: projects.fullName,
+        prepared: sql<boolean>`exists (select 1 from ${catalogWrites} where ${catalogWrites.projectId} = ${projects.id})`,
+      })
+      .from(projectMembers)
+      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+      .where(member)
+      .orderBy(asc(projects.id)),
+    db
+      .select({ id: mcpTokens.id })
+      .from(mcpTokens)
+      .where(and(eq(mcpTokens.userId, userId), isNull(mcpTokens.revokedAt)))
+      .limit(1),
+    db
+      .select({
+        ticket: sql<boolean>`count(${tickets.id}) > 0`,
+        toValidate: sql<
+          number | null
+        >`min(${userStories.id}) filter (where ${userStories.status} = 'to_validate')`,
+        ready: sql<
+          number | null
+        >`min(${userStories.id}) filter (where ${userStories.status} = 'ready')`,
+        withPr: sql<boolean>`coalesce(bool_or(${userStories.prNumber} is not null), false)`,
+      })
+      .from(tickets)
+      .innerJoin(
+        projectMembers,
+        eq(projectMembers.projectId, tickets.projectId),
+      )
+      .leftJoin(userStories, eq(userStories.ticketId, tickets.id))
+      .where(member),
+    // The history, not the status: a story imported from an issue is `ready` without anyone validating it.
+    db
+      .select({ id: history.id })
+      .from(history)
+      .innerJoin(
+        projectMembers,
+        eq(projectMembers.projectId, history.projectId),
+      )
+      .where(
+        and(
+          member,
+          eq(history.action, "validate_story"),
+          eq(history.result, "ok"),
+        ),
+      )
+      .limit(1),
+  ]);
+  const unprepared = mine.find((p) => !p.prepared);
+  const step = (
+    key: string,
+    done: boolean,
+    detail: string | null = null,
+    projectId: number | null = null,
+    storyId: number | null = null,
+  ) => ({ key, done, detail, projectId, storyId });
+  const steps = [
+    step("project", mine.length > 0, mine[0]?.name ?? null),
+    step("claude", token.length > 0),
+    step(
+      "prepare",
+      mine.some((p) => p.prepared),
+      null,
+      unprepared?.id,
+    ),
+    step("idea", seen?.ticket === true, null, mine[0]?.id),
+    step("validate", validated !== undefined, null, null, seen?.toValidate),
+    step("develop", seen?.withPr === true, null, null, seen?.ready),
+  ];
+  return steps.every((s) => s.done) ? null : { steps };
+}
+
 export function homeRoutes(db: Db, now: () => number) {
   return new Hono().get("/api/home", async (c) => {
     const user = await currentUser(db, c);
@@ -266,6 +347,9 @@ export function homeRoutes(db: Db, now: () => number) {
     const forYouIn = new Set(forYou.map((i) => i.project.id));
     const claudeIn = new Set(running.map((r) => r.projectId));
     return c.json({
+      onboarding: user.onboardingHiddenAt
+        ? null
+        : await onboardingOf(db, user.userId),
       night: await morningOf(db, user.userId, new Date(now())),
       forYou,
       claudeWorks: running.map((r) => ({

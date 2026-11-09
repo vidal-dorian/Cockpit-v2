@@ -66,6 +66,7 @@ export async function currentUser(db: Db, c: Context) {
           name: users.name,
           avatarUrl: users.avatarUrl,
           theme: users.theme,
+          onboardingHiddenAt: users.onboardingHiddenAt,
         })
         .from(sessions)
         .innerJoin(users, eq(users.id, sessions.userId))

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
+import { fetchInstallation } from "./InstallBanner.tsx";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
 import { NightMorning } from "./NightMorning.tsx";
 import { WhyAsked } from "./RunQuestions.tsx";
@@ -428,11 +429,142 @@ function ReviewSeries({
   );
 }
 
+/** Steps 1 to 7 of S06: what each says, a hint while it is not done, and where « Faire » leads. Step 5 goes to the project page, where the idea bar is. */
+const GUIDE = [
+  {
+    key: "install",
+    title: "Ouvrir des repos à Cockpit",
+    hint: "installe l'App GitHub sur ton compte",
+  },
+  {
+    key: "project",
+    title: "Importer un premier projet",
+    hint: "choisis un repo parmi ceux ouverts",
+  },
+  {
+    key: "claude",
+    title: "Connecter Claude",
+    hint: "pour qu'il lise et écrive dans Cockpit",
+  },
+  {
+    key: "prepare",
+    title: "Préparer un repo pour Claude",
+    hint: "ajoute /dev-us et les agents en un commit",
+  },
+  {
+    key: "idea",
+    title: "Noter une première idée",
+    hint: "Claude en fera des user stories",
+  },
+  {
+    key: "validate",
+    title: "Valider une user story",
+    hint: "elle devient prête à développer",
+  },
+  {
+    key: "develop",
+    title: "Développer avec Claude",
+    hint: "jusqu'à la première PR",
+  },
+] as const;
+
+type Guide = NonNullable<
+  NonNullable<ReturnType<typeof useHome>["data"]>["onboarding"]
+>;
+
+/** The getting-started guide (decision 074 C): seven steps, the first one left carries « Faire ». Step 1 is `installed` of GET /api/installation, shown not done when that fails. */
+function OnboardingGuide({
+  guide,
+  installed,
+}: {
+  guide: Guide;
+  installed: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const hide = useMutation({
+    mutationFn: () => client.api.me.onboarding.hide.$post(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
+  });
+  const rows = [
+    { done: installed, detail: null, projectId: null, storyId: null },
+    ...guide.steps,
+  ];
+  const count = rows.filter((r) => r.done).length;
+  const next = rows.findIndex((r) => !r.done);
+  const target = (i: number, r: (typeof rows)[number]) => {
+    const key = GUIDE[i]?.key;
+    if (key === "install") return "/bienvenue";
+    if (key === "claude") return "/reglages";
+    if (key === "prepare" || key === "idea")
+      return r.projectId ? `/projets/${r.projectId}` : "/projets";
+    if (key === "validate" || key === "develop")
+      return r.storyId ? `/us/${r.storyId}` : "/projets";
+    return "/projets";
+  };
+  return (
+    <section className="px-[26px] pt-[22px]">
+      <h2 className="mb-2 flex items-center gap-2">
+        <span className={sectionLabel}>Mise en route</span>
+        <span className="text-[12.5px] font-normal text-muted-foreground">
+          · {count} sur 7
+        </span>
+        <button
+          type="button"
+          onClick={() => hide.mutate()}
+          disabled={hide.isPending}
+          className={`ml-auto text-[12.5px] font-normal text-muted-foreground hover:text-foreground ${focusRing}`}
+        >
+          Masquer ce guide
+        </button>
+      </h2>
+      <ol className={`${listCard} divide-y divide-border`}>
+        {rows.map((r, i) => (
+          <li
+            key={GUIDE[i]?.key}
+            className={`grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px] ${r.done ? "text-muted-foreground" : ""}`}
+          >
+            <span
+              aria-hidden="true"
+              className="text-center text-[13px] font-bold text-dim"
+            >
+              {r.done ? "✓" : i + 1}
+            </span>
+            <span className="min-w-0">
+              <b className="block truncate font-semibold">
+                {GUIDE[i]?.title}
+                {r.done && <span className="sr-only"> : fait</span>}
+              </b>
+              <span className="block text-[12.5px] text-muted-foreground">
+                {r.done ? r.detail : GUIDE[i]?.hint}
+              </span>
+            </span>
+            {i === next && (
+              <Link to={target(i, r)} className={rowAction}>
+                Faire
+              </Link>
+            )}
+          </li>
+        ))}
+      </ol>
+      <p className={`${sectionLabel} mt-[22px] mb-2`}>Pourquoi cet ordre</p>
+      <p className={`${listCard} px-[18px] py-3.5 text-muted-foreground`}>
+        Claude ne peut développer que dans un repo préparé, et seulement une
+        user story que tu as validée. Chaque étape débloque la suivante.
+      </p>
+    </section>
+  );
+}
+
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 /** The home of a logged-in user (045 D): the state in a sentence, what to do now, then next, what Claude does, the latest events; the first item is open in the right panel. */
 export function HomePage() {
   const home = useHome();
+  // The same key as the shell's banner: one request for both.
+  const installation = useQuery({
+    queryKey: ["installation"],
+    queryFn: fetchInstallation,
+  });
   // The answered card goes away, and its section with the last one: the h1 stays, so the keyboard focus lands there.
   const headingRef = useRef<HTMLHeadingElement>(null);
   // The open item is the one the user chose, found again by its key when the list changes under them; `at` is where to land when it is gone.
@@ -456,6 +588,12 @@ export function HomePage() {
     w === 0
       ? "Claude ne travaille sur rien."
       : `Claude travaille sur ${w} ${plural(w, "run", "runs")}, tout va bien.`;
+  const guide = home.data.onboarding;
+  const left = guide
+    ? 7 -
+      guide.steps.filter((s) => s.done).length -
+      (installation.data?.installed ? 1 : 0)
+    : 0;
   const sentence =
     blocked > 0
       ? {
@@ -471,7 +609,12 @@ export function HomePage() {
             ),
             rest: claude,
           }
-        : { title: "Rien ne t'attend.", rest: claude };
+        : guide
+          ? {
+              title: `${left === 1 ? "Plus qu'une étape" : `Plus que ${left} étapes`} avant ta première PR.`,
+              rest: "Chacune se coche toute seule quand elle est faite.",
+            }
+          : { title: "Rien ne t'attend.", rest: claude };
   const found = forYou.findIndex((item) => itemKey(item) === opened.key);
   const shown = found >= 0 ? found : Math.min(opened.at, forYou.length - 1);
   // Remember what is displayed (also by default, or after a fallback), so the next change of the list finds it again.
@@ -496,6 +639,12 @@ export function HomePage() {
   return (
     <>
       <StateSentence {...sentence} headingRef={headingRef} />
+      {guide && (
+        <OnboardingGuide
+          guide={guide}
+          installed={installation.data?.installed === true}
+        />
+      )}
       {home.data.night && (
         <NightMorning night={home.data.night} questions={blocked} />
       )}

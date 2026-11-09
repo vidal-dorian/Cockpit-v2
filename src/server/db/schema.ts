@@ -61,6 +61,11 @@ export const users = pgTable("users", {
   theme: text("theme", { enum: ["dark", "light", "system"] })
     .notNull()
     .default("dark"),
+  // « Masquer ce guide » (decision 074 E): the getting-started guide is gone for this user, on every device.
+  onboardingHiddenAt: timestamp("onboarding_hidden_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
