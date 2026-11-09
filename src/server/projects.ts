@@ -1037,42 +1037,35 @@ export function projectRoutes(
       );
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { fullName } = parsed.data;
+      const entry = {
+        userId: user.userId,
+        actor: "human" as const,
+        origin: "ui" as const,
+        action: fullName ? "link_plugin_repo" : "unlink_plugin_repo",
+        args: {},
+      };
       try {
-        await act(
-          db,
-          {
-            userId: user.userId,
-            actor: "human",
-            origin: "ui",
-            action: fullName ? "link_plugin_repo" : "unlink_plugin_repo",
-            args: {},
-          },
-          async (tx) => {
-            // The repo must be one the installation of the user reaches (decision 066 B).
-            const found =
-              fullName !== null &&
-              (await installedRepos(
-                c.get("github"),
-                user.login,
-                user.githubId,
-              ));
-            if (
-              found !== false &&
-              !found?.repos.some((r) => r.full_name === fullName)
-            )
-              throw new Refused("repo_unreachable");
-            await tx
-              .update(users)
-              .set({ pluginRepo: fullName })
-              .where(eq(users.id, user.userId));
-          },
-        );
+        // The repo must be one the installation of the user reaches (decision 066 B).
+        const found =
+          fullName !== null &&
+          (await installedRepos(c.get("github"), user.login, user.githubId));
+        if (
+          found !== false &&
+          !found?.repos.some((r) => r.full_name === fullName)
+        ) {
+          await record(entry, new Refused("repo_unreachable"));
+          return c.json({ error: "repo_unreachable" }, 409);
+        }
       } catch (error) {
-        if (error instanceof Refused)
-          return c.json({ error: error.message }, 409);
-        console.error("GitHub request failed:", error);
+        await record(entry, error);
         return c.json({ error: "github_unavailable" }, 502);
       }
+      await act(db, entry, async (tx) => {
+        await tx
+          .update(users)
+          .set({ pluginRepo: fullName })
+          .where(eq(users.id, user.userId));
+      });
       return c.json({ repo: fullName });
     })
     .get("/api/plugins", async (c) => {
@@ -1237,9 +1230,6 @@ export function projectRoutes(
       } catch {
         invalid = true;
       }
-      // A no-op commit is not written.
-      if (!invalid && after === before)
-        return c.json({ error: "Bad request" }, 400);
       return saveFile(
         c,
         {
@@ -1252,6 +1242,11 @@ export function projectRoutes(
         [{ path: SETTINGS_PATH, before, after }],
         `feat: ${install ? "install" : "remove"} the shared plugin (Cockpit)`,
         {
+          // No commit that changes nothing: the text is already as it would be written, or a removal where the plugin is not installed.
+          valid: async () =>
+            invalid ||
+            (after !== before &&
+              (install || pluginInstalled(before, user.login))),
           refuse: async () =>
             !user.pluginRepo
               ? "no_plugin_repo"

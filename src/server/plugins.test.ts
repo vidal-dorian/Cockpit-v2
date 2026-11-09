@@ -144,6 +144,23 @@ describe("decision 066 B: PUT /api/plugins/repo", () => {
     ]);
   });
 
+  it("given GitHub that fails, when a repo is linked, then 502 and one error entry is recorded", async () => {
+    const ctx = await ready();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+
+    const res = await link(ctx);
+
+    expect(res.status).toBe(502);
+    expect(await pluginRows(ctx)).toMatchObject([
+      { action: "link_plugin_repo", result: "error" },
+    ]);
+  });
+
   it("given a repo the installation does not reach, when it is linked, then 409 repo_unreachable, nothing is linked and the refusal is recorded (decision 010 C)", async () => {
     const ctx = await ready();
 
@@ -439,6 +456,40 @@ describe("decision 066 C, E: POST /api/plugins/apply", () => {
     });
   });
 
+  it("given the installation of the user gone, when it is applied, then 409 repo_unreachable and one refused entry is recorded", async () => {
+    const ctx = await linked();
+    ctx.fetchMock.update({ account: null });
+
+    const res = await apply(ctx, {
+      kind: "agent",
+      name: "dev",
+      before: null,
+      after: AG,
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "repo_unreachable" });
+    expect((await pluginRows(ctx)).at(-1)).toMatchObject({
+      action: "save_shared_agent",
+      result: "refused",
+      detail: { reason: "repo_unreachable" },
+    });
+  });
+
+  it("given a plugin repo with no commit, when it is applied, then 409 empty_repo", async () => {
+    const ctx = await linked({ empty: true, files: {} });
+
+    const res = await apply(ctx, {
+      kind: "agent",
+      name: "dev",
+      before: null,
+      after: AG,
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "empty_repo" });
+  });
+
   it("given GitHub that fails before the commit, when it is applied, then 502 and one error entry is recorded", async () => {
     const ctx = await linked();
     ctx.fetchMock.update({
@@ -457,6 +508,15 @@ describe("decision 066 C, E: POST /api/plugins/apply", () => {
       action: "save_shared_agent",
       result: "error",
     });
+  });
+
+  it("given a project where the plugin is not installed, when removing, then 400 and nothing is written", async () => {
+    const ctx = await linked();
+
+    const res = await install(ctx, { install: false, before: null });
+
+    expect(res.status).toBe(400);
+    noWrite(ctx);
   });
 
   it("given a settings.json already as it would be written, when installing, then 400 and nothing is written", async () => {

@@ -194,6 +194,7 @@ export function Plugins() {
             {failed?.status === 409 && (
               <button
                 type="button"
+                disabled={link.isPending}
                 onClick={() => link.mutate(null)}
                 className={`mt-2 ${button}`}
               >
