@@ -77,6 +77,7 @@ import {
   ticketStep,
   title,
 } from "./tickets.ts";
+import { proposeWorkflowChange, workflowPath } from "./workflows.ts";
 
 // Decision 016. The body is read whole in memory: same 256 KiB as the API routes (the global limit only covers /api/*).
 const MAX_BODY = 256 * 1024;
@@ -882,7 +883,7 @@ const tools = {
   ),
 
   get_launch: tool(
-    "Read a launch Cockpit started in the cloud: its kind (story or routine) and the instructions to follow. A story launch gives the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent); a routine launch gives its projects (id, full_name, default_branch). Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
+    "Read a launch Cockpit started in the cloud: its kind (story, routine or workflow) and the instructions to follow. A story launch gives the project (id, full_name, default_branch), the story_id, the branch, the team and the comment (null when absent); a routine launch gives its projects (id, full_name, default_branch); a workflow launch gives the project and the path of the failing workflow. Use it first in a task started by Cockpit, with the launch_id of the routine-fire-payload block. Refused (not found) when the launch is not yours.",
     z.object({ launch_id: id.describe("The launch_id of the fired text") }),
     (call, args) => getLaunch(call.db, call.userId, call.entry, args),
   ),
@@ -897,13 +898,34 @@ const tools = {
   ),
 
   finish_launch: tool(
-    "Say how a routine launch ended: outcome succeeded or failed, and a summary of what was done (2,000 characters at most). Call it last, once, when get_launch gave kind routine. Refused when the launch is not yours, is a story launch (finish it with finish_run) or is already finished.",
+    "Say how a routine launch ended: outcome succeeded or failed, and a summary of what was done (2,000 characters at most). Call it last, once, when get_launch gave kind routine or workflow. Refused when the launch is not yours, is a story launch (finish it with finish_run) or is already finished.",
     z.object({
       launch_id: id.describe("The launch_id of the fired text"),
       outcome: z.enum(["succeeded", "failed"]),
       summary: z.string().max(2000).refine(noNul),
     }),
     (call, args) => finishLaunch(call.db, call.userId, call.entry, args),
+  ),
+
+  propose_workflow_change: tool(
+    "Propose a change of a GitHub Actions workflow of a project: the user reads it in the CI / CD tab and commits it or not; you never commit or push a workflow. Send the project_id, the path (.github/workflows/<name>.yml or .yaml, name in lower case letters, digits and dashes), the content (the complete new text of the file, 200,000 characters at most) and the reason (one or two sentences, 2,000 characters at most). A proposal on a file that already has a pending one replaces it. Answers proposal_id and replaced. Refused when the content is the file as it is (no_change), when the project is archived or is not yours.",
+    z.object({
+      project_id: id.describe("Id from list_projects or get_launch"),
+      path: workflowPath.describe("e.g. .github/workflows/ci.yml"),
+      content: z.string().max(200_000).refine(noNul),
+      reason: z.string().min(1).max(2000).refine(noNul),
+    }),
+    async (call, { project_id, ...args }) => {
+      call.entry.args = { path: args.path };
+      const project = await ownProject(call, project_id);
+      return proposeWorkflowChange(
+        call.db,
+        call.readGitHub,
+        call.entry,
+        project,
+        args,
+      );
+    },
   ),
 
   report_step: tool(
@@ -1074,6 +1096,8 @@ const ADVICE: Record<string, string | ((written: number) => string)> = {
     "this launch_id is not a launch of this story. Use the launch_id of get_launch, and the story_id it gave.",
   not_a_routine:
     "this launch is a story launch, not a routine. A story ends with finish_run.",
+  no_change:
+    "the content is the same as the file on GitHub. Change the workflow, or do not propose it.",
   launch_finished:
     "this launch is already finished (by you, or given up after two hours without news). Do not call finish_launch again.",
   run_finished:

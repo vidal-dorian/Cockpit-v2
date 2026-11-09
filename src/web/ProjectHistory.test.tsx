@@ -77,7 +77,7 @@ const STEP = entry(4, {
 });
 
 describe("Project history, the tab (decision 053 I)", () => {
-  it("given a project, when /projets/5 opens, then Historique is the sixth link of the tabs, between Agents and Réglages, to /projets/5/historique", async () => {
+  it("given a project, when /projets/5 opens, then Historique is the seventh link of the tabs, between CI / CD and Réglages, to /projets/5/historique", async () => {
     stubJournal();
     renderAt("/projets/5");
 
@@ -92,10 +92,11 @@ describe("Project history, the tab (decision 053 I)", () => {
       "Conception",
       "Santé",
       "Agents",
+      "CI / CD",
       "Historique",
       "Réglages",
     ]);
-    expect(links[5]?.getAttribute("href")).toBe("/projets/5/historique");
+    expect(links[6]?.getAttribute("href")).toBe("/projets/5/historique");
   });
 
   it("given /projets/5/historique, when it loads, then the tab is open (aria-current) and the sentence reads « Ce qui s'est passé sur hello. »", async () => {

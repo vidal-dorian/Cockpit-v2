@@ -8,6 +8,7 @@ import { chosenFeature, featureSentence, useFeatures } from "./features.ts";
 import { findingsSentence, toDecide, useFindings } from "./findings.ts";
 import { ACCESS_TEXT, AccessLink } from "./GithubAccess.tsx";
 import { ProjectAgents } from "./ProjectAgents.tsx";
+import { ciSentence, fetchWorkflows, ProjectCi } from "./ProjectCi.tsx";
 import { FILES } from "./ProjectClaudeConfig.tsx";
 import { ProjectConception } from "./ProjectConception.tsx";
 import { ProjectDelivered } from "./ProjectDelivered.tsx";
@@ -87,6 +88,7 @@ type ProjectTab =
   | "conception"
   | "sante"
   | "agents"
+  | "ci"
   | "historique"
   | "reglages";
 
@@ -96,6 +98,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "conception", to: "/conception", label: "Conception" },
   { tab: "sante", to: "/sante", label: "Santé" },
   { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "ci", to: "/ci", label: "CI / CD" },
   { tab: "historique", to: "/historique", label: "Historique" },
   { tab: "reglages", to: "/reglages", label: "Réglages" },
 ];
@@ -114,6 +117,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   conception: "Le modèle de chaque sous-projet, lu par Claude dans le code.",
   sante: "Ce que Claude trouve dans le repo avant de travailler.",
   agents: "Chacun lit le repo, puis passe la main au suivant.",
+  ci: "",
   historique: "",
   reglages: "",
 };
@@ -198,6 +202,12 @@ export function ProjectPage({
     queryFn: () => fetchCodeMap(id),
     enabled: tab === "conception",
   });
+  const workflows = useQuery({
+    queryKey: ["workflows", id],
+    queryFn: () => fetchWorkflows(id),
+    enabled: tab === "ci",
+    retry: false,
+  });
   const schedule = useQuery({
     queryKey: ["routine-schedule", id],
     queryFn: () => fetchSchedule(id),
@@ -216,81 +226,84 @@ export function ProjectPage({
   const sentence: { title: string; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
-      : tab === "sante" && planned !== null
-        ? {
-            title: `Voici ce que Cockpit va écrire dans ${name}.`,
-            rest: `${plural(planned, "fichier nouveau", "fichiers nouveaux")}, rien n'est écrasé.`,
-          }
-        : tab === "sante" && Array.isArray(health.data)
-          ? red > 0
-            ? {
-                title: `${name} n'est pas encore prêt pour Claude.`,
-                rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
-              }
-            : {
-                title: `${name} est prêt pour Claude.`,
-                rest: "Tout le bilan est au vert.",
-              }
-          : tab === "conception" && view === "findings" && findings.data
-            ? {
-                title: findingsSentence(name, toDecide(findings.data)),
-                rest:
-                  toDecide(findings.data).length > 0
-                    ? "Triés par gravité. Une faille devient un ticket en un clic."
-                    : undefined,
-              }
-            : tab === "conception" && view === "rules" && rules.data
-              ? { title: rulesSentence(rules.data), rest: undefined }
-              : tab === "conception" && view === "features" && features.data
-                ? {
-                    title: feature
-                      ? featureSentence(feature)
-                      : "Pas encore de fonctionnalité.",
-                    rest: feature
-                      ? "Un clic sur une règle ouvre l'écran de reprise."
+      : tab === "ci" && workflows.data?.data
+        ? { title: ciSentence(workflows.data.data.workflows).title }
+        : tab === "sante" && planned !== null
+          ? {
+              title: `Voici ce que Cockpit va écrire dans ${name}.`,
+              rest: `${plural(planned, "fichier nouveau", "fichiers nouveaux")}, rien n'est écrasé.`,
+            }
+          : tab === "sante" && Array.isArray(health.data)
+            ? red > 0
+              ? {
+                  title: `${name} n'est pas encore prêt pour Claude.`,
+                  rest: `${plural(red, "ligne", "lignes")} du bilan à corriger, un seul commit suffit.`,
+                }
+              : {
+                  title: `${name} est prêt pour Claude.`,
+                  rest: "Tout le bilan est au vert.",
+                }
+            : tab === "conception" && view === "findings" && findings.data
+              ? {
+                  title: findingsSentence(name, toDecide(findings.data)),
+                  rest:
+                    toDecide(findings.data).length > 0
+                      ? "Triés par gravité. Une faille devient un ticket en un clic."
                       : undefined,
-                  }
-                : tab === "conception" && view === "features"
-                  ? { title: name, rest: undefined }
-                  : tab === "conception" &&
-                      codeMap.data &&
-                      codeMap.data.length > 0
-                    ? {
-                        title: `Claude a lu ${name} : voici son modèle.`,
-                        rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
-                          codeMap.data.reduce(
-                            (n, m) => n + m.data.objects.length,
-                            0,
-                          ),
-                          "objet",
-                          "objets",
-                        )}, chacun avec le code qui le prouve.`,
-                      }
-                    : tab === "tickets" && tickets.data
+                }
+              : tab === "conception" && view === "rules" && rules.data
+                ? { title: rulesSentence(rules.data), rest: undefined }
+                : tab === "conception" && view === "features" && features.data
+                  ? {
+                      title: feature
+                        ? featureSentence(feature)
+                        : "Pas encore de fonctionnalité.",
+                      rest: feature
+                        ? "Un clic sur une règle ouvre l'écran de reprise."
+                        : undefined,
+                    }
+                  : tab === "conception" && view === "features"
+                    ? { title: name, rest: undefined }
+                    : tab === "conception" &&
+                        codeMap.data &&
+                        codeMap.data.length > 0
                       ? {
-                          title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
-                          rest: writingSentence(schedule.data),
+                          title: `Claude a lu ${name} : voici son modèle.`,
+                          rest: `${plural(codeMap.data.length, "sous-projet", "sous-projets")}, ${plural(
+                            codeMap.data.reduce(
+                              (n, m) => n + m.data.objects.length,
+                              0,
+                            ),
+                            "objet",
+                            "objets",
+                          )}, chacun avec le code qui le prouve.`,
                         }
-                      : {
-                          title:
-                            tab === "reglages"
-                              ? `Réglages de ${name}.`
-                              : tab === "agents" && fichier
-                                ? `Ce que Claude lit dans ${project?.fullName ?? name}.`
-                                : tab === "agents"
-                                  ? `Les agents et les équipes de ${name}.`
-                                  : tab === "historique" && view === "delivered"
-                                    ? `Ce que ${name} a livré.`
-                                    : tab === "historique"
-                                      ? `Ce qui s'est passé sur ${name}.`
-                                      : name,
-                          rest:
-                            view === "delivered"
-                              ? "Une ligne par PR, écrite à partir de son titre."
-                              : fichier
-                                ? "Chaque modification passe par un diff, puis un commit."
-                                : TAB_REST[tab],
-                        };
+                      : tab === "tickets" && tickets.data
+                        ? {
+                            title: `${plural(tickets.data.length, "ticket", "tickets")}, ${waitingUs} ${waitingUs === 1 ? "attend" : "attendent"} leurs user stories.`,
+                            rest: writingSentence(schedule.data),
+                          }
+                        : {
+                            title:
+                              tab === "reglages"
+                                ? `Réglages de ${name}.`
+                                : tab === "agents" && fichier
+                                  ? `Ce que Claude lit dans ${project?.fullName ?? name}.`
+                                  : tab === "agents"
+                                    ? `Les agents et les équipes de ${name}.`
+                                    : tab === "historique" &&
+                                        view === "delivered"
+                                      ? `Ce que ${name} a livré.`
+                                      : tab === "historique"
+                                        ? `Ce qui s'est passé sur ${name}.`
+                                        : name,
+                            rest:
+                              view === "delivered"
+                                ? "Une ligne par PR, écrite à partir de son titre."
+                                : fichier
+                                  ? "Chaque modification passe par un diff, puis un commit."
+                                  : TAB_REST[tab],
+                          };
 
   return (
     <main className="pb-6">
@@ -514,6 +527,13 @@ export function ProjectPage({
       )}
       {!notFound && tab === "agents" && project && (
         <ProjectAgents
+          projectId={id}
+          fullName={project.fullName}
+          archived={project.archived}
+        />
+      )}
+      {!notFound && tab === "ci" && project && (
+        <ProjectCi
           projectId={id}
           fullName={project.fullName}
           archived={project.archived}

@@ -111,6 +111,24 @@ const branchesSchema = z.array(
     commit: z.object({ sha: z.string() }),
   }),
 );
+// What the CI / CD tab reads of the Actions API (decision 067 B).
+const workflowsSchema = z.object({
+  workflows: z.array(
+    z.object({ id: z.number().int(), name: z.string(), path: z.string() }),
+  ),
+});
+const workflowRunsSchema = z.object({
+  workflow_runs: z.array(
+    z.object({
+      conclusion: z.string().nullable(),
+      event: z.string(),
+      created_at: z.string(),
+      run_started_at: z.string().nullable().optional(),
+      updated_at: z.string(),
+      html_url: z.string(),
+    }),
+  ),
+});
 const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
@@ -251,7 +269,8 @@ type RepoWriteRefusal = {
     | "empty_repo"
     | "repo_unreachable"
     | "repo_changed"
-    | "pull_request_forbidden";
+    | "pull_request_forbidden"
+    | "workflows_forbidden";
 };
 
 /** An invalid plan is a programming error (the files come from Cockpit's catalogue), so it throws. */
@@ -576,6 +595,9 @@ export function githubClient(config: GitHubAppConfig) {
           pullRequest: { number: pull.number, url: pull.html_url },
         };
       }
+      // The App lacks `workflows` and the commit touches .github/workflows (decision 067 D): a pull request would be refused the same way.
+      if (status === 403 && /without `workflows` permission/i.test(reason))
+        return { refused: "workflows_forbidden" };
       // GitHub refuses what is not a fast forward: someone pushed meanwhile, and we do not retry.
       if (status === 422 && /fast.forward/i.test(reason))
         return { refused: "repo_changed" };
@@ -1408,6 +1430,34 @@ export function githubClient(config: GitHubAppConfig) {
         "plugins/commun/skills",
       );
       return { agents: files, skills };
+    },
+
+    // shortcut: the first 100 workflows only, a repo with more shows its first ones; page it if it ever matters.
+    /** The workflows of the repo and, for each, its 10 newest runs on a branch, newest first (decision 067 B). Errors are left to the caller. */
+    async readWorkflowRuns(
+      installationId: number,
+      fullName: string,
+      branch: string,
+    ) {
+      const [owner, repo] = fullName.split("/") as [string, string];
+      const octokit = await app.getInstallationOctokit(installationId);
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/actions/workflows",
+        { owner, repo, per_page: PAGE_SIZE },
+      );
+      return Promise.all(
+        workflowsSchema.parse(data).workflows.map(async (w) => {
+          const { data: runs } = await octokit.request(
+            "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+            { owner, repo, workflow_id: w.id, branch, per_page: 10 },
+          );
+          return {
+            path: w.path,
+            name: w.name,
+            runs: workflowRunsSchema.parse(runs).workflow_runs,
+          };
+        }),
+      );
     },
 
     /** Replaces, removes or adds files in ONE commit on the default branch (decision 030 E). Each path is read again at the head of the branch with the rules of `inspect`: when one is not exactly its `before` (absent for null, a regular file of that text otherwise) nothing is written and the refusal is `repo_changed`. Then as `applyRepoWrite`: no force, a pull request when the branch is protected. */

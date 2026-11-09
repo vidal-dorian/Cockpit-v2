@@ -22,7 +22,12 @@ import {
   textToWrite,
 } from "./catalog-update.ts";
 import type { Db } from "./db/db.ts";
-import { projectMembers, projects, users } from "./db/schema.ts";
+import {
+  projectMembers,
+  projects,
+  users,
+  workflowProposals,
+} from "./db/schema.ts";
 import {
   checkWriteFiles,
   type githubClient,
@@ -45,6 +50,15 @@ import {
 } from "./plugin-settings.ts";
 import { levelFiles, STARTER_LEVELS, STARTER_TEAMS } from "./starter-teams.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
+import {
+  LANGUAGES,
+  pendingProposal,
+  STARTER_PATH,
+  starterLanguage,
+  starterText,
+  summarize,
+  WORKFLOWS_DIR,
+} from "./workflows.ts";
 
 const ALREADY_TRACKED = "Ce repo est déjà suivi dans Cockpit";
 const GITHUB_DOWN =
@@ -230,6 +244,9 @@ const teamBody = z
     ({ starterTeam, name, after }) =>
       starterTeam === undefined || (name == null && after !== null),
   );
+
+// Decision 067 C: the language of the starter CI, which the server reads again.
+const starterBody = z.object({ language: z.enum(LANGUAGES) });
 
 const unauthorized = { error: "Unauthorized" };
 export const NOT_CONFIGURED =
@@ -449,6 +466,70 @@ export function projectRoutes(
     });
   };
 
+  // Decision 067 F: commits or ignores the proposal of a project the user belongs to; a proposal decided once is never decided again.
+  const decideProposal = async (c: Context<Env, string>, what: string) => {
+    const user = await currentUser(db, c);
+    if (!user) return c.json(unauthorized, 401);
+    const entry: Entry & { userId: number } = {
+      userId: user.userId,
+      actor: "human",
+      origin: "ui",
+      action: `${what}_workflow_change`,
+      args: {},
+    };
+    const proposalId = Number(c.req.param("id"));
+    const [proposal] = isDatabaseId(proposalId)
+      ? await db
+          .select()
+          .from(workflowProposals)
+          .where(eq(workflowProposals.id, proposalId))
+      : [];
+    const project =
+      proposal && (await memberProject(db, user.userId, proposal.projectId));
+    if (!proposal || !project) {
+      await record(entry, new Refused("not_found"));
+      return c.json({ error: "Not found" }, 404);
+    }
+    entry.projectId = project.id;
+    entry.args = { path: proposal.path };
+    const refused = proposal.decision
+      ? "already_decided"
+      : project.archivedAt && "project_archived";
+    if (refused) {
+      await record(entry, new Refused(refused));
+      return c.json({ error: refused }, 409);
+    }
+    const decided = async (tx: Tx) => {
+      await tx
+        .update(workflowProposals)
+        .set({ decision: what === "commit" ? "committed" : "ignored" })
+        .where(
+          and(
+            eq(workflowProposals.id, proposal.id),
+            isNull(workflowProposals.decision),
+          ),
+        );
+    };
+    if (what === "ignore") {
+      await act(db, entry, decided);
+      return c.json({});
+    }
+    return writeChanges(
+      c,
+      entry,
+      async () => project,
+      [
+        {
+          path: proposal.path,
+          before: proposal.before,
+          after: proposal.content,
+        },
+      ],
+      `feat: ${proposal.before === null ? "add" : "update"} ${proposal.path} (Cockpit)`,
+      { onWritten: decided },
+    );
+  };
+
   /** Before the session check: without the GitHub App there is nothing to answer, whoever asks. */
   const gate = createMiddleware<Env>(async (c, next) => {
     const ready = await readGitHub();
@@ -469,6 +550,7 @@ export function projectRoutes(
     .use("/api/plugins", gate)
     .use("/api/plugins/*", gate)
     .use("/api/installation", gate)
+    .use("/api/workflow-proposals/*", gate)
     .get("/api/installation", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);
@@ -953,6 +1035,94 @@ export function projectRoutes(
         return c.json({ error: "github_unavailable" }, 502);
       }
     })
+    .get("/api/projects/:id/workflows", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const project = await memberProject(
+        db,
+        user.userId,
+        Number(c.req.param("id")),
+      );
+      if (!project) return c.json({ error: "Not found" }, 404);
+      const proposal = await pendingProposal(db, project.id);
+      try {
+        // A read is not an action: no history entry (decision 013 G).
+        const github = c.get("github");
+        const { installationId, fullName } = project;
+        const files = await github.fileReader(installationId, fullName);
+        const tip = await files.head();
+        if ("refused" in tip) return c.json({ error: tip.refused }, 409);
+        const [access, runs, rootFiles, workflowFiles] = await Promise.all([
+          github.readAppAccess(installationId),
+          github.readWorkflowRuns(installationId, fullName, tip.branch),
+          files.listFiles("", tip.sha),
+          files.listFiles(WORKFLOWS_DIR, tip.sha),
+        ]);
+        const language = starterLanguage(rootFiles);
+        return c.json({
+          workflows: summarize(runs),
+          // Decision 067 C: offered only when `.github/workflows` holds no file at all.
+          starter: workflowFiles.length
+            ? null
+            : language === null
+              ? { language }
+              : {
+                  language,
+                  path: STARTER_PATH,
+                  content: starterText(language),
+                },
+          permission: {
+            workflows: access.installation.workflows === "write",
+            installationUrl: access.installationUrl,
+          },
+          proposal,
+        });
+      } catch (error) {
+        console.error("GitHub request failed:", error);
+        return c.json({ error: "github_unavailable" }, 502);
+      }
+    })
+    .post("/api/projects/:id/workflows/starter/apply", async (c) => {
+      const user = await currentUser(db, c);
+      if (!user) return c.json(unauthorized, 401);
+      const parsed = starterBody.safeParse(
+        await c.req.json().catch(() => null),
+      );
+      if (!parsed.success) return c.json({ error: "Bad request" }, 400);
+      const { language } = parsed.data;
+      return saveFile(
+        c,
+        {
+          userId: user.userId,
+          actor: "human",
+          origin: "ui",
+          action: "add_starter_ci",
+          args: { language },
+        },
+        [{ path: STARTER_PATH, before: null, after: starterText(language) }],
+        "feat: add a starter CI (Cockpit)",
+        {
+          // The language is read again: the page may be older than the repo.
+          refuse: async ({ installationId, fullName }) => {
+            const files = await c
+              .get("github")
+              .fileReader(installationId, fullName);
+            const tip = await files.head();
+            if ("refused" in tip) return tip.refused;
+            return starterLanguage(await files.listFiles("", tip.sha)) ===
+              language
+              ? null
+              : "wrong_language";
+          },
+        },
+      );
+    })
+    .post("/api/workflow-proposals/:id/commit", (c) =>
+      decideProposal(c, "commit"),
+    )
+    .post("/api/workflow-proposals/:id/ignore", (c) =>
+      decideProposal(c, "ignore"),
+    )
     .get("/api/projects/:id/branches", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json(unauthorized, 401);

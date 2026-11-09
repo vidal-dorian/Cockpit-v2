@@ -281,6 +281,13 @@
       "when": 1794180476273,
       "tag": "0039_red_moon_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794184210590,
+      "tag": "0040_absent_prism",
+      "breakpoints": true
     }
   ]
 }
