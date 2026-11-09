@@ -95,6 +95,20 @@ describe("slice 15.3 B: the search window", () => {
     expect(document.activeElement).toBe(opener);
   });
 
+  it("given the window, when the browser closes it itself (Android back), then Ctrl+K opens it again", async () => {
+    start();
+    await sidebarButton();
+
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    fireEvent(await dialog(), new Event("close"));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Chercher" })).toBeNull(),
+    );
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+
+    expect(await dialog()).toBeDefined();
+  });
+
   it("given results, when ArrowDown then Enter are pressed, then the second result's page opens (US 45)", async () => {
     start();
     const d = await typed("lien expir");

@@ -13,9 +13,11 @@ export function useShortcut(
       if (event.key.toLowerCase() !== key) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
+      // An open window keeps the page behind it out of reach, wherever the browser put the focus.
       if (
         target.isContentEditable ||
-        target.closest("input, textarea, select, dialog")
+        target.closest("input, textarea, select") ||
+        document.querySelector("dialog[open]")
       )
         return;
       event.preventDefault();
