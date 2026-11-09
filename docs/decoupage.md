@@ -84,7 +84,8 @@
 - **Fait** : tranche 15.4 (la mise en route : les sept étapes de S06 en haut de l'accueil, qui se cochent toutes seules, « Masquer ce guide », [décision 075](decisions/075-mise-en-route.md)) ; la phase 15 est terminée.
 - **Fait** : tranche 13.1 (plusieurs utilisateurs sur un projet : trois rôles, invitation par login GitHub, la liste des membres dans Réglages, [décision 076](decisions/076-plusieurs-utilisateurs.md)).
 - **Fait** : tranche 13.2 (offres et quotas : Gratuit à 3 repos, Pro, codes Pro donnés par l'administrateur, lecture seule au-delà de 3, Réglages › Abonnement, [décision 077](decisions/077-offres-et-quotas.md)).
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.1 et 13.2 faites ; 13.3 et 13.4 attendent Dorian).
+- **Fait** : tranche 13.5 (ses données : Réglages › Données, export JSON, suppression du compte, empreinte du compteur Gratuit, [décision 078](decisions/078-ses-donnees.md)).
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.1, 13.2 et 13.5 faites ; 13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -275,7 +276,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 13.2 | **Offres et quotas** : gratuit (3 repos) et Pro (la reprise), bloqués côté serveur dans l'API et le MCP ; paiement. Idées d'offres et de prix : [`offres.md`](offres.md) ; Pro à 10 € par mois, repos illimités, codes Pro donnés par l'administrateur, paiement branché plus tard ([077](decisions/077-offres-et-quotas.md), [064](decisions/064-tranches-restantes.md)) | Un compte gratuit se voit refuser le 4e repo, par l'API comme par le MCP |
 | 13.3 | **Hébergeur** : choisir l'hébergeur (en Europe, PostgreSQL géré), y déplacer l'image et la base, faire tenir le serveur sur plusieurs instances (008). **Attend Dorian** : l'hébergeur est choisi au premier client payant ([064](decisions/064-tranches-restantes.md)) | Cockpit répond à son adresse chez l'hébergeur, avec ses données |
 | 13.4 | **Dirigo** : renommer l'app, la passer sur `app.dirigo.dev`, et un site vitrine dans un repo à part ([041](decisions/041-nom-et-site-vitrine.md)). **Attend Dorian** : marque vérifiée et domaine acheté ([064](decisions/064-tranches-restantes.md)) | `dirigo.dev` affiche la vitrine, `app.dirigo.dev` l'application |
-| 13.5 | **RGPD** : une page qui dit ce que Cockpit garde, l'export et la suppression de son compte (une empreinte garde le compteur Gratuit, [064](decisions/064-tranches-restantes.md)) | Je supprime mon compte, mes données disparaissent |
+| 13.5 | **RGPD** : une page qui dit ce que Cockpit garde, l'export et la suppression de son compte (une empreinte garde le compteur Gratuit, [078](decisions/078-ses-donnees.md), [064](decisions/064-tranches-restantes.md)) | Je supprime mon compte, mes données disparaissent |
 
 ## Phase 14 — Cloud et automatisations (brief §6.5, §6.14 à §6.16)
 

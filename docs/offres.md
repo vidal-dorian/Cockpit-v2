@@ -29,9 +29,9 @@
 
 ## Remarques de Claude, à trancher le moment venu
 
-1. **« 3 repos au total » est déjà compatible avec le modèle** : un projet ne se supprime jamais, il s'archive (brief §6.1). Compter tous les projets d'un compte, archivés compris, suffit. Il ne faudra jamais ajouter de vraie suppression de projet, sinon la règle devient contournable.
+1. **« 3 repos au total » est déjà compatible avec le modèle** : un projet ne se supprime jamais, il s'archive (brief §6.1). Compter tous les projets d'un compte, archivés compris, suffit. Il ne faudra jamais ajouter de vraie suppression de projet, sinon la règle devient contournable. *(La suppression de compte de la 13.5 efface les projets, mais son empreinte garde le nombre de repos utilisés : [078](decisions/078-ses-donnees.md).)*
 2. **« 15 en même temps »** se compte, à l'inverse, sur les projets **non archivés**. Les deux offres ne comptent donc pas de la même façon : à garder en tête pour que l'écran l'explique clairement.
-3. **Contournement facile** : un nouveau compte GitHub donne 3 nouveaux repos gratuits. Le risque est faible au début ; s'il devient réel, on pourra compter les repos par repo GitHub (`github_repo_id`) plutôt que par compte.
+3. **Contournement facile** : un nouveau compte GitHub donne 3 nouveaux repos gratuits. Le risque est faible au début ; s'il devient réel, on pourra compter les repos par repo GitHub (`github_repo_id`) plutôt que par compte. *(Après une suppression de compte, la 13.5 garde une empreinte du compte GitHub avec ses repos utilisés.)*
 4. **Qui paie, la personne ou l'équipe ?** L'offre Pro semble être par personne. Avec plusieurs membres par projet (008), il faudra dire si un projet partagé compte dans le quota de chaque membre ou seulement dans celui de son propriétaire.
 5. **Passer de Pro à gratuit** avec 12 projets actifs : on les garde lisibles en lecture seule, ou on demande d'en archiver 9 ? À décider.
 6. **Ce qui sera bloqué côté serveur** (008) : le nombre de repos à l'import (2.1) et la reprise (007), dans l'API **et** dans le MCP, pas seulement masqués dans l'interface.

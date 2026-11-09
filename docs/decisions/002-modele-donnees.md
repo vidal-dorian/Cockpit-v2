@@ -189,7 +189,7 @@ Sur `user_stories` :
 
 | Table | Rôle | Règles |
 |---|---|---|
-| `runs` | Un développement d'une US par Claude Code | `status` ∈ `running`, `succeeded`, `failed`, `stopped`, `closed_manually` (`CHECK`). **Index unique sur `story_id` où `status = 'running'`** : un seul run actif par US, garanti par la base. Arrêt demandé = `stop_requested_at` rempli |
+| `runs` | Un développement d'une US par Claude Code | `status` ∈ `running`, `succeeded`, `failed`, `stopped`, `closed_manually` (`CHECK`). `user_id` est vide pour un run anonymisé par la suppression du compte de son lanceur ([078](078-ses-donnees.md)). **Index unique sur `story_id` où `status = 'running'`** : un seul run actif par US, garanti par la base. Arrêt demandé = `stop_requested_at` rempli |
 | `run_steps` | Une étape d'un run, faite par un agent | `status` ∈ `running`, `succeeded`, `failed` |
 | `questions` | Une question de Claude pendant un run | En attente tant que `answer` est vide. `suggested_answers` : au plus deux réponses proposées par Claude, en JSON, facultatives ([004](004-outils-mcp.md)) |
 
@@ -211,7 +211,7 @@ Le **verdict** de fin de run (« acceptable » ou « à vérifier ») n'est pas 
 | `detail` | Le résultat ou le message d'erreur, en JSON |
 | `github_effects` | Ce qui a été fait sur GitHub, en JSON. *Note (020 H) : rempli par `sync_issue`, `{ issueNumber, created, closed }`.* |
 
-- Des triggers PL/pgSQL `BEFORE UPDATE`, `BEFORE DELETE` et `BEFORE TRUNCATE` refusent toute modification et toute suppression (`RAISE EXCEPTION`, 008).
+- Des triggers PL/pgSQL `BEFORE UPDATE`, `BEFORE DELETE` et `BEFORE TRUNCATE` refusent toute modification et toute suppression (`RAISE EXCEPTION`, 008). *(Une seule exception, la suppression de compte : `erase_account_history`, [078](078-ses-donnees.md).)*
 - **Aucune clé étrangère** vers les autres tables : un ticket peut être supprimé sans toucher à l'historique, et une entrée garde l'identifiant de l'objet même s'il a disparu.
 - Une action et son entrée sont écrites **dans la même transaction** (1.4).
 

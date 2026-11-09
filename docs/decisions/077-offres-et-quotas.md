@@ -45,7 +45,7 @@ L'import n'est pas limité et la reprise (007) est ouverte à tous. La 064 13.2 
 
 ## Limites connues
 
-- **Un nouveau compte GitHub redonne 3 repos** (offres.md, remarque 3) : la 13.5 garde une empreinte qui l'évite après une suppression de compte, rien de plus.
+- **Un nouveau compte GitHub redonne 3 repos** (offres.md, remarque 3) : la 13.5 garde une empreinte qui l'évite après une suppression de compte, rien de plus ; `ownedRepos` ajoute ce nombre ([078](078-ses-donnees.md) E).
 - **L'administrateur est Pro d'office** : sur une instance où plusieurs comptes sont administrateurs, chacun l'est.
 - **Le bandeau de lecture seule n'est que sur les onglets du projet** ; ailleurs (file, nuit, listes), les boutons d'écriture sont masqués par le rôle ramené à « lecture seule », sans mot sur l'abonnement.
 - **Chaque écriture lit le propriétaire et son offre** (deux requêtes de plus dans `memberProject`) ; acceptable à cette échelle.

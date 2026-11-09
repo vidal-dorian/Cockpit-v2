@@ -23,7 +23,7 @@ Une App créée avant la [décision 052](docs/decisions/052-constats-de-github-e
 
 ### Réglages
 
-La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US et le lanceur cloud, voir plus bas), « Préférences » (le thème, les raccourcis clavier et les notifications sur le téléphone, voir plus bas), « Abonnement » et « Instance » (pour l'administrateur seulement : les utilisateurs et les codes Pro). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US et le lanceur cloud, voir plus bas), « Préférences » (le thème, les raccourcis clavier et les notifications sur le téléphone, voir plus bas), « Abonnement », « Données » (voir plus bas) et « Instance » (pour l'administrateur seulement : les utilisateurs, les codes Pro et l'effacement d'une empreinte). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### La page d'un projet
 
@@ -110,6 +110,10 @@ Pour qui change un fichier de `catalog/` : lancer `npm run catalog:history` (dan
 ### Abonnement
 
 « Réglages › Abonnement » dit ton offre. **Gratuit** : 3 repos dont tu es propriétaire, archivés compris ; un 4e import est refusé. **Pro** : repos illimités et la reprise d'une app existante ; tu l'es si tu es administrateur de l'instance ou si tu saisis un code Pro (« J'ai un code Pro »). L'administrateur génère les codes dans « Réglages › Instance › Codes Pro » : un code est montré une fois, sert à une personne, et peut avoir une fin. Un compte qui repasse Gratuit ne perd rien : ses 3 projets les plus anciens restent actifs, les autres sont en lecture seule pour tous leurs membres. Un projet partagé compte chez son propriétaire. Le paiement n'est pas encore ouvert. Décision [077](docs/decisions/077-offres-et-quotas.md).
+
+### Données
+
+« Réglages › Données » dit ce que Cockpit garde sur toi : ton compte, tes projets (tickets, US, runs, questions), les entrées de ton journal, tes jetons chiffrés ; le code de tes repos n'est jamais copié. « Préparer l'export » télécharge tout cela en JSON, sans aucun secret. « Supprimer mon compte… » demande ton login GitHub et efface tes projets et tout ce qu'ils contiennent (pour leurs autres membres aussi : la fenêtre les nomme), tes appartenances, jetons, sessions, routines, réglages et **les entrées de ton journal**. Tes runs sur les projets des autres restent, sans ton nom ; ceux encore ouverts sont clos. Rien ne change sur GitHub. Cockpit garde seulement une empreinte de ton compte GitHub et le nombre de repos gratuits utilisés, pour qu'une suppression ne redonne pas 3 repos ; l'administrateur l'efface sur demande (« Réglages › Instance »). Un administrateur ne peut pas supprimer son compte ici. Décision [078](docs/decisions/078-ses-donnees.md).
 
 ### Partager un projet
 
