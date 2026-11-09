@@ -28,10 +28,10 @@ Le brief (§6.10) veut lister les workflows d'un projet, proposer une CI de dép
 ## Ce que le code a précisé (tranche 12.4)
 
 - **Rouge** : une exécution terminée en `failure`, `timed_out` ou `startup_failure`. Une exécution en cours, `cancelled` ou `skipped` est ignorée : elle ne compte ni dans « échoue depuis », ni dans la moyenne, ni comme dernière exécution.
-- **Les workflows listés** sont les actifs de `.github/workflows/`. Un workflow sans exécution qui compte le dit (« Pas encore d'exécution »), et si aucun n'en a, la phrase d'état est « Pas encore d'exécution. », pas « La CI passe. ».
+- **Les workflows listés** sont les actifs de `.github/workflows/`. Un workflow sans exécution qui compte affiche « Pas encore d'exécution » ; si aucun n'en a, c'est la phrase d'état (au lieu de « La CI passe. »).
 - **La permission (D)** : la permission de l'App elle-même est vérifiée d'abord (une App créée avant la 067 ne l'a pas) : le message renvoie alors aux réglages de l'App, avec `appMissing`. Sinon on regarde l'installation. `workflows_forbidden` se reconnaît au message de GitHub (« without `workflows` permission »), quel que soit le statut, y compris à la création de la branche d'une PR.
 - **Une proposition (E)** sur un chemin qui n'est pas un fichier (dossier, lien symbolique) : `not_a_file`. Un index unique partiel garde **une seule proposition en attente par fichier** ; la décision (F) ne s'applique qu'à une proposition encore en attente, donc deux clics simultanés n'en font qu'une, et un commit déjà parti sur GitHub la marque décidée quoi qu'il arrive.
-- **« Demander à Claude » (G)** : `POST /api/projects/:id/workflows/ask` avec `{ path }` (forme vérifiée, GitHub n'est pas lu), un lancement de nature `workflow` (`cloud_launches.workflow_path`), fini par `finish_launch`. Contrairement à une routine, il n'est jamais abandonné au bout de deux heures : rien n'attend dessus. Le bouton n'est montré que pour un chemin sur lequel Claude pourrait proposer (celui de E).
+- **(G)** Pas d'abandon au bout de deux heures, contrairement à une routine : rien n'attend dessus. Le bouton n'est montré que pour un chemin que E accepte.
 
 ## Ce qui est repoussé
 
