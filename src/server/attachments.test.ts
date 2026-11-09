@@ -209,6 +209,15 @@ describe("061 J: the name", () => {
     expect(attachment.mediaType).toBe("text/plain");
   });
 
+  it("given a name whose 200th character is the first half of an emoji, when it is uploaded, then the emoji is dropped whole, not cut in half", async () => {
+    const { app, cookie, ticketId } = await ctxOf();
+    const name = `${"n".repeat(199)}\u{1F600}.txt`;
+
+    expect(
+      (await attach(app, cookie, ticketId, { name, bytes: "t" })).name,
+    ).toBe("n".repeat(199));
+  });
+
   it("given a name of 200 characters, when it is uploaded, then it is kept whole", async () => {
     const { app, cookie, ticketId } = await ctxOf();
     const name = `${"n".repeat(196)}.txt`;

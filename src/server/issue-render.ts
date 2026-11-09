@@ -118,7 +118,10 @@ export function renderIssue(story: {
 }
 
 const quiet = (text: string) =>
-  text.replaceAll("@\u200B", "@").replaceAll("&lt;!--", "<!--");
+  text
+    .replaceAll("@\u200B", "@")
+    .replace(/&amp;(#0*64|#x0*40|commat);/gi, "&$1;")
+    .replaceAll("&lt;!--", "<!--");
 const NARRATIVE_START = "En tant que ";
 const CRITERION_START = /^- \[[ xX]\] \*\*Étant donné\*\* /;
 const CRITERIA_HEADING = "\n\n## Critères d'acceptation\n\n";
