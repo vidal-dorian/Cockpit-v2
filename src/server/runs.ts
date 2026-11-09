@@ -8,15 +8,17 @@ import {
   acceptanceCriteria,
   cloudLaunches,
   history,
+  projects,
   questions,
   runSteps,
   runs,
+  tickets,
   userStories,
 } from "./db/schema.ts";
 import { publish, subscribe } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
-import { isDatabaseId, type Role } from "./projects.ts";
+import { isDatabaseId } from "./projects.ts";
 import { notify } from "./push.ts";
 import { queueAfterRun } from "./queue.ts";
 import type { Fire } from "./routines.ts";
@@ -126,19 +128,20 @@ export async function startRun(
   }
 }
 
-/** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. */
-export async function ownRun(
-  db: Db,
-  userId: number,
-  entry: Entry,
-  id: number,
-  min?: Role,
-) {
+/** One of the caller's runs with its story, or a journaled `not_found`; the entry gets every id it learns. A run reports to its end whatever its launcher's role became, even once removed from the project (decision 076 B, F): no membership is asked. */
+export async function ownRun(db: Db, userId: number, entry: Entry, id: number) {
   const [run] = await db
     .select()
     .from(runs)
     .where(and(eq(runs.id, id), eq(runs.userId, userId)));
-  const found = run && (await memberStory(db, userId, run.storyId, min));
+  const [found] = run
+    ? await db
+        .select({ story: userStories, ticket: tickets, project: projects })
+        .from(userStories)
+        .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+        .innerJoin(projects, eq(projects.id, tickets.projectId))
+        .where(eq(userStories.id, run.storyId))
+    : [];
   if (!run || !found)
     return act(db, entry, async () => {
       throw new Refused("not_found");
@@ -148,7 +151,11 @@ export async function ownRun(
   entry.storyId = found.story.id;
   entry.runId = run.id;
   entry.args = { runId: run.id };
-  return found;
+  // The launcher's own role is not read: it does not matter to a run that is going on.
+  return {
+    ...found,
+    project: { ...found.project, role: "read_only" as const },
+  };
 }
 
 /** Checks the project and locks the run, which must still run (or be paused, for the answer to its question: decision 044 E); answers it as locked. */
@@ -182,7 +189,7 @@ export async function reportStep(
     summary?: string;
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
+  const found = await ownRun(db, userId, entry, args.run_id);
   const step = await act(db, entry, async (tx) => {
     const run = await lockRunning(tx, found.project.id, args.run_id);
     const stopRequested = run.stopRequestedAt !== null;
@@ -232,7 +239,7 @@ export async function reportCriterion(
     evidence: string;
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
+  const found = await ownRun(db, userId, entry, args.run_id);
   await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
     const changed = await tx
@@ -263,7 +270,7 @@ export async function linkPullRequest(
   entry: Entry,
   args: { run_id: number; pr_number: number },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
+  const found = await ownRun(db, userId, entry, args.run_id);
   const { project, story } = found;
   // Read before the transaction; a failure waits for `act`, which writes its one `error` entry.
   let pull: { branch: string; repo: string | null } | null = null;
@@ -377,7 +384,7 @@ export async function finishRun(
     summary: string;
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
+  const found = await ownRun(db, userId, entry, args.run_id);
   const { moved, status } = await act(db, entry, async (tx) => {
     const run = await lockRunning(tx, found.project.id, args.run_id);
     if (args.outcome === "succeeded") {

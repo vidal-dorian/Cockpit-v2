@@ -12,8 +12,8 @@ export const atLeast = (role: string | undefined, min: Role) =>
   Object.keys(ROLE_LABELS).indexOf(role ?? "owner") >=
   Object.keys(ROLE_LABELS).indexOf(min);
 
+export const ROLE_REFUSAL = "Ton rôle sur ce projet ne le permet pas.";
+
 /** The sentence of a refusal 403 `role` of the server (decision 076 G); null for any other answer. */
 export const roleRefusal = (status: number, error: unknown) =>
-  status === 403 && error === "role"
-    ? "Ton rôle sur ce projet ne le permet pas."
-    : null;
+  status === 403 && error === "role" ? ROLE_REFUSAL : null;

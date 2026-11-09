@@ -5,6 +5,8 @@ import { client } from "./api.ts";
 import { uploadAttachment } from "./attachments.ts";
 import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
 import { Logo } from "./Logo.tsx";
+import { fetchProjects } from "./Projects.tsx";
+import { atLeast } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
 import { ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
@@ -469,7 +471,11 @@ export function IdeaBar({
 }) {
   const queryClient = useQueryClient();
   const home = useHome();
-  const projects = home.data?.projects ?? [];
+  // An idea is a ticket: only the projects where the role may write one (decision 076 A).
+  const roles = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const projects = (home.data?.projects ?? []).filter((p) =>
+    atLeast(roles.data?.find((r) => r.id === p.id)?.role, "can_validate"),
+  );
   const routeId = useMatch("/projets/:id/*")?.params.id;
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();

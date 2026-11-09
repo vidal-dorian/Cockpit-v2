@@ -4,6 +4,8 @@ import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchAttachments } from "./attachments.ts";
 import { ImportedFrom } from "./IssueImport.tsx";
+import { fetchProjects } from "./Projects.tsx";
+import { atLeast } from "./roles.ts";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Panel, useHome } from "./Shell.tsx";
 import { TicketTags } from "./TagField.tsx";
@@ -53,6 +55,12 @@ export function TicketPanel({
   const fullName = useHome().data?.projects.find(
     (p) => p.id === ticket.projectId,
   )?.name;
+  // Writing on a ticket is for those who may validate (decision 076 G); the role comes with the project list.
+  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const mayWrite = atLeast(
+    projects.data?.find((p) => p.id === ticket.projectId)?.role,
+    "can_validate",
+  );
   const [confirming, setConfirming] = useState(false);
   // The count of the row says there are files before their names are read.
   const hasFiles = (ticket.attachmentsCount ?? 0) > 0;
@@ -96,46 +104,48 @@ export function TicketPanel({
           <Link to={`/tickets/${ticket.id}`} className={panelPrimaryButton}>
             Ouvrir le ticket
           </Link>
-          <div className="flex gap-2">
-            <Link
-              to={`/tickets/${ticket.id}?modifier=1`}
-              className={ghostButton}
-            >
-              Modifier
-            </Link>
-            {/* A ticket with stories is never deleted (decision 017 J). */}
-            {stories.length === 0 &&
-              (confirming ? (
-                <>
+          {mayWrite && (
+            <div className="flex gap-2">
+              <Link
+                to={`/tickets/${ticket.id}?modifier=1`}
+                className={ghostButton}
+              >
+                Modifier
+              </Link>
+              {/* A ticket with stories is never deleted (decision 017 J). */}
+              {stories.length === 0 &&
+                (confirming ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={remove.isPending}
+                      onClick={() => remove.mutate()}
+                      className={dangerButton}
+                    >
+                      Confirmer la suppression
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(false)}
+                      className={button}
+                    >
+                      Annuler
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
-                    disabled={remove.isPending}
-                    onClick={() => remove.mutate()}
-                    className={dangerButton}
+                    onClick={() => {
+                      remove.reset();
+                      setConfirming(true);
+                    }}
+                    className={ghostButton}
                   >
-                    Confirmer la suppression
+                    Supprimer
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(false)}
-                    className={button}
-                  >
-                    Annuler
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    remove.reset();
-                    setConfirming(true);
-                  }}
-                  className={ghostButton}
-                >
-                  Supprimer
-                </button>
-              ))}
-          </div>
+                ))}
+            </div>
+          )}
           {remove.error && (
             <p role="alert" className={alertBox}>
               {remove.error.message}

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { ROLE_REFUSAL, roleRefusal } from "./roles.ts";
 import { alertBox, button, primaryButton } from "./ui.ts";
 
 /** The confirmation of « Fermer le run », a native modal: Escape closes it (that is « Annuler »), the page behind is inert. */
@@ -86,7 +87,16 @@ export function RunControls({
         action === "stop"
           ? await client.api.runs[":id"].stop.$post({ param })
           : await client.api.runs[":id"].close.$post({ param });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok)
+        throw new Error(
+          roleRefusal(
+            res.status,
+            await res.json().then(
+              (b: { error?: string }) => b.error,
+              () => null,
+            ),
+          ) ?? `HTTP ${res.status}`,
+        );
     },
     // Refused because the run changed meanwhile: the page shows the real state.
     onSettled: () =>
@@ -135,8 +145,9 @@ export function RunControls({
       )}
       {send.isError && (
         <p role="alert" className={`px-3 py-2 ${alertBox}`}>
-          L'action n'a pas pu être faite : le run a peut-être changé
-          entre-temps.
+          {send.error.message === ROLE_REFUSAL
+            ? ROLE_REFUSAL
+            : "L'action n'a pas pu être faite : le run a peut-être changé entre-temps."}
         </p>
       )}
     </div>

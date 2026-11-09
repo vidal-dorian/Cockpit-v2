@@ -25,7 +25,7 @@ export async function askUser(
     suggested_answers?: string[];
   },
 ) {
-  const found = await ownRun(db, userId, entry, args.run_id, "can_launch");
+  const found = await ownRun(db, userId, entry, args.run_id);
   const row = await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
     const [open] = await tx

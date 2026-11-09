@@ -38,6 +38,7 @@ async function inviteError(res: Response, login: string) {
     unknown_login: `GitHub ne connaît pas @${login}.`,
     already_member: `@${login} est déjà membre de ce projet.`,
     already_invited: `@${login} est déjà invité sur ce projet : renvoie-lui un lien depuis la liste.`,
+    project_archived: "Ce projet est archivé : on n'y invite plus personne.",
     self: "C'est toi : tu es déjà propriétaire de ce projet.",
   };
   return new Error(
@@ -102,7 +103,9 @@ export function Members() {
   const [editRole, setEditRole] = useState<Invitable>("can_validate");
   const [removing, setRemoving] = useState(false);
 
+  // `done` runs after a success (or a close): an old failure of another gesture is not shown any more.
   const done = () => {
+    for (const m of [invite, renew, cancel, change, remove]) m.reset();
     setEditing(null);
     setRemoving(false);
     return queryClient.invalidateQueries({ queryKey: ["members"] });

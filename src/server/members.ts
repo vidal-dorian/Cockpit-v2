@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
-import { act, type Entry, Refused } from "./action.ts";
+import { act, type Entry, Refused, type Tx } from "./action.ts";
 import { currentUser, exchangeCode, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
@@ -50,6 +50,7 @@ async function openInvitation(db: Db, secret: string, githubId: number) {
       and(
         eq(projectInvitations.secretHash, sha256(secret)),
         gt(projectInvitations.expiresAt, new Date()),
+        isNull(projects.archivedAt),
         eq(projectInvitations.githubId, githubId),
       ),
     );
@@ -80,6 +81,34 @@ async function canReadRepo(token: string, fullName: string) {
   if (res.status === 404 || res.status === 403) return false;
   if (!res.ok) throw new Error(`repo_http_${res.status}`);
   return true;
+}
+
+/** Their queue and night lose this project's stories only; a run already launched goes on (decision 076 F). */
+async function clearLaunches(tx: Tx, projectId: number, userId: number) {
+  const stories = tx
+    .select({ id: userStories.id })
+    .from(userStories)
+    .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+    .where(eq(tickets.projectId, projectId));
+  await tx
+    .delete(queueItems)
+    .where(
+      and(eq(queueItems.userId, userId), inArray(queueItems.storyId, stories)),
+    );
+  await tx
+    .delete(nightItems)
+    .where(
+      and(
+        inArray(
+          nightItems.nightId,
+          tx
+            .select({ id: nights.id })
+            .from(nights)
+            .where(eq(nights.userId, userId)),
+        ),
+        inArray(nightItems.storyId, stories),
+      ),
+    );
 }
 
 export function memberRoutes(db: Db, readInstance: ReadInstance) {
@@ -161,6 +190,7 @@ export function memberRoutes(db: Db, readInstance: ReadInstance) {
         "owner",
       );
       if (!project) return c.json({ error: "Not found" }, 404);
+      if (project.archivedAt) return c.json({ error: "project_archived" }, 409);
       const parsed = inviteBody.safeParse(await c.req.json().catch(() => null));
       if (!parsed.success) return c.json({ error: "Bad request" }, 400);
       const { login, role } = parsed.data;
@@ -389,8 +419,8 @@ export function memberRoutes(db: Db, readInstance: ReadInstance) {
           action: "change_member_role",
           args: { memberId: target, role: parsed.data.role },
         },
-        (tx) =>
-          tx
+        async (tx) => {
+          await tx
             .update(projectMembers)
             .set({ role: parsed.data.role })
             .where(
@@ -398,7 +428,10 @@ export function memberRoutes(db: Db, readInstance: ReadInstance) {
                 eq(projectMembers.projectId, project.id),
                 eq(projectMembers.userId, target),
               ),
-            ),
+            );
+          if (parsed.data.role !== "can_launch")
+            await clearLaunches(tx, project.id, target);
+        },
       );
       return c.json({ ok: true });
     })
@@ -426,34 +459,7 @@ export function memberRoutes(db: Db, readInstance: ReadInstance) {
           args: { memberId: target },
         },
         async (tx) => {
-          // Their queue and night lose this project's stories only; a run already launched goes on (decision 076 F).
-          const stories = tx
-            .select({ id: userStories.id })
-            .from(userStories)
-            .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
-            .where(eq(tickets.projectId, project.id));
-          await tx
-            .delete(queueItems)
-            .where(
-              and(
-                eq(queueItems.userId, target),
-                inArray(queueItems.storyId, stories),
-              ),
-            );
-          await tx
-            .delete(nightItems)
-            .where(
-              and(
-                inArray(
-                  nightItems.nightId,
-                  tx
-                    .select({ id: nights.id })
-                    .from(nights)
-                    .where(eq(nights.userId, target)),
-                ),
-                inArray(nightItems.storyId, stories),
-              ),
-            );
+          await clearLaunches(tx, project.id, target);
           await tx
             .delete(projectMembers)
             .where(

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { ROLE_REFUSAL, roleRefusal } from "./roles.ts";
 import { alertBox, field, focusRing, kbd, panelPrimaryButton } from "./ui.ts";
 
 // Why the story of a paused run could not be relaunched after its answer was saved (decision 044 E).
@@ -40,9 +41,14 @@ export function AnswerForm({
           error?: string;
           answerSaved?: boolean;
         } | null;
-        throw Object.assign(new Error(`HTTP ${res.status}`), {
-          saved: failure?.answerSaved ? failure.error : undefined,
-        });
+        throw Object.assign(
+          new Error(
+            roleRefusal(res.status, failure?.error) ?? `HTTP ${res.status}`,
+          ),
+          {
+            saved: failure?.answerSaved ? failure.error : undefined,
+          },
+        );
       }
     },
     onSuccess: () => {
@@ -112,7 +118,9 @@ export function AnswerForm({
         <p role="alert" className={`mt-2 ${alertBox}`}>
           {send.error.saved !== undefined
             ? `Réponse enregistrée, mais l'US n'a pas pu être relancée : ${RELAUNCH_REFUSALS[send.error.saved] ?? "relance refusée"}.`
-            : "La réponse n'a pas été enregistrée."}
+            : send.error.message === ROLE_REFUSAL
+              ? ROLE_REFUSAL
+              : "La réponse n'a pas été enregistrée."}
         </p>
       )}
     </>

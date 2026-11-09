@@ -422,7 +422,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
           db,
           userId,
           Number(c.req.param("id")),
-          "can_launch",
+          "owner",
         );
         if (!project) return c.json({ error: "Not found" }, 404);
         const { path } = c.req.valid("json");
