@@ -4,6 +4,7 @@
 - **Date** : 2026-10-22, complétée le 2026-10-25 (carte du modèle, constats, écran « Conception »)
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md), [003 — Interface](003-interface.md), [004 — Outils MCP](004-outils-mcp.md), [005 — Lancement local](005-lancement-local.md), [012 — Configuration automatique](012-configuration-automatique.md)
+- **Complétée par 077** : le point ouvert 7 (offre) est tranché, la reprise est réservée à Pro (tranche 13.2) — voir la [077](077-offres-et-quotas.md)
 - **Ajoute** : une fonctionnalité au brief, après le MVP. Ne revient sur aucune décision prise ; ajoute une ligne à la table des droits de la 004 (le tri des constats)
 
 ## Contexte

@@ -2,7 +2,7 @@
 
 - **Statut** : idées notées le 2026-10-22. **Construit** par la [décision 077](decisions/077-offres-et-quotas.md) (tranche 13.2) : la limite de 3 repos et la reprise réservée à Pro sont en place sans paiement, avec des codes Pro. **Tranché le 2026-11-08** par la [décision 064](decisions/064-tranches-restantes.md) (13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités, lecture seule au-delà de 3 après Pro, quota chez le propriétaire d'un projet partagé, Entreprise en « Nous contacter », codes Pro donnés par l'administrateur, prestataire de paiement plus tard. Le reste de ce fichier garde les idées d'origine. À reprendre avec la tranche « Service payant » (voir [`decoupage.md`](decoupage.md)) et le point ouvert 2 de la [décision 008](decisions/008-service-en-ligne.md).
 
-- **Limite de 3 repos** : Dorian a décidé le 2026-10-24 qu'elle sera mise en place **avec le paiement**, pas avant. D'ici là, l'import n'est pas limité (inscription ouverte, [012](decisions/012-configuration-automatique.md)).
+- **Limite de 3 repos** : appliquée depuis la 13.2, **sans le paiement** ([077](decisions/077-offres-et-quotas.md)). Dorian avait décidé le 2026-10-24 de la mettre en place avec le paiement ; l'import n'était alors pas limité (inscription ouverte, [012](decisions/012-configuration-automatique.md)).
 
 ## Les trois offres
 

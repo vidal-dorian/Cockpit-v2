@@ -23,7 +23,7 @@ Une App créée avant la [décision 052](docs/decisions/052-constats-de-github-e
 
 ### Réglages
 
-La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US et le lanceur cloud, voir plus bas), « Préférences » (le thème, les raccourcis clavier et les notifications sur le téléphone, voir plus bas) « Abonnement » et « Instance » (pour l'administrateur seulement : les utilisateurs et les codes Pro). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
+La page « Réglages » (en bas de la barre latérale) a un menu à gauche : « Connecter Claude » (avec les jetons MCP ; l'ancienne adresse `/reglages/jetons` renvoie à `/reglages`), « Tâches cloud » (l'écriture automatique des US et le lanceur cloud, voir plus bas), « Préférences » (le thème, les raccourcis clavier et les notifications sur le téléphone, voir plus bas), « Abonnement » et « Instance » (pour l'administrateur seulement : les utilisateurs et les codes Pro). L'adresse publique est celle de l'installation : elle n'a plus d'écran, changer de domaine demande de reprendre l'installation. Décision [028](docs/decisions/028-creme-sombre-onglets-journal.md).
 
 ### La page d'un projet
 

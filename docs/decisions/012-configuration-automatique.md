@@ -68,7 +68,7 @@ Après la 011, déployer Cockpit demande neuf valeurs dans `/etc/cockpit/cockpit
 
 - **Des droits accordés avant d'être utilisés** (choix D) : chacun donne à l'installation l'écriture sur le contenu et les issues alors que Cockpit ne s'en sert qu'à partir des tranches 4.6 et 6.x. Cockpit n'écrit jamais que de la configuration, toujours après avoir montré le diff (brief, principe 3).
 - **Perdre le volume de la clé** sans en avoir de copie oblige à refaire l'assistant (nouvelle App) et chaque utilisateur à réinstaller l'App.
-- **Inscription ouverte (G)** : n'importe quel compte GitHub peut créer un compte Cockpit. Pas encore faits : la limite de 3 repos du plan gratuit n'est pas appliquée (Dorian a décidé le 2026-10-24 qu'elle sera mise en place avec le paiement, pas avant) ; aucune notification à l'administrateur lors d'une nouvelle inscription (il découvre les nouveaux comptes dans « Réglages ») ; la page RGPD (ce que Cockpit conserve, comment supprimer son compte) reste à écrire.
+- **Inscription ouverte (G)** : n'importe quel compte GitHub peut créer un compte Cockpit. La limite de 3 repos du plan gratuit est appliquée depuis la 13.2 ([077](077-offres-et-quotas.md)). Pas encore faits : aucune notification à l'administrateur lors d'une nouvelle inscription (il découvre les nouveaux comptes dans « Réglages ») ; la page RGPD (ce que Cockpit conserve, comment supprimer son compte) reste à écrire.
 - **L'adresse détectée dépend des en-têtes du proxy** : c'est pourquoi elle est confirmée par l'administrateur, et l'assistant est protégé par le code de démarrage. *(Depuis la 028 J, plus de confirmation : l'assistant refuse une adresse qui n'est pas en `https://`, sauf boucle locale.)*
 
 ## Pistes écartées
