@@ -60,7 +60,7 @@ Dorian veut pouvoir dire « développe toute cette tranche » sans que Claude ai
 
 | # | Tranche | Décision |
 |---|---|---|
-| 14.7 | Le matin de la nuit (044 N') | **Une tranche à part**, après la phase 12 : le bilan du matin (temps de travail, tests ajoutés, échecs), « Relire en série » et la frise à l'échelle des heures (N1, N2) |
+| 14.7 | Le matin de la nuit (044 N') | **Une tranche à part**, après la phase 12 : le bilan du matin (temps de travail, tests ajoutés, échecs), « Relire en série » et la frise à l'échelle des heures (N1, N2) ; construite en 14.7 avec deux écarts, voir la [070](070-le-matin-de-la-nuit.md) |
 | 9.5 A | Finitions retenues | **Les barres d'étapes d'un run** et la carte « Pourquoi Claude demande » (S29) ; **la carte du Kanban ouverte dans le panneau de droite** au lieu de changer de page |
 | 9.5 B | Finitions écartées | Les filtres de Tous les projets (S10, sauf « Favoris », 15.3 C) et de l'onglet Tickets, et « Accès donnés à Claude » (S45) : **retirés des écrans** |
 | S51 | L'adresse publique en lecture seule | **La 028 I l'emporte** : pas d'adresse dans Réglages ; la carte est retirée de S51 |

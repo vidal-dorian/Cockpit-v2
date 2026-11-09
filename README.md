@@ -171,7 +171,7 @@ La page « Claude » → « Coût » (`/claude/cout`) montre ce que Claude a co�
 
 ## La nuit de Claude
 
-Le soir, « ☾ Cette nuit » (`/nuit`) compose le programme : tu choisis des US prêtes et leur ordre. Les heures de la nuit (22 h à 7 h par défaut) se règlent sur la carte « Lanceur Cockpit » de « Tâches cloud ». La nuit, Claude les développe une par une dans le cloud ; une question met l'US en pause jusqu'à ta réponse, et « Arrêter la nuit » la finit. Le matin, l'accueil raconte la nuit, jusqu'à « Masquer » ou jusqu'à l'heure de début suivante. Décision [044](docs/decisions/044-la-nuit-de-claude.md).
+Le soir, « ☾ Cette nuit » (`/nuit`) compose le programme : tu choisis des US prêtes et leur ordre. Les heures de la nuit (22 h à 7 h par défaut) se règlent sur la carte « Lanceur Cockpit » de « Tâches cloud ». La nuit, Claude les développe une par une dans le cloud ; une question met l'US en pause jusqu'à ta réponse, et « Arrêter la nuit » la finit. Le matin, l'accueil raconte la nuit (le temps de travail, les critères prouvés, les échecs, une frise des heures) et « Relire en série » (ou la touche R) ouvre les PR à relire l'une après l'autre, jusqu'à « Masquer » ou jusqu'à l'heure de début suivante. Décisions [044](docs/decisions/044-la-nuit-de-claude.md) et [070](docs/decisions/070-le-matin-de-la-nuit.md).
 
 ## Lancer en local
 

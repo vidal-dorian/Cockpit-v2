@@ -76,7 +76,8 @@
 - **Fait** : tranche 12.4 (l'onglet CI / CD : les workflows, une CI de départ, les changements que Claude propose, [décision 067](decisions/067-ci-cd.md)).
 - **Fait** : tranche 12.5 (un nouveau projet depuis un repo modèle, [décision 068](decisions/068-repo-modele.md)) ; la phase 12 est terminée (la 12.2 est couverte par la 11.6).
 - **Fait** : tranche 9.5 (les étapes à venir et « Pourquoi Claude demande » sur un run, la carte du Kanban ouverte dans le panneau de droite, [décision 069](decisions/069-finitions.md)).
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 (faite) et 14.7, puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
+- **Fait** : tranche 14.7 (le matin de la nuit : le bilan avec les critères prouvés, la frise à l'échelle des heures sur l'accueil, « Relire en série » et la touche R, [décision 070](decisions/070-le-matin-de-la-nuit.md)).
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15, puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -279,7 +280,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 14.4 | **Relance automatique** : CI rouge, Claude relancé sur la même branche. À comparer d'abord avec l'Auto-fix natif de Claude Code | Une CI rouge relance le développement sans que je clique |
 | 14.5 | **Coût et budget** : le coût de chaque run (télémétrie OpenTelemetry) et un plafond qui demande l'arrêt du run | La page d'un run affiche son coût ; au plafond, l'arrêt est demandé |
 | 14.6 | **La nuit de Claude** ([044](decisions/044-la-nuit-de-claude.md)) : le soir, je compose le programme ; Claude développe les US une par une dans le cloud ; le matin, l'accueil raconte la nuit | Je lance la nuit avec deux US, PC éteint ; le matin, l'accueil montre la frise, une PR et la question de l'autre US |
-| 14.7 | **Le matin de la nuit** ([064](decisions/064-tranches-restantes.md), 044 N') : le bilan (temps de travail, tests ajoutés, échecs), « Relire en série », la frise à l'échelle des heures (N1, N2) | Le matin, l'accueil montre le bilan de la nuit ; « Relire en série » m'enchaîne les PR à relire |
+| 14.7 | **Le matin de la nuit** ([070](decisions/070-le-matin-de-la-nuit.md), 044 N') : le bilan (temps de travail, critères prouvés, échecs), « Relire en série », la frise à l'échelle des heures (N2) | Le matin, l'accueil montre le bilan de la nuit ; « Relire en série » m'enchaîne les PR à relire |
 
 ## Phase 15 — Téléphone et ergonomie (pas prioritaire)
 

@@ -13,6 +13,7 @@ import {
   badge,
   button,
   focusRing,
+  kbd,
   listCard,
   panelButton,
   panelPrimaryButton,
@@ -391,6 +392,51 @@ function Row({ item, open }: { item: Item; open: () => void }) {
   );
 }
 
+/** « Relire en série » (decision 070 H, I): opens the PR to review one after the other, in a new tab; the R key does the same. */
+function ReviewSeries({
+  reviews,
+}: {
+  reviews: Extract<Item, { kind: "review" }>[];
+}) {
+  // The stories already opened in the series: a merged PR that leaves the list does not shift it.
+  const [seen, setSeen] = useState<number[]>([]);
+  const next = reviews.find((r) => !seen.includes(r.storyId));
+  const go = () => {
+    const target = next ?? reviews[0];
+    if (!target) return;
+    window.open(prUrl(target), "_blank", "noopener");
+    const now = [...(next ? seen : []), target.storyId];
+    setSeen(reviews.every((r) => now.includes(r.storyId)) ? [] : now);
+  };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      // A held key repeats: one press opens one PR.
+      if (event.key.toLowerCase() !== "r" || event.repeat) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement;
+      if (target.isContentEditable || target.closest("input, textarea, select"))
+        return;
+      event.preventDefault();
+      go();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+  return (
+    <button
+      type="button"
+      aria-keyshortcuts="R"
+      onClick={go}
+      className={`ml-auto ${button}`}
+    >
+      {next && seen.length > 0
+        ? `PR suivante · #${next.prNumber}`
+        : "Relire en série"}{" "}
+      <kbd className={kbd}>R</kbd>
+    </button>
+  );
+}
+
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 /** The home of a logged-in user (045 D): the state in a sentence, what to do now, then next, what Claude does, the latest events; the first item is open in the right panel. */
@@ -446,6 +492,7 @@ export function HomePage() {
     if (target) setOpened({ key: itemKey(target), at });
     setFromRow(row);
   };
+  const reviews = forYou.filter((item) => item.kind === "review");
   const groups: { kind: Item["kind"]; rows: { item: Item; at: number }[] }[] =
     [];
   others.forEach((item, i) => {
@@ -511,6 +558,9 @@ export function HomePage() {
                   <span className={badge}>{rows.length}</span>
                   {KINDS[kind].hint && (
                     <span className="font-medium">· {KINDS[kind].hint}</span>
+                  )}
+                  {kind === "review" && reviews.length > 1 && (
+                    <ReviewSeries reviews={reviews} />
                   )}
                 </p>
                 {rows.map(({ item, at }) => (
