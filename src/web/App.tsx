@@ -96,6 +96,8 @@ function OfflineBanner() {
   const health = useQuery({
     queryKey: ["health"],
     queryFn: fetchHealth,
+    // The banner shows at the first failure, then asks every 10 seconds.
+    retry: false,
     refetchInterval: (query) =>
       query.state.status === "error" ? 10_000 : false,
   });

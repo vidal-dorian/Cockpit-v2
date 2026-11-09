@@ -225,7 +225,11 @@ const sidebarLabel =
 export function Sidebar() {
   const queryClient = useQueryClient();
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data;
-  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: fetchHealth,
+    retry: false,
+  });
   const home = useHome().data;
   const night = useQuery({
     queryKey: ["home", "night"],
@@ -233,8 +237,20 @@ export function Sidebar() {
   }).data?.night;
   const logout = useMutation({
     mutationFn: async () => {
+      // While the session is still valid, the device stops being this user's: its push subscription goes (decision 072 F).
+      const sub = await (
+        await navigator.serviceWorker?.getRegistration()
+      )?.pushManager.getSubscription();
+      if (sub) {
+        await client.api.push.subscriptions.$delete({
+          json: { endpoint: sub.endpoint },
+        });
+        await sub.unsubscribe();
+      }
       const res = await client.api.auth.logout.$post();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // The copies of the service worker (same name as CACHE in public/sw.js) hold this user's pages.
+      await window.caches?.delete("cockpit-v1");
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
   });

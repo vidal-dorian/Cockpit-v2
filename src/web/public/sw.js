@@ -1,4 +1,5 @@
 // The service worker of Cockpit (decision 072): pushes and their buttons, and the last answers kept for when the server does not answer.
+// shortcut: the cache is never trimmed (one entry per address visited), upgrade when it grows. Its name is also in Shell.tsx (logout empties it).
 const CACHE = "cockpit-v1";
 
 self.addEventListener("install", () => self.skipWaiting());

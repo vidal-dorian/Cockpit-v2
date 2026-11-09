@@ -39,7 +39,11 @@ async function enableDevice() {
     );
   const key = await client.api.push.key.$get();
   if (!key.ok) throw new Error("Réponse inattendue du serveur.");
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration)
+    throw new Error(
+      "Cockpit n'est pas encore prêt pour les notifications : recharge la page.",
+    );
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: (await key.json()).publicKey,
@@ -57,8 +61,12 @@ async function enableDevice() {
 
 async function sendTest() {
   const res = await client.api.push.test.$post();
+  if (res.status === 409)
+    throw new Error(
+      "Aucun appareil abonné : active d'abord les notifications sur cet appareil.",
+    );
   if (!res.ok) throw new Error("La notification n'a pas pu partir.");
-  return "Notification envoyée. Elle arrive dans la minute.";
+  return "Notification envoyée.";
 }
 
 /** The device part of the card: the buttons, or what to do first on an iPhone (decision 072 H). */

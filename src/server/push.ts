@@ -34,6 +34,17 @@ export type SendPush = (
 
 type Message = Payload & { type: (typeof notifications.$inferSelect)["type"] };
 
+const MAX_DEVICES = 10;
+
+/** Whether the host is a name or an address of the machine's own network: the server posts to the endpoint, so it must not reach those. A literal check, no DNS (shortcut: a public name that resolves to a private address passes; upgrade with a resolved-address check). */
+const isLocalHost = (host: string) =>
+  host === "localhost" ||
+  host.endsWith(".localhost") ||
+  /^(0|10|127)\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(
+    host,
+  ) ||
+  /^\[(::|f[cd]|fe[89ab])/i.test(host);
+
 const REVIEW_EVERY_MS = 3_600_000;
 // A push carries 4 KB at most; a question can be much longer.
 const clip = (text: string) => text.slice(0, 200);
@@ -87,20 +98,30 @@ async function vapidKeys(db: Db, key: Buffer) {
   return {
     publicKey: row.vapidPublicKey,
     privateKey: decrypt(key, row.vapidPrivateKey),
-    subject: row.publicUrl,
+    // web-push refuses a subject that is not https or mailto, so a loopback install gets a placeholder.
+    subject: row.publicUrl.startsWith("https:")
+      ? row.publicUrl
+      : "mailto:cockpit@localhost",
   };
 }
 
 /** The real sender; the tests give their own. */
-export const webPushSender =
-  (db: Db, key: Buffer): SendPush =>
-  async (subscription, payload) => {
-    const { publicKey, privateKey, subject } = await vapidKeys(db, key);
+export const webPushSender = (db: Db, key: Buffer): SendPush => {
+  // Read and decrypted once per sender; a failure is not kept.
+  let cached: ReturnType<typeof vapidKeys> | undefined;
+  const keys = () =>
+    (cached ??= vapidKeys(db, key).catch((error) => {
+      cached = undefined;
+      throw error;
+    }));
+  return async (subscription, payload) => {
+    const { publicKey, privateKey, subject } = await keys();
     await sendNotification(subscription, JSON.stringify(payload), {
       vapidDetails: { subject, publicKey, privateKey },
       timeout: 10_000,
     });
   };
+};
 
 /** Sends to every device of the user; a service that forgot a device (404, 410) loses its subscription, any other failure drops the push for that device (decision 072 F). */
 async function deliver(
@@ -178,21 +199,29 @@ export async function sendDue(db: Db, deps: Fire, now: Date) {
       const wanted = mine.filter(
         (r) => on[r.type] && (!quiet || r.type === "night_recap"),
       );
-      const reviews = wanted.filter((r) => r.type === "pr_ready");
+      const wantedReviews = wanted.filter((r) => r.type === "pr_ready");
       const reviewDue =
-        reviews.length > 0 &&
+        wantedReviews.length > 0 &&
         (!user?.lastReviewPushAt ||
           now.getTime() - user.lastReviewPushAt.getTime() >= REVIEW_EVERY_MS);
-      const held = reviewDue ? [] : reviews;
-      // Deleted before the send: a push that fails is not retried (F), and two passes never send a row twice.
-      await db.delete(notifications).where(
-        inArray(
-          notifications.id,
-          mine.filter((r) => !held.includes(r)).map((r) => r.id),
-        ),
+      const held = reviewDue ? [] : wantedReviews;
+      // Deleted before the send: a push that fails is not retried (F). Only the rows this pass really deleted are sent, so two overlapping passes never send a row twice.
+      const claimed = new Set(
+        (
+          await db
+            .delete(notifications)
+            .where(
+              inArray(
+                notifications.id,
+                mine.filter((r) => !held.includes(r)).map((r) => r.id),
+              ),
+            )
+            .returning({ id: notifications.id })
+        ).map((r) => r.id),
       );
+      const reviews = wantedReviews.filter((r) => claimed.has(r.id));
       const payloads: Payload[] = wanted
-        .filter((r) => r.type !== "pr_ready")
+        .filter((r) => r.type !== "pr_ready" && claimed.has(r.id))
         .map(({ title, body, url, actions }) => ({
           title,
           body,
@@ -212,7 +241,7 @@ export async function sendDue(db: Db, deps: Fire, now: Date) {
         );
       if (payloads.length === 0) continue;
       const devices = await deliver(db, send, userId, payloads);
-      if (reviewDue && devices > 0)
+      if (reviewDue && reviews.length > 0 && devices > 0)
         await db
           .update(users)
           .set({ lastReviewPushAt: now })
@@ -228,7 +257,10 @@ export function pushRoutes(db: Db, encryptionKey: Buffer, send: SendPush) {
   const signed = signedIn(db);
   const subscription = z.object({
     // https only: the server posts the push to this address.
-    endpoint: z.url({ protocol: /^https$/ }).max(2_000),
+    endpoint: z
+      .url({ protocol: /^https$/ })
+      .max(2_000)
+      .refine((url) => !isLocalHost(new URL(url).hostname)),
     keys: z.object({
       p256dh: z.string().min(1).max(200),
       auth: z.string().min(1).max(100),
@@ -264,8 +296,18 @@ export function pushRoutes(db: Db, encryptionKey: Buffer, send: SendPush) {
     )
     .post("/api/push/subscriptions", body(subscription), async (c) => {
       const { endpoint, keys } = c.req.valid("json");
+      const userId = c.get("userId");
+      const mine = await db
+        .select({ endpoint: pushSubscriptions.endpoint })
+        .from(pushSubscriptions)
+        .where(eq(pushSubscriptions.userId, userId));
+      if (
+        mine.length >= MAX_DEVICES &&
+        !mine.some((d) => d.endpoint === endpoint)
+      )
+        return c.json({ error: "too_many_devices" }, 409);
       const device = {
-        userId: c.get("userId"),
+        userId,
         p256dh: keys.p256dh,
         auth: keys.auth,
       };
@@ -294,14 +336,16 @@ export function pushRoutes(db: Db, encryptionKey: Buffer, send: SendPush) {
       },
     )
     .post("/api/push/test", async (c) => {
-      await deliver(db, send, c.get("userId"), [
+      const devices = await deliver(db, send, c.get("userId"), [
         {
           title: "Cockpit",
           body: "Les notifications arrivent sur cet appareil.",
           url: "/",
         },
       ]);
-      return c.body(null, 204);
+      return devices === 0
+        ? c.json({ error: "no_device" }, 409)
+        : c.body(null, 204);
     })
     .get("/api/me/notifications", async (c) =>
       c.json(await read(c.get("userId"))),
