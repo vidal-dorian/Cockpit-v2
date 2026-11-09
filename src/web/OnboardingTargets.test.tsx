@@ -78,4 +78,35 @@ describe("slice 15.4: the targets of « Faire »", () => {
       await screen.findByRole("dialog", { name: "Noter une idée" }),
     ).toBeTruthy();
   });
+
+  it("given the idea step next and no active project, when the guide shows, then Faire is a link to /projets", async () => {
+    stub({
+      steps: guide(3).steps.map((s) => ({ ...s, projectId: null })),
+    });
+    renderAt("/");
+
+    expect((await faire()).getAttribute("href")).toBe("/projets");
+  });
+
+  it("given the hide is refused, when the user clicks « Masquer ce guide », then an alert says so and the guide stays", async () => {
+    stub(guide(3));
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+        String(input).includes("/api/me/onboarding/hide")
+          ? Response.json({ error: "x" }, { status: 500 })
+          : inner(input, init),
+      ),
+    );
+    renderAt("/");
+    await faire();
+
+    fireEvent.click(screen.getByRole("button", { name: "Masquer ce guide" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "n'a pas pu être masqué",
+    );
+    expect(screen.getByRole("heading", { name: /Mise en route/ })).toBeTruthy();
+  });
 });

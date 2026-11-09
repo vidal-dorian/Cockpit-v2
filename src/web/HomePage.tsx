@@ -480,7 +480,7 @@ function OnboardingGuide({
 }: {
   guide: Guide;
   installed: boolean;
-  onIdea: () => void;
+  onIdea: (opener: HTMLElement) => void;
 }) {
   const queryClient = useQueryClient();
   const hide = useMutation({
@@ -552,9 +552,13 @@ function OnboardingGuide({
               </span>
             </span>
             {i === next &&
-              (GUIDE[i]?.key === "idea" ? (
-                // The idea bar is hidden below md: this opens its panel, which a project makes possible.
-                <button type="button" onClick={onIdea} className={rowAction}>
+              (GUIDE[i]?.key === "idea" && r.projectId !== null ? (
+                // The idea bar is hidden below md: this opens its panel, which needs an active project.
+                <button
+                  type="button"
+                  onClick={(e) => onIdea(e.currentTarget)}
+                  className={rowAction}
+                >
                   Faire
                 </button>
               ) : (
@@ -577,7 +581,11 @@ function OnboardingGuide({
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 /** The home of a logged-in user (045 D): the state in a sentence, what to do now, then next, what Claude does, the latest events; the first item is open in the right panel. */
-export function HomePage({ onIdea }: { onIdea: () => void }) {
+export function HomePage({
+  onIdea,
+}: {
+  onIdea: (opener: HTMLElement) => void;
+}) {
   const home = useHome();
   // The same key as the shell's banner: one request for both.
   const installation = useQuery({
@@ -607,7 +615,11 @@ export function HomePage({ onIdea }: { onIdea: () => void }) {
     w === 0
       ? "Claude ne travaille sur rien."
       : `Claude travaille sur ${w} ${plural(w, "run", "runs")}, tout va bien.`;
-  const guide = home.data.onboarding;
+  // Not before step 1 is known (or has failed once: React Query retries for seconds), so the guide and its sentence do not flip.
+  const guide =
+    installation.isPending && installation.failureCount === 0
+      ? null
+      : home.data.onboarding;
   const left = guide
     ? 7 -
       guide.steps.filter((s) => s.done).length -
@@ -658,7 +670,7 @@ export function HomePage({ onIdea }: { onIdea: () => void }) {
   return (
     <>
       <StateSentence {...sentence} headingRef={headingRef} />
-      {guide && !installation.isPending && (
+      {guide && (
         <OnboardingGuide
           guide={guide}
           installed={installation.data?.installed === true}

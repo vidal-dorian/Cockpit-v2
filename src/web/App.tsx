@@ -138,7 +138,7 @@ function OfflineBanner() {
   );
 }
 
-function Home({ onIdea }: { onIdea: () => void }) {
+function Home({ onIdea }: { onIdea: (opener: HTMLElement) => void }) {
   return (
     <main>
       <HomePage onIdea={onIdea} />
@@ -262,7 +262,7 @@ function Shell({
           <Routes>
             <Route
               path="/"
-              element={<Home onIdea={() => idea.current?.(null)} />}
+              element={<Home onIdea={(el) => idea.current?.(el)} />}
             />
             <Route path="/projets" element={<Projects />} />
             <Route path="/projets/nouveau" element={<ProjectFromTemplate />} />
