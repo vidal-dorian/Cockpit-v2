@@ -4,6 +4,7 @@
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [011 — Importer un projet](011-import-projets.md), [027 — Préparer pour Claude](027-preparer-pour-claude.md), [029 — L'équipe d'agents](029-equipe-d-agents.md), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [032 — Plusieurs équipes](032-plusieurs-equipes.md), [042 — « Nouvelle équipe » dans une fenêtre](042-nouvelle-equipe-fenetre.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md), [051 — Les constats de Claude](051-constats-de-claude.md) (L : le modèle d'un agent reste le choix de l'utilisateur)
+- **Modifiée par** : [074 — Les équipes à la demande](074-equipes-a-la-demande.md) : le niveau (D) se choisit après le clic sur « Importer », dans une fenêtre à carrousel, et non au-dessus de la liste
 - **Tranche** : 11.6 du [découpage](../decoupage.md) (« E5, profils d'équipe »)
 
 ## Contexte

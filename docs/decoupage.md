@@ -80,7 +80,8 @@
 - **Fait** : tranche 15.1 (les trois gestes au téléphone : la barre du bas, le panneau « Noter une idée » en plein écran avec « Photo », le panneau de l'accueil sous « 1 · Maintenant », [décision 071](decisions/071-trois-gestes-au-telephone.md)).
 - **Fait** : tranche 15.2 (PWA et notifications : l'application installable, quatre notifications sur le téléphone avec un silence réglable, « Cockpit ne répond plus », [décision 072](decisions/072-pwa-et-notifications.md)).
 - **Fait** : tranche 15.3 (ergonomie : recherche `Ctrl K`, raccourcis clavier, thème clair à valider par Dorian, projets favoris, [décision 073](decisions/073-ergonomie.md)).
-- **Fait** : tranche 15.4 (la mise en route : les sept étapes de S06 en haut de l'accueil, qui se cochent toutes seules, « Masquer ce guide », [décision 074](decisions/074-mise-en-route.md)) ; la phase 15 est terminée.
+- **Fait** : hors tranche, des demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, avec un avertissement au lancement quand l'équipe du repo a changé, [décision 074](decisions/074-equipes-a-la-demande.md)).
+- **Fait** : tranche 15.4 (la mise en route : les sept étapes de S06 en haut de l'accueil, qui se cochent toutes seules, « Masquer ce guide », [décision 075](decisions/075-mise-en-route.md)) ; la phase 15 est terminée.
 - **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
@@ -293,7 +294,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 15.1 | **Les trois gestes au téléphone** : noter une idée, valider une US et répondre à Claude, vérifiés et corrigés en largeur téléphone ; « Photo » dans Noter une idée ([071](decisions/071-trois-gestes-au-telephone.md), [064](decisions/064-tranches-restantes.md)) | Sur mon téléphone, je fais les trois gestes sans zoom ni défilement latéral |
 | 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17), le récap de la nuit, le silence la nuit, l'écran « Cockpit ne répond plus » (S56) ([072](decisions/072-pwa-et-notifications.md), [064](decisions/064-tranches-restantes.md)) | Claude pose une question, mon téléphone vibre |
 | 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20), favoris ([073](decisions/073-ergonomie.md), [064](decisions/064-tranches-restantes.md)) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
-| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18), les sept étapes de S06, en haut de l'accueil ([074](decisions/074-mise-en-route.md), [064](decisions/064-tranches-restantes.md)) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
+| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18), les sept étapes de S06, en haut de l'accueil ([075](decisions/075-mise-en-route.md), [064](decisions/064-tranches-restantes.md)) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
 
 ## Équipe d'agents (fait)
 
@@ -307,7 +308,7 @@ Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, m
 | E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
 | E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle, un worktree par branche, et la condition écrite en une phrase ([064](decisions/064-tranches-restantes.md)) | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
 
-Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6.
+Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6. La [074](decisions/074-equipes-a-la-demande.md) construit « une équipe globale à tous les projets » que la 029 et la 032 repoussaient.
 
 ## Après la V1
 

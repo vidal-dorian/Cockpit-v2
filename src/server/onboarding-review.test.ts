@@ -11,7 +11,7 @@ import {
   type TestDb,
 } from "./test-mcp.ts";
 
-// Slice 15.4, review fixes (decision 074 A, B): the edges of the getting-started guide in GET /api/home.
+// Slice 15.4, review fixes (decision 075 A, B): the edges of the getting-started guide in GET /api/home.
 
 afterEach(() => {
   vi.unstubAllGlobals();

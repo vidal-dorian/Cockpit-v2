@@ -69,6 +69,8 @@ export const ACTIONS: Record<string, string> = {
   launch_story: "US lancée dans le cloud",
   save_routine: "Routine enregistrée",
   delete_routine: "Routine supprimée",
+  save_agent_team: "Équipe d'agents enregistrée",
+  delete_agent_team: "Équipe d'agents supprimée",
   pause_routine: "Routine en pause",
   resume_routine: "Routine reprise",
   fire_routine: "Routine lancée",

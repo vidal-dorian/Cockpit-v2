@@ -8,6 +8,7 @@ import {
   Routes,
   useParams,
 } from "react-router";
+import { AgentTeams } from "./AgentTeams.tsx";
 import { Autoriser } from "./Autoriser.tsx";
 import { client } from "./api.ts";
 import { Claude } from "./Claude.tsx";
@@ -341,6 +342,7 @@ function Shell({
             <Route path="/nuit" element={<Night />} />
             <Route path="/claude/taches" element={<Taches />} />
             <Route path="/claude/cout" element={<Cost />} />
+            <Route path="/equipes" element={<AgentTeams />} />
             <Route path="/equipes/commun" element={<Plugins />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/reglages" element={<Settings tab="claude" />} />

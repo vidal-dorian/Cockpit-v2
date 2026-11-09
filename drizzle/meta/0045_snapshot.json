@@ -1,5 +1,5 @@
 {
-  "id": "831f2957-f9e6-48c6-bc1f-fe12bbc22b35",
+  "id": "40368e98-654e-4656-8c08-f6691355e495",
   "prevId": "11e92efd-ca9d-4c1e-92cb-1580b8605e03",
   "version": "7",
   "dialect": "postgresql",
@@ -146,6 +146,97 @@
           "value": "\"acceptance_criteria\".\"takeover_state\" in ('pending', 'kept')"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.agent_teams": {
+      "name": "agent_teams",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "agent_teams_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "agent_teams_user_name_idx": {
+          "name": "agent_teams_user_name_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "agent_teams_user_id_users_id_fk": {
+          "name": "agent_teams_user_id_users_id_fk",
+          "tableFrom": "agent_teams",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.attachments": {
@@ -3381,12 +3472,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'dark'"
-        },
-        "onboarding_hidden_at": {
-          "name": "onboarding_hidden_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",

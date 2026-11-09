@@ -83,7 +83,7 @@ async function runningRuns(
   return running.map((r) => ({ ...r, step: stepOf.get(r.runId) ?? null }));
 }
 
-/** The getting-started guide (decision 074 A, B): steps 2 to 7 read from today's rows, archived projects included, but « Faire » leads to active ones; null once all are done. */
+/** The getting-started guide (decision 075 A, B): steps 2 to 7 read from today's rows, archived projects included, but « Faire » leads to active ones; null once all are done. */
 async function onboardingOf(db: Db, userId: number) {
   const member = eq(projectMembers.userId, userId);
   const [mine, token, [seen], [validated]] = await Promise.all([

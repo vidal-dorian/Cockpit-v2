@@ -7,7 +7,7 @@ import { isDatabaseId } from "./projects.ts";
 import { signedIn } from "./routines.ts";
 import { body } from "./tickets.ts";
 
-/** The star of a project, the theme of the user and the hiding of the getting-started guide (decisions 073 F, H and 074 E): preferences of the user, so no history entry (like the notification switches). */
+/** The star of a project, the theme of the user and the hiding of the getting-started guide (decisions 073 F, H and 075 E): preferences of the user, so no history entry (like the notification switches). */
 export function favoriteRoutes(db: Db) {
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/projects/:id/favorite", signedIn(db))

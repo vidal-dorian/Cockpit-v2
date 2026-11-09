@@ -5,7 +5,7 @@ import { PROJECT } from "./test-home.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 15.4, review fixes (decision 074 C): where « Faire » leads for steps 3, 5, 6 and 7.
+// Slice 15.4, review fixes (decision 075 C): where « Faire » leads for steps 3, 5, 6 and 7.
 
 afterEach(() => {
   cleanup();

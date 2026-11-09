@@ -6,7 +6,7 @@ import { PROJECT } from "./test-home.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 15.4 (decision 074 C to F). Pinned: GET /api/home answers `onboarding: null | { steps }`, six steps (S06 steps 2 to 7)
+// Slice 15.4 (decision 075 C to F). Pinned: GET /api/home answers `onboarding: null | { steps }`, six steps (S06 steps 2 to 7)
 //   { key: "project" | "claude" | "prepare" | "idea" | "validate" | "develop", done, detail: string | null, projectId: number | null, storyId: number | null };
 // step 1 (« Ouvrir des repos à Cockpit ») is `installed` of GET /api/installation.
 // The section is the <section> of the <h2> « Mise en route · N sur 7 »; a done step reads « fait » for screen readers;

@@ -1,4 +1,4 @@
-# 074 — La mise en route
+# 075 — La mise en route
 
 - **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 15.4)
 - **Date** : 2026-11-09
@@ -24,7 +24,7 @@ La 064 15.4 a tranché le guide : les sept étapes de S06, dans l'ordre, chacune
 
 ## Ce que le code a précisé (tranche 15.4)
 
-- **La route et la migration** : `POST /api/me/onboarding/hide` (session, sans corps) pose `users.onboarding_hidden_at` et répond `{ ok: true }`, sans entrée d'historique (préférence de l'utilisateur, comme l'étoile et le thème, 073) ; migration `0045`. « Masquer ce guide » montre une ligne d'erreur s'il échoue.
+- **La route et la migration** : `POST /api/me/onboarding/hide` (session, sans corps) pose `users.onboarding_hidden_at` et répond `{ ok: true }`, sans entrée d'historique (préférence de l'utilisateur, comme l'étoile et le thème, 073) ; migration `0046`. « Masquer ce guide » montre une ligne d'erreur s'il échoue.
 - **Le champ `onboarding`** de `GET /api/home` (`onboardingOf`, `home.ts`) est `null` si le guide est masqué ou fini, sinon `{ steps }` : six lignes `{ key, done, detail, projectId, storyId }`, clés `project`, `claude`, `prepare`, `idea`, `validate`, `develop`. Seule l'étape 2 a un détail (le nom du premier projet).
 - **L'étape 3** utilise `liveToken` (`tokens.ts`) : un jeton MCP non révoqué et non expiré. Une connexion OAuth dont le jeton de rafraîchissement a expiré ne compte pas.
 - **L'étape 6** lit l'historique (`validate_story`, résultat `ok`) de l'utilisateur lui-même, sur ses projets, et non le statut : l'import d'une issue crée des US `ready` sans que personne ne les ait validées. La A dit « au moins une US de ses projets validée » ; le code ne compte que les validations de l'utilisateur, pas celles d'un autre membre.

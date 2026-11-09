@@ -10,7 +10,7 @@ import {
   type TestDb,
 } from "./test-mcp.ts";
 
-// Slice 15.4 (decision 074 A, B, E): the getting-started guide in GET /api/home.
+// Slice 15.4 (decision 075 A, B, E): the getting-started guide in GET /api/home.
 //
 // Pinned shapes:
 //   GET /api/home -> { ..., onboarding: null | { steps: Step[] } }

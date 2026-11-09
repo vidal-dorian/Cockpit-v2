@@ -21,7 +21,7 @@ Le brief veut un accueil qui répond à une question, « qu'est-ce qui m'attend 
 | D | « Projets » ? | Chaque projet actif avec sa **pastille** : « À toi » s'il a un élément dans « À toi de jouer », sinon « Claude travaille » s'il a un run en cours, sinon « Rien en cours ». La couleur suit la 003 (corail, violet) et n'est jamais seule : le mot est écrit. Cockpit n'a pas de barre latérale (028) : la pastille est sur l'accueil |
 | E | Le compteur ? | Sur l'onglet « Accueil » de la barre du haut, le nombre d'éléments de « À toi de jouer » quand il n'est pas nul, lu dans le même `GET /api/home` (003) |
 | F | Le temps réel ? | L'accueil se recharge à chaque `change` du flux SSE (033 G), quel que soit l'objet |
-| G | Rien à faire ? | (le guide de la [074](074-mise-en-route.md) remplace cette phrase tant qu'il est affiché) « Rien ne t'attend. » sous « À toi de jouer », et « Claude ne travaille sur rien. » sous « Claude travaille ». Sans projet : un lien vers l'import des projets (2.1) |
+| G | Rien à faire ? | (le guide de la [075](075-mise-en-route.md) remplace cette phrase tant qu'il est affiché) « Rien ne t'attend. » sous « À toi de jouer », et « Claude ne travaille sur rien. » sous « Claude travaille ». Sans projet : un lien vers l'import des projets (2.1) |
 | H | Déconnecté ? | La page d'aujourd'hui (connexion, état du serveur) ne change pas |
 
 ## Ce qui est repoussé

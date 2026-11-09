@@ -472,7 +472,7 @@ type Guide = NonNullable<
   NonNullable<ReturnType<typeof useHome>["data"]>["onboarding"]
 >;
 
-/** The getting-started guide (decision 074 C): seven steps, the first one left carries « Faire ». Step 1 is `installed` of GET /api/installation, shown not done when that fails. */
+/** The getting-started guide (decision 075 C): seven steps, the first one left carries « Faire ». Step 1 is `installed` of GET /api/installation, shown not done when that fails. */
 function OnboardingGuide({
   guide,
   installed,
