@@ -12,13 +12,13 @@ export const markdownStyle =
 
 const buttonBase = `inline-flex items-center justify-center gap-2 whitespace-nowrap border font-semibold disabled:opacity-50 ${focusRing}`;
 const buttonSize = "h-11 rounded-[10px] px-3.5 text-[13px] md:h-[34px]";
-const panelSize = "h-[42px] w-full rounded-[10px] px-3.5 text-sm";
+const panelSize = "h-11 w-full rounded-[10px] px-3.5 text-sm md:h-[42px]";
 const secondary =
   "border-border-strong bg-raised text-foreground hover:bg-raised-hover";
 const primary =
   "border-primary bg-primary text-primary-foreground hover:bg-primary-hover";
 
-/** A secondary button (34px), on the raised surface; also fits a link. */
+/** A secondary button (44px below md, 34px above), on the raised surface; also fits a link. */
 export const button = `${buttonBase} ${buttonSize} ${secondary}`;
 
 /** The one white button of a zone (decision 045 C); also fits a link. */

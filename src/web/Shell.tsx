@@ -83,7 +83,7 @@ export function StateSentence({
   headingRef?: React.Ref<HTMLHeadingElement>;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4 px-[26px] pt-[26px] [nav+&]:pt-1.5 [nav+*>&]:pt-1.5">
+    <div className="flex flex-wrap items-start justify-between md:flex-nowrap gap-4 px-[26px] pt-[26px] [nav+&]:pt-1.5 [nav+*>&]:pt-1.5">
       <h1
         ref={headingRef}
         tabIndex={headingRef ? -1 : undefined}
@@ -357,31 +357,40 @@ const tab = ({ isActive }: { isActive: boolean }) =>
   `flex min-h-11 flex-1 flex-col items-center justify-center text-[11.5px] font-semibold ${focusRing} ${isActive ? "text-foreground" : "text-muted-foreground"}`;
 
 /** The bar of the phone (decision 071 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project. */
-function PhoneNav({ onIdea }: { onIdea?: () => void }) {
+function PhoneNav({
+  onIdea,
+  open,
+  onNavigate,
+}: {
+  onIdea?: (opener: HTMLElement) => void;
+  open: boolean;
+  onNavigate: () => void;
+}) {
   return (
     <nav
       aria-label="Navigation du téléphone"
-      className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-card md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card md:hidden"
     >
-      <NavLink to="/" end className={tab}>
+      <NavLink to="/" end className={tab} onClick={onNavigate}>
         <span aria-hidden="true">⌂</span>
         Accueil
       </NavLink>
       {onIdea && (
         <button
           type="button"
-          onClick={onIdea}
-          className={tab({ isActive: false })}
+          aria-expanded={open}
+          onClick={(event) => onIdea(event.currentTarget)}
+          className={tab({ isActive: open })}
         >
           <span aria-hidden="true">✎</span>
           Idée
         </button>
       )}
-      <NavLink to="/nuit" className={tab}>
+      <NavLink to="/nuit" className={tab} onClick={onNavigate}>
         <span aria-hidden="true">☾</span>
         Nuit
       </NavLink>
-      <NavLink to="/projets" end className={tab}>
+      <NavLink to="/projets" end className={tab} onClick={onNavigate}>
         <span aria-hidden="true">▤</span>
         Projets
       </NavLink>
@@ -389,7 +398,7 @@ function PhoneNav({ onIdea }: { onIdea?: () => void }) {
   );
 }
 
-/** The bar at the bottom of the center (045 F): note an idea as a ticket of a project; `n` anywhere focuses it. Hidden without a project. */
+/** The bar at the bottom of the center (045 F): note an idea as a ticket of a project; `n` anywhere focuses it. The bar is hidden without a project and below md, where the phone nav opens the same panel. */
 export function IdeaBar() {
   const queryClient = useQueryClient();
   const home = useHome();
@@ -410,13 +419,29 @@ export function IdeaBar() {
   const input = useRef<HTMLInputElement>(null);
 
   // The panel replaces the bar: when it closes, the keyboard goes back to the bar.
+  // The phone's Idée tab when it opened the panel: the bar is not displayed below md.
+  const opener = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open) wasOpen.current = true;
     else if (wasOpen.current) {
       wasOpen.current = false;
-      input.current?.focus();
+      (opener.current ?? input.current)?.focus();
+      opener.current = null;
     }
+  }, [open]);
+
+  // Below md the open panel covers the page: nothing behind it takes the keyboard.
+  const wrapper = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || !window.matchMedia?.("(max-width: 767px)").matches) return;
+    const behind = [...(wrapper.current?.parentElement?.children ?? [])].filter(
+      (el) => el !== wrapper.current,
+    );
+    for (const el of behind) el.setAttribute("inert", "");
+    return () => {
+      for (const el of behind) el.removeAttribute("inert");
+    };
   }, [open]);
 
   useEffect(() => {
@@ -486,11 +511,23 @@ export function IdeaBar() {
       {/* Once the projects are known: the Idée tab depends on them. */}
       {!home.isPending && (
         <PhoneNav
-          onIdea={projects.length > 0 ? () => setOpen(true) : undefined}
+          onIdea={
+            projects.length > 0
+              ? (el) => {
+                  opener.current = el;
+                  setOpen(true);
+                }
+              : undefined
+          }
+          open={open}
+          onNavigate={() => setOpen(false)}
         />
       )}
       {projects.length > 0 && (
-        <div className="sticky bottom-0 mx-[26px] mt-4 mb-5">
+        <div
+          ref={wrapper}
+          className="sticky bottom-0 mx-[26px] mt-4 mb-5 max-md:bottom-16"
+        >
           {send.isError && (
             <p role="alert" className="mb-2 text-destructive">
               {send.error.message}

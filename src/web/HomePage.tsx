@@ -385,7 +385,7 @@ function Row({ item, open }: { item: Item; open: () => void }) {
           validating={validate.isPending}
         />
       </span>
-      <span className="min-w-10 text-right text-[12.5px] text-muted-foreground">
+      <span className="hidden min-w-10 sm:block text-right text-[12.5px] text-muted-foreground">
         {since && elapsed(since)}
       </span>
     </div>

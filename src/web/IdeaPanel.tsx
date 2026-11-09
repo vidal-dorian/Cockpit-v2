@@ -90,7 +90,7 @@ export function IdeaPanel({
           send();
         }
       }}
-      className="mb-2 flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-30 max-md:mb-0 max-md:overflow-y-auto max-md:rounded-none"
+      className="mb-2 flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-30 max-md:mb-0 max-md:overflow-y-auto max-md:rounded-none max-md:pb-20"
     >
       <div>
         <h2 id={heading} className="font-semibold">
@@ -122,7 +122,7 @@ export function IdeaPanel({
           aria-label="Projet"
           value={idea.projectId}
           onChange={(event) => set({ projectId: event.target.value })}
-          className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
+          className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 text-base font-semibold md:text-sm ${focusRing}`}
         >
           {projects.map((p) => (
             <option key={p.id} value={p.id} className="bg-card">
@@ -136,7 +136,7 @@ export function IdeaPanel({
           onChange={(event) =>
             set({ priority: event.target.value as Idea["priority"] })
           }
-          className={`rounded-[10px] bg-transparent px-2 py-1 ${focusRing}`}
+          className={`rounded-[10px] bg-transparent px-2 py-1 text-base md:text-sm ${focusRing}`}
         >
           {Object.entries(PRIORITIES).map(([value, label]) => (
             <option key={value} value={value} className="bg-card">

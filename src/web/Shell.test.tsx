@@ -112,7 +112,11 @@ describe("slice 9.3: the shell of a logged-in user", () => {
     expect(await screen.findByText("Cockpit v0.1.0")).toBeDefined();
     expect(within(aside).getByText(/octocat/)).toBeDefined();
     expect(screen.queryByRole("banner")).toBeNull();
-    expect(within(aside).queryByRole("link", { name: "Projets" })).toBeNull();
+    const phone = screen.getByRole("navigation", {
+      name: "Navigation du téléphone",
+    });
+    for (const link of screen.getAllByRole("link", { name: "Projets" }))
+      expect(phone.contains(link)).toBe(true);
   });
 
   it("given a logged-in user, when I click Se déconnecter, then it POSTs /api/auth/logout", async () => {
@@ -145,5 +149,25 @@ describe("slice 9.3: the shell of a logged-out visitor", () => {
     expect(
       screen.queryByRole("navigation", { name: "Navigation principale" }),
     ).toBeNull();
+  });
+
+  it("given the phone Idée tab opened the panel, when Annuler is pressed, then the tab has the focus back", async () => {
+    stubShell({ projects });
+    renderAt("/");
+
+    const tab = within(
+      await screen.findByRole("navigation", {
+        name: "Navigation du téléphone",
+      }),
+    ).getByRole("button", { name: /Idée/ });
+    tab.focus();
+    fireEvent.click(tab);
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Annuler",
+      }),
+    );
+
+    await waitFor(() => expect(document.activeElement).toBe(tab));
   });
 });

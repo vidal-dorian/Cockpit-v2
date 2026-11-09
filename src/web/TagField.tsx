@@ -57,7 +57,7 @@ export function TagField({
           event.preventDefault();
           if (!(event.ctrlKey || event.metaKey)) add();
         }}
-        className={`w-28 bg-transparent text-[13px] placeholder:text-dim ${focusRing}`}
+        className={`w-28 bg-transparent text-base md:text-[13px] placeholder:text-dim ${focusRing}`}
       />
       {full && (
         <span
