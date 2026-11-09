@@ -30,7 +30,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S00a](S00a_Accueil.png) | L'accueil : phrase d'état, « 1 · Maintenant », « 2 · Ensuite », Claude en ce moment, la question ouverte à droite | 8.1 (existe), refaite en 9.3 | 040, 045 | |
+| [S00a](S00a_Accueil.png) | L'accueil : phrase d'état, « 1 · Maintenant », « 2 · Ensuite », Claude en ce moment, la question ouverte à droite | 8.1 (existe), refaite en 9.3 | 040, 045, 069 | « Pourquoi Claude demande » : fait en 9.5 ([069](../decisions/069-finitions.md)) |
 | [S07](S07_Accueil_Calme.png) | L'accueil quand rien n'attend : plus aucun rouge | 8.1, 9.3 | 040 G | |
 | [S08](S08_Recherche.png) | Recherche globale `Ctrl K` | 15.3 | | |
 | [S09](S09_NoterIdee.png) | Noter une idée en détail : projet, priorité, étiquettes, pièce jointe | 11.2, 11.4 (existent) | 014, 055, 061 | |
@@ -39,18 +39,18 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | tranché ([064](../decisions/064-tranches-restantes.md)) : les favoris en 15.3 ; les autres filtres sont retirés |
+| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | tranché ([064](../decisions/064-tranches-restantes.md)) : les favoris en 15.3 ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
 | [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063 | |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
-| [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | |
+| [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | rien n'est retiré : les filtres restent ([069](../decisions/069-finitions.md) J) |
 | [S15](S15_CICD.png) | Onglet CI / CD : les workflows, un changement proposé par Claude | 12.4 (existe) | 067 | tranché ([064](../decisions/064-tranches-restantes.md) 12.4) : pas de « 2 tests sur 31 » (067) |
 | [S16](S16_Historique.png) | Onglet Historique, filtré | 11.1 (existe) | 010, 053 | |
 | [S17](S17_Changelog.png) | Changelog du projet, branches à nettoyer | 11.5 (existe) | 062 | |
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 (existe) | 026, 065 | |
 | [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | tranché (044 N', [064](../decisions/064-tranches-restantes.md)) : la section « la nuit » est retirée |
 | [S20](S20_NouveauDepuisModele.png) | Nouveau projet depuis un repo modèle | 12.5 (existe) | 068 | |
-| [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3 | 019 | |
+| [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3, 9.5 | 019, 069 | la carte s'ouvre dans le panneau de droite (069 G) |
 
 ## 4 · Tickets et user stories
 
@@ -69,7 +69,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S28](S28_Claude_Runs.png) | Tous les runs, la file d'attente | 9.3, 14.3 (existent) | 033, 058 | une seule US de la file à la fois par utilisateur, pas par projet (058) |
-| [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | barres d'étapes et « Pourquoi Claude demande » : tranche 9.5 ([064](../decisions/064-tranches-restantes.md)) |
+| [S29](S29_Run_EnCours.png) | Un run en direct, avec sa question à droite | 7.1, 7.4 (existent) | 033, 036 | étapes à venir et « Pourquoi Claude demande » : faits en 9.5 ([069](../decisions/069-finitions.md)) |
 | [S30](S30_Run_Fini.png) | Un run fini : le verdict, les critères, le coût | 7.7, 14.5 (existent) | 035, 039, 060 | le coût de 14.5 vient des seuls runs cloud (060) |
 | [S31](S31_Run_Fermer.png) | Fermer un run muet | 7.5 (existe) | 037 | |
 | [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 056 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
@@ -105,7 +105,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | « Accès donnés à Claude » retiré ([064](../decisions/064-tranches-restantes.md) 9.5 B) |
+| [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | « Accès donnés à Claude » retiré ([069](../decisions/069-finitions.md) I) |
 | [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1, 14.6 (existent) | 022, 044, 054 | |
 | [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2, 15.3 | | tranché ([064](../decisions/064-tranches-restantes.md) 15.2, 15.3) : thème clair proposé par Claude, validé par Dorian |
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | tranché ([064](../decisions/064-tranches-restantes.md) 13.1) : les trois rôles de l'écran ; invitation par login GitHub, pas par e-mail |

@@ -5,6 +5,7 @@ import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
 import { NightMorning } from "./NightMorning.tsx";
+import { WhyAsked } from "./RunQuestions.tsx";
 import { REASONS } from "./RunVerdict.tsx";
 import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
 import {
@@ -289,16 +290,9 @@ function ItemPanel({
           ` · ${item.prCiState ? CI_WORDS[item.prCiState] : "Aucune CI"}`}
       </p>
       {item.kind === "answer" && (
-        <p className="text-[12.5px] text-muted-foreground">
-          <Link to={`/us/${item.storyId}`} className={link}>
-            US {item.storyId} · {item.iWant}
-          </Link>
-          {" · "}
-          <Link to={`/runs/${item.runId}`} className={link}>
-            Run {item.runId} ↗
-          </Link>
-        </p>
+        <WhyAsked context={item.context}>{where(item)}</WhyAsked>
       )}
+      {item.kind === "answer" && !item.context && where(item)}
       {item.kind === "check" && (
         <ul className="list-disc pl-5">
           {item.reasons.map((code) => (
@@ -321,6 +315,20 @@ function ItemPanel({
     </Panel>
   );
 }
+
+/** « US 42 · étape developer · Run 17 ↗ »: where a question comes from (decision 069 E). */
+const where = (item: Extract<Item, { kind: "answer" }>) => (
+  <p className="text-[12.5px] text-muted-foreground">
+    <Link to={`/us/${item.storyId}`} className={link}>
+      US {item.storyId}
+    </Link>
+    {item.agent && ` · étape ${item.agent}`}
+    {" · "}
+    <Link to={`/runs/${item.runId}`} className={link}>
+      Run {item.runId} ↗
+    </Link>
+  </p>
+);
 
 /** A row of « 2 · Ensuite »; « Valider » of a story to validate acts in place (POST /api/stories/:id/validate), a refusal shows next to the row. */
 function Row({ item, open }: { item: Item; open: () => void }) {

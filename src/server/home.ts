@@ -45,6 +45,8 @@ async function runningRuns(
       questionId: questions.id,
       question: questions.question,
       suggestedAnswers: questions.suggestedAnswers,
+      context: questions.context,
+      agent: questions.agent,
       askedAt: questions.askedAt,
     })
     .from(runs)
@@ -217,6 +219,8 @@ export function homeRoutes(db: Db, now: () => number) {
               questionId: r.questionId,
               question: r.question,
               suggestedAnswers: r.suggestedAnswers,
+              context: r.context,
+              agent: r.agent,
               askedAt: r.askedAt,
               runId: r.runId,
               storyId: r.storyId,

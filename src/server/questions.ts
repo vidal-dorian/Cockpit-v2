@@ -1,10 +1,10 @@
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
-import { questions, runs, users } from "./db/schema.ts";
+import { questions, runSteps, runs, users } from "./db/schema.ts";
 import { isDatabaseId } from "./projects.ts";
 import { reserveStory } from "./queue.ts";
 import { entryOf, type LiveFire, launchCloud } from "./routines.ts";
@@ -17,16 +17,31 @@ export async function askUser(
   db: Db,
   userId: number,
   entry: Entry,
-  args: { run_id: number; question: string; suggested_answers?: string[] },
+  args: {
+    run_id: number;
+    question: string;
+    context?: string;
+    suggested_answers?: string[];
+  },
 ) {
   const found = await ownRun(db, userId, entry, args.run_id);
   const [row] = await act(db, entry, async (tx) => {
     await lockRunning(tx, found.project.id, args.run_id);
+    const [open] = await tx
+      .select({ agent: runSteps.agent })
+      .from(runSteps)
+      .where(
+        and(eq(runSteps.runId, args.run_id), eq(runSteps.status, "running")),
+      )
+      .orderBy(desc(runSteps.id))
+      .limit(1);
     return tx
       .insert(questions)
       .values({
         runId: args.run_id,
         question: args.question,
+        context: args.context,
+        agent: open?.agent,
         suggestedAnswers: args.suggested_answers,
       })
       .returning({ id: questions.id })

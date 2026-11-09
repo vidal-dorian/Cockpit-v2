@@ -104,19 +104,19 @@ describe("slice 9.3: the six columns of the Kanban", () => {
       expect(column(name).section.textContent, name).toContain(sub);
   });
 
-  it("given tickets at the step new, when the Kanban loads, then Idées lists them as links to /tickets/:id", async () => {
+  it("given tickets at the step new, when the Kanban loads, then Idées lists them as links to ?ticket=<id>", async () => {
     stubProjectShell({}, tickets, board);
     renderAt("/projets/5");
 
     await waitFor(() => expect(() => column("Idées")).not.toThrow());
     const ideas = column("Idées").section;
     const a = await within(ideas).findByRole("link", { name: /Idée A/ });
-    expect(a.getAttribute("href")).toBe("/tickets/7");
+    expect(a.getAttribute("href")).toBe("/projets/5?ticket=7");
     expect(
       within(ideas)
         .getByRole("link", { name: /Idée B/ })
         .getAttribute("href"),
-    ).toBe("/tickets/8");
+    ).toBe("/projets/5?ticket=8");
     expect(ideas.textContent).not.toContain("Autre");
   });
 });

@@ -1,14 +1,34 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { Panel } from "./Shell.tsx";
-import { badge, listCard, sectionLabel, urgentBadge } from "./ui.ts";
+import { badge, card, listCard, sectionLabel, urgentBadge } from "./ui.ts";
 
 type Question = {
   id: number;
   question: string;
   suggestedAnswers: string[] | null;
   answer: string | null;
+  context: string | null;
 };
+
+/** « Pourquoi Claude demande » (decision 069 E): the context Claude gave with its question; nothing without one. */
+export function WhyAsked({
+  context,
+  children,
+}: {
+  context: string | null;
+  children?: ReactNode;
+}) {
+  return (
+    context && (
+      <section className={`${card} grid gap-1 px-4 py-3`}>
+        <h3 className={sectionLabel}>Pourquoi Claude demande</h3>
+        <p className="whitespace-pre-wrap">{context}</p>
+        {children}
+      </section>
+    )
+  );
+}
 
 /**
  * The questions Claude asked during a run (decision 036 G): the pending ones, while the run goes on, in the right panel to answer
@@ -81,6 +101,7 @@ export function RunQuestions({
           <h2 className="whitespace-pre-wrap text-xl font-semibold">
             {current.question}
           </h2>
+          <WhyAsked context={current.context} />
           <AnswerForm
             key={current.id}
             id={current.id}

@@ -166,9 +166,11 @@ describe("criterion 5: GET /api/runs/:id lists the questions", () => {
       answeredAt: null,
     });
     expect(Object.keys(body.questions[1] ?? {}).sort()).toEqual([
+      "agent",
       "answer",
       "answeredAt",
       "askedAt",
+      "context",
       "id",
       "question",
       "suggestedAnswers",

@@ -22,3 +22,10 @@ export function ago(iso: string, now = Date.now()) {
   const days = Math.floor(hours / 24);
   return days === 1 ? "hier" : `il y a ${days} j`;
 }
+
+/** The local time of day, as the Journal writes it: « 9:02 ». */
+export const clock = (at: string) =>
+  new Date(at).toLocaleTimeString("fr-FR", {
+    hour: "numeric",
+    minute: "2-digit",
+  });

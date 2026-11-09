@@ -47,7 +47,13 @@ export async function startRun(
   readGitHub: ReadGitHub,
   entry: Entry,
   found: Found,
-  args: { branch: string; model: string; comment?: string; launch_id?: number },
+  args: {
+    branch: string;
+    model: string;
+    comment?: string;
+    launch_id?: number;
+    steps?: string[];
+  },
 ) {
   let runId = 0;
   try {
@@ -67,6 +73,7 @@ export async function startRun(
             status: "running",
             modelActual: args.model,
             comment: args.comment,
+            plannedSteps: args.steps,
           })
           .returning({ id: runs.id })
           .catch((error) => {
@@ -513,6 +520,8 @@ export function runRoutes(
           question: questions.question,
           suggestedAnswers: questions.suggestedAnswers,
           answer: questions.answer,
+          context: questions.context,
+          agent: questions.agent,
           askedAt: questions.askedAt,
           answeredAt: questions.answeredAt,
         })
@@ -534,6 +543,17 @@ export function runRoutes(
           evidence: mine ? k.evidence : null,
         };
       });
+      // The plan after the last occurrence of the agent of the last reported step (decision 069 B).
+      const plan = run.plannedSteps ?? [];
+      const last = steps.at(-1)?.agent;
+      const upcomingSteps =
+        run.status !== "running"
+          ? []
+          : last === undefined
+            ? plan
+            : plan.includes(last)
+              ? plan.slice(plan.lastIndexOf(last) + 1)
+              : [];
       return c.json({
         run: {
           id: run.id,
@@ -551,6 +571,7 @@ export function runRoutes(
         costUsd: launch && launch.costUsd > 0 ? launch.costUsd : null,
         stopReason: stop?.detail?.reason === "budget" ? "budget" : null,
         steps,
+        upcomingSteps,
         questions: asked,
         criteria,
         verdict:

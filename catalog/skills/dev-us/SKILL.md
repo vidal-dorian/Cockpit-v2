@@ -26,7 +26,7 @@ If a check fails, stop and say why. Change nothing.
 
 ## Start the run
 
-Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why. If the user gave an extra prompt after the options, pass it to `start_run` as `comment`. With `--launch <id>`, pass the value as it is to `start_run` in `launch_id`.
+Once the branch is ready, call `mcp__cockpit__start_run` with the `story_id`, the branch name and the model of this session. Keep its `run_id`: the user follows the run live in Cockpit. If it is refused, stop and say why. If the user gave an extra prompt after the options, pass it to `start_run` as `comment`. With `--launch <id>`, pass the value as it is to `start_run` in `launch_id`. Pass the `steps` too: the agents you will run (see Develop), in order, once each (a loop is not unrolled), so that the user sees the steps to come. Read the team before you start the run for that.
 
 From now on, whenever you stop before the pull request is linked with `link_pull_request` (a refused tool, a step that fails for good, a test you must not change), first call `mcp__cockpit__finish_run` with `outcome` `failed` and the reason in the `summary`: otherwise the story stays "in progress" and cannot be started again.
 
@@ -61,11 +61,13 @@ When `get_user_story` gives `kind` `takeover`, the story is an existing app bein
 - A rule whose test fails on the code as it is stays out of the PR: do not commit that test, so the CI does not stay red for nothing. The test-writer gives you its name and what it gives instead of calling `report_criterion`: you report the criterion as `failed` in the Finish step. The tests that pass go into the PR all the same. When every rule fails there is nothing to commit: open no PR, report every criterion `failed`, and finish the run `failed` with that reason.
 - **reviewer** checks that each test states its rule and that the PR does not change the app code. Its blocking findings go back to the **test-writer**, never to a developer, until the verdict is **ready**. A change to the configuration of the tests or to a manifest is not blocking: it names it in its summary, for the human.
 
+For a freeze run the `steps` are the two freeze steps, `test-writer` then `reviewer`.
+
 Before each step call `mcp__cockpit__report_step` with the `run_id`, the `agent` and the event `started`; after it, with the event `finished`, its `status` (`succeeded` or `failed`) and a short `summary`. A step you redo (the review loop) is reported `started` again.
 
 When `report_step` or `get_answer` answers `stop_requested: true`, the user asked to stop: call `mcp__cockpit__finish_run` with `outcome` `failed` and the `summary` « Arrêt demandé par l'utilisateur » (the user reads it in Cockpit), then stop, pushing nothing more.
 
-When a choice belongs to the user (a name, a trade-off, a scope you cannot settle from the story and the notes), never guess: call `mcp__cockpit__ask_user` with the `run_id` and the question, plus at most two `suggested_answers` when the choices are obvious. It answers at once. Keep working on what does not depend on the answer, then call `mcp__cockpit__get_answer` with the `question_id` after 30 seconds, after 1 minute, after 2 minutes, then every 5 minutes (each call is journaled: never poll faster). Resume with the answer as soon as `answered` is true.
+When a choice belongs to the user (a name, a trade-off, a scope you cannot settle from the story and the notes), never guess: call `mcp__cockpit__ask_user` with the `run_id`, the question, a `context` (1 to 1,000 characters: what is done so far and what the answer decides, which the user reads as « why Claude asks »), plus at most two `suggested_answers` when the choices are obvious. It answers at once. Keep working on what does not depend on the answer, then call `mcp__cockpit__get_answer` with the `question_id` after 30 seconds, after 1 minute, after 2 minutes, then every 5 minutes (each call is journaled: never poll faster). Resume with the answer as soon as `answered` is true.
 
 Give each agent the story, its criteria and the notes. Commit as you go, in small commits that follow the conventions of the repository.
 

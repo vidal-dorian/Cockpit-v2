@@ -21,7 +21,7 @@ import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 // Choices the decision leaves open, fixed here:
 // - the section is titled « Kanban » (a heading), above the heading « Tickets »;
 // - a column is a <section> whose heading reads « <Nom> (<compte>) »; its cards are <li> of a <ul>/<ol>;
-// - a card is one link (the whole <li> content) to /us/:id; the « à réécrire » mark is text inside that link;
+// - a card is one link (the whole <li> content) to /projets/:id?us=<id> (decision 069 G); the « à réécrire » mark is text inside that link;
 // - the query of the board is ["stories", <project id as a string>], like ["tickets", <project id>]; the decisions of
 //   StoryDecisions.tsx invalidate it. Test 5 only observes the effect (see below), not the key.
 
@@ -144,13 +144,13 @@ describe("criterion 3: grouping", () => {
 });
 
 describe("criterion 4: the cards", () => {
-  it("given a story, when the page loads, then its card shows the je veux and the ticket title and the whole card is a link to /us/:id", async () => {
+  it("given a story, when the page loads, then its card shows the je veux and the ticket title and the whole card is a link to ?us=<id>", async () => {
     stubTicketApi(tickets, onBoard);
 
     renderAt("/projets/5");
 
     const link = await screen.findByRole("link", { name: /vouloir-alpha/ });
-    expect(link.getAttribute("href")).toBe("/us/21");
+    expect(link.getAttribute("href")).toBe("/projets/5?us=21");
     expect(link.textContent).toContain("Idée A");
     const card = cardOf("vouloir-alpha");
     // Nothing of the card sits outside the link.
@@ -166,7 +166,7 @@ describe("criterion 4: the cards", () => {
       screen
         .getByRole("link", { name: /vouloir-charlie/ })
         .getAttribute("href"),
-    ).toBe("/us/23");
+    ).toBe("/projets/5?us=23");
   });
 
   it("given a board with cards, when the page loads, then the Kanban section holds no button", async () => {
@@ -217,6 +217,8 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
   const decide = async (act: () => Promise<void> | void, done: string) => {
     renderWithClient();
     fireEvent.click(await screen.findByRole("link", { name: /vouloir-alpha/ }));
+    // The card opens in the panel; the story page is one link away (decision 069 G).
+    fireEvent.click(await screen.findByRole("link", { name: "Ouvrir l'US" }));
     await screen.findByRole("button", { name: "Valider" });
     await act();
     // The story page shows the new status once the decision went through.

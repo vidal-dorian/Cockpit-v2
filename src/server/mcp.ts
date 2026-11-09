@@ -827,7 +827,7 @@ const tools = {
   ),
 
   start_run: tool(
-    "Start a development run on a ready or in_review user story, once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session and optionally a comment. Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is neither ready nor in_review, already has an active run, has another branch recorded, or the project is archived.",
+    "Start a development run on a ready or in_review user story, once its branch is prepared. Use it at the start of /dev-us, before the first step. The story becomes in_progress and keeps the branch; only one run can be active per story. Send the git branch name, the model of this session, optionally a comment and the steps (the team's agents in order, which Cockpit shows as upcoming). Answers the run_id (needed by report_step and finish_run) and the story with its criteria. Refused when the story is neither ready nor in_review, already has an active run, has another branch recorded, or the project is archived.",
     z.object({
       story_id: id.describe(
         "Id of a ready or in_review story, from get_user_story",
@@ -850,6 +850,14 @@ const tools = {
       launch_id: id
         .optional()
         .describe("The launch_id of get_launch, when /dev-us got --launch"),
+      steps: z
+        .array(z.string().max(255).regex(AGENT_NAME))
+        .min(1)
+        .max(20)
+        .optional()
+        .describe(
+          "The agents of the team the run will follow, in order, once each (a loop is not unrolled; a freeze run gives its two freeze steps)",
+        ),
     }),
     async (call, args) => {
       const found = await memberStory(call.db, call.userId, args.story_id);
@@ -974,10 +982,17 @@ const tools = {
   ),
 
   ask_user: tool(
-    "Ask the user a question when a choice belongs to them: never guess it. Send the run_id, the question (1 to 2,000 characters) and, only when one or two answers are obvious, suggested_answers (at most 2, 1 to 200 characters each). Answers the question_id at once, without waiting: keep working on what does not depend on the answer, then read it with get_answer. Refused when a question of the run is still waiting, the run is finished or the project is archived.",
+    "Ask the user a question when a choice belongs to them: never guess it. Send the run_id, the question (1 to 2,000 characters), a context (1 to 1,000 characters: what is done and what the answer decides, which Cockpit shows as why you ask) and, only when one or two answers are obvious, suggested_answers (at most 2, 1 to 200 characters each). Answers the question_id at once, without waiting: keep working on what does not depend on the answer, then read it with get_answer. Refused when a question of the run is still waiting, the run is finished or the project is archived.",
     z.object({
       run_id: id.describe("The run_id of start_run"),
       question: z.string().min(1).max(2_000).refine(noNul),
+      context: z
+        .string()
+        .min(1)
+        .max(1_000)
+        .refine(noNul)
+        .optional()
+        .describe("What is done and what the answer decides"),
       suggested_answers: z
         .array(z.string().min(1).max(200).refine(noNul))
         .max(2)

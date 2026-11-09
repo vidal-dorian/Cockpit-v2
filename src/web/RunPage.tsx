@@ -18,6 +18,7 @@ import {
   sectionLabel,
 } from "./ui.ts";
 import { useChanges } from "./useChanges.ts";
+import { clock, elapsed } from "./when.ts";
 
 /** The run with its steps, story and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
 export async function fetchRun(id: string) {
@@ -47,23 +48,38 @@ const MARKS = {
   none: { glyph: "·", style: "border-border-strong text-dim" },
 };
 
-function Mark({ kind }: { kind: keyof typeof MARKS }) {
+function Mark({ kind, rank }: { kind: keyof typeof MARKS; rank?: number }) {
   const { glyph, style } = MARKS[kind];
   return (
     <span
       aria-hidden="true"
       className={`grid size-7 flex-none place-items-center rounded-lg border text-[13px] ${style}`}
     >
-      {glyph}
+      {rank ?? glyph}
     </span>
   );
 }
 
-function Steps({ steps, waiting }: { steps: Run["steps"]; waiting: boolean }) {
+/** The steps reported, then those to come and the PR row (decision 069 C); a finished run has only the first. */
+function Steps({
+  steps,
+  askedAt = null,
+  upcoming = [],
+  pr,
+}: {
+  steps: Run["steps"];
+  /** When the pending question was asked: the open step waits for the answer since then. */
+  askedAt?: string | null;
+  upcoming?: string[];
+  pr?: Run["story"];
+}) {
+  const grey = "text-dim";
+  // A relaunched story keeps its PR number while in progress: only in_review means the PR is open for this run.
+  const opened = pr?.status === "in_review" && pr.prNumber !== null;
   return (
     <ol className={listCard}>
       {steps.map((step) => {
-        const asking = waiting && step.status === "running";
+        const asking = askedAt !== null && step.status === "running";
         return (
           <li
             key={step.id}
@@ -85,7 +101,7 @@ function Steps({ steps, waiting }: { steps: Run["steps"]; waiting: boolean }) {
                 <span className="font-semibold">{step.agent}</span>{" "}
                 <span className="text-[13px] text-muted-foreground">
                   {asking
-                    ? "attend ta réponse"
+                    ? `attend ta réponse depuis ${elapsed(askedAt)}`
                     : (RUN_STATUSES[step.status] ?? step.status)}
                   {duration(step.startedAt, step.finishedAt) &&
                     ` · ${duration(step.startedAt, step.finishedAt)}`}
@@ -97,9 +113,42 @@ function Steps({ steps, waiting }: { steps: Run["steps"]; waiting: boolean }) {
                 </p>
               )}
             </div>
+            <time
+              dateTime={step.startedAt}
+              className="ml-auto text-[13px] text-muted-foreground"
+            >
+              {clock(step.startedAt)}
+            </time>
           </li>
         );
       })}
+      {upcoming.map((agent, i) => (
+        <li
+          // biome-ignore lint/suspicious/noArrayIndexKey: a plan may name an agent twice
+          key={i}
+          className={`flex min-h-[50px] items-center gap-3 px-4 py-2.5 ${grey}`}
+        >
+          <Mark kind="none" rank={steps.length + i + 1} />
+          <span className="font-semibold">{agent}</span>
+          <span className="text-[13px]">à venir</span>
+        </li>
+      ))}
+      {pr && (
+        <li
+          className={`flex min-h-[50px] items-center gap-3 px-4 py-2.5 ${opened ? "" : grey}`}
+        >
+          <Mark
+            kind={opened ? "done" : "none"}
+            rank={opened ? undefined : steps.length + upcoming.length + 1}
+          />
+          <span className="font-semibold">PR</span>
+          <span className="text-[13px]">
+            {opened
+              ? `PR #${pr.prNumber} ouverte`
+              : "Claude pousse la branche et ouvre la PR"}
+          </span>
+        </li>
+      )}
     </ol>
   );
 }
@@ -169,8 +218,10 @@ export function RunPage() {
   useChanges(`run:${id}`);
   const found = result.data && result.data !== "not_found" && result.data;
   const running = found && found.run.status === "running";
-  const waiting =
-    running && (found.questions ?? []).some((q) => q.answer === null);
+  const asked = running
+    ? (found.questions ?? []).find((q) => q.answer === null)
+    : undefined;
+  const waiting = Boolean(asked);
 
   return (
     <main>
@@ -279,6 +330,7 @@ export function RunPage() {
                     </>
                   )}
                   {` · ${repoName(found.project.name)}`}
+                  {running && ` · ${elapsed(found.run.startedAt)}`}
                 </p>
                 <p>
                   {found.costUsd == null
@@ -312,7 +364,12 @@ export function RunPage() {
                     </span>
                   </h2>
                   <div className="mt-2">
-                    <Steps steps={found.steps} waiting={Boolean(waiting)} />
+                    <Steps
+                      steps={found.steps}
+                      askedAt={asked?.askedAt ?? null}
+                      upcoming={found.upcomingSteps}
+                      pr={found.story}
+                    />
                   </div>
                 </section>
               )}
@@ -333,7 +390,7 @@ export function RunPage() {
                     Journal détaillé
                   </summary>
                   <div className="mt-2">
-                    <Steps steps={found.steps} waiting={false} />
+                    <Steps steps={found.steps} />
                   </div>
                 </details>
               )}
