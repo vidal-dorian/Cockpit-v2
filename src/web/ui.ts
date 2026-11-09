@@ -50,7 +50,7 @@ export const alertBox =
   "rounded-[14px] bg-destructive-soft p-4 text-destructive";
 
 /** A text field or a select. */
-export const field = `mt-1 block min-h-11 w-full rounded-[10px] border border-border-strong bg-sunken px-3 py-1.5 text-base md:min-h-[34px] md:text-[13.5px] ${focusRing}`;
+export const field = `mt-1 block min-h-11 w-full rounded-[10px] border border-border-strong bg-sunken px-3 py-1.5 text-base md:min-h-[34px] md:text-[13.5px] md:leading-[inherit] ${focusRing}`;
 
 const badgeBase =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-[9px] py-0.5 text-xs font-semibold";
