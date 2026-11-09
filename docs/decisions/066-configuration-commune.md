@@ -1,6 +1,6 @@
 # 066 — La configuration commune à tous les projets
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.3)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.3 A à C)
 - **Dépend de** : [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [065 — La configuration du repo](065-configuration-du-repo.md) (l'éditeur de skill), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
@@ -24,6 +24,16 @@ Le brief (§6.9) veut des agents et des skills définis une fois et disponibles 
 | F | Installer dans un projet | Sur la page, la liste des projets non archivés de l'utilisateur, chacun **« installé »** ou non, avec **« Installer »** ou **« Retirer »**, et en tête « installé dans N projets sur M ». `GET /api/plugins/projects` lit le `.claude/settings.json` de chaque projet. Installer pose `extraKnownMarketplaces["cockpit-<login>"] = { "source": { "source": "github", "repo": "<owner/name>" } }` et `enabledPlugins["commun@cockpit-<login>"] = true` ; retirer enlève ces deux entrées (et une clé devenue vide). **Les autres clés ne changent pas.** Le texte écrit est `JSON.stringify(objet, null, 2)` suivi d'un saut de ligne ; un projet sans fichier le reçoit. Un « installé » est un `enabledPlugins["commun@cockpit-<login>"] === true` |
 | G | Le diff de `settings.json` | Une seule fonction pure, dans `src/server/`, calcule le texte écrit à partir du texte lu ; la page l'importe pour montrer le diff avant « Faire le commit », le serveur la rejoue : `POST /api/projects/:id/plugins/apply` avec `{ install, before }` recalcule `after` depuis `before` et écrit seulement si le fichier n'a pas changé sur GitHub (026). Un `settings.json` qui n'est pas un objet JSON : 409 `invalid_settings` (« modifie-le sur GitHub »). Repo de plugins non relié : 409 `no_plugin_repo`. Message : `feat: install the shared plugin (Cockpit)` ou `remove`, historique `install_shared_plugin` / `remove_shared_plugin` |
 | H | Ce que S39 montre et qui n'est pas construit | Les skills du catalogue (`/dev-us`, `/write-us`) dans le repo de plugins : ils restent copiés dans chaque repo et tenus par la mise à jour du catalogue (049). « utilisé par 3 équipes » : retiré |
+
+## Ce que le code a précisé (tranche 12.3)
+
+- **Le calcul de G** est `pluginSettings` (`src/server/plugin-settings.ts`), que la page importe : les clés déjà là gardent leur ordre, les nouvelles sont ajoutées à la fin. `POST /api/projects/:id/plugins/apply` ne reçoit que `{ install, before }`.
+- **Aucun commit à vide** : installer un `settings.json` qui serait écrit tel quel, ou retirer là où le plugin n'est pas installé, est un 400.
+- **Un refus du lien est journalisé** (010 C) : `repo_unreachable` à `link_plugin_repo` ; un échec GitHub l'est aussi, en 502.
+- **`GET /api/plugins/projects`** rend `{ projects: [{ id, fullName, installed, settings }] }`, `settings` étant le texte lu (`null` sans fichier). Un projet que l'installation de l'App n'atteint plus est rendu non installé, sans appel à GitHub (limite connue : « Installer » y échouera à l'écriture).
+- **Les écritures** passent par `writeChanges`, tiré de `saveFile` : il écrit dans n'importe quel repo de l'installation de l'utilisateur, pas seulement dans un projet. `POST /api/plugins/apply` répond 409 `no_plugin_repo` sans repo relié, et `repo_unreachable` sans installation.
+- **Un repo sans aucun commit** : 409 `empty_repo`, à la lecture comme à l'écriture.
+- **« Délier »** est proposé sur tout 409 de la lecture, pas seulement `repo_unreachable`.
 
 ## Limites connues
 

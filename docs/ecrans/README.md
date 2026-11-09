@@ -89,7 +89,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S38](S38_NouvelleEquipe.png) | Nouvelle équipe en canevas plein écran : une boucle sélectionnée | E6 | 042 (modifiée par 045) | tranché ([064](../decisions/064-tranches-restantes.md) E6) : parallèle complet, un worktree par branche ; pas d'agent `analyst` |
 | [S38b](S38b_Equipe_Intercaler.png) | Intercaler un agent oublié sur un lien | E6 | 045 | |
 | [S38c](S38c_Equipe_TracerLien.png) | Tracer un lien, mettre deux agents en parallèle | E6 | 045 | tranché ([064](../decisions/064-tranches-restantes.md) E6) : parallèle, condition écrite en une phrase |
-| [S39](S39_ConfigGlobale.png) | Agents et skills communs à tous les projets | 12.3 | | |
+| [S39](S39_ConfigGlobale.png) | Agents et skills communs à tous les projets | 12.3 (existe) | 066 | |
 | [S40](S40_Journal.png) | Le journal filtrable, une entrée ouverte | 1.4, 11.1 (existent) | 010, 028 F, 053 | |
 
 ## 7 · Reprendre une app existante
