@@ -162,7 +162,11 @@ export function attachmentRoutes(db: Db) {
             .values({
               ticketId: ticket.id,
               // The name is cut after the type is known: the extension may be what is cut off.
-              name: name.slice(0, 200),
+              // Never ends on half an emoji, which would be stored as U+FFFD.
+              name: name.slice(
+                0,
+                /[\uD800-\uDBFF]/.test(name.charAt(199)) ? 199 : 200,
+              ),
               mediaType: detectType(bytes, name) ?? "",
               size: bytes.length,
               content: bytes,
