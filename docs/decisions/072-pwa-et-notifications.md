@@ -1,6 +1,6 @@
 # 072 — PWA et notifications
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 15.2)
+- **Statut** : validée ; le code est construit (tranche 15.2)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.2 A, B et C)
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md) (les secrets chiffrés), [036 — Questions de Claude](036-questions-de-claude.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md) (M', le récap), [059 — Relance automatique](059-relance-automatique.md), [060 — Coût et budget](060-cout-et-budget.md), [071 — Les trois gestes au téléphone](071-trois-gestes-au-telephone.md)

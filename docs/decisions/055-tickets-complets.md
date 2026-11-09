@@ -1,6 +1,6 @@
 # 055 — Les tickets complets
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 11.2)
+- **Statut** : validée ; le code est construit (tranche 11.2)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [014 — Les tickets](014-tickets.md), [017 — Les user stories](017-user-stories.md), [010 — Historique](010-historique.md) (D), [022 — La routine d'écriture des US](022-routine-ecriture-us.md), [045 — Quatre temps](045-interface-quatre-temps.md) (F : la barre « Noter une idée »)

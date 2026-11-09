@@ -1,6 +1,6 @@
 # 043 — La carte du code
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R1)
+- **Statut** : validée ; le code est construit (tranche R1)
 - **Date** : 2026-11-06
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (la carte, la vérification des citations, l'écran « Conception »), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [031 — L'équipe en graphe](031-equipe-en-graphe.md) (React Flow), [034 — Développer avec Claude](034-developper-avec-claude.md) (le lancement)

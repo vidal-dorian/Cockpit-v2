@@ -1,6 +1,6 @@
 # 052 — Les constats de GitHub et les versions
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R6)
+- **Statut** : validée ; le code est construit (tranche R6)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (« Ce qui vient de GitHub », `findings`, `github_alert_number`, `upgrade-advisor`), [012 — Configuration automatique](012-configuration-automatique.md) (le point ouvert des permissions ajoutées après le MVP), [013 — Le bilan de santé](013-bilan-de-sante.md), [024](024-webhooks.md) et [025](025-issue-modifiee-sur-github.md) (les webhooks et leur traitement), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [043 — La carte du code](043-carte-du-code.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md), [051 — Les constats de Claude](051-constats-de-claude.md)

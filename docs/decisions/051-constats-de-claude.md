@@ -1,6 +1,6 @@
 # 051 — Les constats de Claude
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R5)
+- **Statut** : validée ; le code est construit (tranche R5)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (« Les constats », « Trier les constats », `findings`, `code_sources`, `submit_findings`, `list_findings`, le choix L), [043](043-carte-du-code.md) (`verifyCitations`, la route du code), [047](047-ecran-de-reprise.md) (« C'est un bug », `CodeView`, la fenêtre d'analyse), [050](050-figer-l-existant.md) (les règles figées), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)

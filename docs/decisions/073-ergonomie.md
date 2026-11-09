@@ -1,6 +1,6 @@
 # 073 — L'ergonomie : recherche, raccourcis, thème clair, favoris
 
-- **Statut** : proposée (à valider à la relecture de la PR ; la palette claire attend l'accord de Dorian) ; le code est construit (tranche 15.3)
+- **Statut** : validée (la palette claire acceptée par Dorian le 2026-11-09) ; le code est construit (tranche 15.3)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.3 A, B et C)
 - **Dépend de** : [003 — Interface](003-interface.md), [045 — L'interface « Quatre temps » et les écrans de référence](045-interface-quatre-temps.md) (C, les jetons et le budget de couleur), [016 — Serveur MCP](016-serveur-mcp.md) (l'outil MCP `search`), [072 — PWA et notifications](072-pwa-et-notifications.md) (l'onglet Préférences)
@@ -44,7 +44,7 @@ La 064 a tranché le contenu de la 15.3 : un thème clair proposé par Claude et
 
 - **La recherche est un `ILIKE` par mot** (comme l'outil MCP) : pas de fautes de frappe, pas de synonymes, pas de classement par pertinence : rien d'indexé, elle ralentira sur de gros volumes.
 - **`J` / `K` et `V` n'agissent que là où la page a déjà le geste** (un compteur, un bouton « Valider ») ; ailleurs, rien.
-- **La palette claire n'est validée qu'à la relecture** : si Dorian la refuse, le choix Clair reste construit et seules les valeurs changent.
+- **La palette claire a été acceptée par Dorian le 2026-11-09**, sur les captures de `docs/ecrans/captures/073-clair-*.png`.
 - **Pas construits** : le tri de Tous les projets et ses autres filtres (retirés, 069 I) ; « Ouvrir à droite » (D).
 - **Deux `Panel` avec un compteur** montrés ensemble répondraient tous deux à `J` / `K` (`shortcut:` de `Shell.tsx`).
 - **« Comme le système » laisse `theme-color` en retard** si le système change de thème pendant que la page est ouverte : la couleur n'est relue qu'à `applyTheme` (le reste de la page suit tout de suite, par la requête CSS).

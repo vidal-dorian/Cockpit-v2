@@ -1,6 +1,6 @@
 # 056 — Les routines
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur, `get_launch`, `instructions`), [022 — Programmer l'écriture des US](022-routine-ecriture-us.md) (le planning tenu par Cockpit, `nextOccurrence`, la passe de chaque minute), [010 — Historique](010-historique.md)

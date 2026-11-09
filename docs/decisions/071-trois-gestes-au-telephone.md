@@ -1,6 +1,6 @@
 # 071 — Les trois gestes au téléphone
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 15.1)
+- **Statut** : validée ; le code est construit (tranche 15.1)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.1)
 - **Dépend de** : [003 — Interface](003-interface.md) (point ouvert 4), [018 — Décisions humaines](018-decisions-humaines.md), [036 — Questions de Claude](036-questions-de-claude.md), [045 — L'interface « Quatre temps » et les écrans de référence](045-interface-quatre-temps.md) (F, J), [055 — Les tickets complets](055-tickets-complets.md) (D, le panneau « Noter une idée »), [061 — Les pièces jointes](061-pieces-jointes.md) (F)

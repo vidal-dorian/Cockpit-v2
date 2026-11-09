@@ -1,6 +1,6 @@
 # 057 — Importer les issues GitHub
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 11.3)
+- **Statut** : validée ; le code est construit (tranche 11.3)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [014 — Les tickets](014-tickets.md), [017 — Les user stories](017-user-stories.md), [020 — La publication d'une US en issue GitHub](020-issues-github.md), [025 — Une issue modifiée sur GitHub](025-issue-modifiee-sur-github.md), [055 — Les tickets complets](055-tickets-complets.md), [010 — Historique](010-historique.md) (D)

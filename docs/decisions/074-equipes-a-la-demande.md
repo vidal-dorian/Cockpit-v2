@@ -1,6 +1,6 @@
 # 074 — Les équipes à la demande
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit
+- **Statut** : validée ; le code est construit
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [029 — L'équipe d'agents](029-equipe-d-agents.md) (B, le format de `team.md`), [032 — Plusieurs équipes](032-plusieurs-equipes.md) (A, les équipes nommées et `--team`), [042 — « Nouvelle équipe » dans une fenêtre](042-nouvelle-equipe-fenetre.md), [063 — Les équipes de départ](063-equipes-de-depart.md), [066 — La configuration commune](066-configuration-commune.md), [010 — L'historique](010-historique.md) (D)

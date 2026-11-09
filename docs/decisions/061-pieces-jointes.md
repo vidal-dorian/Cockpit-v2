@@ -1,6 +1,6 @@
 # 061 — Les pièces jointes
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 11.4)
+- **Statut** : validée ; le code est construit (tranche 11.4)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [014 — Les tickets](014-tickets.md) (C : limites, D : projet archivé, H : rendu sûr), [016 — Le serveur MCP](016-serveur-mcp.md), [022 — La routine d'écriture des US](022-routine-ecriture-us.md), [027 — Préparer pour Claude](027-preparer-pour-claude.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md), [055 — Les tickets complets](055-tickets-complets.md), [010 — Historique](010-historique.md) (D)

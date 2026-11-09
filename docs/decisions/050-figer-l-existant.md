@@ -1,6 +1,6 @@
 # 050 — Figer l'existant
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R4)
+- **Statut** : validée ; le code est construit (tranche R4)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (choix E, point ouvert 2), [047 — Les règles et l'écran de reprise](047-ecran-de-reprise.md), [048 — Le graphe par fonctionnalité](048-graphe-par-fonctionnalite.md), [035 — Critères et PR](035-criteres-et-pr.md), [038 — Le suivi de la PR](038-suivi-de-la-pr.md), [039 — L'aide à la décision](039-aide-a-la-decision.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)

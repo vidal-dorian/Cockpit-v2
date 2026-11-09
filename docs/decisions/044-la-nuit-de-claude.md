@@ -1,6 +1,6 @@
 # 044 — La nuit de Claude
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; construite en tranche 14.6, avec les amendements du 2026-11-08 en fin de décision
+- **Statut** : validée ; construite en tranche 14.6, avec les amendements du 2026-11-08 en fin de décision
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [022 — Programmer l'écriture des US](022-routine-ecriture-us.md) (une tâche cloud lancée par `/fire`), [033 — Le run minimal](033-run-minimal.md), [036 — Les questions de Claude](036-questions-de-claude.md), [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md), [038 — Le suivi de la PR](038-suivi-de-la-pr.md), [040 — L'accueil](040-accueil.md)

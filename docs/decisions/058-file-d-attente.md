@@ -1,6 +1,6 @@
 # 058 — La file d'attente
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur, `launchCloud`), [056 — Les routines](056-routines.md) (la passe de chaque minute), [033](033-run-minimal.md) et [037](037-arreter-relancer-fermer.md) (fin et fermeture d'un run), [040 — L'accueil](040-accueil.md)

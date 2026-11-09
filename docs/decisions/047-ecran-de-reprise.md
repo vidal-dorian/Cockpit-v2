@@ -1,6 +1,6 @@
 # 047 — Les règles et l'écran de reprise
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R2)
+- **Statut** : validée ; le code est construit (tranche R2)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (les règles, `create_takeover_stories`, `code_sources`, l'écran de reprise), [043 — La carte du code](043-carte-du-code.md) (`verifyCitations`, la route du code, la fenêtre d'analyse), [018 — Décisions humaines](018-decisions-humaines.md) (la validation d'une US), [045 — L'interface « Quatre temps »](045-interface-quatre-temps.md) (S42)

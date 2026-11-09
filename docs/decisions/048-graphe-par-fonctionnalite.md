@@ -1,6 +1,6 @@
 # 048 — Le graphe par fonctionnalité
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche R3)
+- **Statut** : validée ; le code est construit (tranche R3)
 - **Date** : 2026-11-07
 - **Décidé par** : Claude, pour Dorian (« lance la prochaine étape s'il ne manque aucune information ») ; à valider à la relecture
 - **Dépend de** : [007 — Reprendre une app existante](007-reprise-app-existante.md) (l'écran « Conception », la vue « Par fonctionnalité », l'export Markdown), [043 — La carte du code](043-carte-du-code.md), [047 — Les règles et l'écran de reprise](047-ecran-de-reprise.md)

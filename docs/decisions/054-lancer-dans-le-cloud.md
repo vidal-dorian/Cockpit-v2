@@ -1,6 +1,6 @@
 # 054 — Lancer dans le cloud
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [022 — Programmer l'écriture des US](022-routine-ecriture-us.md) (la tâche lancée par `/fire`, le jeton chiffré, « à reconnecter »), [033 — Le run minimal](033-run-minimal.md), [034 — Développer avec Claude](034-developper-avec-claude.md), [010 — Historique](010-historique.md)

@@ -1,6 +1,6 @@
 # 062 — Après le merge : le changelog et les branches à nettoyer
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 11.5)
+- **Statut** : validée ; le code est construit (tranche 11.5)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [033 — Le run minimal](033-run-minimal.md) (la branche d'une US), [035 — Critères et PR](035-criteres-et-pr.md) (la PR d'une US), [038 — Le suivi de la PR](038-suivi-de-la-pr.md), [053 — Le journal filtrable et l'historique d'un projet](053-journal-filtrable.md) (l'onglet Historique), [010 — Historique](010-historique.md) (D)

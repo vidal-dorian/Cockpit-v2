@@ -1,6 +1,6 @@
 # 060 — Le coût et le budget
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur, la session rendue par `/fire`), [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md) (la demande d'arrêt), [058 — La file d'attente](058-file-d-attente.md)

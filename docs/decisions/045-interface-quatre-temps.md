@@ -1,6 +1,6 @@
 # 045 — L'interface « Quatre temps » et les écrans de référence
 
-- **Statut** : proposée (les écrans sont validés ; la coque et les écrans existants sont construits, tranche 9.3 ; à valider à la relecture de la PR ; le reste suit avec la tranche de chaque écran)
+- **Statut** : validée (les écrans aussi ; la coque et les écrans existants sont construits, tranche 9.3 ; le reste suit avec la tranche de chaque écran)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [003 — Interface](003-interface.md), [028 — Style Crème sombre, onglets…](028-creme-sombre-onglets-journal.md), [040 — L'accueil](040-accueil.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md)

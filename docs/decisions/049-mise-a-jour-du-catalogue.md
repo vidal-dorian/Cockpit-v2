@@ -1,6 +1,6 @@
 # 049 — La mise à jour du catalogue
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche C1)
+- **Statut** : validée ; le code est construit (tranche C1)
 - **Date** : 2026-11-07
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [027 — Préparer pour Claude](027-preparer-pour-claude.md) (le catalogue), [013 — Le bilan de santé](013-bilan-de-sante.md), [030 — L'éditeur d'agent](030-editeur-d-agent.md) (l'écriture de plusieurs fichiers en un commit), [043](043-carte-du-code.md) M et [047](047-ecran-de-reprise.md) M (« Ajouter /analyser au repo »)

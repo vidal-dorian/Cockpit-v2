@@ -1,6 +1,6 @@
 # 068 — Un nouveau projet depuis un repo modèle
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.5)
+- **Statut** : validée ; le code est construit (tranche 12.5)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.5 A et B)
 - **Dépend de** : [009 — La connexion GitHub](009-connexion-github.md) (le flux OAuth), [011 — Importer un projet](011-import-projets.md), [012 — La configuration automatique](012-configuration-automatique.md) (D, le manifeste), [013 — Le bilan de santé](013-bilan-de-sante.md), [052 — Les constats de GitHub](052-constats-de-github-et-versions.md) (une permission ajoutée après coup)

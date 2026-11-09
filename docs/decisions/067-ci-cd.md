@@ -1,6 +1,6 @@
 # 067 — L'onglet CI / CD
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.4)
+- **Statut** : validée ; le code est construit (tranche 12.4)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.4 A à D)
 - **Dépend de** : [012 — La configuration automatique](012-configuration-automatique.md) (D, le manifeste), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [052 — Les constats de GitHub](052-constats-de-github-et-versions.md) (une permission ajoutée après coup), [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur), [016 — Le serveur MCP](016-serveur-mcp.md)

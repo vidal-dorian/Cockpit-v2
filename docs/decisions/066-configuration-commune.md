@@ -1,6 +1,6 @@
 # 066 — La configuration commune à tous les projets
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 12.3)
+- **Statut** : validée ; le code est construit (tranche 12.3)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 12.3 A à C)
 - **Dépend de** : [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md), [030 — L'éditeur d'agent](030-editeur-d-agent.md), [065 — La configuration du repo](065-configuration-du-repo.md) (l'éditeur de skill), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)

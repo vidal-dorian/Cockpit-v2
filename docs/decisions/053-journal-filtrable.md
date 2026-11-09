@@ -1,6 +1,6 @@
 # 053 — Le journal filtrable et l'historique d'un projet
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 11.1)
+- **Statut** : validée ; le code est construit (tranche 11.1)
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [010 — Historique](010-historique.md) (D : ce que gardent `args` et `detail` ; G : chacun ne voit que ses entrées ; H : la page Journal), [028 — Journal par pages](028-creme-sombre-onglets-journal.md) (F), [045 — Quatre temps](045-interface-quatre-temps.md)

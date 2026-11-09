@@ -1,6 +1,6 @@
 # 059 — La relance automatique
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : validée
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur, `launchCloud`), [038 — Le suivi de la PR](038-suivi-de-la-pr.md) (l'état de la CI tenu par les webhooks), [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md) (relancer sur la même branche), [040 — L'accueil](040-accueil.md)

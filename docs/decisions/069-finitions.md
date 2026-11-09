@@ -1,6 +1,6 @@
 # 069 — Les finitions : les étapes d'un run, « Pourquoi Claude demande », la carte du Kanban à droite
 
-- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche 9.5)
+- **Statut** : validée ; le code est construit (tranche 9.5)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 9.5 A et B)
 - **Dépend de** : [018 — Les décisions humaines](018-decisions-humaines.md) (le panneau d'une US), [019 — Le Kanban](019-kanban.md), [029 — L'équipe d'agents](029-equipe-d-agents.md) et [032 — Plusieurs équipes](032-plusieurs-equipes.md) (les étapes d'une équipe), [033 — Le run minimal](033-run-minimal.md), [036 — Les questions de Claude](036-questions-de-claude.md), [045 — L'interface « Quatre temps »](045-interface-quatre-temps.md), [049 — La mise à jour du catalogue](049-mise-a-jour-du-catalogue.md), [050 — Figer l'existant](050-figer-l-existant.md) (les deux étapes du gel), [055 — Les tickets complets](055-tickets-complets.md) (le panneau d'un ticket)
