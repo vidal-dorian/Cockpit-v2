@@ -275,16 +275,17 @@ export async function memberProject(db: Db, userId: number, projectId: number) {
 /** Every project the user belongs to, active ones first (same rule as `memberProject`). */
 export async function memberProjects(db: Db, userId: number) {
   const rows = await db
-    .select({ project: projects })
+    .select({ project: projects, favorite: projectMembers.favorite })
     .from(projectMembers)
     .innerJoin(projects, eq(projects.id, projectMembers.projectId))
     .where(eq(projectMembers.userId, userId))
     .orderBy(asc(sql`${projects.archivedAt} is not null`), asc(projects.id));
-  return rows.map((row) => row.project);
+  return rows.map((row) => ({ ...row.project, favorite: row.favorite }));
 }
 
-const present = (p: typeof projects.$inferSelect) => ({
+const present = (p: typeof projects.$inferSelect & { favorite?: boolean }) => ({
   id: p.id,
+  favorite: p.favorite ?? false,
   fullName: p.fullName,
   defaultBranch: p.defaultBranch,
   archived: p.archivedAt !== null,

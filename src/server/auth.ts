@@ -65,6 +65,7 @@ export async function currentUser(db: Db, c: Context) {
           pluginRepo: users.pluginRepo,
           name: users.name,
           avatarUrl: users.avatarUrl,
+          theme: users.theme,
         })
         .from(sessions)
         .innerJoin(users, eq(users.id, sessions.userId))
@@ -355,7 +356,7 @@ export function authRoutes(
     .get("/api/me", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
-      const { login, name, avatarUrl, isAdmin } = user;
-      return c.json({ login, name, avatarUrl, isAdmin });
+      const { login, name, avatarUrl, isAdmin, theme } = user;
+      return c.json({ login, name, avatarUrl, isAdmin, theme });
     });
 }

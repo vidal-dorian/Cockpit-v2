@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { fetchMe } from "./Shell.tsx";
+import { ShortcutList } from "./Shortcuts.tsx";
+import { applyTheme } from "./theme.ts";
 import {
   alertBox,
   button,
   card,
+  chipLink,
   field,
   focusRing,
   sectionLabel,
@@ -117,8 +121,56 @@ function Device() {
   );
 }
 
+const THEMES = [
+  ["dark", "Sombre"],
+  ["light", "Clair"],
+  ["system", "Comme le système"],
+] as const;
+
+/** The card « Thème » of S47 (decision 073 F, I): the choice is kept on the server and applied at once. */
+function Theme() {
+  const queryClient = useQueryClient();
+  const current = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data?.theme;
+  const change = useMutation({
+    mutationFn: async (theme: (typeof THEMES)[number][0]) => {
+      const res = await client.api.me.theme.$put({ json: { theme } });
+      if (!res.ok) throw new Error("Le thème n'a pas pu être enregistré.");
+      return (await res.json()).theme;
+    },
+    onSuccess: (theme) => {
+      applyTheme(theme);
+      return queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+  return (
+    <section aria-labelledby="theme" className={`${card} px-5 py-[18px]`}>
+      <h2 id="theme" className={sectionLabel}>
+        Thème
+      </h2>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {THEMES.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={current === value}
+            onClick={() => change.mutate(value)}
+            className={chipLink({ isActive: current === value })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {change.isError && (
+        <p role="alert" className={`mt-3 ${alertBox}`}>
+          {change.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /** The card « Notifications sur le téléphone » of S47 (decision 072 D): four switches, the quiet hours and the device. */
-export function Preferences() {
+function Notifications() {
   const queryClient = useQueryClient();
   const prefs = useQuery({
     queryKey: ["notifications"],
@@ -212,5 +264,28 @@ export function Preferences() {
         </div>
       )}
     </section>
+  );
+}
+
+/** The cards of S47: notifications, « Thème » and « Raccourcis clavier » (decision 073 I). */
+export function Preferences() {
+  return (
+    <div className="grid gap-4">
+      <Notifications />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Theme />
+        <section
+          aria-labelledby="raccourcis"
+          className={`${card} px-5 py-[18px]`}
+        >
+          <h2 id="raccourcis" className={sectionLabel}>
+            Raccourcis clavier
+          </h2>
+          <div className="mt-4">
+            <ShortcutList />
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }

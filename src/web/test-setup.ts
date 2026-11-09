@@ -13,3 +13,14 @@ globalThis.ResizeObserver ??= class {
 globalThis.DOMMatrixReadOnly ??= class {
   m22 = 1;
 } as unknown as typeof DOMMatrixReadOnly;
+
+// jsdom has no showModal/close on <dialog> (decision 073's windows use them): the smallest stand-ins, in the jsdom files only.
+const dialog = globalThis.HTMLDialogElement?.prototype;
+if (dialog) {
+  dialog.showModal ??= function showModal() {
+    this.setAttribute("open", "");
+  };
+  dialog.close ??= function close() {
+    this.removeAttribute("open");
+  };
+}

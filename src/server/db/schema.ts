@@ -57,6 +57,10 @@ export const users = pgTable("users", {
     withTimezone: true,
     mode: "date",
   }),
+  // The look of the page (decision 073 F): the same on every device.
+  theme: text("theme", { enum: ["dark", "light", "system"] })
+    .notNull()
+    .default("dark"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
@@ -199,6 +203,8 @@ export const projectMembers = pgTable(
     role: text("role", { enum: ["owner"] }).notNull(),
     // Ticked by this user once the repo is added to their cloud launcher (decision 054 D).
     inLauncher: boolean("in_launcher").notNull().default(false),
+    // Starred by this user (decision 073 H).
+    favorite: boolean("favorite").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),

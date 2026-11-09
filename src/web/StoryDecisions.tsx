@@ -6,6 +6,7 @@ import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
 import { Panel } from "./Shell.tsx";
+import { useShortcut } from "./Shortcuts.tsx";
 import { decisionError, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
@@ -150,6 +151,23 @@ export function StoryDecisions({
       ? `https://github.com/${project.fullName}/pull/${story.prNumber}`
       : null;
 
+  const canValidate = !archived && !run.isPending && toDecide.length === 0;
+  const validate = () => {
+    run.reset();
+    run.mutate(() =>
+      client.api.stories[":id"].validate.$post({ param: { id } }),
+    );
+  };
+  // Only where the button is, and works (decision 073 E).
+  useShortcut(
+    "v",
+    mode === null &&
+      (status === "to_validate" || status === "to_rewrite") &&
+      canValidate
+      ? validate
+      : undefined,
+  );
+
   if (mode === "develop")
     return <DevelopWindow story={story} project={project} onClose={close} />;
   if (status === "abandoned") return null;
@@ -171,14 +189,10 @@ export function StoryDecisions({
             {(status === "to_validate" || status === "to_rewrite") && (
               <button
                 type="button"
-                disabled={archived || run.isPending || toDecide.length > 0}
+                disabled={!canValidate}
+                aria-keyshortcuts="V"
                 aria-describedby={toDecide.length > 0 ? "to-decide" : undefined}
-                onClick={() => {
-                  run.reset();
-                  run.mutate(() =>
-                    client.api.stories[":id"].validate.$post({ param: { id } }),
-                  );
-                }}
+                onClick={validate}
                 className={panelPrimaryButton}
               >
                 Valider
