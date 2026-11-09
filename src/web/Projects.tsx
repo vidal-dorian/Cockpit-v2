@@ -338,8 +338,7 @@ function ImportDialog({
         </h3>
         <p className="mt-1.5 max-w-[60ch] text-[13.5px] text-muted-foreground">
           Une équipe, c'est les agents qui développent tes US, l'un après
-          l'autre. Plus elle relit, plus elle consomme. Tu pourras la changer
-          ensuite.
+          l'autre. Plus elle relit, plus elle consomme.
         </p>
       </div>
       {/* The keys are read here: keydown bubbles from the buttons inside; a swipe moves it on a phone. */}
@@ -437,6 +436,29 @@ function ImportDialog({
         </div>
       </div>
       <div className="px-6 pb-6">
+        <p className="mt-5 flex items-start gap-2.5 rounded-[14px] border border-border bg-sunken px-4 py-3 text-[13px] text-muted-foreground">
+          <svg
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+            className="mt-px size-4 flex-none text-claude-text"
+          >
+            <path
+              d="M13.5 3.5 16.5 6.5 7 16H4v-3z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>
+            <b className="font-semibold text-foreground">
+              Cette équipe est entièrement modifiable.
+            </b>{" "}
+            Ce n'est qu'un point de départ : dans l'onglet Agents du projet, tu
+            pourras ajouter, retirer ou réordonner ses agents, changer leur
+            modèle et leurs consignes, ou passer à un autre niveau.
+          </span>
+        </p>
         {error && <ErrorAlert error={error} />}
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
           <button

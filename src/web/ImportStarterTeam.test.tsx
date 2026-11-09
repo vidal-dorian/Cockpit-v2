@@ -79,7 +79,7 @@ const LEVELS = [
   },
 ];
 const EXPLANATION =
-  "Une équipe, c'est les agents qui développent tes US, l'un après l'autre. Plus elle relit, plus elle consomme. Tu pourras la changer ensuite.";
+  "Une équipe, c'est les agents qui développent tes US, l'un après l'autre. Plus elle relit, plus elle consomme.";
 
 function stubApi(options: { failPost?: boolean } = {}) {
   const posted: unknown[] = [];
@@ -204,6 +204,9 @@ describe("decision 072 A: the choice of the team after « Importer »", () => {
     const { dialog, ui } = await openDialog();
 
     expect(ui.getByText(EXPLANATION)).toBeDefined();
+    expect(
+      ui.getByText("Cette équipe est entièrement modifiable."),
+    ).toBeDefined();
     expect(dialog.hasAttribute("open")).toBe(true);
     expect(posted).toEqual([]);
   });
