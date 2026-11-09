@@ -200,7 +200,9 @@ describe("slice 9.3: the header and the tabs of a project", () => {
     stubProjectShell({}, tickets, board);
     renderAt("/projets/5");
 
-    const crumb = await screen.findByRole("link", { name: "Projets" });
+    const crumb = within(
+      await screen.findByRole("navigation", { name: "Fil d'Ariane" }),
+    ).getByRole("link", { name: "Projets" });
     expect(crumb.getAttribute("href")).toBe("/projets");
     expect(
       screen

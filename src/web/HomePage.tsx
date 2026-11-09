@@ -281,7 +281,7 @@ function ItemPanel({
       <h2
         ref={heading}
         tabIndex={-1}
-        className="text-xl leading-snug font-semibold whitespace-pre-wrap focus:outline-none"
+        className="text-xl leading-snug font-semibold break-words whitespace-pre-wrap focus:outline-none"
       >
         {title(item)}
       </h2>
@@ -519,7 +519,7 @@ export function HomePage() {
             first.kind === "answer" ? "ce qui bloque Claude" : "ce qui t'attend"
           }
         >
-          <div className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-[14px] border border-you-line bg-you-ground px-[18px] py-4">
+          <div className="grid hidden lg:grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-[14px] border border-you-line bg-you-ground px-[18px] py-4">
             <span
               aria-hidden="true"
               className="grid size-9 place-items-center rounded-[10px] bg-you-soft font-bold text-you-text"
@@ -544,6 +544,21 @@ export function HomePage() {
             </span>
           </div>
         </Section>
+      )}
+      {first && (
+        <ItemPanel
+          key={itemKey(forYou[shown] ?? first)}
+          item={forYou[shown] ?? first}
+          index={shown}
+          total={forYou.length}
+          onMove={open}
+          onSent={() => {
+            setFromRow(false);
+            headingRef.current?.focus();
+          }}
+          focusHeading={fromRow}
+          onFocused={setFromRow}
+        />
       )}
       {others.length > 0 && (
         <Section
@@ -612,21 +627,6 @@ export function HomePage() {
         </Section>
       )}
       <Recent />
-      {first && (
-        <ItemPanel
-          key={itemKey(forYou[shown] ?? first)}
-          item={forYou[shown] ?? first}
-          index={shown}
-          total={forYou.length}
-          onMove={open}
-          onSent={() => {
-            setFromRow(false);
-            headingRef.current?.focus();
-          }}
-          focusHeading={fromRow}
-          onFocused={setFromRow}
-        />
-      )}
     </>
   );
 }

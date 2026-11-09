@@ -305,7 +305,7 @@ export function RunPage() {
                 />
               }
             />
-            <div className="mt-5 grid gap-6 px-[26px]">
+            <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-6 px-[26px]">
               <div className="-mb-3 grid gap-1 text-[12.5px] text-muted-foreground">
                 <p>
                   <span className={badge}>

@@ -83,7 +83,7 @@ export function StateSentence({
   headingRef?: React.Ref<HTMLHeadingElement>;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-[26px] pt-[26px] [nav+&]:pt-1.5 [nav+*>&]:pt-1.5">
+    <div className="flex flex-wrap items-start justify-between gap-4 px-[26px] pt-[26px] [nav+&]:pt-1.5 [nav+*>&]:pt-1.5">
       <h1
         ref={headingRef}
         tabIndex={headingRef ? -1 : undefined}
@@ -246,7 +246,7 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Barre latérale"
-      className="flex flex-col border-r border-border bg-card px-3 py-4 md:sticky md:top-0 md:h-screen md:overflow-y-auto"
+      className="hidden flex-col border-r border-border bg-card px-3 py-4 md:sticky md:flex md:top-0 md:h-screen md:overflow-y-auto"
     >
       <Link
         to="/"
@@ -353,10 +353,47 @@ export function Sidebar() {
   );
 }
 
+const tab = ({ isActive }: { isActive: boolean }) =>
+  `flex min-h-11 flex-1 flex-col items-center justify-center text-[11.5px] font-semibold ${focusRing} ${isActive ? "text-foreground" : "text-muted-foreground"}`;
+
+/** The bar of the phone (decision 071 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project. */
+function PhoneNav({ onIdea }: { onIdea?: () => void }) {
+  return (
+    <nav
+      aria-label="Navigation du téléphone"
+      className="fixed inset-x-0 bottom-0 z-20 flex border-t border-border bg-card md:hidden"
+    >
+      <NavLink to="/" end className={tab}>
+        <span aria-hidden="true">⌂</span>
+        Accueil
+      </NavLink>
+      {onIdea && (
+        <button
+          type="button"
+          onClick={onIdea}
+          className={tab({ isActive: false })}
+        >
+          <span aria-hidden="true">✎</span>
+          Idée
+        </button>
+      )}
+      <NavLink to="/nuit" className={tab}>
+        <span aria-hidden="true">☾</span>
+        Nuit
+      </NavLink>
+      <NavLink to="/projets" end className={tab}>
+        <span aria-hidden="true">▤</span>
+        Projets
+      </NavLink>
+    </nav>
+  );
+}
+
 /** The bar at the bottom of the center (045 F): note an idea as a ticket of a project; `n` anywhere focuses it. Hidden without a project. */
 export function IdeaBar() {
   const queryClient = useQueryClient();
-  const projects = useHome().data?.projects ?? [];
+  const home = useHome();
+  const projects = home.data?.projects ?? [];
   const routeId = useMatch("/projets/:id/*")?.params.id;
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
@@ -444,111 +481,122 @@ export function IdeaBar() {
     },
   });
 
-  if (projects.length === 0) return null;
   return (
-    <div className="sticky bottom-0 mx-[26px] mt-4 mb-5">
-      {send.isError && (
-        <p role="alert" className="mb-2 text-destructive">
-          {send.error.message}
-        </p>
-      )}
-      {unattached && !send.isError && (
-        <p role="alert" className="mb-2 text-destructive">
-          {unattached.names.length === 1
-            ? "Ce fichier n'a pas été joint"
-            : "Ces fichiers n'ont pas été joints"}{" "}
-          : {unattached.names.join(", ")}.{" "}
-          <Link to={`/tickets/${unattached.id}`} className="underline">
-            Ouvrir le ticket
-          </Link>
-        </p>
-      )}
-      {done && !send.isError && (
-        <p role="status" className="mb-2 text-muted-foreground">
-          {done}
-        </p>
-      )}
-      {open && (
-        <IdeaPanel
-          projects={projects.map((p) => ({
-            id: p.id,
-            label: repoName(p.name),
-          }))}
-          idea={{
-            descriptionMd: "",
-            priority: "normal",
-            tags: [],
-            files: [],
-            ...draft,
-            projectId: draft.projectId ?? projectId,
-            title,
-          }}
-          pending={send.isPending}
-          onChange={({ title: edited, ...rest }) => {
-            if (edited !== undefined) setTitle(edited);
-            setDraft({ ...draft, ...rest });
-          }}
-          onSubmit={(idea) => {
-            setUnattached(undefined);
-            send.mutate(idea);
-          }}
-          onCancel={() => {
-            setOpen(false);
-            send.reset();
-          }}
+    <>
+      {/* Once the projects are known: the Idée tab depends on them. */}
+      {!home.isPending && (
+        <PhoneNav
+          onIdea={projects.length > 0 ? () => setOpen(true) : undefined}
         />
       )}
-      <form
-        aria-label="Noter une idée"
-        // The panel replaces the bar while it is open (S09).
-        inert={open}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (title.trim() !== "") setOpen(true);
-        }}
-        className="flex items-center gap-2.5 rounded-[14px] border border-border bg-card py-2.5 pr-3 pl-4"
-      >
-        <span aria-hidden="true" className="text-muted-foreground">
-          ✎
-        </span>
-        <input
-          ref={input}
-          aria-label="Idée"
-          placeholder="Noter une idée…"
-          value={title}
-          maxLength={200}
-          onChange={(event) => {
-            setTitle(event.target.value);
-            setDone(undefined);
-            setUnattached(undefined);
-          }}
-          className={`field-sizing-content min-w-[7.5rem] max-w-full bg-transparent placeholder:text-dim ${focusRing}`}
-        />
-        <kbd className={kbd}>N</kbd>
-        <span className="ml-auto text-[12.5px] text-muted-foreground">
-          pour
-        </span>
-        <select
-          aria-label="Projet"
-          value={projectId}
-          onChange={(event) => setChosen({ routeId, id: event.target.value })}
-          className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id} className="bg-card">
-              {repoName(p.name)}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          aria-label="Noter l'idée"
-          disabled={title.trim() === ""}
-          className={`${squareButton} size-9`}
-        >
-          ↑
-        </button>
-      </form>
-    </div>
+      {projects.length > 0 && (
+        <div className="sticky bottom-0 mx-[26px] mt-4 mb-5">
+          {send.isError && (
+            <p role="alert" className="mb-2 text-destructive">
+              {send.error.message}
+            </p>
+          )}
+          {unattached && !send.isError && (
+            <p role="alert" className="mb-2 text-destructive">
+              {unattached.names.length === 1
+                ? "Ce fichier n'a pas été joint"
+                : "Ces fichiers n'ont pas été joints"}{" "}
+              : {unattached.names.join(", ")}.{" "}
+              <Link to={`/tickets/${unattached.id}`} className="underline">
+                Ouvrir le ticket
+              </Link>
+            </p>
+          )}
+          {done && !send.isError && (
+            <p role="status" className="mb-2 text-muted-foreground">
+              {done}
+            </p>
+          )}
+          {open && (
+            <IdeaPanel
+              projects={projects.map((p) => ({
+                id: p.id,
+                label: repoName(p.name),
+              }))}
+              idea={{
+                descriptionMd: "",
+                priority: "normal",
+                tags: [],
+                files: [],
+                ...draft,
+                projectId: draft.projectId ?? projectId,
+                title,
+              }}
+              pending={send.isPending}
+              onChange={({ title: edited, ...rest }) => {
+                if (edited !== undefined) setTitle(edited);
+                setDraft({ ...draft, ...rest });
+              }}
+              onSubmit={(idea) => {
+                setUnattached(undefined);
+                send.mutate(idea);
+              }}
+              onCancel={() => {
+                setOpen(false);
+                send.reset();
+              }}
+            />
+          )}
+          <form
+            aria-label="Noter une idée"
+            // The panel replaces the bar while it is open (S09).
+            inert={open}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (title.trim() !== "") setOpen(true);
+            }}
+            className="hidden items-center gap-2.5 rounded-[14px] border border-border bg-card py-2.5 pr-3 pl-4 md:flex"
+          >
+            <span aria-hidden="true" className="text-muted-foreground">
+              ✎
+            </span>
+            <input
+              ref={input}
+              aria-label="Idée"
+              placeholder="Noter une idée…"
+              value={title}
+              maxLength={200}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                setDone(undefined);
+                setUnattached(undefined);
+              }}
+              className={`field-sizing-content min-w-[7.5rem] max-w-full bg-transparent placeholder:text-dim ${focusRing}`}
+            />
+            <kbd className={kbd}>N</kbd>
+            <span className="ml-auto text-[12.5px] text-muted-foreground">
+              pour
+            </span>
+            <select
+              aria-label="Projet"
+              value={projectId}
+              onChange={(event) =>
+                setChosen({ routeId, id: event.target.value })
+              }
+              className={`max-w-[200px] rounded-[10px] bg-transparent px-2 py-1 font-semibold ${focusRing}`}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id} className="bg-card">
+                  {repoName(p.name)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              aria-label="Noter l'idée"
+              disabled={title.trim() === ""}
+              className={`${squareButton} size-9`}
+            >
+              ↑
+            </button>
+          </form>
+        </div>
+      )}
+    </>
   );
 }

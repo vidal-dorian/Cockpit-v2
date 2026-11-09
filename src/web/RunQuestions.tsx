@@ -59,7 +59,7 @@ export function RunQuestions({
           <ul className={`${listCard} mt-2`}>
             {others.map((q) => (
               <li key={q.id} className="min-h-[50px] px-4 py-2.5">
-                <p className="whitespace-pre-wrap font-semibold">
+                <p className="break-words whitespace-pre-wrap font-semibold">
                   {q.question}
                 </p>
                 {q.answer !== null ? (
@@ -98,7 +98,7 @@ export function RunQuestions({
             </p>
           }
         >
-          <h2 className="whitespace-pre-wrap text-xl font-semibold">
+          <h2 className="break-words whitespace-pre-wrap text-xl font-semibold">
             {current.question}
           </h2>
           <WhyAsked context={current.context} />

@@ -223,7 +223,7 @@ export function StoryPage() {
                 {found.story.criteria.map((criterion, index) => (
                   <li
                     key={criterion.id}
-                    className={`${card} px-3.5 py-3 text-[13.5px] leading-normal`}
+                    className={`${card} min-w-0 px-3.5 py-3 text-[13.5px] leading-normal break-words`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className={sectionLabel}>Critère {index + 1}</p>

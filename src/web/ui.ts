@@ -11,7 +11,7 @@ export const markdownStyle =
 // classes it sets itself, so no constant needs a conflicting class appended to it.
 
 const buttonBase = `inline-flex items-center justify-center gap-2 whitespace-nowrap border font-semibold disabled:opacity-50 ${focusRing}`;
-const buttonSize = "h-[34px] rounded-[10px] px-3.5 text-[13px]";
+const buttonSize = "h-11 rounded-[10px] px-3.5 text-[13px] md:h-[34px]";
 const panelSize = "h-[42px] w-full rounded-[10px] px-3.5 text-sm";
 const secondary =
   "border-border-strong bg-raised text-foreground hover:bg-raised-hover";
@@ -50,7 +50,7 @@ export const alertBox =
   "rounded-[14px] bg-destructive-soft p-4 text-destructive";
 
 /** A text field or a select. */
-export const field = `mt-1 block min-h-[34px] w-full rounded-[10px] border border-border-strong bg-sunken px-3 py-1.5 text-[13.5px] ${focusRing}`;
+export const field = `mt-1 block min-h-11 w-full rounded-[10px] border border-border-strong bg-sunken px-3 py-1.5 text-base md:min-h-[34px] md:text-[13.5px] ${focusRing}`;
 
 const badgeBase =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-[9px] py-0.5 text-xs font-semibold";

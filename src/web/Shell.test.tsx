@@ -112,7 +112,7 @@ describe("slice 9.3: the shell of a logged-in user", () => {
     expect(await screen.findByText("Cockpit v0.1.0")).toBeDefined();
     expect(within(aside).getByText(/octocat/)).toBeDefined();
     expect(screen.queryByRole("banner")).toBeNull();
-    expect(screen.queryByRole("link", { name: "Projets" })).toBeNull();
+    expect(within(aside).queryByRole("link", { name: "Projets" })).toBeNull();
   });
 
   it("given a logged-in user, when I click Se déconnecter, then it POSTs /api/auth/logout", async () => {
