@@ -104,7 +104,8 @@ describe("slice 15.3 A: GET /api/search", () => {
     for (const q of ["a", "x".repeat(201), undefined])
       expect((await search(ctx, q)).status, String(q?.length)).toBe(400);
     expect((await search(ctx, "x".repeat(200))).status).toBe(200);
-    expect((await search(ctx, "ab", undefined)).status).toBe(401);
+    // An explicit undefined would take the default cookie: "" sends none.
+    expect((await search(ctx, "ab", "")).status).toBe(401);
   });
 
   it("given runs of the user and of another user, when the number of a run or « run N » is searched, then that run of the user is returned and nothing of the other user", async () => {
