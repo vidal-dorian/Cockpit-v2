@@ -2,6 +2,26 @@ import { useId, useState } from "react";
 import { MAX_TAGS, normalizeTag } from "./tickets.ts";
 import { badge, focusRing } from "./ui.ts";
 
+/** The badges of a ticket: its tags, and « priorité haute » for a high priority. */
+export function TicketTags({
+  tags = [],
+  priority,
+}: {
+  tags?: string[];
+  priority?: string;
+}) {
+  return (
+    <>
+      {tags.map((tag) => (
+        <span key={tag} className={badge}>
+          {tag}
+        </span>
+      ))}
+      {priority === "high" && <span className={badge}>priorité haute</span>}
+    </>
+  );
+}
+
 /** The tags of a ticket as chips and the field that adds one (« + étiquette », Enter); `text` is what is typed there, kept by the caller so that it can add it on save; `suggestions` are the tags already used in the project. */
 export function TagField({
   tags,
