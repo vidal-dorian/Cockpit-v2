@@ -52,6 +52,15 @@ const HEADLINES: Record<string, string> = {
   done: "Cette US est terminée.",
 };
 
+/** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
+export async function fetchStory(id: string) {
+  const res = await client.api.stories[":id"].$get({ param: { id } });
+  if (res.status === 401) return null;
+  if (res.status === 404) return "not_found" as const;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 /** The decisions of the user on a story (decision 018 J), in the right panel: which buttons depend on the status, one form or confirmation at a time. */
 export function StoryDecisions({
   story,

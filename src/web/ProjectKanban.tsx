@@ -3,8 +3,7 @@ import { type KeyboardEvent, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { Dot } from "./Shell.tsx";
-import { StoryDecisions } from "./StoryDecisions.tsx";
-import { fetchStory } from "./StoryPage.tsx";
+import { fetchStory, StoryDecisions } from "./StoryDecisions.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { fetchTickets, plural, STORY_STATUSES } from "./tickets.ts";
 import {

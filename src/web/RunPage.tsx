@@ -74,6 +74,8 @@ function Steps({
   pr?: Run["story"];
 }) {
   const grey = "text-dim";
+  // A relaunched story keeps its PR number while in progress: only in_review means the PR is open for this run.
+  const opened = pr?.status === "in_review" && pr.prNumber !== null;
   return (
     <ol className={listCard}>
       {steps.map((step) => {
@@ -122,7 +124,8 @@ function Steps({
       })}
       {upcoming.map((agent, i) => (
         <li
-          key={agent}
+          // biome-ignore lint/suspicious/noArrayIndexKey: a plan may name an agent twice
+          key={i}
           className={`flex min-h-[50px] items-center gap-3 px-4 py-2.5 ${grey}`}
         >
           <Mark kind="none" rank={steps.length + i + 1} />
@@ -132,21 +135,17 @@ function Steps({
       ))}
       {pr && (
         <li
-          className={`flex min-h-[50px] items-center gap-3 px-4 py-2.5 ${pr.prNumber === null ? grey : ""}`}
+          className={`flex min-h-[50px] items-center gap-3 px-4 py-2.5 ${opened ? "" : grey}`}
         >
           <Mark
-            kind={pr.prNumber === null ? "none" : "done"}
-            rank={
-              pr.prNumber === null
-                ? steps.length + upcoming.length + 1
-                : undefined
-            }
+            kind={opened ? "done" : "none"}
+            rank={opened ? undefined : steps.length + upcoming.length + 1}
           />
           <span className="font-semibold">PR</span>
           <span className="text-[13px]">
-            {pr.prNumber === null
-              ? "Claude pousse la branche et ouvre la PR"
-              : `PR #${pr.prNumber} ouverte`}
+            {opened
+              ? `PR #${pr.prNumber} ouverte`
+              : "Claude pousse la branche et ouvre la PR"}
           </span>
         </li>
       )}

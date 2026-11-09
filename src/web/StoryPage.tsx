@@ -3,11 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import Markdown from "react-markdown";
 import { Link, useParams } from "react-router";
-import { client } from "./api.ts";
 import { fetchRun } from "./RunPage.tsx";
 import { RunVerdict } from "./RunVerdict.tsx";
 import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
-import { StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
+import { fetchStory, StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
@@ -39,15 +38,6 @@ function StoryVerdict({ runId }: { runId: number }) {
       story={data.story}
     />
   ) : null;
-}
-
-/** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
-export async function fetchStory(id: string) {
-  const res = await client.api.stories[":id"].$get({ param: { id } });
-  if (res.status === 401) return null;
-  if (res.status === 404) return "not_found" as const;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
 }
 
 const label = "font-semibold text-foreground";

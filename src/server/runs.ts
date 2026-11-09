@@ -551,7 +551,9 @@ export function runRoutes(
           ? []
           : last === undefined
             ? plan
-            : plan.slice(plan.lastIndexOf(last) + 1);
+            : plan.includes(last)
+              ? plan.slice(plan.lastIndexOf(last) + 1)
+              : [];
       return c.json({
         run: {
           id: run.id,

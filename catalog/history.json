@@ -1,6 +1,7 @@
 {
   ".claude/agents/test-writer.md": [
     "2a5ad35f67ecf56c4410b0b995a2d2eb65c969b102bf3e42178940cb893226ca",
+    "1b9a8d74df3f6611ec261c0917b7ae4da6dcae66e7d76e8a13fcf48d5b333965",
     "19dcaad994c4fb2a034f665ed76cc4678c48eacc8f9aac751c332f5361b2c6d1"
   ],
   ".claude/agents/developer.md": [
@@ -8,6 +9,7 @@
   ],
   ".claude/agents/reviewer.md": [
     "ef888d8e0109dae0e83e5960349942c942cf03f399514f4d9ac95e5ee799ad84",
+    "2cd73fd0a1816f42247eee9aa07ff8d9a9f179c0ca3bc3f14afd3e0a254ab6d2",
     "ff53c842351658f1b5f55d37e880a654829dd0445c0c531fa8e2cf913bb32902"
   ],
   ".claude/skills/dev-us/SKILL.md": [
@@ -25,6 +27,7 @@
     "013109f42037f2a2bb2f793372173c43ce884719aeae8600378edd204a5a5a7c",
     "7ee379e97058372da4e90ce825214daa9d9174658d2206a460456cfa818ce22f",
     "3bed9e3ccf6630f8bb4663560f84e2afbe0a003c50a1065567744a85df3ba121",
+    "db8c18f9cef7dcc6677494d7cd583437b6c3e5c49e571419a067f6ef9bccbd87",
     "d0b31b61ae27876847a50495d7772150166f275188c3f1998dcb6c31710a4b4b",
     "a265ed6bf35b2a7e78b07745bde9cc74373509762e601ef06cc2fd50ca76dbac",
     "3930745eeb2870e959e27d46b7780323b83ab460405849f622af4a8aa0df3895",
@@ -44,6 +47,7 @@
     "f5e0f29ea69108e69a07bd68b25bb403d8f29cadcce2f6f5cdf995f7902bc0c5"
   ],
   ".claude/agents/rules-analyst.md": [
+    "e6073cd00507a09046a931ab2756046c106ac4cfaa69da94d604c7eacb7888d4",
     "27673b8f399a7faf0b26d4cba9ef3c745158ae289c6f2dddc33e831815f0fda5"
   ],
   ".claude/agents/bug-hunter.md": [
@@ -51,16 +55,19 @@
   ],
   ".claude/agents/security-reviewer.md": [
     "b758655b97950ab3b930442530415836c6891ee97b143df0b6bfb5c1be6edc0c",
+    "46ecc2fc5e6b97d1e8fbf7da77b237d95569a541fb224b6a2b556929aae7f83d",
     "26cddd779c4f0333c26ba1f97e6807425b74a8b0997916daffd3c9f86534a105"
   ],
   ".claude/agents/architect.md": [
     "8abc8e39f8691fba6f45f217357adfeac7c75d9fea1a8d059bff9d98cc85b515"
   ],
   ".claude/agents/upgrade-advisor.md": [
+    "80dff62be87c6a20545958d4a40223cdbc6776f9e41c20b11e2cb3a87067cba8",
     "562001df26d39027133cf6b6ce77a5786820bc7f48f997925d7119ba1e7ee99b"
   ],
   ".claude/skills/analyser/SKILL.md": [
     "f811143c278925161c438b2f85089ff6f00af7310fe53ea7e51ff767ea7ed9df",
+    "96e6eb2ea396c23ad01a0dbfdb02adce9620a01deae81a77c9657fa09591a454",
     "cce8d2c40c199cdd050faf5bcbea10ba6bd04daf44ff366b393d9206a883a859",
     "a30293994c2ecf49576f9bf51209a353a68be1e7af9284344f2cfe9465b14805",
     "f5c378849cb2639d4fa5fd85f115b13f3a797a7d623faaefdc3eebca418a553d"
