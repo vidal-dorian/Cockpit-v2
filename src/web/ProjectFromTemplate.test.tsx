@@ -393,6 +393,8 @@ describe("decision 068 F and G: the refusals, in French next to the button", () 
 
       const alert = await screen.findByRole("alert");
       expect(alert.textContent).toContain(words);
+      if (query.includes("injoignable"))
+        expect(screen.getByRole("button", { name: "Réessayer" })).toBeDefined();
     },
   );
 

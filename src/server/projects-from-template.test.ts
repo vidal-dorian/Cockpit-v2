@@ -47,7 +47,7 @@ import {
 //   POST https://api.github.com/repos/{template}/generate { owner, name, description, private, include_all_branches: false } with `Bearer <user token>`,
 //   the token is forgotten, the repo is imported as in 011 (owner member, installation of the user), history `create_from_template` ok { template, fullName } -> /projets/<project id>.
 //   failures go to /projets/nouveau?erreur=<code>:
-//     demande-expiree     state missing or different, request unknown, expired (> 10 minutes) or already used (nothing is exchanged)
+//     demande-expiree     request unknown, expired (> 10 minutes) or already used (nothing is exchanged); a missing or different state is not a creation's return, the login runs
 //     annulee             GitHub answered error=access_denied
 //     github-injoignable  the code exchange failed
 //     creee-non-importee  the repo was generated but reading the installation or the import then failed

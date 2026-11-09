@@ -170,7 +170,7 @@ export function templateRoutes(
           !found?.repos.some((r) => r.full_name === template && r.is_template)
         )
           return c.json({ error: "not_a_template" }, 409);
-        // shortcut: read as the installation, so the user's own private repo, not opened to an installation limited to chosen repos, reads as free; GitHub's `generate` then refuses and the user lands on `refusee`.
+        // shortcut: read as the installation, so the user's own private repo, not opened to an installation limited to chosen repos, reads as free; GitHub's `generate` then refuses and the user lands on `refusee`; read with the user's token if users report it.
         if (await github.repoExists(found.installationId, owner, name))
           return c.json({ error: "name_taken" }, 409);
       } catch (error) {
@@ -198,7 +198,8 @@ export function templateRoutes(
         sameSite: "Lax",
         secure: config.publicUrl.startsWith("https:"),
         path: CALLBACK,
-        maxAge: REQUEST_MS / 1000,
+        // Outlives the row on purpose: an expired creation reaches the server and gets `demande-expiree`, not a login failure (decision 068 G).
+        maxAge: 60 * 60,
       });
       const authorize = new URL("https://github.com/login/oauth/authorize");
       authorize.search = new URLSearchParams({
@@ -247,6 +248,8 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
     // The GitHub calls run with no transaction open (decisions 016 and 020 F): only the import and its entry are written in one. The token goes out of scope here and is never stored.
     const land = async (): Promise<Landed> => {
       const token = await exchangeCode(config, code, CALLBACK);
+      // From here the repo may exist, whatever happens to the call.
+      created = true;
       const generated = await ready.github.generateRepo(
         token,
         request.template,
@@ -258,7 +261,6 @@ export function templateReturn(db: Db, readGitHub: ReadGitHub) {
         },
       );
       if ("refused" in generated) return { refused: generated.refused };
-      created = true;
       const found = await installedRepos(
         ready.github,
         user.login,
