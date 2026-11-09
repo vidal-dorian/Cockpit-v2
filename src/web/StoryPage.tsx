@@ -42,7 +42,7 @@ function StoryVerdict({ runId }: { runId: number }) {
 }
 
 /** The story with its ticket and project, "not_found" when the user cannot reach it, or null when the server answers 401. */
-async function fetchStory(id: string) {
+export async function fetchStory(id: string) {
   const res = await client.api.stories[":id"].$get({ param: { id } });
   if (res.status === 401) return null;
   if (res.status === 404) return "not_found" as const;

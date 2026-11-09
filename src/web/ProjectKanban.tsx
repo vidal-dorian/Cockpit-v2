@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { type KeyboardEvent, useRef } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { Dot } from "./Shell.tsx";
+import { StoryDecisions } from "./StoryDecisions.tsx";
+import { fetchStory } from "./StoryPage.tsx";
+import { TicketPanel } from "./TicketPanel.tsx";
 import { fetchTickets, plural, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
@@ -50,7 +54,49 @@ const COLUMN_OF = {
   (typeof COLUMNS)[number]["name"]
 >;
 
-/** The « Kanban » section of the project page: read-only, a card opens its story (no drag and drop, brief §6.3). */
+/** The panel of an open US card (decision 069 H): the decisions of its page, headed by the way to the page and to its running run. */
+function StoryCardPanel({ id }: { id: string }) {
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const found = useQuery({
+    queryKey: ["story", id],
+    queryFn: () => fetchStory(id),
+  }).data;
+  if (!found || found === "not_found") return null;
+  const { story, project } = found;
+  const running = story.runs?.find((run) => run.status === "running");
+  return (
+    <StoryDecisions
+      key={story.id}
+      story={story}
+      project={project}
+      archived={project.archived}
+      statusRef={statusRef}
+      toDecide={story.criteria.flatMap((c) =>
+        c.takeoverState === "pending" ? [c.summary ?? ""] : [],
+      )}
+    >
+      <p ref={statusRef} tabIndex={-1} className="text-[12.5px]">
+        US {story.id} ·{" "}
+        <Link to={`/us/${story.id}`} className={`underline ${focusRing}`}>
+          Ouvrir l'US
+        </Link>
+        {running && (
+          <>
+            {" · "}
+            <Link
+              to={`/runs/${running.id}`}
+              className={`underline ${focusRing}`}
+            >
+              Run {running.id} ↗
+            </Link>
+          </>
+        )}
+      </p>
+    </StoryDecisions>
+  );
+}
+
+/** The « Kanban » section of the project page: a card opens in the right panel, at ?us=<id> or ?ticket=<id> (decision 069 G; no drag and drop, brief §6.3). */
 export function ProjectKanban({ projectId }: { projectId: string }) {
   const stories = useQuery({
     queryKey: ["stories", projectId],
@@ -64,11 +110,39 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
   const ideas = (tickets.data ?? []).filter((t) => t.step === "new");
 
   const board = stories.data; // a const, so the narrowing holds inside the callbacks below
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  // An id that is not a card of the board opens nothing.
+  const openStory = board?.find(
+    (s) => s.status !== "abandoned" && String(s.id) === params.get("us"),
+  );
+  const openIdea = ideas.find((t) => String(t.id) === params.get("ticket"));
+  const cardId = openStory ? `us-${openStory.id}` : `ticket-${openIdea?.id}`;
+  const close = () => {
+    navigate({ search: "" });
+    document.getElementById(cardId)?.focus();
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+    // A form of the panel keeps its Escape, and the ticket panel closes itself.
+    if (
+      event.key !== "Escape" ||
+      !(openStory || openIdea) ||
+      target.closest("form") ||
+      (openIdea && target.closest("aside"))
+    )
+      return;
+    close();
+  };
   // Red only for the story the page sentence names, the first one waiting on an answer (decision 045 C).
   const asking = board?.find((s) => s.questionPending)?.id;
 
   return (
-    <section className="mx-[26px] mt-5" aria-labelledby="kanban">
+    <section
+      className="mx-[26px] mt-5"
+      aria-labelledby="kanban"
+      onKeyDown={onKeyDown}
+    >
       <h2 id="kanban" className="sr-only">
         Kanban
       </h2>
@@ -96,7 +170,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
         {board && (
           <>
             <p className="mb-3 text-[12.5px] text-muted-foreground">
-              Pas de glisser-déposer : un clic ouvre la carte.
+              Pas de glisser-déposer : un clic ouvre la carte à droite.
             </p>
             {/* biome-ignore lint/a11y/useSemanticElements: a <section> with this role is flagged as redundant, and the role is wanted explicit */}
             <div
@@ -139,7 +213,15 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                           ideas.map((t) => (
                             <li key={t.id}>
                               <Link
-                                to={`/tickets/${t.id}`}
+                                id={`ticket-${t.id}`}
+                                to={
+                                  openIdea?.id === t.id
+                                    ? { search: "" }
+                                    : `?ticket=${t.id}`
+                                }
+                                aria-current={
+                                  openIdea?.id === t.id || undefined
+                                }
                                 className={`${cardStyle} ${focusRing}`}
                               >
                                 <span className="block text-[13.5px] leading-snug font-semibold">
@@ -168,7 +250,15 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                           return (
                             <li key={story.id}>
                               <Link
-                                to={`/us/${story.id}`}
+                                id={`us-${story.id}`}
+                                to={
+                                  openStory?.id === story.id
+                                    ? { search: "" }
+                                    : `?us=${story.id}`
+                                }
+                                aria-current={
+                                  openStory?.id === story.id || undefined
+                                }
                                 className={`${cardStyle} ${story.id === asking ? "border-you-line!" : ""} ${focusRing} ${faded ? "opacity-60" : ""}`}
                               >
                                 {/* The {" "} separators keep the visible words apart in the accessible name and in textContent. */}
@@ -224,6 +314,15 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
           </>
         )}
       </div>
+      {openStory && <StoryCardPanel id={String(openStory.id)} />}
+      {openIdea && (
+        <TicketPanel
+          key={openIdea.id}
+          ticket={openIdea}
+          stories={(board ?? []).filter((s) => s.ticketId === openIdea.id)}
+          onClose={close}
+        />
+      )}
     </section>
   );
 }

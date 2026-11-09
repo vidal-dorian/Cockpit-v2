@@ -74,3 +74,16 @@ describe("criterion 10 (slice 7.5, decision 037 H): stopping and relaunching", (
     expect(text).toMatch(/in_review[\s\S]*link_pull_request/);
   });
 });
+
+describe("slice 9.5 (decision 069 F): the steps and the context", () => {
+  it("given the skill dev-us, when it is read, then start_run gets the `steps` (the freeze ones too) and ask_user a `context`", () => {
+    const text = readFileSync(SKILL, "utf8");
+    const start = text.slice(
+      text.indexOf("## Start the run"),
+      text.indexOf("## Develop"),
+    );
+    expect(start).toMatch(/`steps`/);
+    expect(text).toMatch(/freeze run the `steps` are the two freeze steps/);
+    expect(text).toMatch(/`mcp__cockpit__ask_user`[^.]*`context`/);
+  });
+});

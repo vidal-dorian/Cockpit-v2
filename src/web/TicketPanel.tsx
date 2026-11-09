@@ -37,7 +37,8 @@ export function TicketPanel({
 }: {
   ticket: Ticket;
   stories: Story[];
-  counter: {
+  /** Absent when the ticket opens alone, from a card of the Kanban (decision 069 H). */
+  counter?: {
     index: number;
     total: number;
     onPrevious: () => void;
