@@ -36,7 +36,7 @@ async function finishedNight() {
 /** A run launched for the first night item (a CI retry), `lasting` minutes or still running when null. */
 async function ciRetry(ctx: Ctx, lasting: number | null) {
   const [item] = await nightItems(ctx);
-  const [{ id: itemId }] = await sqlRows<{ id: number }>(
+  const [found] = await sqlRows<{ id: number }>(
     ctx,
     sql`select id from night_items order by id limit 1`,
   );
@@ -47,7 +47,7 @@ async function ciRetry(ctx: Ctx, lasting: number | null) {
         ${minutes(100)}, ${lasting === null ? null : minutes(100 + lasting)}) returning id`,
   );
   await ctx.db.execute(
-    sql`insert into cloud_launches (user_id, story_id, night_item_id, run_id, relaunch) values (${ctx.alice.id}, ${item?.story_id}, ${itemId}, ${run?.id}, true)`,
+    sql`insert into cloud_launches (user_id, story_id, night_item_id, run_id, relaunch) values (${ctx.alice.id}, ${item?.story_id}, ${found?.id}, ${run?.id}, true)`,
   );
 }
 
