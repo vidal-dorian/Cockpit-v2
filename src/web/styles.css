@@ -359,7 +359,7 @@ body {
   }
 }
 
-/* Decision 079 E, G: a page rises in, the right panel slides in, a message fades in. No exit animation: closing is immediate. */
+/* Decision 079 E, G: a page fades in, the right panel slides in, a message fades in. No exit animation: closing is immediate. */
 @media (prefers-reduced-motion: no-preference) {
   /* Only a fade: a transform on <main> or a child would re-anchor the fixed panel, and a :has() exclusion would replay when the panel closes. */
   main {
