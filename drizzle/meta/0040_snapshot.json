@@ -1,5 +1,5 @@
 {
-  "id": "fdd64d8d-d773-4c69-9ac6-56a826061c22",
+  "id": "b880e216-9de4-473c-974d-1a91aaa4e34b",
   "prevId": "c5193b11-acaa-4fb8-8151-8e7b820303af",
   "version": "7",
   "dialect": "postgresql",
@@ -3208,7 +3208,30 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "workflow_proposals_pending": {
+          "name": "workflow_proposals_pending",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"workflow_proposals\".\"decision\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "workflow_proposals_project_id_projects_id_fk": {
           "name": "workflow_proposals_project_id_projects_id_fk",

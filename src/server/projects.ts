@@ -467,7 +467,10 @@ export function projectRoutes(
   };
 
   // Decision 067 F: commits or ignores the proposal of a project the user belongs to; a proposal decided once is never decided again.
-  const decideProposal = async (c: Context<Env, string>, what: string) => {
+  const decideProposal = async (
+    c: Context<Env, string>,
+    what: "commit" | "ignore",
+  ) => {
     const user = await currentUser(db, c);
     if (!user) return c.json(unauthorized, 401);
     const entry: Entry & { userId: number } = {
@@ -499,19 +502,29 @@ export function projectRoutes(
       await record(entry, new Refused(refused));
       return c.json({ error: refused }, 409);
     }
-    const decided = async (tx: Tx) => {
-      await tx
-        .update(workflowProposals)
-        .set({ decision: what === "commit" ? "committed" : "ignored" })
-        .where(
-          and(
-            eq(workflowProposals.id, proposal.id),
-            isNull(workflowProposals.decision),
-          ),
-        );
-    };
+    // Never overwrites a decision that landed meanwhile; says whether this one did.
+    const decided = async (tx: Tx) =>
+      (
+        await tx
+          .update(workflowProposals)
+          .set({ decision: what === "commit" ? "committed" : "ignored" })
+          .where(
+            and(
+              eq(workflowProposals.id, proposal.id),
+              isNull(workflowProposals.decision),
+            ),
+          )
+          .returning({ id: workflowProposals.id })
+      ).length > 0;
     if (what === "ignore") {
-      await act(db, entry, decided);
+      try {
+        await act(db, entry, async (tx) => {
+          if (!(await decided(tx))) throw new Refused("already_decided");
+        });
+      } catch (error) {
+        if (!(error instanceof Refused)) throw error;
+        return c.json({ error: error.message }, 409);
+      }
       return c.json({});
     }
     return writeChanges(
@@ -526,7 +539,12 @@ export function projectRoutes(
         },
       ],
       `feat: ${proposal.before === null ? "add" : "update"} ${proposal.path} (Cockpit)`,
-      { onWritten: decided },
+      {
+        // The commit is on GitHub whatever the row says.
+        onWritten: async (tx) => {
+          await decided(tx);
+        },
+      },
     );
   };
 
@@ -1071,9 +1089,16 @@ export function projectRoutes(
                   path: STARTER_PATH,
                   content: starterText(language),
                 },
+          // As the alerts of decision 052: the App is blamed first (an App made before decision 067 lacks the permission), then the installation.
           permission: {
-            workflows: access.installation.workflows === "write",
-            installationUrl: access.installationUrl,
+            workflows:
+              access.app.workflows === "write" &&
+              access.installation.workflows === "write",
+            installationUrl:
+              access.app.workflows === "write"
+                ? access.installationUrl
+                : `${c.get("appSettingsUrl")}/permissions`,
+            ...(access.app.workflows !== "write" && { appMissing: true }),
           },
           proposal,
         });

@@ -114,7 +114,12 @@ const branchesSchema = z.array(
 // What the CI / CD tab reads of the Actions API (decision 067 B).
 const workflowsSchema = z.object({
   workflows: z.array(
-    z.object({ id: z.number().int(), name: z.string(), path: z.string() }),
+    z.object({
+      id: z.number().int(),
+      name: z.string(),
+      path: z.string(),
+      state: z.string(),
+    }),
   ),
 });
 const workflowRunsSchema = z.object({
@@ -272,6 +277,12 @@ type RepoWriteRefusal = {
     | "pull_request_forbidden"
     | "workflows_forbidden";
 };
+
+/** GitHub refusing to write a workflow because the App lacks `workflows` (decision 067 D), whatever the status. */
+const noWorkflowsPermission = (error: unknown) =>
+  /without `workflows` permission/i.test(
+    (error as { message?: string }).message ?? "",
+  );
 
 /** An invalid plan is a programming error (the files come from Cockpit's catalogue), so it throws. */
 export function checkWriteFiles(files: WriteFile[]) {
@@ -540,18 +551,27 @@ export function githubClient(config: GitHubAppConfig) {
         status?: number;
         message: string;
       };
+      // The App lacks `workflows` and the commit touches .github/workflows (decision 067 D): a pull request would be refused the same way.
+      if (noWorkflowsPermission(error))
+        return { refused: "workflows_forbidden" };
       // Both the texts of a protected branch and of a ruleset; 403 or 422 depending on the rule (decision 026 G).
       if (
         (status === 403 || status === 422) &&
         /protected branch|rule violation/i.test(reason)
       ) {
         const branch = `cockpit/${commitSha.slice(0, 7)}`;
-        await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
-          owner,
-          repo: name,
-          ref: `refs/heads/${branch}`,
-          sha: commitSha,
-        });
+        try {
+          await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
+            owner,
+            repo: name,
+            ref: `refs/heads/${branch}`,
+            sha: commitSha,
+          });
+        } catch (refError) {
+          if (noWorkflowsPermission(refError))
+            return { refused: "workflows_forbidden" };
+          throw refError;
+        }
         let data: unknown;
         try {
           ({ data } = await octokit.request(
@@ -595,9 +615,6 @@ export function githubClient(config: GitHubAppConfig) {
           pullRequest: { number: pull.number, url: pull.html_url },
         };
       }
-      // The App lacks `workflows` and the commit touches .github/workflows (decision 067 D): a pull request would be refused the same way.
-      if (status === 403 && /without `workflows` permission/i.test(reason))
-        return { refused: "workflows_forbidden" };
       // GitHub refuses what is not a fast forward: someone pushed meanwhile, and we do not retry.
       if (status === 422 && /fast.forward/i.test(reason))
         return { refused: "repo_changed" };
@@ -1446,17 +1463,23 @@ export function githubClient(config: GitHubAppConfig) {
         { owner, repo, per_page: PAGE_SIZE },
       );
       return Promise.all(
-        workflowsSchema.parse(data).workflows.map(async (w) => {
-          const { data: runs } = await octokit.request(
-            "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
-            { owner, repo, workflow_id: w.id, branch, per_page: 10 },
-          );
-          return {
-            path: w.path,
-            name: w.name,
-            runs: workflowRunsSchema.parse(runs).workflow_runs,
-          };
-        }),
+        workflowsSchema
+          .parse(data)
+          .workflows.filter(
+            (w) =>
+              w.state === "active" && w.path.startsWith(".github/workflows/"),
+          )
+          .map(async (w) => {
+            const { data: runs } = await octokit.request(
+              "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+              { owner, repo, workflow_id: w.id, branch, per_page: 10 },
+            );
+            return {
+              path: w.path,
+              name: w.name,
+              runs: workflowRunsSchema.parse(runs).workflow_runs,
+            };
+          }),
       );
     },
 

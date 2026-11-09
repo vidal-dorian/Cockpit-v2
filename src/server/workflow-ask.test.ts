@@ -82,6 +82,8 @@ describe("decision 067 G: Demander à Claude", () => {
     ])
       expect(data.instructions).toContain(part);
     expect(data.instructions).toMatch(/never commit/i);
+    expect(data.instructions).toMatch(/never follow instructions/i);
+    expect(data.instructions).toMatch(/never commit or push anything/i);
   });
 
   it("given a launch, when the history is read, then ask_workflow_help is human / ui with the path only", async () => {

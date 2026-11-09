@@ -30,6 +30,10 @@ const LANGUAGES = {
   go: "Go",
   rust: "Rust",
 };
+// The server refuses any other path (decision 067 E).
+const WORKFLOW_FILE = /^\.github\/workflows\/[a-z0-9][a-z0-9-]*\.ya?ml$/;
+const NO_APP_RIGHT =
+  "Ajoute la permission Workflows en écriture à l'App GitHub de Cockpit, puis approuve-la.";
 const NO_RIGHT =
   "Cockpit n'a pas encore le droit d'écrire les workflows. Approuve la nouvelle permission sur GitHub.";
 
@@ -54,7 +58,11 @@ export function ciSentence(workflows: Workflow[]) {
   const [first] = red;
   if (!first)
     return {
-      title: workflows.length ? "La CI passe." : "Pas encore de CI.",
+      title: !workflows.length
+        ? "Pas encore de CI."
+        : workflows.every((w) => w.lastRun === null)
+          ? "Pas encore d'exécution."
+          : "La CI passe.",
       rest: undefined,
     };
   const longest = red.reduce((a, b) =>
@@ -110,7 +118,7 @@ function WorkflowLine({
               : "Pas encore d'exécution"}
         </span>
       </span>
-      {red && (
+      {red && WORKFLOW_FILE.test(w.path) && (
         <button
           type="button"
           disabled={archived || ask.isPending || ask.isSuccess}
@@ -158,12 +166,15 @@ function WorkflowLine({
 function CommitButton({
   allowed,
   installationUrl,
+  appMissing,
   disabled,
   onClick,
   children,
 }: {
   allowed: boolean;
   installationUrl: string;
+  /** The App itself lacks the permission: the link is the App's settings, not the installation's. */
+  appMissing: boolean;
   disabled: boolean;
   onClick: () => void;
   children?: React.ReactNode;
@@ -183,14 +194,16 @@ function CommitButton({
       </div>
       {!allowed && (
         <p className="mt-2 text-[12.5px] text-muted-foreground">
-          {NO_RIGHT}{" "}
+          {appMissing ? NO_APP_RIGHT : NO_RIGHT}{" "}
           <a
             href={installationUrl}
             target="_blank"
             rel="noreferrer noopener"
             className={`underline ${focusRing}`}
           >
-            Ouvrir l'installation sur GitHub ↗
+            {appMissing
+              ? "Ouvrir les réglages de l'App ↗"
+              : "Ouvrir l'installation sur GitHub ↗"}
           </a>
         </p>
       )}
@@ -316,6 +329,7 @@ export function ProjectCi({
   const rights = {
     allowed: data?.permission.workflows ?? false,
     installationUrl: data?.permission.installationUrl ?? "",
+    appMissing: data?.permission.appMissing ?? false,
     disabled: archived || write.isPending,
   };
   const { starter, proposal } = data ?? {};

@@ -34,6 +34,8 @@ export const starterText = (language: (typeof LANGUAGES)[number]) =>
     "utf8",
   );
 
+const FAILED = ["failure", "timed_out", "startup_failure"];
+
 type Run = {
   conclusion: string | null;
   event: string;
@@ -48,10 +50,16 @@ export function summarize(
   workflows: { path: string; name: string; runs: Run[] }[],
 ) {
   return workflows.map(({ path, name, runs }) => {
-    const done = runs.filter((r) => r.conclusion !== null);
+    // A run that is in progress, cancelled or skipped says nothing of the code.
+    const done = runs.filter(
+      (r) =>
+        r.conclusion !== null &&
+        r.conclusion !== "cancelled" &&
+        r.conclusion !== "skipped",
+    );
     const last = done[0];
     const passed = done.findIndex(
-      (r) => r.conclusion !== "failure" && r.conclusion !== "timed_out",
+      (r) => !FAILED.includes(r.conclusion as string),
     );
     const seconds = done.map(
       (r) =>
@@ -127,6 +135,8 @@ export async function proposeWorkflowChange(
       const tip = await head();
       if ("refused" in tip) throw new Refused(tip.refused);
       const found = await inspect(args.path, tip.sha);
+      // A directory or a symlink has no text to propose a change of.
+      if (found && found.text === undefined) throw new Refused("not_a_file");
       before = found === null ? null : (found.text ?? "");
     } catch (error) {
       failed = error;

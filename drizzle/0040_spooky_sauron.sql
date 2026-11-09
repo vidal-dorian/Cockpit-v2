@@ -12,4 +12,5 @@ CREATE TABLE "workflow_proposals" (
 ALTER TABLE "cloud_launches" DROP CONSTRAINT "cloud_launches_story_xor_routine";--> statement-breakpoint
 ALTER TABLE "cloud_launches" ADD COLUMN "workflow_path" text;--> statement-breakpoint
 ALTER TABLE "workflow_proposals" ADD CONSTRAINT "workflow_proposals_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "workflow_proposals_pending" ON "workflow_proposals" USING btree ("project_id","path") WHERE "workflow_proposals"."decision" is null;--> statement-breakpoint
 ALTER TABLE "cloud_launches" ADD CONSTRAINT "cloud_launches_one_target" CHECK (num_nonnulls("cloud_launches"."story_id", "cloud_launches"."routine_id", "cloud_launches"."workflow_path") = 1);

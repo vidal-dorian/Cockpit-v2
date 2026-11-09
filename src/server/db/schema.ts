@@ -905,18 +905,27 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
 type HistoryArgs = Record<string, string | number | boolean | null>;
 
 /** Decision 067 E, F: a change of a workflow that Claude proposes; pending while `decision` is null, a new one on the same file takes the place of a pending one. */
-export const workflowProposals = pgTable("workflow_proposals", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  projectId: integer("project_id")
-    .notNull()
-    .references(() => projects.id),
-  path: text("path").notNull(),
-  reason: text("reason").notNull(),
-  // The text of the file when it was proposed, null for a new file.
-  before: text("before"),
-  content: text("content").notNull(),
-  decision: text("decision", { enum: ["committed", "ignored"] }),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-    .notNull()
-    .defaultNow(),
-});
+export const workflowProposals = pgTable(
+  "workflow_proposals",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
+    path: text("path").notNull(),
+    reason: text("reason").notNull(),
+    // The text of the file when it was proposed, null for a new file.
+    before: text("before"),
+    content: text("content").notNull(),
+    decision: text("decision", { enum: ["committed", "ignored"] }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  // One pending proposal per file.
+  (t) => [
+    uniqueIndex("workflow_proposals_pending")
+      .on(t.projectId, t.path)
+      .where(sql`${t.decision} is null`),
+  ],
+);
