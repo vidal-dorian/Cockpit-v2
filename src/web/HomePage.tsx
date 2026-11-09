@@ -410,7 +410,8 @@ function ReviewSeries({
   };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "r") return;
+      // A held key repeats: one press opens one PR.
+      if (event.key.toLowerCase() !== "r" || event.repeat) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.isContentEditable || target.closest("input, textarea, select"))
