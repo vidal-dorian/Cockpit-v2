@@ -47,7 +47,7 @@ Dorian veut pouvoir dire « développe toute cette tranche » sans que Claude ai
 
 | # | Tranche | Décision |
 |---|---|---|
-| 15.1 | « Dicter » et « Photo » (S55) | **Photo oui** : l'appareil photo s'ouvre, l'image devient une pièce jointe (061). **Dicter non** : le micro du clavier du téléphone le fait déjà ; le bouton est retiré de S55 |
+| 15.1 | « Dicter » et « Photo » (S55) | **Photo oui** : l'appareil photo s'ouvre, l'image devient une pièce jointe (061). **Dicter non** : le micro du clavier du téléphone le fait déjà ; le bouton est retiré de S55 ; construit en 15.1, voir la [071](071-trois-gestes-au-telephone.md) |
 | 15.2 A | iPhone ou Android ? | **Les deux à égalité.** Les boutons de réponse dans la notification (N3) quand le navigateur sait les afficher ; sinon un tap ouvre l'écran de réponse (S53). Sur iPhone, les notifications ne marchent qu'avec Cockpit ajouté à l'écran d'accueil (iOS 16.4 et plus) : la page le dit |
 | 15.2 B | Quelles notifications ? | **Les quatre de S47** : question de Claude, run en échec (le plafond atteint et les relances épuisées finissent en échec et passent par là), PR prête à relire (groupées en une par heure), récap de la nuit (à l'heure de fin de la nuit). Chacune se coupe ; **silence réglable, de 22 h à 7 h par défaut**, sauf le récap ; un bouton envoie une notification de test. Les clés Web Push sont générées et chiffrées en base comme les autres secrets (012), jamais dans le `.env` |
 | 15.2 C | « Cockpit ne répond plus » (S56) | **Dans la 15.2** : le service worker garde la dernière page lue ; le bandeau de S56 dit son heure et réessaie toutes les 10 secondes |

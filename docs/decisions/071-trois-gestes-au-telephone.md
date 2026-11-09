@@ -27,7 +27,7 @@ Sur un téléphone, Cockpit montre aujourd'hui la barre latérale entière en ha
 ## Ce que le code a précisé (tranche 15.1)
 
 - **La barre du bas est rendue par `IdeaBar`** (`Shell.tsx`), donc elle partage l'état du panneau ; elle apparaît quand `/api/home` a répondu (l'onglet Idée dépend des projets).
-- **Toucher un onglet pendant que le panneau est ouvert** le ferme et garde le brouillon. À la fermeture, le focus revient à l'onglet Idée, ou au champ de la barre d'idée si l'onglet n'est pas affiché.
+- **Toucher un autre onglet que Idée pendant que le panneau est ouvert** le ferme et garde le brouillon. À la fermeture, le focus revient à l'onglet Idée, ou au champ de la barre d'idée si l'onglet n'est pas affiché.
 - **Seul « Idée » est en blanc** tant que le panneau est ouvert, avec `aria-expanded` ; les autres onglets ne le sont pas.
 - **Sous `md`, panneau ouvert**, la colonne de la page derrière lui est `inert` ; la barre du bas ne l'est pas. C'est décidé à l'ouverture : redimensionner la fenêtre de part et d'autre de `md` pendant que le panneau est ouvert laisse l'état périmé (`shortcut:` du code).
 - **Les jetons de `src/web/ui.ts` changent pour toutes les pages sous `md`**, pas seulement pour les trois gestes : `field` fait 16 px et 44 px de haut, `buttonSize` et `panelSize` font 44 px. Au-dessus de `md`, tailles et interligne sont inchangés.
@@ -40,4 +40,4 @@ Sur un téléphone, Cockpit montre aujourd'hui la barre latérale entière en ha
 - **Ce que la barre du bas n'atteint pas** : Claude, Équipes d'agents, Journal, Réglages et « Se déconnecter » n'ont pas d'onglet ; sur le téléphone, on y arrive par leur adresse. La 15.1 couvre les trois gestes (064), pas tout Cockpit en largeur téléphone.
 - **Les autres pages** (Kanban, Conception, équipes, réglages…) ne sont pas vérifiées à 360 px, mais les jetons de 44 px et de 16 px (voir plus haut) les atteignent : leurs champs et leurs boutons y sont plus grands qu'avant.
 - **« Sans défilement latéral » n'est pas testé par la CI** : les tests (jsdom) ne calculent pas la mise en page ; la vérification à 360 px se fait dans un vrai navigateur au développement.
-- **Pas construits, de S52 à S55** : « à relire sur ordinateur » d'une PR, « Plus tard » de S54 et le titre de l'idée en gros de S55 ; le panneau « Noter une idée » garde sa priorité et ses étiquettes, que S55 ne montre pas.
+- **Pas construits, de S52 à S55** : « à relire sur ordinateur » d'une PR, « Plus tard » de S54 et le titre de l'idée en gros de S55 ; le panneau « Noter une idée » montre aussi la priorité et les étiquettes, absentes de S55.

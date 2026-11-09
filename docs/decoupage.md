@@ -327,7 +327,7 @@ Ce qui reste ouvert dans les décisions, à trancher dans la tranche concernée 
 | Disponibilité de `dirigo.dev` et de la marque « Dirigo » (classes 9 et 42), avant l'achat du domaine (13.4) | [041](decisions/041-nom-et-site-vitrine.md) |
 | Reprise : doublons entre analyses de Claude (R5, reste ouvert ; ceux des alertes GitHub sont évités par le numéro d'alerte, 052 E). Tranché par la 051 en R5 : modèle de chaque agent d'analyse (modifiable dans l'onglet Agents). Tranchés par la 047 en R2 : granularité des règles (5 au plus par US), coloration du code (Shiki), `object_names` absent de la carte (accepté, en gris). Tranché par la 050 en R4 : contrôle du mode « figer » (le reviewer et Cockpit, sur les fichiers de la PR) | [007](decisions/007-reprise-app-existante.md), points ouverts 2 (tranché), 4 (tranché) et 5 ; [047](decisions/047-ecran-de-reprise.md), [050](decisions/050-figer-l-existant.md), [051](decisions/051-constats-de-claude.md) |
 | Reprise dans l'offre Pro, bloquée côté serveur dans l'API et le MCP (13.2) | [007](decisions/007-reprise-app-existante.md) point ouvert 7, [offres](offres.md) |
-| Version téléphone (phase 15) | [003](decisions/003-interface.md), point ouvert 4 |
+| Version téléphone (phase 15) | [003](decisions/003-interface.md), point ouvert 4 (les trois gestes : faits par la [071](decisions/071-trois-gestes-au-telephone.md)), limites de la 071 |
 
 - ~~**Relancer une US en revue**~~ : tranché par la [037](decisions/037-arreter-relancer-fermer.md) E, `start_run` accepte une US `in_review`.
 - ~~**Repo déjà suivi par un autre compte**~~ : confirmé en 2.1 par la [011](decisions/011-import-projets.md) C, le refus neutre est gardé ([008](decisions/008-service-en-ligne.md), point ouvert 3).
