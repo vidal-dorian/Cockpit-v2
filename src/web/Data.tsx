@@ -74,9 +74,7 @@ function DeleteWindow({
   const erase = useMutation({
     mutationFn: async () => {
       const res = await client.api.me.$delete({}, json({ login: typed }));
-      // 401: the session is already gone, so is the account.
-      if (!res.ok && res.status !== 401)
-        throw new Error("La suppression a échoué, réessaie.");
+      if (!res.ok) throw new Error("La suppression a échoué, réessaie.");
       // The copies of the service worker hold this user's pages (same name as CACHE in public/sw.js).
       await window.caches?.delete("cockpit-v1");
     },
