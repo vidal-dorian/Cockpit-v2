@@ -1,6 +1,6 @@
 # 073 — L'ergonomie : recherche, raccourcis, thème clair, favoris
 
-- **Statut** : proposée (à valider à la relecture de la PR ; la palette claire attend l'accord de Dorian, 064 15.3 A)
+- **Statut** : proposée (à valider à la relecture de la PR ; la palette claire attend l'accord de Dorian) ; le code est construit (tranche 15.3)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.3 A, B et C)
 - **Dépend de** : [003 — Interface](003-interface.md), [045 — L'interface « Quatre temps » et les écrans de référence](045-interface-quatre-temps.md) (C, les jetons et le budget de couleur), [016 — Serveur MCP](016-serveur-mcp.md) (l'outil MCP `search`), [072 — PWA et notifications](072-pwa-et-notifications.md) (l'onglet Préférences)
@@ -26,9 +26,27 @@ La 064 a tranché le contenu de la 15.3 : un thème clair proposé par Claude et
 | H | Les favoris (S10) | Une étoile par projet, **par utilisateur** (`project_members.favorite`), sur chaque ligne de Tous les projets (bouton `aria-pressed`, « Ajouter aux favoris » / « Retirer des favoris »). Le filtre « Favoris · 3 » de S10. La barre latérale : la section devient « Projets favoris » quand il y en a, avec les favoris d'abord, puis les projets actifs qui ne le sont pas (comme aujourd'hui) |
 | I | Les cartes de S47 | L'onglet Préférences (072) reçoit la carte « Thème » (trois boutons, `aria-pressed`) et la carte « Raccourcis clavier » (la liste de E, en lecture seule). Le sous-titre de S47 reste de côté (072) |
 
+## Ce que le code a précisé (tranche 15.3)
+
+- **Les routes** (toutes avec session) : `GET /api/search?q=` (400 hors de 2 à 200 caractères) rend `{ projects, tickets, stories, runs }` ; `PUT /api/projects/:id/favorite` (`{ favorite }`, 404 si on n'est pas membre) ; `PUT /api/me/theme` (`dark`, `light` ou `system`). `GET /api/me` rend en plus `theme` ; `GET /api/projects` et `GET /api/home` rendent `favorite` par projet. Aucune des deux écritures n'entre dans l'historique (préférences, comme les interrupteurs de notification).
+- **Migration `0044`** : `project_members.favorite` et `users.theme` (`'dark'` par défaut).
+- **`searchWork`** (`search.ts`) est la fonction de l'outil MCP `search` (016, comportement inchangé) et de la route : le MCP ne l'appelle que pour ses trois groupes.
+- **Les runs** sont trouvés par leur numéro (`^(run )?N$`, 9 chiffres au plus) ou par le récit de leur US. Comme la requête fait 2 caractères au moins, un run à un chiffre se cherche « run 7 ».
+- **`Modal`** (`Modal.tsx`) est un `<dialog>` natif ouvert par `showModal()` : le navigateur garde le focus dans la fenêtre et rend la page inerte ; `Échap` ferme et le focus revient à l'élément qui l'avait. La recherche et la fenêtre de `?` l'utilisent.
+- **Les raccourcis à une touche** (`useShortcut`) restent muets dans un champ et tant qu'un `<dialog>` est ouvert. `V` n'agit que si « Valider » est affiché et actif. `Ctrl K` marche aussi dans un champ, mais pas avec `Maj` ni `Alt`.
+- **« Noter une idée »** n'est dans la recherche que sur une page qui a un projet (le panneau d'idée n'existe pas sans).
+- **Le thème avant le premier rendu** : un script en ligne de `index.html` applique `cockpit-theme` (`localStorage`) à `<html>` ; `theme.ts` l'écrit au changement et à la lecture de `/api/me`. La balise `theme-color` prend alors la valeur du jeton `--color-background`.
+- **La palette claire** est dans `styles.css`, sous `:root[data-theme="light"]`. La copie « système » (`@media (prefers-color-scheme: light)`) est la même, et `ThemeSystem.test.ts` les garde égales. Les couleurs de code (jetons `--shiki-token-*`) sont redéfinies. `Contrast.test.ts` vérifie l'AA : textes sur fonds, `border-strong` à 3:1 sur le fond et la carte, `dim` et `destructive` à 4,5:1.
+- **Pour la validation de Dorian** : `docs/ecrans/captures/073-clair-accueil.png`, `-projet.png`, `-us.png`, `-projets.png`, `-recherche.png` et `-preferences.png`.
+- **Sans favori**, le filtre « Favoris » affiche « Aucun favori : l'étoile d'une ligne en ajoute un. ».
+
 ## Limites connues
 
 - **La recherche est un `ILIKE` par mot** (comme l'outil MCP) : pas de fautes de frappe, pas de synonymes, pas de classement par pertinence.
 - **`J` / `K` et `V` n'agissent que là où la page a déjà le geste** (un compteur, un bouton « Valider ») ; ailleurs, rien.
 - **La palette claire n'est validée qu'à la relecture** : si Dorian la refuse, le choix Clair reste construit et seules les valeurs changent.
 - **Pas construits** : le tri de Tous les projets et ses autres filtres (retirés, 069 I) ; « Ouvrir à droite » (D).
+- **Deux `Panel` avec un compteur** montrés ensemble répondraient tous deux à `J` / `K` (`shortcut:` de `Shell.tsx`).
+- **« Comme le système » laisse `theme-color` en retard** si le système change de thème pendant que la page est ouverte : la couleur n'est relue qu'à `applyTheme` (le reste de la page suit tout de suite, par la requête CSS).
+- **La recherche fait un `ILIKE` par mot** : rien d'indexé, elle ralentira sur de gros volumes.
+- **Les fenêtres natives** (`<dialog>` : focus, page inerte, raccourcis muets derrière, point B1 de la relecture) n'ont été vérifiées que dans Chromium ; les tests, eux, simulent le navigateur.

@@ -32,14 +32,14 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 |---|---|---|---|---|
 | [S00a](S00a_Accueil.png) | L'accueil : phrase d'état, « 1 · Maintenant », « 2 · Ensuite », Claude en ce moment, la question ouverte à droite | 8.1 (existe), refaite en 9.3 | 040, 045, 069 | « Pourquoi Claude demande » : fait en 9.5 ([069](../decisions/069-finitions.md)) |
 | [S07](S07_Accueil_Calme.png) | L'accueil quand rien n'attend : plus aucun rouge | 8.1, 9.3 | 040 G | |
-| [S08](S08_Recherche.png) | Recherche globale `Ctrl K` | 15.3 | | |
+| [S08](S08_Recherche.png) | Recherche globale `Ctrl K` | 15.3 (existe) | 073 | la fenêtre est construite ([073](../decisions/073-ergonomie.md) A à D) ; `Ctrl Entrée` ouvre dans un nouvel onglet, pas « à droite » |
 | [S09](S09_NoterIdee.png) | Noter une idée en détail : projet, priorité, étiquettes, pièce jointe | 11.2, 11.4 (existent) | 014, 055, 061 | |
 
 ## 3 · Projets
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3 | 011 | tranché ([064](../decisions/064-tranches-restantes.md)) : les favoris en 15.3 ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
+| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3, 15.3 (favoris, existent) | 011, 073 | les favoris sont construits ([073](../decisions/073-ergonomie.md) H) ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
 | [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063 | |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
@@ -107,7 +107,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 |---|---|---|---|---|
 | [S45](S45_Reglages_Claude.png) | Connecter Claude, les accès donnés, les jetons MCP | 4.1, 4.7 (existent) | 015, 021 | « Accès donnés à Claude » retiré ([069](../decisions/069-finitions.md) I) |
 | [S46](S46_Reglages_TachesCloud.png) | Tâches cloud : écrire les US, la nuit | 4.8, 14.1, 14.6 (existent) | 022, 044, 054 | |
-| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2 (notifications, existe), 15.3 | 072 | la carte « Notifications sur le téléphone » est construite, sans le sous-titre de la maquette ([072](../decisions/072-pwa-et-notifications.md)) ; le thème et les raccourcis sont la 15.3 (tranché ([064](../decisions/064-tranches-restantes.md) 15.3) : thème clair proposé par Claude, validé par Dorian) |
+| [S47](S47_Reglages_Preferences.png) | Préférences : notifications, thème, raccourcis | 15.2 (notifications, existe), 15.3 (thème et raccourcis, existent) | 072, 073 | la carte « Notifications sur le téléphone » est construite, sans le sous-titre de la maquette ([072](../decisions/072-pwa-et-notifications.md)) ; les cartes « Thème » et « Raccourcis clavier » sont construites ([073](../decisions/073-ergonomie.md) I), la palette claire attend l'accord de Dorian (captures dans `captures/073-clair-*.png`) |
 | [S48](S48_Reglages_Membres.png) | Membres et partage | 13.1 | 008 | tranché ([064](../decisions/064-tranches-restantes.md) 13.1) : les trois rôles de l'écran ; invitation par login GitHub, pas par e-mail |
 | [S49](S49_Reglages_Offre.png) | Abonnement : Gratuit ou Pro, les factures | 13.2 | | tranché ([064](../decisions/064-tranches-restantes.md) 13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités ; codes Pro ; paiement plus tard |
 | [S50](S50_Reglages_Donnees.png) | Données : exporter, supprimer son compte | 13.5 | | |

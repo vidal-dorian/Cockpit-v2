@@ -4,6 +4,7 @@
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.2 A, B et C)
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md) (les secrets chiffrés), [036 — Questions de Claude](036-questions-de-claude.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md) (M', le récap), [059 — Relance automatique](059-relance-automatique.md), [060 — Coût et budget](060-cout-et-budget.md), [071 — Les trois gestes au téléphone](071-trois-gestes-au-telephone.md)
+- **Modifiée par 073** : l'onglet Préférences reçoit aussi les cartes « Thème » et « Raccourcis clavier » — voir la [073](073-ergonomie.md)
 - **Tranche** : 15.2 du [découpage](../decoupage.md)
 - **Écrans** : [S47](../ecrans/S47_Reglages_Preferences.png) (la carte « Notifications sur le téléphone »), [N3](../ecrans/N3_Nuit_Telephone.png), [S56](../ecrans/S56_Erreurs.png) (« Cockpit ne répond plus »)
 
@@ -46,7 +47,7 @@ La 064 a tranché ce que la 15.2 contient : les deux téléphones à égalité, 
 - **Une notification ratée n'est pas renvoyée** (F) ; une notification pendant le silence est perdue (E), l'accueil la montre.
 - **Rien n'a été essayé sur un vrai iPhone, un vrai Android ni avec un vrai service de push** : les tests n'appellent aucun service de push (l'envoyeur est remplacé), et Chromium sans interface ne reçoit pas de push. Les boutons sur iPhone (064, point ouvert) restent à essayer.
 - **La copie hors ligne** est celle du dernier passage sur chaque adresse ; une page jamais ouverte n'en a pas.
-- **Pas construits** : le thème et les raccourcis de S47 (15.3) ; le « changement de workflow proposé » du brief §6.17, que S47 n'a pas retenu.
+- **Pas construits** : le thème et les raccourcis de S47 (la 15.3 les ajoute à cet onglet : [073](073-ergonomie.md) I) ; le « changement de workflow proposé » du brief §6.17, que S47 n'a pas retenu.
 - **Pas de vérification DNS** de l'adresse d'un appareil : un nom public qui pointe vers une adresse privée passe le filtre.
 - **Le cache du service worker n'est jamais élagué** (une entrée par adresse visitée).
 - **On ne peut pas se déconnecter depuis un téléphone** : « Se déconnecter » n'est que dans la barre latérale, cachée sous `md` (071).
