@@ -20,6 +20,7 @@ import { LoadErrorBoundary } from "./LoadErrorBoundary.tsx";
 import { Logo } from "./Logo.tsx";
 import { Night } from "./Night.tsx";
 import { Plugins } from "./Plugins.tsx";
+import { ProjectFromTemplate } from "./ProjectFromTemplate.tsx";
 import { ProjectPage } from "./ProjectPage.tsx";
 import { Projects } from "./Projects.tsx";
 import { RunPage } from "./RunPage.tsx";
@@ -191,6 +192,7 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/projets" element={<Projects />} />
+            <Route path="/projets/nouveau" element={<ProjectFromTemplate />} />
             <Route path="/projets/:id" element={<ProjectPage tab="kanban" />} />
             <Route
               path="/projets/:id/tickets"

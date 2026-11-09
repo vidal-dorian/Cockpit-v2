@@ -30,6 +30,7 @@ import { runRoutes } from "./runs.ts";
 import { setupRoutes } from "./setup.ts";
 import { storyRoutes } from "./stories.ts";
 import { takeoverRoutes } from "./takeover.ts";
+import { templateReturn, templateRoutes } from "./templates.ts";
 import { ticketRoutes } from "./tickets.ts";
 import { tokenRoutes } from "./tokens.ts";
 import { type FetchEndOfLife, versionRoutes } from "./versions.ts";
@@ -118,11 +119,20 @@ export function createApp(
         return c.json({ status: "ok", version });
       })
       .route("/", setupRoutes(db, readInstance, encryptionKey, setupCode))
-      .route("/", authRoutes(db, readInstance, readGitHub))
+      .route(
+        "/",
+        authRoutes(
+          db,
+          readInstance,
+          readGitHub,
+          templateReturn(db, readGitHub),
+        ),
+      )
       .route("/", historyRoutes(db))
       .route("/", accountRoutes(db, readInstance))
       .route("/", webhookRoutes(db, readInstance, fireDeps))
       .route("/", projectRoutes(db, readGitHub, healthCacheSize, now))
+      .route("/", templateRoutes(db, readInstance, readGitHub))
       .route("/", codeMapRoutes(db, readGitHub))
       .route("/", takeoverRoutes(db))
       .route("/", findingRoutes(db))

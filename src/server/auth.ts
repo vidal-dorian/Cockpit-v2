@@ -99,10 +99,39 @@ async function spendAdminClaim(tx: Tx, claim: string) {
   return spent.length > 0;
 }
 
+/** Trades the code GitHub sent back for the user's token; `callback` is the path the authorization was asked with. The caller uses the token and forgets it. */
+export async function exchangeCode(
+  config: InstanceSettings,
+  code: string,
+  callback: string,
+) {
+  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+    body: JSON.stringify({
+      client_id: config.githubClientId,
+      client_secret: config.githubClientSecret,
+      code,
+      redirect_uri: `${config.publicUrl}${callback}`,
+    }),
+  });
+  if (!tokenRes.ok) throw new Error(`token_http_${tokenRes.status}`);
+  return parseAnswer(tokenAnswer, await tokenRes.json()).access_token;
+}
+
 export function authRoutes(
   db: Db,
   readInstance: ReadInstance,
   readGitHub: ReadGitHub,
+  /** Completes a project creation from a template when the return is one (decision 068 D), null otherwise. */
+  templateReturn: (
+    c: Context,
+    config: InstanceSettings,
+  ) => Promise<Response | null>,
 ) {
   /** Where a fresh login lands (decision 012 H); a failing check never blocks the login. */
   async function landingPage(login: string, githubId: number) {
@@ -124,30 +153,12 @@ export function authRoutes(
 
   /** Asks GitHub who the code belongs to; the token is used here and forgotten. */
   async function fetchGitHubUser(config: InstanceSettings, code: string) {
-    const tokenRes = await fetch(
-      "https://github.com/login/oauth/access_token",
-      {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-        },
-        signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
-        body: JSON.stringify({
-          client_id: config.githubClientId,
-          client_secret: config.githubClientSecret,
-          code,
-          redirect_uri: `${config.publicUrl}/api/auth/callback`,
-        }),
-      },
-    );
-    if (!tokenRes.ok) throw new Error(`token_http_${tokenRes.status}`);
-    const token = parseAnswer(tokenAnswer, await tokenRes.json());
+    const token = await exchangeCode(config, code, "/api/auth/callback");
 
     const userRes = await fetch("https://api.github.com/user", {
       headers: {
         accept: "application/vnd.github+json",
-        authorization: `Bearer ${token.access_token}`,
+        authorization: `Bearer ${token}`,
         "user-agent": "cockpit",
       },
       signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
@@ -192,6 +203,8 @@ export function authRoutes(
     .get("/api/auth/callback", async (c) => {
       const config = await readInstance();
       if (!config) return c.redirect("/installation");
+      const creation = await templateReturn(c, config);
+      if (creation) return creation;
       const secure = config.publicUrl.startsWith("https:");
       const expectedState = getCookie(c, STATE_COOKIE);
       // The state is single-use: whatever happens next, it is gone.

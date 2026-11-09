@@ -9,6 +9,7 @@
 - **Modifiée par** : [023 — Réglages en onglets, adresse publique en https](023-reglages-adresse-https.md) : le choix C (détection de l'adresse) lit `CF-Visitor` d'abord et exige `https://`, et l'administrateur peut changer l'adresse dans Réglages (retiré par la 028, plus bas) ; [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md) : le choix D donne Pull requests en écriture
 - **Modifiée par 052** : le manifeste du choix D demande trois permissions de lecture de plus (`dependabot_alerts`, `security_events`, `secret_scanning_alerts`) et les événements `dependabot_alert`, `code_scanning_alert` et `secret_scanning_alert` — voir la [052](052-constats-de-github-et-versions.md), choix A
 - **Modifiée par 067** : le manifeste du choix D demande aussi `workflows` en écriture — voir la [067](067-ci-cd.md), choix D
+- **Modifiée par 068** : le manifeste du choix D demande aussi `repository_creation` en écriture — voir la [068](068-repo-modele.md), choix F
 - **Modifiée par 038** : l'App s'abonne aussi à `pull_request_review` (choix D) — voir la [038](038-suivi-de-la-pr.md), choix C
 - **Modifiée par 028** : l'assistant ne demande plus de confirmer l'adresse, il la détecte lui-même (choix C) — voir la [028](028-creme-sombre-onglets-journal.md), choix J
 

@@ -138,6 +138,8 @@ const repoSchema = z.object({
   id: z.number().int(),
   full_name: z.string().min(1),
   default_branch: z.string().min(1),
+  // Decision 068 B: « Template repository » in the repo's settings.
+  is_template: z.boolean().default(false),
 });
 
 /** What we read of the App's webhook (decision 024 F); `active` is only there if GitHub sends it. */
@@ -656,6 +658,56 @@ export function githubClient(config: GitHubAppConfig) {
         if (data.repositories.length < PAGE_SIZE) break;
       }
       return z.array(repoSchema).parse(repos);
+    },
+
+    /** Whether `owner/name` exists on GitHub, as the installation sees it: the user's own private repo, not opened to an installation limited to chosen repos, reads as free (decision 068, then `generateRepo` refuses). */
+    async repoExists(installationId: number, owner: string, name: string) {
+      const octokit = await app.getInstallationOctokit(installationId);
+      try {
+        await octokit.request("GET /repos/{owner}/{repo}", {
+          owner,
+          repo: name,
+        });
+        return true;
+      } catch (error) {
+        if (isNotFound(error)) return false;
+        throw error;
+      }
+    },
+
+    /** A new repo from a template, created with the user's own token (decision 068 D); GitHub's refusal comes back as its message, any other failure is thrown. */
+    async generateRepo(
+      userToken: string,
+      template: string,
+      repo: {
+        owner: string;
+        name: string;
+        description?: string;
+        private: boolean;
+      },
+    ): Promise<{ repo: z.infer<typeof repoSchema> } | { refused: string }> {
+      const [templateOwner, templateRepo] = template.split("/") as [
+        string,
+        string,
+      ];
+      try {
+        const { data } = await new TimedOctokit({
+          auth: userToken,
+        }).request("POST /repos/{template_owner}/{template_repo}/generate", {
+          template_owner: templateOwner,
+          template_repo: templateRepo,
+          ...repo,
+          include_all_branches: false,
+        });
+        return { repo: repoSchema.parse(data) };
+      } catch (error) {
+        const { status, response } = error as {
+          status?: number;
+          response?: { data?: { message?: unknown } };
+        };
+        if (status === undefined || status >= 500) throw error;
+        return { refused: String(response?.data?.message ?? status) };
+      }
     },
 
     /** The files the health check looks at, on the default branch. Every read is bounded by a small directory, never by the size of the repo: the root listing, `.claude`, `.github/workflows`, and `.mcp.json` when it is there. Null when the root answers 404 (the App lost access to the repo). When the root is the `known` one (GitHub answers 304, or 200 with the same commit sha), nothing else is read and the answer is `unchanged`. */

@@ -44,7 +44,7 @@ async function fetchHealth(id: string) {
   return (await res.json()).lines;
 }
 
-const LABELS: Record<string, string> = {
+export const LABELS: Record<string, string> = {
   claude_md: "CLAUDE.md",
   ci: "CI",
   mcp: "Serveur MCP de Cockpit",
