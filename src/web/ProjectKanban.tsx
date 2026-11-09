@@ -230,7 +230,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 <span className="block text-xs text-muted-foreground">
                                   ticket
                                 </span>
-                                <span className="mt-1 flex flex-wrap gap-1.5">
+                                <span className="mt-1 flex flex-wrap gap-1.5 empty:hidden">
                                   <TicketTags
                                     tags={t.tags}
                                     priority={t.priority}
