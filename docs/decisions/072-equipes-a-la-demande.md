@@ -33,12 +33,13 @@ Le 2026-11-09, Dorian a demandé deux choses.
 | B7 | Ajouter une équipe à un projet | **Aucune nouvelle route** : le web lit `GET /api/projects/:id/agents` (agents et équipes du repo), puis envoie `POST /api/projects/:id/team/apply` (063, 032) avec `{ name, before, after, agents }` : `before` est le texte de `.claude/teams/<nom>.md` dans le repo (`null` s'il n'y est pas), `after` celui de l'équipe, `agents` chaque agent d'une étape que le repo n'a pas (`before: null`), avec le texte du catalogue pris dans les équipes de départ, en préférant Standard, puis Premium, Max, Éco. Un seul commit (une pull request si la branche est protégée). Un agent absent du repo **et** du catalogue n'est pas ajouté. Si le repo a déjà cette équipe avec le même texte et qu'aucun agent ne manque, rien n'est envoyé : « Déjà à jour dans ce projet » |
 | B8 | Depuis la page de l'équipe | « Ajouter à un projet » : une liste des projets de l'utilisateur non archivés et « Ajouter ». Résultat : « C'est fait » avec le lien du commit, ou de la pull request ; un refus s'affiche avec les messages de « Préparer pour Claude » |
 | B9 | Depuis la page du projet | L'onglet Agents (`ProjectAgents.tsx`) gagne la section « Tes équipes », quand l'utilisateur en a : « Ajouter au projet » ; « Mettre à jour dans le projet » si le repo a une équipe de ce nom avec un autre texte ; « Déjà dans le projet », sans bouton, si le texte est le même. Boutons désactivés sur un projet archivé. Après l'ajout, l'onglet est relu : l'équipe apparaît dans les puces d'équipe |
+| B10 | Prévenir au lancement | Dans « Développer avec Claude » (7.2), si le repo a une équipe nommée dont l'équipe globale (B) de même nom a un autre texte, l'option du sélecteur « Équipe » s'affiche « <nom> · à mettre à jour » (sa valeur reste `<nom>`). La choisir montre un encadré `role="status"` (pas une erreur) : « L'équipe <nom> a changé dans Équipes d'agents depuis son ajout à ce projet. Claude suivra la version du repo tant que tu ne la mets pas à jour. », avec « Mettre à jour dans le projet » (le même ajout que B7 : un commit, ou une pull request). Cela ne bloque jamais le lancement ; si `GET /api/agent-teams` échoue, rien n'est affiché. Aucune route nouvelle |
 
 ## Ce qui est repoussé
 
 - **Modifier un agent depuis la page globale** : un agent se modifie dans l'onglet Agents du projet (030) ou dans le plugin commun (066).
 - **Un agent hors catalogue dans une équipe globale** : une équipe globale n'utilise que les agents du catalogue.
-- **Synchroniser une équipe déjà ajoutée quand l'équipe globale change** : on l'ajoute de nouveau (« Mettre à jour dans le projet »).
+- **Synchroniser automatiquement une équipe déjà ajoutée quand l'équipe globale change** : on l'ajoute de nouveau (« Mettre à jour dans le projet »), et la fenêtre de lancement prévient (B10).
 - **Supprimer la page du plugin** (066) : elle reste sur `/equipes/commun`.
 
 ## Ce que le code a précisé
@@ -48,8 +49,10 @@ Le 2026-11-09, Dorian a demandé deux choses.
 - **`NewTeamDialog`** (`ProjectTeam.tsx`) est exportée avec une propriété `edit` (le nom de l'équipe modifiée) ; `starterQuery` l'est aussi.
 - **« Tes équipes » et la page `/equipes`** partagent le même ajout (`useAddTeam`, `AgentTeams.tsx`) ; la requête `["agents", <id>]` de l'onglet est relue après chaque ajout, réussi ou non.
 - **Une équipe dont le texte n'est pas lisible par la page** affiche « Texte illisible par Cockpit » à la place de ses étapes et n'a pas de bouton « Modifier ».
+- **L'avertissement du lancement** (`DevelopWindow.tsx`) compare le texte de l'équipe du repo (`GET /api/projects/:id/agents`) à celui de l'équipe globale (requête `["agent-teams"]`, `fetchAgentTeams`). Le bouton réutilise `useAddTeam` (même commit que B7) ; au succès, les équipes de la fenêtre sont relues. Il est désactivé tant que l'ajout est en cours et quand la réponse est une pull request : tant qu'elle n'est pas fusionnée, l'avertissement reste. Le résultat (`AddResult`) s'efface quand on change d'équipe.
+- **Le carrousel d'import** : le bouton qui recouvre une carte voisine dessine son anneau de focus à l'intérieur de la carte, qui rogne ce qui dépasse.
 
 ## Limites connues
 
 - **Une équipe globale ne liste que des agents du catalogue.** Un agent que le repo a modifié garde sa version : seul un agent absent du repo est ajouté.
-- **Une équipe copiée dans un repo y vit sa propre vie** : modifier l'équipe globale ensuite ne change pas la copie, et modifier la copie (onglet Agents) ne change pas l'équipe globale. « Mettre à jour dans le projet » écrase la copie du repo par le texte global.
+- **Une équipe copiée dans un repo y vit sa propre vie** : modifier l'équipe globale ensuite ne change pas la copie, et modifier la copie (onglet Agents) ne change pas l'équipe globale. « Mettre à jour dans le projet » écrase la copie du repo par le texte global. La copie n'est pas synchronisée toute seule, mais la fenêtre « Développer avec Claude » prévient quand l'équipe choisie a changé (B10).
