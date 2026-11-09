@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { proposedBranch } from "../server/branch.ts";
 import { parseTeam } from "../server/team.ts";
+import { AddResult, fetchAgentTeams, useAddTeam } from "./AgentTeams.tsx";
 import { client } from "./api.ts";
 import { fetchBudgets } from "./Cost.tsx";
 import { fetchLauncher } from "./LauncherSettings.tsx";
@@ -46,7 +47,7 @@ async function fetchTeams(id: string) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const body = await res.json();
   return {
-    names: body.teams.map((team) => team.name),
+    teams: body.teams,
     steps: body.team ? parseTeam(body.team) : null,
   };
 }
@@ -91,6 +92,12 @@ export function DevelopWindow({
     queryFn: () => fetchTeams(String(project.id)),
     retry: false,
   });
+  const globalTeams = useQuery({
+    queryKey: ["agent-teams"],
+    queryFn: fetchAgentTeams,
+    retry: false,
+  });
+  const addTeam = useAddTeam();
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [name, setName] = useState(() => proposedBranch(story));
   const [existing, setExisting] = useState("");
@@ -177,6 +184,13 @@ export function DevelopWindow({
   const canLaunch = valid && !launch.isPending && !launch.isSuccess;
   const message = `/dev-us ${story.id} --branch ${branch}${team ? ` --team ${team}` : ""}${extra ? `\n\n${extra}` : ""}`;
   const href = `claude://code/new?folder=${encodeURIComponent(cleanFolder)}&q=${encodeURIComponent(message)}`;
+  // Stale: a global team of the same name has another text than the repo copy.
+  const staleTeam = (name: string) => {
+    const repoTeam = teams.data?.teams.find((t) => t.name === name);
+    const global = globalTeams.data?.find((t) => t.name === name);
+    return repoTeam && global && repoTeam.text !== global.text ? global : null;
+  };
+  const stale = team ? staleTeam(team) : null;
   const choices = (branches.data ?? []).filter(
     (b) => b !== project.defaultBranch && validBranch(b),
   );
@@ -426,7 +440,7 @@ export function DevelopWindow({
           Impossible de lire les équipes : l'équipe par défaut sera utilisée.
         </p>
       )}
-      {teams.data && teams.data.names.length > 0 ? (
+      {teams.data && teams.data.teams.length > 0 ? (
         <label className={label}>
           Équipe
           <select
@@ -435,9 +449,10 @@ export function DevelopWindow({
             onChange={(e) => setTeam(e.target.value)}
           >
             <option value="">Par défaut</option>
-            {teams.data.names.map((t) => (
+            {teams.data.teams.map(({ name: t }) => (
               <option key={t} value={t}>
                 {t}
+                {staleTeam(t) && " · à mettre à jour"}
               </option>
             ))}
           </select>
@@ -452,6 +467,34 @@ export function DevelopWindow({
           </div>
         )
       )}
+      {stale && (
+        <div role="status" className="rounded-xl border bg-raised p-3">
+          <p>
+            L'équipe {stale.name} a changé dans Équipes d'agents depuis son
+            ajout à ce projet. Claude suivra la version du repo tant que tu ne
+            la mets pas à jour.
+          </p>
+          <button
+            type="button"
+            className={`mt-3 ${button}`}
+            disabled={addTeam.isPending}
+            onClick={() =>
+              addTeam.mutate(
+                { project, team: stale },
+                {
+                  onSuccess: () =>
+                    queryClient.invalidateQueries({
+                      queryKey: ["develop-teams", project.id],
+                    }),
+                },
+              )
+            }
+          >
+            Mettre à jour dans le projet
+          </button>
+        </div>
+      )}
+      <AddResult added={addTeam.data} failed={addTeam.isError} />
       {!cloud && (
         <div>
           <label className={label}>

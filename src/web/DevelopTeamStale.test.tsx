@@ -140,7 +140,7 @@ const pick = (ui: ReturnType<typeof within>, value: string) =>
   fireEvent.change(ui.getByLabelText("Équipe"), { target: { value } });
 const STALE = [{ id: 1, name: "leger", text: T2 }];
 const optionNames = (ui: ReturnType<typeof within>) =>
-  ui.getAllByRole("option").map((o) => o.textContent);
+  ui.getAllByRole("option").map((o: HTMLElement) => o.textContent);
 
 describe("criterion 1: the suffix", () => {
   it("given a repo team leger (T1) and a global team leger (T2), when the window opens, then the option reads « leger · à mettre à jour » with value leger", async () => {
@@ -243,6 +243,10 @@ describe("criterion 4: the launch is never blocked", () => {
     await ui.findByRole("option", { name: "leger · à mettre à jour" });
     pick(ui, "leger");
     await ui.findByRole("status");
+    // The form is valid once the clone folder is known (PC mode, no launcher).
+    fireEvent.change(ui.getByLabelText("Dossier du clone"), {
+      target: { value: "/home/dorian/code/hello" },
+    });
 
     const el = ui.getByText("Lancer Claude").closest("a, button");
     expect(el?.tagName).toBe("A");
