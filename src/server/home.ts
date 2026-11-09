@@ -4,7 +4,10 @@ import { currentUser } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import {
   acceptanceCriteria,
+  catalogWrites,
   cloudLaunches,
+  history,
+  mcpTokens,
   projectMembers,
   projects,
   questions,
@@ -16,6 +19,7 @@ import {
 } from "./db/schema.ts";
 import { morningOf } from "./night.ts";
 import { MAX_RELAUNCHES } from "./pr-follow.ts";
+import { liveToken } from "./tokens.ts";
 import { runVerdict } from "./verdict.ts";
 
 const storyColumns = {
@@ -77,6 +81,88 @@ async function runningRuns(
     : [];
   const stepOf = new Map(steps.map((s) => [s.runId, s.agent]));
   return running.map((r) => ({ ...r, step: stepOf.get(r.runId) ?? null }));
+}
+
+/** The getting-started guide (decision 075 A, B): steps 2 to 7 read from today's rows, archived projects included, but « Faire » leads to active ones; null once all are done. */
+async function onboardingOf(db: Db, userId: number) {
+  const member = eq(projectMembers.userId, userId);
+  const [mine, token, [seen], [validated]] = await Promise.all([
+    db
+      .select({
+        id: projects.id,
+        name: projects.fullName,
+        archivedAt: projects.archivedAt,
+        prepared: sql<boolean>`exists (select 1 from ${catalogWrites} where ${catalogWrites.projectId} = ${projects.id})`,
+      })
+      .from(projectMembers)
+      .innerJoin(projects, eq(projects.id, projectMembers.projectId))
+      .where(member)
+      .orderBy(asc(projects.id)),
+    db
+      .select({ id: mcpTokens.id })
+      .from(mcpTokens)
+      .where(and(eq(mcpTokens.userId, userId), liveToken))
+      .limit(1),
+    db
+      .select({
+        ticket: sql<boolean>`count(${tickets.id}) > 0`,
+        toValidate: sql<
+          number | null
+        >`min(${userStories.id}) filter (where ${userStories.status} = 'to_validate' and ${projects.archivedAt} is null)`,
+        ready: sql<
+          number | null
+        >`min(${userStories.id}) filter (where ${userStories.status} = 'ready' and ${projects.archivedAt} is null)`,
+        withPr: sql<boolean>`coalesce(bool_or(${userStories.prNumber} is not null), false)`,
+      })
+      .from(tickets)
+      .innerJoin(
+        projectMembers,
+        eq(projectMembers.projectId, tickets.projectId),
+      )
+      .innerJoin(projects, eq(projects.id, tickets.projectId))
+      .leftJoin(userStories, eq(userStories.ticketId, tickets.id))
+      .where(member),
+    // The history, not the status: a story imported from an issue is `ready` without anyone validating it.
+    db
+      .select({ id: history.id })
+      .from(history)
+      .innerJoin(
+        projectMembers,
+        eq(projectMembers.projectId, history.projectId),
+      )
+      .where(
+        and(
+          member,
+          eq(history.userId, userId),
+          eq(history.action, "validate_story"),
+          eq(history.result, "ok"),
+        ),
+      )
+      .limit(1),
+  ]);
+  const active = mine.filter((p) => p.archivedAt === null);
+  const unprepared = active.find((p) => !p.prepared);
+  const step = (
+    key: string,
+    done: boolean,
+    detail: string | null = null,
+    projectId: number | null = null,
+    storyId: number | null = null,
+  ) => ({ key, done, detail, projectId, storyId });
+  const steps = [
+    step("project", mine.length > 0, mine[0]?.name ?? null),
+    step("claude", token.length > 0),
+    step(
+      "prepare",
+      mine.some((p) => p.prepared),
+      null,
+      unprepared?.id,
+    ),
+    step("idea", seen?.ticket === true, null, active[0]?.id),
+    step("validate", validated !== undefined, null, null, seen?.toValidate),
+    step("develop", seen?.withPr === true, null, null, seen?.ready),
+  ];
+  return steps.every((s) => s.done) ? null : { steps };
 }
 
 /** The home of the user (decision 040 A to D): what waits for them, what Claude does, the state of each project; read in a few set-based queries, nothing stored. */
@@ -266,6 +352,9 @@ export function homeRoutes(db: Db, now: () => number) {
     const forYouIn = new Set(forYou.map((i) => i.project.id));
     const claudeIn = new Set(running.map((r) => r.projectId));
     return c.json({
+      onboarding: user.onboardingHiddenAt
+        ? null
+        : await onboardingOf(db, user.userId),
       night: await morningOf(db, user.userId, new Date(now())),
       forYou,
       claudeWorks: running.map((r) => ({
