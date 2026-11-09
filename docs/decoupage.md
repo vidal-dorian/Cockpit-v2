@@ -80,7 +80,8 @@
 - **Fait** : tranche 15.1 (les trois gestes au téléphone : la barre du bas, le panneau « Noter une idée » en plein écran avec « Photo », le panneau de l'accueil sous « 1 · Maintenant », [décision 071](decisions/071-trois-gestes-au-telephone.md)).
 - **Fait** : tranche 15.2 (PWA et notifications : l'application installable, quatre notifications sur le téléphone avec un silence réglable, « Cockpit ne répond plus », [décision 072](decisions/072-pwa-et-notifications.md)).
 - **Fait** : tranche 15.3 (ergonomie : recherche `Ctrl K`, raccourcis clavier, thème clair à valider par Dorian, projets favoris, [décision 073](decisions/073-ergonomie.md)).
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (15.1 à 15.3 faites), puis phase 13 (13.3 et 13.4 attendent Dorian).
+- **Fait** : tranche 15.4 (la mise en route : les sept étapes de S06 en haut de l'accueil, qui se cochent toutes seules, « Masquer ce guide », [décision 074](decisions/074-mise-en-route.md)) ; la phase 15 est terminée.
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.3 et 13.4 attendent Dorian).
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -292,7 +293,7 @@ Sur un repo construit sans Cockpit (par exemple la v1), Claude dépose par le MC
 | 15.1 | **Les trois gestes au téléphone** : noter une idée, valider une US et répondre à Claude, vérifiés et corrigés en largeur téléphone ; « Photo » dans Noter une idée ([071](decisions/071-trois-gestes-au-telephone.md), [064](decisions/064-tranches-restantes.md)) | Sur mon téléphone, je fais les trois gestes sans zoom ni défilement latéral |
 | 15.2 | **PWA et notifications** : icône sur l'écran d'accueil ; notifications pour une question de Claude, un run en échec ou une PR à relire (brief §6.17), le récap de la nuit, le silence la nuit, l'écran « Cockpit ne répond plus » (S56) ([072](decisions/072-pwa-et-notifications.md), [064](decisions/064-tranches-restantes.md)) | Claude pose une question, mon téléphone vibre |
 | 15.3 | **Ergonomie** : raccourcis clavier, recherche globale, thème clair (brief §6.20), favoris ([073](decisions/073-ergonomie.md), [064](decisions/064-tranches-restantes.md)) | `Ctrl+K` ouvre la recherche globale ; je bascule en thème clair |
-| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18), les sept étapes de S06, en haut de l'accueil ([064](decisions/064-tranches-restantes.md)) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
+| 15.4 | **Page « Mise en route »** : un guide pas à pas dont chaque étape se coche toute seule (brief §6.18), les sept étapes de S06, en haut de l'accueil ([074](decisions/074-mise-en-route.md), [064](decisions/064-tranches-restantes.md)) | Un nouvel utilisateur suit la page, chaque étape se coche quand elle est faite |
 
 ## Équipe d'agents (fait)
 

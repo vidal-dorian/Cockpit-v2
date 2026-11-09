@@ -22,9 +22,9 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S01](S01_Connexion.png) | Connexion avec GitHub | 1.3 (existe) | 009 | |
 | [S02](S02_Assistant_Adresse.png) | Mise en service, étape 1 : le code de démarrage, l'adresse détectée | 1.5 (existe) | 012, 028 J | |
 | [S03](S03_Assistant_GitHubApp.png) | Mise en service, étape 2 : créer la GitHub App, ses permissions | 1.5 (existe) | 012 | |
-| [S04](S04_Bienvenue.png) | Bienvenue : ouvrir des repos, les importer, connecter Claude | 1.6 (existe) | 012 | |
+| [S04](S04_Bienvenue.png) | Bienvenue : ouvrir des repos, les importer, connecter Claude | 1.6 (existe) | 012 | inchangée tant que l'App n'est pas installée ; ensuite le guide de S06 prend le relais ([074](../decisions/074-mise-en-route.md) F) |
 | [S05](S05_AutoriserClaude.png) | Claude demande l'accès (`/autoriser`) | 4.7 (existe) | 021 | |
-| [S06](S06_MiseEnRoute.png) | Mise en route qui se coche toute seule | 15.4 | | tranché ([064](../decisions/064-tranches-restantes.md) 15.4) : les sept étapes de l'écran, en haut de l'accueil |
+| [S06](S06_MiseEnRoute.png) | Mise en route qui se coche toute seule | 15.4 (existe) | 074 | construit ([074](../decisions/074-mise-en-route.md)) : les sept étapes de l'écran, en haut de l'accueil ; sans les détails des étapes 1 et 3 (« 3 repos ouverts sur GitHub », « claude.ai · il y a 2 min ») |
 
 ## 2 · Accueil, recherche, idées
 
