@@ -21,6 +21,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
   type CSSProperties,
+  type KeyboardEvent,
   useEffect,
   useMemo,
   useRef,
@@ -128,6 +129,15 @@ function ThenEdge({
     sourcePosition,
     targetPosition,
   });
+  const plus = useRef<HTMLButtonElement>(null);
+  // Escape closes the menu only: left alone it reaches the dialog, whose cancel throws away the draft. The focus goes back to « + ».
+  const closeOnEscape = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== "Escape" || !open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+    plus.current?.focus();
+  };
   return (
     <>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} />
@@ -138,17 +148,11 @@ function ThenEdge({
               transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
             }}
             className="nodrag nopan pointer-events-auto absolute"
-            role="group"
-            // Escape closes the menu only: left alone it reaches the dialog, whose cancel throws away the draft.
-            onKeyDown={(e) => {
-              if (e.key !== "Escape" || !open) return;
-              e.preventDefault();
-              e.stopPropagation();
-              setOpen(false);
-            }}
           >
             <button
+              ref={plus}
               type="button"
+              onKeyDown={closeOnEscape}
               aria-label={`Intercaler entre ${data.from} et ${data.to}`}
               aria-expanded={open}
               onClick={() => setOpen(!open)}
@@ -165,6 +169,7 @@ function ThenEdge({
                   <button
                     key={agent}
                     type="button"
+                    onKeyDown={closeOnEscape}
                     onClick={() => {
                       setOpen(false);
                       data.onInsert(data.after as string, agent);

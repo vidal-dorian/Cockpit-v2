@@ -711,7 +711,8 @@ export function ProjectTeam({
         {initial && (
           <button
             type="button"
-            disabled={archived || commit.isPending}
+            // A starter team's draft needs its level and agent changes (063 F), which only the commit of the tab sends.
+            disabled={archived || commit.isPending || starter !== null}
             onClick={() => {
               setSwitchTo(null);
               setDeleting(false);
@@ -914,19 +915,23 @@ export function ProjectTeam({
     !unchanged &&
     steps.length > 0 &&
     steps.every((s) => s.loopTo === null || s.until.trim() !== "") &&
-    // A loop without `max` stays only if the base has the same one: same place, same return, same condition (a renamed agent is the same step).
+    // A loop without `max` stays only if the base has the same one (decision 079 C): the same agent, or, for an agent renamed in the panel, the same place; same return and same condition.
     steps.every((s, i) => {
       const base = starter?.base ?? initial?.steps ?? [];
       const target = (list: TeamStep[], t: TeamStep) =>
         list.findIndex((x) => x.agent === t.loopTo);
-      const was = base[i];
       return (
         s.loopTo === null ||
         s.max !== undefined ||
-        (was?.loopTo != null &&
-          was.max === undefined &&
-          was.until === s.until &&
-          target(base, was) === target(steps, s))
+        base.some(
+          (b, j) =>
+            b.loopTo !== null &&
+            b.max === undefined &&
+            b.until === s.until &&
+            (b.agent === s.agent
+              ? b.loopTo === s.loopTo
+              : j === i && target(base, b) === target(steps, s)),
+        )
       );
     });
   return (
