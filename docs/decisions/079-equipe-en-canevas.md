@@ -4,7 +4,7 @@
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) E6 A à C ; le reste est proposé par Claude)
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (B, le format), [031 — L'équipe en graphe](031-equipe-en-graphe.md), [032 — Plusieurs équipes](032-plusieurs-equipes.md), [042 — « Nouvelle équipe » dans une fenêtre](042-nouvelle-equipe-fenetre.md), [045 — « Quatre temps »](045-interface-quatre-temps.md) (G, les outils plein écran), [074 — Les équipes à la demande](074-equipes-a-la-demande.md), [036 — Questions de Claude](036-questions-de-claude.md), [049 — Mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
-- **Modifie** : 029 B (quatre clés de plus dans le fichier d'une équipe) ; 031 E (un agent peut être deux fois dans une équipe, avec un `id`) ; 042 A (la fenêtre « Nouvelle équipe » devient le canevas plein écran, comme le voulait la 045 G) ; 074 B6 (« Nouvelle équipe » et « Modifier » de `/equipes` ouvrent le canevas)
+- **Modifie** : 029 B (quatre clés de plus dans le fichier d'une équipe) ; 031 C (dans le canevas, un lien vers une étape plus loin la met en parallèle) et 031 E (un agent peut être deux fois dans une équipe, avec un `id`) ; 042 A (la fenêtre « Nouvelle équipe » devient le canevas plein écran, comme le voulait la 045 G) ; 074 B6 (« Nouvelle équipe » et « Modifier » de `/equipes` ouvrent le canevas)
 - **Tranche** : E6 du [découpage](../decoupage.md)
 - **Écrans** : [S38](../ecrans/S38_NouvelleEquipe.png), [S38b](../ecrans/S38b_Equipe_Intercaler.png), [S38c](../ecrans/S38c_Equipe_TracerLien.png)
 
