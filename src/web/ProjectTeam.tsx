@@ -1039,6 +1039,7 @@ export function ProjectTeam({
           <button
             type="button"
             disabled={!canCommit}
+            aria-busy={commit.isPending}
             onClick={() => {
               setProblem(null);
               setDone(null);

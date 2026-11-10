@@ -107,6 +107,7 @@ function FindingPanel({
                 type="button"
                 className={panelPrimaryButton}
                 disabled={off}
+                aria-busy={busy}
                 onClick={() => onDecide("ticket")}
               >
                 En faire un ticket
@@ -116,6 +117,7 @@ function FindingPanel({
                   type="button"
                   className={panelButton}
                   disabled={off}
+                  aria-busy={busy}
                   onClick={() => onDecide("dismiss", reason.trim())}
                 >
                   Rejeter
@@ -124,6 +126,7 @@ function FindingPanel({
                   type="button"
                   className={panelButton}
                   disabled={off}
+                  aria-busy={busy}
                   onClick={() => onDecide("later")}
                 >
                   Plus tard

@@ -235,6 +235,7 @@ export function DevelopWindow({
                 type="button"
                 className={panelPrimaryButton}
                 disabled={!canLaunch}
+                aria-busy={launch.isPending}
                 onClick={() => launch.mutate()}
               >
                 <span>Lancer dans le cloud</span>
