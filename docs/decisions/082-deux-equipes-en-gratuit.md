@@ -1,10 +1,10 @@
 # 082 — Deux équipes d'agents en Gratuit
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit
 - **Date** : 2026-11-10
 - **Décidé par** : Dorian (« dans la version gratuite, on ne peut faire que 2 équipes d'agents, après c'est payant dans la version Pro » ; A et D), avec Claude (B, C, E, F)
 - **Dépend de** : [074 — Les équipes à la demande](074-equipes-a-la-demande.md) (B, la table `agent_teams` et ses routes), [077 — Les offres et les quotas](077-offres-et-quotas.md) (A, qui est Pro ; C, le refus `plan` ; F, la page Abonnement), [079 — L'équipe en canevas](079-equipe-en-canevas.md) (E, l'enregistrement depuis `/equipes`), [081 — Les retours d'action](081-retours-d-action.md)
-- **Modifie** : [077](077-offres-et-quotas.md) F (les cartes Gratuit et Pro de l'Abonnement) et « Ce qui ne change pas » (les équipes d'agents ne sont plus toutes dans Gratuit)
+- **Modifie** : [077](077-offres-et-quotas.md) F (les cartes Gratuit et Pro de l'Abonnement) et « Ce qui ne change pas » (les équipes d'agents ne sont plus toutes dans Gratuit) ; [074](074-equipes-a-la-demande.md) B2 (le `PUT` peut répondre 403 `plan`)
 - **Tranche** : aucune du [découpage](../decoupage.md) (demande de Dorian du 2026-11-10)
 - **Écran** : [S49](../ecrans/S49_Reglages_Offre.png), [S35](../ecrans/S35_Equipes.png)
 
@@ -27,6 +27,15 @@ La 077 met les équipes d'agents dans Gratuit sans limite. Le 2026-11-10, Dorian
 
 - Les équipes des repos, « Développer avec Claude » (qui liste les équipes du repo), l'ajout d'une équipe à un projet (074 B7 à B9) et le MCP (aucun outil n'écrit dans `agent_teams`).
 - Aucun paiement : « Passer à Pro » montre toujours la phrase de la 077 G.
+
+## Ce que le code a précisé
+
+- **`plans.ts`** : `FREE_TEAM_LIMIT = 2`, à côté de `FREE_LIMIT`.
+- **`agent-teams.ts`** : le `PUT` verrouille la ligne de `users` (`for("update")`) dans la transaction de `act`, cherche l'équipe du même nom, et seulement si elle n'existe pas et que `planOf(tx, userId)` rend `free`, compte les lignes de `agent_teams` du compte ; à `FREE_TEAM_LIMIT` ou plus, il lève `Refused("plan")`, que la route rend en 403 `{ error: "plan" }`.
+- **`pro-codes.ts`** : `teamLimit` (`FREE_TEAM_LIMIT`, `null` en Pro) est dans le corps commun de `GET /api/me/plan` et de `POST /api/me/pro-code`.
+- **`roles.ts`** : `TEAM_QUOTA_REFUSAL` porte la phrase, pour la page et pour le canevas.
+- **`AgentTeams.tsx`** : « Nouvelle équipe » est désactivé (`aria-describedby` vers la phrase, d'id `team-quota`) quand `teamLimit` n'est pas nul et que la liste l'atteint ; la phrase est suivie du lien « Abonnement ». Le 403 `plan` du `PUT` est remplacé par le code `team_quota`, une entrée de `REFUSALS` (`ProjectPrepare.tsx`) qui n'est pas un code du serveur.
+- **`Subscription.tsx`** : « 2 équipes d'agents » dans la carte Gratuit, « Équipes d'agents illimitées » dans la carte Pro.
 
 ## Limites connues
 
