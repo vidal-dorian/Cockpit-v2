@@ -407,6 +407,7 @@ export function ProjectPrepare({
             <button
               type="button"
               disabled={archived || read.isPending || commit.isPending}
+              aria-busy={read.isPending || commit.isPending}
               onClick={() => {
                 setProblem(null);
                 setDone(null);
@@ -433,6 +434,7 @@ export function ProjectPrepare({
                   (f) => f.status !== "create" && f.status !== "update",
                 )
               }
+              aria-busy={commit.isPending}
               onClick={() => {
                 setProblem(null);
                 commit.mutate(plan);

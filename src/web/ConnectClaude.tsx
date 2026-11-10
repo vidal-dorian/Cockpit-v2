@@ -29,7 +29,7 @@ export function ConnectClaude() {
 
   // The section appears with its content: the address is what it is about.
   if (connect.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
 
   const copyButton = (className: string) => (
     <>

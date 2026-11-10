@@ -109,6 +109,7 @@ export function Editor({
         <button
           type="button"
           disabled={archived || pending || !valid || after === (before ?? "")}
+          aria-busy={pending}
           onClick={() => onCommit(after)}
           className={primaryButton}
         >
@@ -133,6 +134,7 @@ export function Editor({
                 <button
                   type="button"
                   disabled={archived || pending}
+                  aria-busy={pending}
                   onClick={() => onCommit(null)}
                   className={dangerButton}
                 >
@@ -153,6 +155,7 @@ export function Editor({
               <button
                 type="button"
                 disabled={archived || pending}
+                aria-busy={pending}
                 onClick={() => setConfirming(true)}
                 className={ghostButton}
               >
@@ -466,7 +469,7 @@ export function ProjectClaudeConfig({
   return (
     <section className="mx-[26px] mt-4" aria-label="Ce que Claude lit">
       {!config.data && !config.isError && (
-        <p className="text-muted-foreground">Chargement…</p>
+        <p className="loading text-muted-foreground">Chargement…</p>
       )}
       {failed && (
         <div role="alert" className={`mt-3 ${alertBox}`}>

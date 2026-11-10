@@ -106,6 +106,7 @@ export function RunNowButton({
           routine.data.needsReconnect ||
           run.isPending
         }
+        aria-busy={run.isPending}
         className={button}
       >
         Écrire les US maintenant
@@ -158,6 +159,7 @@ export function ProjectRoutine({
       queryClient.invalidateQueries({ queryKey: ["routine"] }),
     ]);
   const save = useMutation({
+    meta: { done: "Réglages enregistrés." },
     mutationFn: async () => {
       if (!form) return;
       // The hour is the one of the browser's time zone (decision 022 D).
@@ -210,7 +212,7 @@ export function ProjectRoutine({
         </h2>
         <div aria-live="polite">
           {(schedule.isPending || routine.isPending) && (
-            <p className="text-muted-foreground">Chargement…</p>
+            <p className="loading text-muted-foreground">Chargement…</p>
           )}
           {(schedule.isError || routine.isError) && (
             <p role="alert" className={alertBox}>
@@ -324,6 +326,7 @@ export function ProjectRoutine({
                 <button
                   type="submit"
                   disabled={save.isPending}
+                  aria-busy={save.isPending}
                   className={primaryButton}
                 >
                   Enregistrer
@@ -394,6 +397,7 @@ function ArchiveCard({
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const archive = useMutation({
+    meta: { done: "Projet archivé." },
     mutationFn: async () => {
       const res = await client.api.projects[":id"].archive.$post({
         param: { id: projectId },
@@ -423,6 +427,7 @@ function ArchiveCard({
               type="button"
               onClick={() => archive.mutate()}
               disabled={archive.isPending}
+              aria-busy={archive.isPending}
               className={dangerButton}
             >
               Confirmer l'archivage

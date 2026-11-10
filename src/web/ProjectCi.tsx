@@ -122,6 +122,7 @@ function WorkflowLine({
         <button
           type="button"
           disabled={archived || ask.isPending || ask.isSuccess}
+          aria-busy={ask.isPending}
           onClick={() => ask.mutate()}
           className={button}
         >
@@ -168,6 +169,7 @@ function CommitButton({
   installationUrl,
   appMissing,
   disabled,
+  busy,
   onClick,
   children,
 }: {
@@ -176,6 +178,8 @@ function CommitButton({
   /** The App itself lacks the permission: the link is the App's settings, not the installation's. */
   appMissing: boolean;
   disabled: boolean;
+  /** The commit is on its way (decision 081 A). */
+  busy: boolean;
   onClick: () => void;
   children?: React.ReactNode;
 }) {
@@ -185,6 +189,7 @@ function CommitButton({
         <button
           type="button"
           disabled={disabled || !allowed}
+          aria-busy={busy}
           onClick={onClick}
           className={primaryButton}
         >
@@ -251,6 +256,7 @@ function Proposal({
           <button
             type="button"
             disabled={commit.disabled}
+            aria-busy={commit.busy}
             onClick={commit.onIgnore}
             className={ghostButton}
           >
@@ -331,12 +337,15 @@ export function ProjectCi({
     installationUrl: data?.permission.installationUrl ?? "",
     appMissing: data?.permission.appMissing ?? false,
     disabled: archived || write.isPending,
+    busy: write.isPending,
   };
   const { starter, proposal } = data ?? {};
   return (
     <>
       {query.isPending && (
-        <p className="px-[26px] pt-5 text-muted-foreground">Chargement…</p>
+        <p className="loading px-[26px] pt-5 text-muted-foreground">
+          Chargement…
+        </p>
       )}
       {failed && (
         <div role="alert" className={`mx-[26px] mt-5 ${alertBox}`}>

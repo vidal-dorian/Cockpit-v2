@@ -119,7 +119,7 @@ export function StoryPage() {
     <main className="pb-6">
       <div aria-live="polite">
         {result.isPending && (
-          <p className="px-[26px] pt-[26px] text-muted-foreground">
+          <p className="loading px-[26px] pt-[26px] text-muted-foreground">
             Chargement…
           </p>
         )}

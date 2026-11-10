@@ -165,6 +165,7 @@ function RowActions({
             type="button"
             onClick={validate}
             disabled={validating}
+            aria-busy={validating}
             className={rowAction}
           >
             Valider
@@ -337,6 +338,7 @@ const where = (item: Extract<Item, { kind: "answer" }>) => (
 function Row({ item, open }: { item: Item; open: () => void }) {
   const queryClient = useQueryClient();
   const validate = useMutation({
+    meta: { done: "User story validée." },
     mutationFn: async (id: number) => {
       const res = await client.api.stories[":id"].validate.$post({
         param: { id: String(id) },
@@ -520,6 +522,7 @@ function OnboardingGuide({
           type="button"
           onClick={() => hide.mutate()}
           disabled={hide.isPending}
+          aria-busy={hide.isPending}
           className={`ml-auto text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
         >
           Masquer ce guide
@@ -599,7 +602,9 @@ export function HomePage({
   const [fromRow, setFromRow] = useState(false);
   if (home.isPending)
     return (
-      <p className="px-[26px] pt-[26px] text-muted-foreground">Chargement…</p>
+      <p className="loading px-[26px] pt-[26px] text-muted-foreground">
+        Chargement…
+      </p>
     );
   if (home.isError)
     return (

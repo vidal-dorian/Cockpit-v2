@@ -13,6 +13,7 @@ import { day, Tokens } from "./SettingsTokens.tsx";
 import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import { fetchPlan, planSentence, Subscription } from "./Subscription.tsx";
 import { plural } from "./tickets.ts";
+import { toast } from "./toast.tsx";
 import {
   alertBox,
   button,
@@ -67,7 +68,7 @@ function UserList() {
   });
 
   if (users.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (users.isError) {
     return (
       <p role="alert" className={alertBox}>
@@ -111,8 +112,14 @@ function UserList() {
               {user.isAdmin ? null : user.blockedAt ? (
                 <button
                   type="button"
-                  onClick={() => change.mutate({ id: user.id, block: false })}
+                  onClick={() =>
+                    change.mutate(
+                      { id: user.id, block: false },
+                      { onSuccess: () => toast("Compte débloqué.") },
+                    )
+                  }
                   disabled={change.isPending}
+                  aria-busy={change.isPending}
                   className={button}
                 >
                   Débloquer
@@ -124,8 +131,14 @@ function UserList() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => change.mutate({ id: user.id, block: true })}
+                    onClick={() =>
+                      change.mutate(
+                        { id: user.id, block: true },
+                        { onSuccess: () => toast("Compte bloqué.") },
+                      )
+                    }
                     disabled={change.isPending}
+                    aria-busy={change.isPending}
                     className={dangerButton}
                   >
                     Confirmer le blocage
@@ -273,7 +286,7 @@ export function Settings({ tab }: { tab: SettingsTab }) {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const sentence = useSentence(tab, me.data?.isAdmin === true);
   if (me.isPending)
-    return <p className="p-4 text-muted-foreground">Chargement…</p>;
+    return <p className="loading p-4 text-muted-foreground">Chargement…</p>;
   if (me.isError)
     return (
       <div role="alert" className={`m-4 ${alertBox}`}>

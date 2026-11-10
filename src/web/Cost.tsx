@@ -94,6 +94,7 @@ function BudgetsForm({ initial }: { initial: Budgets }) {
       <button
         type="submit"
         disabled={save.isPending}
+        aria-busy={save.isPending}
         className={`justify-self-start ${primaryButton}`}
       >
         Enregistrer
@@ -135,7 +136,9 @@ export function Cost() {
             réessaie plus tard.
           </p>
         )}
-        {cost.isPending && <p className="text-muted-foreground">Chargement…</p>}
+        {cost.isPending && (
+          <p className="loading text-muted-foreground">Chargement…</p>
+        )}
         {data && (
           <>
             <section

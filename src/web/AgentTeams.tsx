@@ -21,6 +21,7 @@ import { starterQuery } from "./ProjectTeam.tsx";
 import { StateSentence } from "./Shell.tsx";
 import { catalogAgents, TeamCanvas } from "./TeamCanvas.tsx";
 import { DEFAULT_STEPS, readTeam, writeTeam } from "./team-file.ts";
+import { toast } from "./toast.tsx";
 import {
   button,
   dangerButton,
@@ -207,6 +208,7 @@ function TeamRow({
             type="button"
             aria-describedby={`delete-${team.id}`}
             disabled={deleting}
+            aria-busy={deleting}
             onClick={onDelete}
             className={`mt-2 ${dangerButton}`}
           >
@@ -257,6 +259,7 @@ function TeamRow({
             <button
               type="button"
               disabled={!project || add.isPending}
+              aria-busy={add.isPending}
               onClick={() =>
                 project &&
                 add.mutate(
@@ -326,6 +329,7 @@ export function ProjectGlobalTeams({
                 <button
                   type="button"
                   disabled={archived || add.isPending}
+                  aria-busy={add.isPending}
                   onClick={() => add.mutate({ project, team })}
                   className={button}
                 >
@@ -365,6 +369,7 @@ export function AgentTeams() {
       setProblem(refused);
       if (refused) return;
       setDialog(null);
+      toast("Équipe enregistrée.");
       return reload();
     },
     onError: () => setProblem({ code: "", status: 0 }),
@@ -375,6 +380,10 @@ export function AgentTeams() {
         param: { name },
       });
       return res.ok ? null : failure(res);
+    },
+    // A refusal comes back as data (shown by ProblemAlert): confirm only a real deletion.
+    onSuccess: (refused) => {
+      if (!refused) toast("Équipe supprimée.");
     },
     onSettled: reload,
   });
@@ -415,7 +424,7 @@ export function AgentTeams() {
           Mes équipes
         </h2>
         {teams.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {teams.isError && (
           <p role="alert">Impossible de lire tes équipes d'agents.</p>

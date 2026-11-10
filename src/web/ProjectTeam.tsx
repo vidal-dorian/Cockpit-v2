@@ -292,7 +292,7 @@ function StepEditor({
             fallback={
               <p
                 role="status"
-                className="hidden text-muted-foreground sm:block"
+                className="loading hidden text-muted-foreground sm:flex"
               >
                 Chargement du graphe…
               </p>
@@ -676,6 +676,7 @@ export function ProjectTeam({
               aria-pressed={name === n}
               // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
               disabled={commit.isPending}
+              aria-busy={commit.isPending}
               onClick={() => {
                 if (n === name) return;
                 if (!dirty) return goTo(n);
@@ -693,6 +694,7 @@ export function ProjectTeam({
         <button
           type="button"
           disabled={archived || commit.isPending}
+          aria-busy={commit.isPending}
           onClick={() => {
             setSwitchTo(null);
             setDeleting(false);
@@ -713,6 +715,7 @@ export function ProjectTeam({
             type="button"
             // A starter team's draft needs its level and agent changes (063 F), which only the commit of the tab sends.
             disabled={archived || commit.isPending || starter !== null}
+            aria-busy={commit.isPending}
             onClick={() => {
               setSwitchTo(null);
               setDeleting(false);
@@ -736,6 +739,7 @@ export function ProjectTeam({
           <button
             type="button"
             disabled={archived || commit.isPending}
+            aria-busy={commit.isPending}
             aria-expanded={choosing}
             onClick={() => setChoosing(!choosing)}
             className={button}
@@ -749,6 +753,7 @@ export function ProjectTeam({
                   key={level.id}
                   type="button"
                   disabled={archived || commit.isPending}
+                  aria-busy={commit.isPending}
                   title={level.sentence}
                   onClick={() => {
                     if (!dirty) return void chooseLevel(level.id);
@@ -773,6 +778,7 @@ export function ProjectTeam({
             type="button"
             aria-describedby="switch-team-warning"
             disabled={commit.isPending}
+            aria-busy={commit.isPending}
             onClick={() =>
               levelSwitch !== null
                 ? void chooseLevel(levelSwitch)
@@ -855,6 +861,7 @@ export function ProjectTeam({
             type="button"
             aria-describedby="delete-team-warning"
             disabled={archived || commit.isPending}
+            aria-busy={commit.isPending}
             onClick={() => {
               setProblem(null);
               setDone(null);
@@ -966,6 +973,7 @@ export function ProjectTeam({
           <button
             type="button"
             disabled={!canCommit}
+            aria-busy={commit.isPending}
             onClick={() => {
               setProblem(null);
               setDone(null);
@@ -999,6 +1007,7 @@ export function ProjectTeam({
             <button
               type="button"
               disabled={archived || commit.isPending}
+              aria-busy={commit.isPending}
               onClick={() => {
                 setSwitchTo(null);
                 setCanvas(null);

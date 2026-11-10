@@ -198,6 +198,7 @@ export function Tokens() {
               <button
                 type="submit"
                 disabled={create.isPending}
+                aria-busy={create.isPending}
                 className={primaryButton}
               >
                 Créer
@@ -214,7 +215,7 @@ export function Tokens() {
 
       <div className="mt-3" aria-live="polite">
         {tokens.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {tokens.isError && (
           <p role="alert" className={alertBox}>
@@ -251,6 +252,7 @@ export function Tokens() {
                         type="button"
                         onClick={() => revoke.mutate(t.id)}
                         disabled={revoke.isPending}
+                        aria-busy={revoke.isPending}
                         className={dangerButton}
                       >
                         Confirmer la révocation

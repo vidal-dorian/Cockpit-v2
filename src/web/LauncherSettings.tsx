@@ -117,6 +117,7 @@ function NightStep() {
         <button
           type="submit"
           disabled={save.isPending}
+          aria-busy={save.isPending}
           className={`justify-self-start ${button}`}
         >
           Enregistrer les heures
@@ -218,7 +219,7 @@ export function LauncherSettings() {
       </p>
       <div className="mt-4" aria-live="polite">
         {(launcher.isPending || projects.isPending) && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {(launcher.isError || projects.isError) && (
           <p role="alert" className={alertBox}>
@@ -267,6 +268,7 @@ export function LauncherSettings() {
                           type="checkbox"
                           checked={data.projectIds.includes(p.id)}
                           disabled={tick.isPending}
+                          aria-busy={tick.isPending}
                           onChange={(e) =>
                             tick.mutate({
                               id: p.id,
@@ -292,6 +294,7 @@ export function LauncherSettings() {
                   type="checkbox"
                   checked={data.autoRelaunch}
                   disabled={relaunch.isPending}
+                  aria-busy={relaunch.isPending}
                   onChange={(e) => relaunch.mutate(e.target.checked)}
                 />
                 Relancer Claude quand la CI d'une PR échoue

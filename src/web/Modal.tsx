@@ -33,7 +33,7 @@ export function Modal({
         event.preventDefault();
         onClose();
       }}
-      className={`m-auto rounded-[14px] border border-border-strong bg-card p-0 text-foreground backdrop:bg-background/80 max-md:m-0 max-md:size-full max-md:max-h-none max-md:max-w-none max-md:rounded-none ${className}`}
+      className={`dialog-in m-auto rounded-[14px] border border-border-strong bg-card p-0 text-foreground backdrop:bg-background/80 max-md:m-0 max-md:size-full max-md:max-h-none max-md:max-w-none max-md:rounded-none ${className}`}
     >
       {children}
     </dialog>

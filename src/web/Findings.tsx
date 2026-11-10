@@ -107,6 +107,7 @@ function FindingPanel({
                 type="button"
                 className={panelPrimaryButton}
                 disabled={off}
+                aria-busy={busy}
                 onClick={() => onDecide("ticket")}
               >
                 En faire un ticket
@@ -116,6 +117,7 @@ function FindingPanel({
                   type="button"
                   className={panelButton}
                   disabled={off}
+                  aria-busy={busy}
                   onClick={() => onDecide("dismiss", reason.trim())}
                 >
                   Rejeter
@@ -124,6 +126,7 @@ function FindingPanel({
                   type="button"
                   className={panelButton}
                   disabled={off}
+                  aria-busy={busy}
                   onClick={() => onDecide("later")}
                 >
                   Plus tard
@@ -381,7 +384,9 @@ export function Findings({
 
   return (
     <>
-      {query.isPending && <p className="text-muted-foreground">Chargement…</p>}
+      {query.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
       {query.isError && (
         <div role="alert" className={alertBox}>
           <p>Impossible de lire les constats : réessaie dans un instant.</p>
@@ -415,6 +420,7 @@ export function Findings({
               type="button"
               className={button}
               disabled={archived || refresh.isPending}
+              aria-busy={refresh.isPending}
               onClick={() => refresh.mutate()}
             >
               Actualiser
@@ -490,6 +496,7 @@ export function Findings({
                   type="button"
                   className={primaryButton}
                   disabled={archived || busy}
+                  aria-busy={busy}
                   onClick={() => run(first.id, "ticket")}
                 >
                   En faire un ticket

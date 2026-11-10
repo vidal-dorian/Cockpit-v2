@@ -106,7 +106,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
 
 // The tabs of the mockups sit 22px apart with their underline touching the border: the padding of a plain tab does not fit.
 const projectTab = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex items-center border-b-2 pb-2.5 text-sm font-semibold ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
+  `inline-flex items-center border-b-2 pb-2.5 text-sm font-semibold whitespace-nowrap ${focusRing} ${isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
 
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
@@ -396,7 +396,7 @@ export function ProjectPage({
       {!notFound && (
         <nav
           aria-label="Sections du projet"
-          className="mt-4 flex flex-wrap gap-x-[22px] border-b border-border px-[26px]"
+          className="mt-4 flex gap-x-[22px] border-b border-border px-[26px] max-md:mt-3 max-md:overflow-x-auto max-md:pt-1 max-md:[scrollbar-width:none] md:flex-wrap"
         >
           {TABS.map((t) => (
             <NavLink
@@ -419,7 +419,7 @@ export function ProjectPage({
           </h2>
           <div aria-live="polite">
             {health.isPending && (
-              <p className="text-muted-foreground">Chargement…</p>
+              <p className="loading text-muted-foreground">Chargement…</p>
             )}
             {health.isError && (
               <div role="alert" className={alertBox}>
@@ -471,6 +471,7 @@ export function ProjectPage({
                     type="button"
                     onClick={() => health.refetch()}
                     disabled={health.isFetching}
+                    aria-busy={health.isFetching}
                     className={`rounded-md text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50 ${focusRing}`}
                   >
                     {health.isFetching ? "Vérification…" : "Relancer le bilan"}

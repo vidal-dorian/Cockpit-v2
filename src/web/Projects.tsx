@@ -67,6 +67,7 @@ function ProjectList() {
   // The project waiting for its confirmation; there is no unarchive yet, so we ask on the spot (decision 003, rule 4).
   const [confirming, setConfirming] = useState<number | null>(null);
   const archive = useMutation({
+    meta: { done: "Projet archivé." },
     mutationFn: async (id: number) => {
       const res = await client.api.projects[":id"].archive.$post({
         param: { id: String(id) },
@@ -100,7 +101,7 @@ function ProjectList() {
   const [onlyFavorites, setOnlyFavorites] = useState(false);
 
   if (projects.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (projects.isError) {
     return (
       <div role="alert" className={alertBox}>
@@ -207,6 +208,7 @@ function ProjectList() {
                       type="button"
                       onClick={() => archive.mutate(project.id)}
                       disabled={archive.isPending}
+                      aria-busy={archive.isPending}
                       className={dangerButton}
                     >
                       Confirmer l'archivage
@@ -533,6 +535,7 @@ function ImportDialog({
           <button
             type="button"
             disabled={pending}
+            aria-busy={pending}
             onClick={onCancel}
             className={ghostButton}
           >
@@ -541,6 +544,7 @@ function ImportDialog({
           <button
             type="button"
             disabled={pending}
+            aria-busy={pending}
             onClick={() => onImport(level.id)}
             className={primaryButton}
           >
@@ -564,6 +568,7 @@ function Importable() {
     fullName: string;
   } | null>(null);
   const importRepo = useMutation({
+    meta: { done: "Projet importé." },
     mutationFn: async (sent: {
       githubRepoId: number;
       starterTeam: StarterLevel;
@@ -583,7 +588,7 @@ function Importable() {
   });
 
   if (repositories.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (repositories.isError) {
     return (
       <div role="alert" className={alertBox}>

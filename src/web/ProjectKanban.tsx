@@ -148,7 +148,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
       </h2>
       <div aria-live="polite">
         {stories.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {stories.isError && (
           <div role="alert" className={alertBox}>
@@ -200,7 +200,9 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                       {sub}
                     </p>
                     {name === "Idées" && tickets.isPending ? (
-                      <p className="text-muted-foreground">Chargement…</p>
+                      <p className="loading text-muted-foreground">
+                        Chargement…
+                      </p>
                     ) : name === "Idées" && tickets.isError ? (
                       <p className="text-destructive">
                         Impossible de lire les tickets.

@@ -70,7 +70,7 @@ export function SourceCode({
         </span>
       </p>
       {code.isPending && (
-        <p className="text-muted-foreground">Chargement du code…</p>
+        <p className="loading text-muted-foreground">Chargement du code…</p>
       )}
       {code.data && (
         <CodeView
@@ -317,6 +317,7 @@ function RulePanel({
               type="button"
               className={panelPrimaryButton}
               disabled={!canDecide || kept}
+              aria-busy={busy}
               onClick={onKeep}
             >
               Valider la règle <kbd className={kbdOnWhite}>V</kbd>
@@ -326,6 +327,7 @@ function RulePanel({
                 type="button"
                 className={panelButton}
                 disabled={!canDecide}
+                aria-busy={busy}
                 onClick={() => setEditing(textOf(rule))}
               >
                 Corriger le texte
@@ -334,6 +336,7 @@ function RulePanel({
                 type="button"
                 className={panelButton}
                 disabled={!canDecide}
+                aria-busy={busy}
                 onClick={onBug}
               >
                 C'est un bug
@@ -382,6 +385,7 @@ function RulePanel({
               type="submit"
               className={panelPrimaryButton}
               disabled={incomplete || busy}
+              aria-busy={busy}
             >
               Enregistrer
             </button>
@@ -562,7 +566,9 @@ export function Reprise({
 
   return (
     <>
-      {query.isPending && <p className="text-muted-foreground">Chargement…</p>}
+      {query.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
       {query.isError && (
         <div role="alert" className={alertBox}>
           <p>Impossible de lire les règles : réessaie dans un instant.</p>

@@ -34,12 +34,14 @@ import {
   fetchHealth,
   fetchMe,
   IdeaBar,
+  ScrollToTop,
   Sidebar,
   useHome,
 } from "./Shell.tsx";
 import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
 import { applyTheme } from "./theme.ts";
+import { Toaster } from "./toast.tsx";
 import {
   alertBox,
   button,
@@ -206,7 +208,7 @@ const LOOP = [
 ] as const;
 
 const loading = (
-  <p role="status" className="p-4 text-muted-foreground">
+  <p role="status" className="loading p-4 text-muted-foreground">
     Chargement…
   </p>
 );
@@ -246,6 +248,7 @@ function Shell({
   const hasProject = (useHome().data?.projects.length ?? 0) > 0;
   return (
     <div className="md:grid md:grid-cols-[224px_minmax(0,1fr)]">
+      <ScrollToTop />
       <Sidebar onSearch={() => onOverlay("search")} />
       {overlay === "search" && (
         <SearchDialog
@@ -421,7 +424,7 @@ function Routed({
           me.data ? (
             <Shell overlay={overlay} onOverlay={onOverlay} />
           ) : me.isPending ? (
-            <p className="p-4 text-muted-foreground">Chargement…</p>
+            <p className="loading p-4 text-muted-foreground">Chargement…</p>
           ) : me.isError ? (
             <div role="alert" className={`m-4 ${alertBox}`}>
               <p>Impossible de lire ton compte : {me.error.message}</p>
@@ -449,7 +452,29 @@ async function fetchSetupStatus() {
   return res.json();
 }
 
+/** The pages and the confirmations of `toast` (decision 081 B), over every page, Setup included. */
 export function App() {
+  // The last pressed button carries the ring of a request it started (decision 081 A).
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const pressed = (event.target as Element | null)?.closest?.("button");
+      if (!pressed) return;
+      for (const el of document.querySelectorAll("[data-pressed]"))
+        el.removeAttribute("data-pressed");
+      pressed.setAttribute("data-pressed", "");
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+  return (
+    <>
+      <Pages />
+      <Toaster />
+    </>
+  );
+}
+
+function Pages() {
   const setup = useQuery({ queryKey: ["setup"], queryFn: fetchSetupStatus });
   // Here, above the pages that load, so that a key pressed while Cockpit starts is not lost.
   const [overlay, setOverlay] = useState<Overlay>();
@@ -468,7 +493,7 @@ export function App() {
   useShortcut("?", () => setOverlay("shortcuts"));
 
   if (setup.isPending)
-    return <p className="p-4 text-muted-foreground">Chargement…</p>;
+    return <p className="loading p-4 text-muted-foreground">Chargement…</p>;
   if (setup.isError) {
     return (
       <div role="alert" className={`m-4 ${alertBox}`}>

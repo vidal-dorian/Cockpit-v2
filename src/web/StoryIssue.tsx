@@ -34,6 +34,7 @@ export function StoryIssue({
   const validation = useStoryValidation(id);
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const publish = useMutation({
+    meta: { done: "User story publiée sur GitHub." },
     mutationFn: async () => {
       const res = await client.api.stories[":id"].publish.$post({
         param: { id: String(id) },
@@ -90,6 +91,7 @@ export function StoryIssue({
         <button
           type="button"
           disabled={archived || publish.isPending}
+          aria-busy={publish.isPending}
           onClick={() => publish.mutate()}
           className={`mt-2 ${button}`}
         >

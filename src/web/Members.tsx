@@ -137,6 +137,7 @@ export function Members() {
     onSuccess: done,
   });
   const cancel = useMutation({
+    meta: { done: "Invitation annulée." },
     mutationFn: async (id: number) => {
       const res = await client.api.invitations[":id"].$delete({
         param: { id: String(id) },
@@ -146,6 +147,7 @@ export function Members() {
     onSuccess: done,
   });
   const change = useMutation({
+    meta: { done: "Rôle modifié." },
     mutationFn: async (m: { projectId: number; userId: number }) => {
       const res = await client.api.projects[":id"].members[":userId"].$patch(
         { param: { id: String(m.projectId), userId: String(m.userId) } },
@@ -156,6 +158,7 @@ export function Members() {
     onSuccess: done,
   });
   const remove = useMutation({
+    meta: { done: "Membre retiré." },
     mutationFn: async (m: { projectId: number; userId: number }) => {
       const res = await client.api.projects[":id"].members[":userId"].$delete({
         param: { id: String(m.projectId), userId: String(m.userId) },
@@ -166,7 +169,7 @@ export function Members() {
   });
 
   if (members.isPending)
-    return <p className="text-muted-foreground">Chargement…</p>;
+    return <p className="loading text-muted-foreground">Chargement…</p>;
   if (members.isError)
     return (
       <p role="alert" className={alertBox}>
@@ -220,6 +223,7 @@ export function Members() {
               disabled={
                 invite.isPending || login.trim() === "" || projectId === null
               }
+              aria-busy={invite.isPending}
               className={primaryButton}
             >
               Créer le lien d'invitation
@@ -269,6 +273,7 @@ export function Members() {
                         type="button"
                         onClick={() => remove.mutate(m)}
                         disabled={remove.isPending}
+                        aria-busy={remove.isPending}
                         className={dangerButton}
                       >
                         Confirmer le retrait
@@ -279,6 +284,7 @@ export function Members() {
                           type="button"
                           onClick={() => change.mutate(m)}
                           disabled={change.isPending}
+                          aria-busy={change.isPending}
                           className={primaryButton}
                         >
                           Enregistrer
@@ -328,6 +334,7 @@ export function Members() {
                   type="button"
                   onClick={() => renew.mutate(i.id)}
                   disabled={renew.isPending}
+                  aria-busy={renew.isPending}
                   className={button}
                 >
                   Nouveau lien
@@ -336,6 +343,7 @@ export function Members() {
                   type="button"
                   onClick={() => cancel.mutate(i.id)}
                   disabled={cancel.isPending}
+                  aria-busy={cancel.isPending}
                   className={button}
                 >
                   Annuler

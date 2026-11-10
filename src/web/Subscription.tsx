@@ -82,6 +82,7 @@ export function Subscription() {
   const [code, setCode] = useState("");
   const [notOpen, setNotOpen] = useState(false);
   const activate = useMutation({
+    meta: { done: "Code activé." },
     mutationFn: async () => {
       const res = await client.api.me["pro-code"].$post(
         {},
@@ -182,6 +183,7 @@ export function Subscription() {
           <button
             type="submit"
             disabled={!code.trim() || activate.isPending}
+            aria-busy={activate.isPending}
             className={primaryButton}
           >
             Activer

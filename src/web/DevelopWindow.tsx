@@ -235,6 +235,7 @@ export function DevelopWindow({
                 type="button"
                 className={panelPrimaryButton}
                 disabled={!canLaunch}
+                aria-busy={launch.isPending}
                 onClick={() => launch.mutate()}
               >
                 <span>Lancer dans le cloud</span>
@@ -250,6 +251,7 @@ export function DevelopWindow({
                   type="button"
                   className={ghostButton}
                   disabled={queue.isPending || queue.isSuccess}
+                  aria-busy={queue.isPending}
                   onClick={() => queue.mutate()}
                 >
                   Mettre en file
@@ -492,6 +494,7 @@ export function DevelopWindow({
                 "done" in addTeam.data &&
                 addTeam.data.done.pullRequest)
             }
+            aria-busy={addTeam.isPending}
             onClick={() =>
               addTeam.mutate(
                 { project, team: stale },

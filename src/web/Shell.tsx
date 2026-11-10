@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Link, NavLink, useMatch } from "react-router";
+import {
+  Link,
+  NavLink,
+  useLocation,
+  useMatch,
+  useNavigationType,
+} from "react-router";
 import { client } from "./api.ts";
 import { uploadAttachment } from "./attachments.ts";
 import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
@@ -57,7 +63,7 @@ const DOT_TONES = {
   none: "bg-border-strong",
 };
 
-/** A 7 px dot naming a « temps » (the colour budget of 045 C); `live` makes the Claude dot pulse. */
+/** A 7 px dot naming a « temps » (the colour budget of 045 C); `live` makes a halo breathe out of the Claude dot (decision 080 H). */
 export function Dot({
   tone,
   live = false,
@@ -68,7 +74,7 @@ export function Dot({
   return (
     <span
       aria-hidden="true"
-      className={`inline-block size-[7px] flex-none rounded-full ${DOT_TONES[tone]} ${live ? "animate-pulse ring-[3px] ring-claude-glow" : ""}`}
+      className={`inline-block size-[7px] flex-none rounded-full ${DOT_TONES[tone]} ${live ? "live-dot" : ""}`}
     />
   );
 }
@@ -137,8 +143,19 @@ export function Breadcrumb({
   );
 }
 
+/** A new page starts at the top (decision 080 D); Précédent and Suivant keep the browser's scroll, a change of query (a Kanban card) keeps the page where it is. */
+export function ScrollToTop() {
+  const { pathname } = useLocation();
+  const type = useNavigationType();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the pathname is the trigger, not a value read
+  useEffect(() => {
+    if (type !== "POP") window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 // A square icon button: the caller adds the size.
-const squareButton = `grid place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover disabled:opacity-40 ${focusRing}`;
+const squareButton = `grid place-items-center rounded-[10px] border border-border-strong bg-raised text-muted-foreground hover:bg-raised-hover not-disabled:active:scale-[.97] disabled:opacity-40 ${focusRing}`;
 const arrowButton = `${squareButton} size-[30px]`;
 
 /**
@@ -391,6 +408,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               type="button"
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
+              aria-busy={logout.isPending}
               className={`rounded-md hover:text-foreground disabled:opacity-50 ${focusRing}`}
             >
               Se déconnecter
@@ -593,7 +611,8 @@ export function IdeaBar({
       {projects.length > 0 && (
         <div
           ref={wrapper}
-          className="sticky bottom-0 mx-[26px] mt-4 mb-5 max-md:bottom-16"
+          // The content fades out as it passes under the bar (decision 080 J); as tall as the margin above, so nothing is covered at rest.
+          className="sticky bottom-0 mx-[26px] mt-4 mb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-linear-to-t before:from-background before:content-[''] max-md:bottom-16"
         >
           {send.isError && (
             <p role="alert" className="mb-2 text-destructive">

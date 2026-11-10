@@ -331,6 +331,7 @@ export function AnalyseWindow({
               type="button"
               className={`mt-3 ${button}`}
               disabled={archived || commit.isPending}
+              aria-busy={commit.isPending}
               onClick={() => {
                 setProblem(null);
                 // The plan as received (base commit and signature), reduced to the seven files.

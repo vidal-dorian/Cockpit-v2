@@ -98,6 +98,7 @@ function Device() {
           type="button"
           className={button}
           disabled={run.isPending}
+          aria-busy={run.isPending}
           onClick={() => run.mutate(enableDevice)}
         >
           Activer sur cet appareil
@@ -106,6 +107,7 @@ function Device() {
           type="button"
           className={button}
           disabled={run.isPending}
+          aria-busy={run.isPending}
           onClick={() => run.mutate(sendTest)}
         >
           Envoyer une notification de test
@@ -195,7 +197,7 @@ function Notifications() {
         Notifications sur le téléphone
       </h2>
       {prefs.isPending && (
-        <p className="mt-3 text-muted-foreground">Chargement…</p>
+        <p className="loading mt-3 text-muted-foreground">Chargement…</p>
       )}
       {prefs.isError && (
         <p role="alert" className={`mt-3 ${alertBox}`}>

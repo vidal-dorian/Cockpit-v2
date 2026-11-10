@@ -5,6 +5,7 @@ import { client } from "./api.ts";
 import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
 import { refusedError } from "./roles.ts";
 import { fetchNight, StateSentence, useHome } from "./Shell.tsx";
+import { toast } from "./toast.tsx";
 import {
   alertBox,
   button,
@@ -72,6 +73,7 @@ export function Night() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
   });
   const validate = useMutation({
+    meta: { done: "User story validée." },
     mutationFn: async (id: number) => {
       const res = await client.api.stories[":id"].validate.$post({
         param: { id: String(id) },
@@ -240,6 +242,7 @@ export function Night() {
                           type="button"
                           className={`ml-auto ${button}`}
                           disabled={validate.isPending}
+                          aria-busy={validate.isPending}
                           onClick={() => validate.mutate(s.storyId)}
                         >
                           Valider et ajouter
@@ -261,11 +264,16 @@ export function Night() {
                       type="button"
                       className={primaryButton}
                       disabled={reason !== null || act.isPending}
+                      aria-busy={act.isPending}
                       onClick={() =>
-                        act.mutate(() =>
-                          client.api.nights.$post({
-                            json: { storyIds: program },
-                          }),
+                        act.mutate(
+                          () =>
+                            client.api.nights.$post({
+                              json: { storyIds: program },
+                            }),
+                          {
+                            onSuccess: () => toast("Nuit programmée."),
+                          },
                         )
                       }
                     >
@@ -282,7 +290,12 @@ export function Night() {
                     type="button"
                     className={button}
                     onClick={() =>
-                      act.mutate(() => client.api.nights.current.cancel.$post())
+                      act.mutate(
+                        () => client.api.nights.current.cancel.$post(),
+                        {
+                          onSuccess: () => toast("Nuit annulée."),
+                        },
+                      )
                     }
                   >
                     Annuler la nuit
@@ -293,7 +306,9 @@ export function Night() {
                     type="button"
                     className={button}
                     onClick={() =>
-                      act.mutate(() => client.api.nights.current.stop.$post())
+                      act.mutate(() => client.api.nights.current.stop.$post(), {
+                        onSuccess: () => toast("Arrêt de la nuit demandé."),
+                      })
                     }
                   >
                     Arrêter la nuit
@@ -314,7 +329,7 @@ export function Night() {
           </>
         )}
         {night.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
       </div>
     </main>

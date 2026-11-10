@@ -616,6 +616,7 @@ export function TeamCanvas({
               steps.length === 0 ||
               !checks.every((c) => c.ok)
             }
+            aria-busy={pending}
             onClick={save}
             className={primaryButton}
           >
@@ -676,7 +677,7 @@ export function TeamCanvas({
             {shown && (
               <Suspense
                 fallback={
-                  <p role="status" className="text-muted-foreground">
+                  <p role="status" className="loading text-muted-foreground">
                     Chargement du canevas…
                   </p>
                 }

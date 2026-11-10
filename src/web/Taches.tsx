@@ -6,6 +6,7 @@ import { fetchLauncher } from "./LauncherSettings.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { fetchRoutine } from "./RoutineSettings.tsx";
 import { Panel, StateSentence } from "./Shell.tsx";
+import { toast } from "./toast.tsx";
 import {
   alertBox,
   badge,
@@ -102,7 +103,7 @@ export function Taches() {
           </p>
         )}
         {!loaded && !routines.isError && !launcher.isError && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {loaded && !launcher.data.connected && (
           <p>
@@ -242,7 +243,12 @@ function RoutinePanel({
         routine
           ? client.api.routines[":id"].$put({ param, json })
           : client.api.routines.$post({ json }),
-      { onSuccess: onClose },
+      {
+        onSuccess: () => {
+          toast(routine ? "Tâche enregistrée." : "Tâche créée.");
+          onClose();
+        },
+      },
     );
   const last = routine?.lastLaunch;
 
@@ -260,6 +266,7 @@ function RoutinePanel({
           type="submit"
           form={ids}
           disabled={act.isPending}
+          aria-busy={act.isPending}
           className={panelPrimaryButton}
         >
           Enregistrer
@@ -402,9 +409,11 @@ function RoutinePanel({
             <button
               type="button"
               disabled={act.isPending}
+              aria-busy={act.isPending}
               onClick={() =>
-                act.mutate(() =>
-                  client.api.routines[":id"].run.$post({ param }),
+                act.mutate(
+                  () => client.api.routines[":id"].run.$post({ param }),
+                  { onSuccess: () => toast("Tâche lancée.") },
                 )
               }
               className={button}
@@ -414,11 +423,19 @@ function RoutinePanel({
             <button
               type="button"
               disabled={act.isPending}
+              aria-busy={act.isPending}
               onClick={() =>
-                act.mutate(() =>
-                  routine.pausedAt
-                    ? client.api.routines[":id"].resume.$post({ param })
-                    : client.api.routines[":id"].pause.$post({ param }),
+                act.mutate(
+                  () =>
+                    routine.pausedAt
+                      ? client.api.routines[":id"].resume.$post({ param })
+                      : client.api.routines[":id"].pause.$post({ param }),
+                  {
+                    onSuccess: () =>
+                      toast(
+                        routine.pausedAt ? "Tâche reprise." : "Tâche en pause.",
+                      ),
+                  },
                 )
               }
               className={button}
@@ -428,11 +445,15 @@ function RoutinePanel({
             <button
               type="button"
               disabled={act.isPending}
+              aria-busy={act.isPending}
               onClick={() =>
                 act.mutate(
                   () => client.api.routines[":id"].$delete({ param }),
                   {
-                    onSuccess: onClose,
+                    onSuccess: () => {
+                      toast("Tâche supprimée.");
+                      onClose();
+                    },
                   },
                 )
               }

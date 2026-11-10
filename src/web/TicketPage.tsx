@@ -112,6 +112,7 @@ function TicketView({
   }, [mode]);
 
   const save = useMutation({
+    meta: { done: "Ticket enregistré." },
     mutationFn: async () => {
       const sentTags = withPending(tags, tagText);
       const res = await client.api.tickets[":id"].$patch({
@@ -144,6 +145,7 @@ function TicketView({
     },
   });
   const validate = useMutation({
+    meta: { done: "User story validée." },
     mutationFn: async (storyId: number) => {
       const res = await client.api.stories[":id"].validate.$post({
         param: { id: String(storyId) },
@@ -164,6 +166,7 @@ function TicketView({
       ]),
   });
   const remove = useMutation({
+    meta: { done: "Ticket supprimé." },
     mutationFn: async () => {
       const res = await client.api.tickets[":id"].$delete({ param: { id } });
       if (!res.ok) throw await ticketError(res);
@@ -179,6 +182,7 @@ function TicketView({
     onError: () => queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
   });
   const abandon = useMutation({
+    meta: { done: "Ticket abandonné." },
     mutationFn: async () => {
       const res = await client.api.tickets[":id"].abandon.$post({
         param: { id },
@@ -288,6 +292,7 @@ function TicketView({
             <button
               type="submit"
               disabled={save.isPending}
+              aria-busy={save.isPending}
               className={primaryButton}
             >
               Enregistrer
@@ -296,6 +301,7 @@ function TicketView({
               type="button"
               onClick={cancel}
               disabled={save.isPending}
+              aria-busy={save.isPending}
               className={button}
             >
               Annuler
@@ -429,6 +435,7 @@ function TicketView({
                       <button
                         type="button"
                         disabled={validate.isPending}
+                        aria-busy={validate.isPending}
                         onClick={() => validate.mutate(story.id)}
                         className={button}
                       >
@@ -491,6 +498,7 @@ function TicketView({
                     mode === "delete" ? remove.mutate() : abandon.mutate()
                   }
                   disabled={remove.isPending || abandon.isPending}
+                  aria-busy={remove.isPending || abandon.isPending}
                   className={dangerButton}
                 >
                   {mode === "delete"
@@ -550,7 +558,7 @@ export function TicketPage() {
     <main className="pb-6">
       <div aria-live="polite">
         {(ticket.isPending || (ticket.data && projects.isPending)) && (
-          <p className="px-[26px] pt-[26px] text-muted-foreground">
+          <p className="loading px-[26px] pt-[26px] text-muted-foreground">
             Chargement…
           </p>
         )}

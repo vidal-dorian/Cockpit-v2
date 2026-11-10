@@ -197,6 +197,7 @@ export function Setup() {
           <button
             type="button"
             disabled={start.isPending}
+            aria-busy={start.isPending}
             onClick={() => {
               setStep(1);
               start.mutate();
@@ -285,6 +286,7 @@ export function Setup() {
           type="submit"
           // A start request is already on its way (sent from step 2): no second one.
           disabled={start.isPending}
+          aria-busy={start.isPending}
           className={`${panelPrimaryButton} w-auto!`}
         >
           Continuer
@@ -348,6 +350,7 @@ export function ClaimAdmin() {
         <button
           type="submit"
           disabled={claim.isPending}
+          aria-busy={claim.isPending}
           className={primaryButton}
         >
           Devenir administrateur

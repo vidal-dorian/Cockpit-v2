@@ -182,7 +182,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
       )}
       <div aria-live="polite">
         {tickets.isPending && (
-          <p className="text-muted-foreground">Chargement…</p>
+          <p className="loading text-muted-foreground">Chargement…</p>
         )}
         {tickets.isError && (
           <div role="alert" className={alertBox}>
