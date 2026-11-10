@@ -68,21 +68,49 @@ const wholeCard = {
 // A link starts from the edge of a card, a strip 8 px wide on each side; inside, the card is dragged.
 const EDGE = 8;
 const strips = [
-  ["from-top", Position.Top, { top: 0, left: 0, width: "100%", height: EDGE }],
+  [
+    "from-top",
+    Position.Top,
+    {
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: EDGE,
+      borderRadius: "12px 12px 0 0",
+    },
+  ],
   [
     "from-right",
     Position.Right,
-    { top: 0, right: 0, width: EDGE, height: "100%" },
+    {
+      top: 0,
+      right: 0,
+      width: EDGE,
+      height: "100%",
+      borderRadius: "0 12px 12px 0",
+    },
   ],
   [
     "from-bottom",
     Position.Bottom,
-    { bottom: 0, left: 0, width: "100%", height: EDGE },
+    {
+      bottom: 0,
+      left: 0,
+      width: "100%",
+      height: EDGE,
+      borderRadius: "0 0 12px 12px",
+    },
   ],
   [
     "from-left",
     Position.Left,
-    { top: 0, left: 0, width: EDGE, height: "100%" },
+    {
+      top: 0,
+      left: 0,
+      width: EDGE,
+      height: "100%",
+      borderRadius: "12px 0 0 12px",
+    },
   ],
 ] as const;
 
@@ -164,7 +192,6 @@ function StepCard({ data, selected }: NodeProps<CardNode>) {
               ...place,
               position: "absolute",
               transform: "none",
-              borderRadius: 0,
               minWidth: 0,
               minHeight: 0,
             }}
@@ -176,7 +203,7 @@ function StepCard({ data, selected }: NodeProps<CardNode>) {
         type="button"
         data-testid={`team-card-${keyOf(step)}`}
         onClick={onOpen}
-        className={`flex w-40 flex-col gap-[3px] rounded-xl border bg-card px-3 py-2.5 text-left hover:bg-raised ${selected ? "border-foreground" : "border-border-strong"} ${focusRing}`}
+        className={`flex h-25 w-40 flex-col gap-[3px] rounded-xl border bg-card px-3 py-2.5 text-left hover:bg-raised ${selected ? "border-foreground" : "border-border-strong"} ${focusRing}`}
       >
         <span className="text-[13px] font-semibold">{stepLabel(step)}</span>
         <span className="line-clamp-2 text-[11.5px] text-muted-foreground">
@@ -234,7 +261,8 @@ function ThenEdge({
             style={{
               transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
             }}
-            className={`nodrag nopan pointer-events-auto absolute grid size-6 place-items-center rounded-full border border-border-strong bg-raised text-sm font-bold hover:bg-raised-hover ${focusRing}`}
+            // Above the cards (a selected one is raised to 1000), even one moved onto it.
+            className={`nodrag nopan pointer-events-auto absolute z-[1001] grid size-6 place-items-center rounded-full border border-border-strong bg-raised text-sm font-bold hover:bg-raised-hover ${focusRing}`}
           >
             +
           </button>
