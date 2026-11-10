@@ -418,7 +418,13 @@ describe("decision 079 A: the new keys", () => {
       expect(read?.steps).toHaveLength(2);
       expect(read?.steps[0]).not.toHaveProperty("wait");
       expect(writeTeam(read?.steps ?? [], read?.body ?? "")).toBe(
-        text("  - agent: a", "  - agent: b", "    parallel: true"),
+        text(
+          "  - agent: a",
+          '    does: ""',
+          "  - agent: b",
+          '    does: ""',
+          "    parallel: true",
+        ),
       );
     },
   );
