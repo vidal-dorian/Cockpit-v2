@@ -1,12 +1,11 @@
 import { AGENT_NAME } from "../server/team.ts";
 
-/** Decision 079 A: `id`, `parallel`, `wait` and `max` are absent (undefined) unless the file says them. */
+/** Decision 079 A: `id`, `parallel` and `max` are absent (undefined) unless the file says them. */
 export type TeamStep = {
   agent: string;
   id?: string;
   does: string;
   parallel?: boolean;
-  wait?: "first" | "all";
   loopTo: string | null;
   until: string;
   max?: number;
@@ -85,6 +84,7 @@ export function readTeam(
   if (front[0] !== "steps:") return null;
   const steps: TeamStep[] = [];
   const seen = new Set<string>();
+  const waits = new Set<number>();
   for (const line of front.slice(1)) {
     const agent = STEP.exec(line)?.[1];
     if (agent !== undefined) {
@@ -109,8 +109,9 @@ export function readTeam(
       continue;
     }
     if (key === "wait") {
+      // An older file may say `wait` on a group head: read, then ignored (decision 079).
       if (raw !== "first" && raw !== "all") return null;
-      step.wait = raw;
+      waits.add(steps.length - 1);
       continue;
     }
     if (key === "max") {
@@ -138,8 +139,7 @@ export function readTeam(
     steps.every(
       (s, i) =>
         !(i === 0 && s.parallel) &&
-        (s.wait === undefined ||
-          (!s.parallel && steps[i + 1]?.parallel === true)) &&
+        (!waits.has(i) || (!s.parallel && steps[i + 1]?.parallel === true)) &&
         (s.loopTo ? loopIsValid(steps, i, groups) : !s.until && !s.max),
     )
     ? { steps, body: lines.slice(end + 1).join("\n") }
@@ -153,7 +153,6 @@ export function writeTeam(steps: TeamStep[], body: string): string {
     ...(s.id === undefined || s.id === s.agent ? [] : [`    id: ${s.id}`]),
     `    does: ${JSON.stringify(s.does)}`,
     ...(s.parallel ? ["    parallel: true"] : []),
-    ...(s.wait === undefined ? [] : [`    wait: ${s.wait}`]),
     ...(s.loopTo === null
       ? []
       : [
@@ -165,12 +164,11 @@ export function writeTeam(steps: TeamStep[], body: string): string {
   return `---\nsteps:\n${lines.join("\n")}\n---\n${body}`;
 }
 
-/** What a reorder or a removal can break: `parallel` on the first step, `wait` outside a group head, a loop that does not go back (its `until` and `max` go with it). */
+/** What a reorder or a removal can break: `parallel` on the first step, a loop that does not go back (its `until` and `max` go with it). */
 export const tidy = (steps: TeamStep[]): TeamStep[] => {
   const fixed = steps.map((s, i) => ({
     ...s,
     parallel: i === 0 ? undefined : s.parallel,
-    wait: steps[i + 1]?.parallel && !s.parallel ? s.wait : undefined,
   }));
   const groups = groupIndexes(fixed);
   return fixed.map((s, i) =>
@@ -186,7 +184,7 @@ const detach = (steps: TeamStep[], i: number): TeamStep[] => {
   const next = steps[i + 1];
   const rest = steps.filter((_, k) => k !== i);
   if (head?.parallel || !next?.parallel) return rest;
-  rest[i] = { ...next, parallel: undefined, wait: head?.wait };
+  rest[i] = { ...next, parallel: undefined };
   return rest;
 };
 
@@ -232,11 +230,7 @@ export function linkOnCanvas(
   const rest = detach(steps, j);
   // Right after the last step of the group that follows `from`.
   const at = groupIndexes(rest).lastIndexOf(gi + 1) + 1;
-  rest.splice(at, 0, {
-    ...(steps[j] as TeamStep),
-    parallel: true,
-    wait: undefined,
-  });
+  rest.splice(at, 0, { ...(steps[j] as TeamStep), parallel: true });
   return tidy(rest);
 }
 
@@ -248,11 +242,11 @@ export function moveStep(
   const i = steps.findIndex((s) => keyOf(s) === key);
   const j = direction === "up" ? i - 1 : i + 1;
   if (i === -1 || j < 0 || j >= steps.length) return steps;
-  // The shape of the groups stays: the two steps swap their content, not their `parallel` and `wait`.
+  // The shape of the groups stays: the two steps swap their content, not their `parallel`.
   const [a, b] = [steps[i] as TeamStep, steps[j] as TeamStep];
   const moved = [...steps];
-  moved[i] = { ...b, parallel: a.parallel, wait: a.wait };
-  moved[j] = { ...a, parallel: b.parallel, wait: b.wait };
+  moved[i] = { ...b, parallel: a.parallel };
+  moved[j] = { ...a, parallel: b.parallel };
   return tidy(moved);
 }
 

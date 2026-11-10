@@ -389,11 +389,9 @@ function drawing(
         bar(
           id,
           x - COLUMN / 4,
-          group[0]?.wait === "first"
-            ? "⑂ Le premier suffit"
-            : group.length === 2
-              ? "⑂ Attendre les deux"
-              : `⑂ Attendre les ${group.length}`,
+          group.length === 2
+            ? "⑂ Attendre les deux"
+            : `⑂ Attendre les ${group.length}`,
         ),
       );
       for (const step of group)

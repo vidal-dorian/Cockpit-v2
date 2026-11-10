@@ -274,7 +274,6 @@ function StepPanel({
   const index = steps.indexOf(step);
   const groups = groupsOf(steps);
   const group = groups.find((g) => g.includes(step)) as TeamStep[];
-  const head = group[0] as TeamStep;
   const before = groups.slice(0, groups.indexOf(group)).flat();
   const fields = agentText ? parseAgent(agentText) : null;
   return (
@@ -317,31 +316,6 @@ function StepPanel({
         />
         En même temps que l'étape d'avant
       </label>
-      {group.length > 1 && (
-        <>
-          <label htmlFor={`${uid}-wait`} className="mt-3 block">
-            Quand plusieurs liens arrivent
-          </label>
-          <select
-            id={`${uid}-wait`}
-            className={field}
-            value={head.wait ?? "all"}
-            onChange={(e) =>
-              onChange(keyOf(head), {
-                wait: e.target.value === "first" ? "first" : undefined,
-              })
-            }
-          >
-            <option value="all">Attendre tous</option>
-            <option value="first">Le premier suffit</option>
-          </select>
-          {head.wait === "first" && (
-            <p className="mt-1 text-[12.5px] text-muted-foreground">
-              Le travail des autres branches est abandonné.
-            </p>
-          )}
-        </>
-      )}
       <label htmlFor={`${uid}-loop`} className="mt-3 block">
         Boucle
       </label>
