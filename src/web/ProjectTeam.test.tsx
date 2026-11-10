@@ -444,6 +444,23 @@ describe("decision 031 D: the step panel", () => {
     expect(commitButton().disabled).toBe(false);
   });
 
+  it("given a team.md whose loop has no max, when doc-writer is added with the same loop as the reviewer's (developer, same condition) and no limit, then « Faire le commit » is disabled: one base loop covers one loop", async () => {
+    stubApi({ team: NO_MAX });
+    await openTeam();
+    click("+ Ajouter une étape");
+    click("Ajouter à l'équipe");
+    click("Monter", row("doc-writer"));
+    edit("doc-writer");
+    fireEvent.change(control("Boucle"), { target: { value: "developer" } });
+    fireEvent.change(control("Condition"), {
+      target: { value: "the verdict is ready" },
+    });
+    fireEvent.change(control("Au plus"), { target: { value: "" } });
+    review();
+
+    expect(commitButton().disabled).toBe(true);
+  });
+
   it("given a team.md whose loop has no max, when the loop is left as it is and another step is changed, then « Faire le commit » is enabled", async () => {
     stubApi({ team: NO_MAX });
     await openTeam();
@@ -787,6 +804,9 @@ describe("decision 031 D: renaming the agent of a step", () => {
     expect(control("Boucle").value).toBe("auditor");
     expect(document.activeElement).toBe(control("Agent"));
     review();
+    expect(commitButton().disabled).toBe(true);
+    fireEvent.change(control("Au plus"), { target: { value: "3" } });
+    review();
     fireEvent.click(commitButton());
     await screen.findByText(/C'est fait/);
     expect(posted(calls).after?.steps).toEqual([
@@ -795,6 +815,7 @@ describe("decision 031 D: renaming the agent of a step", () => {
         does: "writes",
         loopTo: "auditor",
         until: "docs build",
+        max: 3,
       },
     ]);
   });
