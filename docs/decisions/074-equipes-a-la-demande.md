@@ -6,6 +6,7 @@
 - **Dépend de** : [029 — L'équipe d'agents](029-equipe-d-agents.md) (B, le format de `team.md`), [032 — Plusieurs équipes](032-plusieurs-equipes.md) (A, les équipes nommées et `--team`), [042 — « Nouvelle équipe » dans une fenêtre](042-nouvelle-equipe-fenetre.md), [063 — Les équipes de départ](063-equipes-de-depart.md), [066 — La configuration commune](066-configuration-commune.md), [010 — L'historique](010-historique.md) (D)
 - **Modifie** : [063](063-equipes-de-depart.md) D (le niveau de l'équipe de départ se choisit **après** le clic sur « Importer », dans une fenêtre) ; [066](066-configuration-commune.md) A (l'entrée « Équipes d'agents » de la barre latérale ouvre `/equipes`, la page des équipes de l'utilisateur ; la page du plugin reste sur `/equipes/commun`, atteinte par un lien)
 - **Construit ce que repoussaient** : [029](029-equipe-d-agents.md) et [032](032-plusieurs-equipes.md) (« une équipe globale à tous les projets »)
+- **Modifiée par** : [079 — L'équipe en canevas](079-equipe-en-canevas.md) : « Nouvelle équipe » et « Modifier » de `/equipes` ouvrent le canevas, plus `NewTeamDialog` (B6)
 - **Tranche** : aucune du [découpage](../decoupage.md) (demande de Dorian du 2026-11-09, deux user stories)
 
 ## Contexte

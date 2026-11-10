@@ -475,3 +475,16 @@ describe("decision 032 A, F: a name outside the format", () => {
     expect(ctx.git.filesAt(ctx.git.head)?.[teamPath(name)]).toBe(LEGER);
   });
 });
+
+describe("decision 079 A3: a team with a group and a duplicate agent", () => {
+  // Regression: the server reads only the `- agent:` lines (parseTeam), so this already passes before slice E6.
+  it("given a team text with a parallel group and the same agent twice with an id, when it is applied as `after`, then it is accepted and written", async () => {
+    const ctx = await ready({ ".claude/team.md": TEAM });
+    const after = `---\nsteps:\n  - agent: developer\n    does: "the screen"\n    wait: first\n  - agent: developer\n    id: web\n    does: "the server"\n    parallel: true\n  - agent: reviewer\n    loop_to: web\n    until: "the verdict is ready"\n    max: 3\n---\nBody kept.\n`;
+
+    const res = await apply(ctx, { name: "canvas", before: null, after });
+
+    expect(res.status).toBe(200);
+    expect(ctx.git.filesAt(ctx.git.head)?.[teamPath("canvas")]).toBe(after);
+  });
+});

@@ -86,9 +86,9 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S35](S35_Equipes.png) | Les équipes de chaque projet, le catalogue | E4 (existe), 12.2 | 029, 032 | la page « Équipes d'agents » (`/equipes`) liste les équipes de l'utilisateur, à ajouter aux projets ([074](../decisions/074-equipes-a-la-demande.md) B) |
 | [S36](S36_EquipeGraphe.png) | Onglet Agents : l'équipe en graphe, les agents du repo | E3 (existe), 11.6 (existe) | 031, 042 B, 063 | |
 | [S37](S37_EditeurAgent.png) | Éditeur d'agent | E2 (existe) | 030 | |
-| [S38](S38_NouvelleEquipe.png) | Nouvelle équipe en canevas plein écran : une boucle sélectionnée | E6 | 042 (modifiée par 045) | tranché ([064](../decisions/064-tranches-restantes.md) E6) : parallèle complet, un worktree par branche ; pas d'agent `analyst` |
-| [S38b](S38b_Equipe_Intercaler.png) | Intercaler un agent oublié sur un lien | E6 | 045 | |
-| [S38c](S38c_Equipe_TracerLien.png) | Tracer un lien, mettre deux agents en parallèle | E6 | 045 | tranché ([064](../decisions/064-tranches-restantes.md) E6) : parallèle, condition écrite en une phrase |
+| [S38](S38_NouvelleEquipe.png) | Nouvelle équipe en canevas plein écran : une boucle sélectionnée | E6 | 042 (modifiée par 045 et 079) | construit (tranche E6, [079](../decisions/079-equipe-en-canevas.md)) : parallèle complet, un worktree par branche ; pas d'agent `analyst`. Laissé de côté : la section « Blocs » (le bloc « Attendre » est dessiné après chaque groupe), « + Nouvel agent », le modèle et les outils en lecture seule, les outils ↖ ↗ + de la barre ; un groupe est une colonne |
+| [S38b](S38b_Equipe_Intercaler.png) | Intercaler un agent oublié sur un lien | E6 | 045 | construit (tranche E6, [079](../decisions/079-equipe-en-canevas.md)) : le « + » est sur les liens qui arrivent à un groupe ou à Fin ; mêmes écarts que S38 |
+| [S38c](S38c_Equipe_TracerLien.png) | Tracer un lien, mettre deux agents en parallèle | E6 | 045 | construit (tranche E6, [079](../decisions/079-equipe-en-canevas.md)) : parallèle, condition écrite en une phrase ; un lien vers une étape plus loin la met en parallèle ; mêmes écarts que S38 |
 | [S39](S39_ConfigGlobale.png) | Agents et skills communs à tous les projets | 12.3 (existe) | 066 | |
 | [S40](S40_Journal.png) | Le journal filtrable, une entrée ouverte | 1.4, 11.1 (existent) | 010, 028 F, 053 | |
 

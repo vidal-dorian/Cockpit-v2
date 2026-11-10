@@ -228,8 +228,15 @@ const review = () => {
 };
 const commitButton = () =>
   screen.getByRole("button", { name: "Faire le commit" }) as HTMLButtonElement;
+// Decision 079 D: the window of 042 is the full-screen canvas, titled « Nouvelle équipe · <field> ».
 const dialog = () =>
-  screen.getByRole("dialog", { name: "Nouvelle équipe" }) as HTMLDialogElement;
+  screen.getByRole("dialog", { name: /^Nouvelle équipe/ }) as HTMLDialogElement;
+// 079 D3: the left column is two groups of buttons named after the agents; a click adds the agent as the last step (« + Ajouter une étape » is gone).
+const palette = (group: string, agent: string) =>
+  within(within(dialog()).getByRole("group", { name: group })).getByRole(
+    "button",
+    { name: agent },
+  );
 const rowsOf = (items: HTMLElement[]) =>
   items
     .filter((li) => within(li).queryByRole("button", { name: "Monter" }))
@@ -379,7 +386,7 @@ describe("decision 032 E: the command to copy", () => {
 });
 
 describe("decision 032 E: a new team, in a dialog", () => {
-  it("given the Agents tab, when « Nouvelle équipe » is clicked, then a dialog « Nouvelle équipe » opens with the field « Nom de l'équipe », a copy of the team read from the repo (not the unsaved draft) and « Ajouter une étape », while the current editor is unchanged", async () => {
+  it("given the Agents tab, when « Nouvelle équipe » is clicked, then a canvas « Nouvelle équipe » opens with the field « Nom de l'équipe », a copy of the team read from the repo (not the unsaved draft) and the palette « Agents du repo », while the current editor is unchanged", async () => {
     stubApi();
     await openTeam();
     moveFirstDown();
@@ -391,7 +398,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
     expect(within(box).getByLabelText("Nom de l'équipe")).toBeDefined();
     expect(dialogRows()).toEqual(["test-writer", "developer", "reviewer"]);
     expect(
-      within(box).getByRole("button", { name: "+ Ajouter une étape" }),
+      within(box).getByRole("group", { name: "Agents du repo" }),
     ).toBeDefined();
     expect(outsideRows()).toEqual(["developer", "test-writer", "reviewer"]);
     expect(chosen()).toBe("");
@@ -416,12 +423,7 @@ describe("decision 032 E: a new team, in a dialog", () => {
 
     click("Nouvelle équipe");
     typeName("docs");
-    fireEvent.click(
-      within(dialog()).getByRole("button", { name: "+ Ajouter une étape" }),
-    );
-    fireEvent.click(
-      within(dialog()).getByRole("button", { name: "Ajouter à l'équipe" }),
-    );
+    fireEvent.click(palette("Agents du repo", "doc-writer"));
     expect(dialogRows()).toEqual([
       "test-writer",
       "developer",
