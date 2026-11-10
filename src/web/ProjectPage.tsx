@@ -471,6 +471,7 @@ export function ProjectPage({
                     type="button"
                     onClick={() => health.refetch()}
                     disabled={health.isFetching}
+                    aria-busy={health.isFetching}
                     className={`rounded-md text-[13px] text-muted-foreground hover:text-foreground disabled:opacity-50 ${focusRing}`}
                   >
                     {health.isFetching ? "Vérification…" : "Relancer le bilan"}

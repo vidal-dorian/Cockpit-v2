@@ -28,10 +28,10 @@ describe("080 A: a button waiting for its request spins", () => {
     (file) => {
       const text = readFileSync(join(dir, file), "utf8");
       for (const match of text.matchAll(
-        /disabled=\{([^{}]*(?:\.isPending|(?<![.\w])(?:pending|validating|deleting|busy|sending)\b|canSend|canValidate|canLaunch|canCommit|\boff\b|commit\.disabled|disabled \|\| !allowed)[^{}]*)\}/g,
+        /disabled=\{([^{}]*(?:\.isPending|(?<![.\w])(?:pending|validating|deleting|busy|sending)\b|canSend|canValidate|canLaunch|canCommit|canDecide|\boff\b|commit\.disabled|disabled \|\| !allowed)[^{}]*)\}/g,
       )) {
         const expr = match[1];
-        // A request flag, read directly or through a prop or a variable; canSend, canValidate, canLaunch, canCommit, off and the CI commit's disabled hide one.
+        // A request flag, read directly or through a prop or a variable; canSend, canValidate, canLaunch, canCommit, canDecide, off and the CI commit's disabled hide one.
         const pending = expr?.match(
           /[\w.]+\.isPending|(?<![.\w])(?:pending|validating|deleting|busy|sending)\b|\.isPending|\.busy/g,
         ) ?? [".isPending", "pending", "busy"];
@@ -42,8 +42,9 @@ describe("080 A: a button waiting for its request spins", () => {
           )?.[1] ?? "";
         expect(busy, `${file}: ${expr}`).not.toBe("");
         expect(
-          // A local alias (busy = send.isPending || send.isSuccess) may give way to the request itself.
-          pending.some((p) => busy.includes(p)) || busy.includes(".isPending"),
+          // Only behind an alias (busy = send.isPending || send.isSuccess) may aria-busy read the request itself.
+          pending.some((p) => busy.includes(p)) ||
+            (!/\.isPending/.test(expr ?? "") && busy.includes(".isPending")),
           `${file}: ${expr}`,
         ).toBe(true);
       }

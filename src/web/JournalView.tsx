@@ -401,6 +401,7 @@ export function JournalList({
                 type="button"
                 onClick={() => pages.fetchNextPage()}
                 disabled={pages.isFetchingNextPage}
+                aria-busy={pages.isFetchingNextPage}
                 className={`mt-3 ${button}`}
               >
                 {pages.isFetchingNextPage ? "Chargement…" : "Afficher plus"}

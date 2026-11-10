@@ -317,6 +317,7 @@ function RulePanel({
               type="button"
               className={panelPrimaryButton}
               disabled={!canDecide || kept}
+              aria-busy={busy}
               onClick={onKeep}
             >
               Valider la règle <kbd className={kbdOnWhite}>V</kbd>
@@ -326,6 +327,7 @@ function RulePanel({
                 type="button"
                 className={panelButton}
                 disabled={!canDecide}
+                aria-busy={busy}
                 onClick={() => setEditing(textOf(rule))}
               >
                 Corriger le texte
@@ -334,6 +336,7 @@ function RulePanel({
                 type="button"
                 className={panelButton}
                 disabled={!canDecide}
+                aria-busy={busy}
                 onClick={onBug}
               >
                 C'est un bug
