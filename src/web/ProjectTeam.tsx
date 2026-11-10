@@ -915,25 +915,19 @@ export function ProjectTeam({
     !unchanged &&
     steps.length > 0 &&
     steps.every((s) => s.loopTo === null || s.until.trim() !== "") &&
-    // A loop without `max` stays only if the base has the same one (decision 079 C): the same agent, or, for an agent renamed in the panel, the same place; same return and same condition.
-    steps.every((s, i) => {
-      const base = starter?.base ?? initial?.steps ?? [];
-      const target = (list: TeamStep[], t: TeamStep) =>
-        list.findIndex((x) => x.agent === t.loopTo);
-      return (
+    // A loop without `max` stays only if the base has the same one (decision 079 C): same step (its agent), same return, same condition.
+    steps.every(
+      (s) =>
         s.loopTo === null ||
         s.max !== undefined ||
-        base.some(
-          (b, j) =>
-            b.loopTo !== null &&
-            b.max === undefined &&
+        (starter?.base ?? initial?.steps ?? []).some(
+          (b) =>
+            b.agent === s.agent &&
+            b.loopTo === s.loopTo &&
             b.until === s.until &&
-            (b.agent === s.agent
-              ? b.loopTo === s.loopTo
-              : j === i && target(base, b) === target(steps, s)),
-        )
-      );
-    });
+            b.max === undefined,
+        ),
+    );
   return (
     // `contents`: the chips span the page, the editor and the commit row are the left column of the grid of ProjectAgents.
     <section aria-labelledby="team" hidden={hidden} className="contents">
