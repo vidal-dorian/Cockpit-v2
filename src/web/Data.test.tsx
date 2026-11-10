@@ -31,7 +31,11 @@ afterEach(() => {
 type Call = { method: string; path: string; body: unknown };
 
 function stub(
-  options: { isAdmin?: boolean; answers?: Record<string, () => Response> } = {},
+  options: {
+    isAdmin?: boolean;
+    analytics?: { key: string; host: string; distinctId: string } | null;
+    answers?: Record<string, () => Response>;
+  } = {},
 ) {
   const calls: Call[] = [];
   let signedIn = true;
@@ -69,6 +73,7 @@ function stub(
               name: "Dorian",
               avatarUrl: null,
               isAdmin: options.isAdmin === true,
+              analytics: options.analytics ?? null,
             })
           : Response.json({ error: "Unauthorized" }, { status: 401 });
       if (path === "/api/me/data")
@@ -160,6 +165,40 @@ describe("078 A: the page", () => {
     screen.getByText(
       /Après une suppression, Cockpit garde seulement une empreinte de ton compte GitHub et le nombre de repos gratuits utilisés, pour qu'une suppression ne redonne pas 3 repos\. Demande à l'administrateur de l'effacer\./,
     );
+  });
+});
+
+describe("082 E: the audience measure line", () => {
+  it("given an instance with analytics, when Réglages › Données opens, then the line « Mesure d'audience » names the host only", async () => {
+    stub({
+      analytics: {
+        key: "phc_test",
+        host: "https://eu.i.posthog.com",
+        distinctId: "7",
+      },
+    });
+
+    renderAt("/reglages/donnees");
+
+    await screen.findByRole("heading", {
+      name: /Ce que Cockpit garde sur toi/,
+    });
+    const row = await screen.findByText("Mesure d'audience");
+    const text = row.closest("li, tr, div")?.textContent ?? "";
+    expect(text).toContain(
+      "pages vues et clics, sans texte ni cookie · envoyés au PostHog de l'instance (eu.i.posthog.com)",
+    );
+    expect(text).not.toContain("https://");
+    expect(text).not.toContain("phc_test");
+  });
+
+  it("given an instance without analytics, when Réglages › Données opens, then the line does not appear", async () => {
+    stub({ analytics: null });
+
+    renderAt("/reglages/donnees");
+
+    await screen.findByText(/8 entrées/);
+    expect(screen.queryByText("Mesure d'audience")).toBeNull();
   });
 });
 

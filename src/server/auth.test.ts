@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { analyticsFromEnv } from "./analytics.ts";
 import { createApp } from "./app.ts";
 import { history, sessions, users } from "./db/schema.ts";
 import { openTestDatabase } from "./db/test-db.ts";
@@ -416,9 +417,65 @@ describe("GET /api/me", () => {
       avatarUrl: "https://avatars/1",
       isAdmin: true,
       theme: "dark",
+      analytics: null,
     });
   });
 
+  it("given an instance with POSTHOG_KEY and no host, when a logged-in user reads /api/me, then analytics holds the key, the default European host and her internal id (decision 082, criterion 2)", async () => {
+    const db = await openTestDatabase();
+    await configureTestInstance(db, TEST_KEY, {});
+    const app = createApp(db, "1.2.3", {
+      ...testAppOptions,
+      analytics: analyticsFromEnv({ POSTHOG_KEY: "phc_test" }),
+    });
+    const { cookie } = await loggedInCookie(app, db);
+    const [user] = await db.select().from(users);
+    assert(user);
+
+    const res = await app.request("/api/me", { headers: { cookie } });
+
+    expect(((await res.json()) as { analytics: unknown }).analytics).toEqual({
+      key: "phc_test",
+      host: "https://eu.i.posthog.com",
+      distinctId: String(user.id),
+    });
+  });
+
+  it("given POSTHOG_HOST, when a logged-in user reads /api/me, then analytics.host is that address (criterion 3)", async () => {
+    const db = await openTestDatabase();
+    await configureTestInstance(db, TEST_KEY, {});
+    const app = createApp(db, "1.2.3", {
+      ...testAppOptions,
+      analytics: analyticsFromEnv({
+        POSTHOG_KEY: "phc_test",
+        POSTHOG_HOST: "https://posthog.example.org",
+      }),
+    });
+    const { cookie } = await loggedInCookie(app, db);
+
+    const res = await app.request("/api/me", { headers: { cookie } });
+
+    expect(
+      ((await res.json()) as { analytics: { host: string } }).analytics.host,
+    ).toBe("https://posthog.example.org");
+  });
+});
+
+describe("analyticsFromEnv (decision 082 A)", () => {
+  it("given no or an empty POSTHOG_KEY, then there is no analytics option (criterion 1)", () => {
+    expect(analyticsFromEnv({})).toBeUndefined();
+    expect(analyticsFromEnv({ POSTHOG_KEY: "" })).toBeUndefined();
+  });
+
+  it("given only POSTHOG_KEY, then the host defaults to the European PostHog", () => {
+    expect(analyticsFromEnv({ POSTHOG_KEY: "phc_test" })).toEqual({
+      key: "phc_test",
+      host: "https://eu.i.posthog.com",
+    });
+  });
+});
+
+describe("GET /api/me without a session", () => {
   it("given no cookie, when /api/me is called, then it answers 401 with an error", async () => {
     const { app } = await setup();
 
