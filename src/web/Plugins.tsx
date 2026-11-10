@@ -195,6 +195,7 @@ export function Plugins() {
               <button
                 type="button"
                 disabled={link.isPending}
+                aria-busy={link.isPending}
                 onClick={() => link.mutate(null)}
                 className={`mt-2 ${button}`}
               >
@@ -223,6 +224,7 @@ export function Plugins() {
                   <button
                     type="button"
                     disabled={link.isPending}
+                    aria-busy={link.isPending}
                     onClick={() => {
                       setProblem(null);
                       link.mutate(r.fullName);
@@ -246,6 +248,7 @@ export function Plugins() {
                 <button
                   type="button"
                   disabled={link.isPending}
+                  aria-busy={link.isPending}
                   onClick={() => link.mutate(null)}
                   className={button}
                 >

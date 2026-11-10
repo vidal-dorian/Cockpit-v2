@@ -360,6 +360,7 @@ export function ProjectFromTemplate() {
                 <button
                   type="submit"
                   disabled={!canCreate || create.isPending}
+                  aria-busy={create.isPending}
                   className={primaryButton}
                 >
                   Créer le projet

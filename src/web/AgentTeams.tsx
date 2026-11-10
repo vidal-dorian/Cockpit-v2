@@ -22,6 +22,7 @@ import {
 } from "./ProjectTeam.tsx";
 import { StateSentence } from "./Shell.tsx";
 import { DEFAULT_STEPS, readTeam, writeTeam } from "./team-file.ts";
+import { toast } from "./toast.tsx";
 import {
   button,
   dangerButton,
@@ -250,6 +251,7 @@ function TeamRow({
             <button
               type="button"
               disabled={!project || add.isPending}
+              aria-busy={add.isPending}
               onClick={() => project && add.mutate({ project, team })}
               className={button}
             >
@@ -308,6 +310,7 @@ export function ProjectGlobalTeams({
                 <button
                   type="button"
                   disabled={archived || add.isPending}
+                  aria-busy={add.isPending}
                   onClick={() => add.mutate({ project, team })}
                   className={button}
                 >
@@ -347,11 +350,13 @@ export function AgentTeams() {
       setProblem(refused);
       if (refused) return;
       setDialog(null);
+      toast("Équipe enregistrée.");
       return reload();
     },
     onError: () => setProblem({ code: "", status: 0 }),
   });
   const remove = useMutation({
+    meta: { done: "Équipe supprimée." },
     mutationFn: async (name: string) => {
       const res = await client.api["agent-teams"][":name"].$delete({
         param: { name },

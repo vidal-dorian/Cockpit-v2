@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { ROLE_REFUSAL, roleRefusal } from "./roles.ts";
+import { toast } from "./toast.tsx";
 import { alertBox, button, primaryButton } from "./ui.ts";
 
 /** The confirmation of « Fermer le run », a native modal: Escape closes it (that is « Annuler »), the page behind is inert. */
@@ -115,7 +116,12 @@ export function RunControls({
           <button
             type="button"
             disabled={archived || send.isPending}
-            onClick={() => send.mutate("stop")}
+            aria-busy={send.isPending}
+            onClick={() =>
+              send.mutate("stop", {
+                onSuccess: () => toast("Arrêt demandé à Claude."),
+              })
+            }
             className={button}
           >
             Demander l'arrêt
@@ -124,6 +130,7 @@ export function RunControls({
         <button
           type="button"
           disabled={archived || send.isPending}
+          aria-busy={send.isPending}
           onClick={() => setConfirming(true)}
           className={button}
         >
@@ -139,7 +146,9 @@ export function RunControls({
         <CloseDialog
           archived={archived}
           pending={send.isPending}
-          onConfirm={() => send.mutate("close")}
+          onConfirm={() =>
+            send.mutate("close", { onSuccess: () => toast("Run fermé.") })
+          }
           onCancel={() => setConfirming(false)}
         />
       )}

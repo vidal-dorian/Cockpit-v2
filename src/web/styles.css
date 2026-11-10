@@ -490,3 +490,30 @@ details[open] > summary::before {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Decision 080 A: a button waiting for its request keeps its look (not the faded disabled one) and spins; the ring goes on the
+   button that was pressed (App marks it data-pressed), so the other buttons of the same request only wait. Unlayered: beats `disabled:opacity-50`. */
+button[aria-busy="true"] {
+  cursor: progress;
+  opacity: 1;
+}
+button[aria-busy="true"][data-pressed]::before {
+  content: "";
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  display: inline-block;
+  margin-inline-end: 0.25em;
+  vertical-align: middle;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Decision 080 B: a confirmation rises in. */
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: message-in var(--duration-base) var(--ease-out);
+  }
+}

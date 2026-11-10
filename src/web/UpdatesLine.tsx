@@ -99,6 +99,7 @@ export function UpdatesLine({
           <button
             type="button"
             disabled={archived || read.isPending || commit.isPending}
+            aria-busy={read.isPending || commit.isPending}
             onClick={() => {
               setProblem(null);
               setDone(null);
@@ -129,6 +130,7 @@ export function UpdatesLine({
                 commit.isPending ||
                 plan.files.every((f) => f.status !== "create")
               }
+              aria-busy={commit.isPending}
               onClick={() => {
                 setProblem(null);
                 commit.mutate(plan);

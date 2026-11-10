@@ -408,6 +408,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               type="button"
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
+              aria-busy={logout.isPending}
               className={`rounded-md hover:text-foreground disabled:opacity-50 ${focusRing}`}
             >
               Se déconnecter

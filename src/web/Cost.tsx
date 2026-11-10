@@ -44,6 +44,7 @@ function BudgetsForm({ initial }: { initial: Budgets }) {
     Object.fromEntries(FIELDS.map(([key]) => [key, `${initial[key] ?? ""}`])),
   );
   const save = useMutation({
+    meta: { done: "Plafonds enregistrés." },
     mutationFn: async () => {
       const [runUsd, nightUsd, monthUsd] = FIELDS.map(([key]) =>
         values[key] ? Number(values[key]) : null,
@@ -94,6 +95,7 @@ function BudgetsForm({ initial }: { initial: Budgets }) {
       <button
         type="submit"
         disabled={save.isPending}
+        aria-busy={save.isPending}
         className={`justify-self-start ${primaryButton}`}
       >
         Enregistrer

@@ -132,6 +132,7 @@ export function ProCodes() {
   };
 
   const create = useMutation({
+    meta: { done: "Code créé." },
     mutationFn: async () => {
       const res = await client.api.settings["pro-codes"].$post(
         {},
@@ -145,6 +146,7 @@ export function ProCodes() {
     onSettled: refresh,
   });
   const change = useMutation({
+    meta: { done: "Code modifié." },
     mutationFn: async (id: number) => {
       const res = await client.api.settings["pro-codes"][":id"].$patch(
         { param: { id: String(id) } },
@@ -156,6 +158,7 @@ export function ProCodes() {
     onSettled: refresh,
   });
   const revoke = useMutation({
+    meta: { done: "Code révoqué." },
     mutationFn: async (id: number) => {
       const res = await client.api.settings["pro-codes"][":id"].revoke.$post({
         param: { id: String(id) },
@@ -209,6 +212,7 @@ export function ProCodes() {
           <button
             type="submit"
             disabled={!note.trim() || create.isPending}
+            aria-busy={create.isPending}
             className={primaryButton}
           >
             Générer un code
@@ -281,6 +285,7 @@ export function ProCodes() {
                       type="button"
                       className={dangerButton}
                       disabled={revoke.isPending}
+                      aria-busy={revoke.isPending}
                       onClick={() => revoke.mutate(c.id)}
                     >
                       Confirmer la révocation

@@ -30,6 +30,7 @@ export function StoryGitHub({
 }) {
   const queryClient = useQueryClient();
   const refresh = useMutation({
+    meta: { done: "État de la PR mis à jour." },
     mutationFn: async () => {
       const res = await client.api.stories[":id"].pr.refresh.$post({
         param: { id: String(story.id) },
@@ -64,6 +65,7 @@ export function StoryGitHub({
         <button
           type="button"
           disabled={refresh.isPending}
+          aria-busy={refresh.isPending}
           onClick={() => refresh.mutate()}
           className={ghostButton}
         >

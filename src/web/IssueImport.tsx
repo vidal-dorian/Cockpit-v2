@@ -228,6 +228,7 @@ export function IssueImport() {
               <button
                 type="button"
                 disabled={checked.length === 0 || run.isPending}
+                aria-busy={run.isPending}
                 onClick={() => run.mutate(checked.map((i) => i.number))}
                 className={primaryButton}
               >

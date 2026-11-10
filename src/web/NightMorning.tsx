@@ -82,6 +82,7 @@ export function NightMorning({
           type="button"
           className={button}
           disabled={hide.isPending}
+          aria-busy={hide.isPending}
           onClick={() => hide.mutate()}
         >
           Masquer

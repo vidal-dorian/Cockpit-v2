@@ -67,6 +67,7 @@ function ProjectList() {
   // The project waiting for its confirmation; there is no unarchive yet, so we ask on the spot (decision 003, rule 4).
   const [confirming, setConfirming] = useState<number | null>(null);
   const archive = useMutation({
+    meta: { done: "Projet archivé." },
     mutationFn: async (id: number) => {
       const res = await client.api.projects[":id"].archive.$post({
         param: { id: String(id) },
@@ -207,6 +208,7 @@ function ProjectList() {
                       type="button"
                       onClick={() => archive.mutate(project.id)}
                       disabled={archive.isPending}
+                      aria-busy={archive.isPending}
                       className={dangerButton}
                     >
                       Confirmer l'archivage
@@ -564,6 +566,7 @@ function Importable() {
     fullName: string;
   } | null>(null);
   const importRepo = useMutation({
+    meta: { done: "Projet importé." },
     mutationFn: async (sent: {
       githubRepoId: number;
       starterTeam: StarterLevel;

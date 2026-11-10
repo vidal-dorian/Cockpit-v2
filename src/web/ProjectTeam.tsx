@@ -799,6 +799,7 @@ export function ProjectTeam({
               aria-pressed={name === n}
               // A save or a removal in flight answers for the team it was sent for: no switching meanwhile.
               disabled={commit.isPending}
+              aria-busy={commit.isPending}
               onClick={() => {
                 if (n === name) return;
                 if (!dirty) return goTo(n);
@@ -816,6 +817,7 @@ export function ProjectTeam({
         <button
           type="button"
           disabled={archived || commit.isPending}
+          aria-busy={commit.isPending}
           onClick={() => {
             setSwitchTo(null);
             setDeleting(false);
@@ -834,6 +836,7 @@ export function ProjectTeam({
           <button
             type="button"
             disabled={archived || commit.isPending}
+            aria-busy={commit.isPending}
             aria-expanded={choosing}
             onClick={() => setChoosing(!choosing)}
             className={button}
@@ -847,6 +850,7 @@ export function ProjectTeam({
                   key={level.id}
                   type="button"
                   disabled={archived || commit.isPending}
+                  aria-busy={commit.isPending}
                   title={level.sentence}
                   onClick={() => {
                     if (!dirty) return void chooseLevel(level.id);
@@ -871,6 +875,7 @@ export function ProjectTeam({
             type="button"
             aria-describedby="switch-team-warning"
             disabled={commit.isPending}
+            aria-busy={commit.isPending}
             onClick={() =>
               levelSwitch !== null
                 ? void chooseLevel(levelSwitch)
@@ -939,6 +944,7 @@ export function ProjectTeam({
             type="button"
             aria-describedby="delete-team-warning"
             disabled={archived || commit.isPending}
+            aria-busy={commit.isPending}
             onClick={() => {
               setProblem(null);
               setDone(null);
@@ -1065,6 +1071,7 @@ export function ProjectTeam({
             <button
               type="button"
               disabled={archived || commit.isPending}
+              aria-busy={commit.isPending}
               onClick={() => {
                 setSwitchTo(null);
                 setCreating(null);

@@ -29,6 +29,7 @@ const json = (value: unknown) => ({
 /** « Préparer l'export » (decision 078 B): the file is saved by the browser, nothing is kept here. */
 function Export({ login }: { login: string }) {
   const save = useMutation({
+    meta: { done: "Export téléchargé." },
     mutationFn: async () => {
       const res = await client.api.me.export.$get();
       if (!res.ok) throw new Error("L'export a échoué, réessaie.");
@@ -48,6 +49,7 @@ function Export({ login }: { login: string }) {
         type="button"
         className={button}
         disabled={save.isPending}
+        aria-busy={save.isPending}
         onClick={() => save.mutate()}
       >
         Préparer l'export
@@ -130,6 +132,7 @@ function DeleteWindow({
             type="submit"
             className={dangerButton}
             disabled={typed !== data.login || erase.isPending}
+            aria-busy={erase.isPending}
           >
             Supprimer définitivement
           </button>
@@ -268,6 +271,7 @@ export function FingerprintErase() {
         <button
           type="submit"
           disabled={!login.trim() || erase.isPending}
+          aria-busy={erase.isPending}
           className={primaryButton}
         >
           Effacer l'empreinte

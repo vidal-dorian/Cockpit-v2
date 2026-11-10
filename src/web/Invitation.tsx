@@ -34,6 +34,7 @@ export function Invitation() {
     },
   });
   const accept = useMutation({
+    meta: { done: "Invitation acceptée." },
     mutationFn: async () => {
       const res = await client.api.invitations[":secret"].accept.$post({
         param: { secret },
@@ -101,6 +102,7 @@ export function Invitation() {
                 type="button"
                 onClick={() => accept.mutate()}
                 disabled={accept.isPending || accept.isSuccess}
+                aria-busy={accept.isPending}
                 className={`mt-4 ${panelPrimaryButton}`}
               >
                 Accepter

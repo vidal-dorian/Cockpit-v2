@@ -9,6 +9,7 @@ import { atLeast } from "./roles.ts";
 import { Panel } from "./Shell.tsx";
 import { useShortcut } from "./Shortcuts.tsx";
 import { decisionError, STORY_STATUSES } from "./tickets.ts";
+import { toast } from "./toast.tsx";
 import {
   alertBox,
   badge,
@@ -165,8 +166,9 @@ export function StoryDecisions({
   const canValidate = !archived && !run.isPending && toDecide.length === 0;
   const validate = () => {
     run.reset();
-    run.mutate(() =>
-      client.api.stories[":id"].validate.$post({ param: { id } }),
+    run.mutate(
+      () => client.api.stories[":id"].validate.$post({ param: { id } }),
+      { onSuccess: () => toast("User story validée.") },
     );
   };
   // Only where the button is, and works (decision 073 E).
@@ -316,11 +318,13 @@ export function StoryDecisions({
           onSubmit={(event) => {
             event.preventDefault();
             if (blank) return;
-            run.mutate(() =>
-              client.api.stories[":id"]["send-back"].$post({
-                param: { id },
-                json: { comment },
-              }),
+            run.mutate(
+              () =>
+                client.api.stories[":id"]["send-back"].$post({
+                  param: { id },
+                  json: { comment },
+                }),
+              { onSuccess: () => toast("Renvoyée à Claude.") },
             );
           }}
         >
@@ -349,6 +353,7 @@ export function StoryDecisions({
             <button
               type="submit"
               disabled={blank || run.isPending}
+              aria-busy={run.isPending}
               className={panelPrimaryButton}
             >
               Renvoyer à Claude
@@ -372,9 +377,12 @@ export function StoryDecisions({
             <button
               type="button"
               disabled={run.isPending}
+              aria-busy={run.isPending}
               onClick={() =>
-                run.mutate(() =>
-                  client.api.stories[":id"].abandon.$post({ param: { id } }),
+                run.mutate(
+                  () =>
+                    client.api.stories[":id"].abandon.$post({ param: { id } }),
+                  { onSuccess: () => toast("User story abandonnée.") },
                 )
               }
               className={dangerButton}
@@ -402,21 +410,23 @@ export function StoryDecisions({
           className="flex flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
-            run.mutate(() =>
-              client.api.stories[":id"].$patch({
-                param: { id },
-                json: {
-                  asA: form.asA,
-                  iWant: form.iWant,
-                  soThat: form.soThat,
-                  notesMd: form.notesMd,
-                  criteria: form.criteria.map(({ given, when, then }) => ({
-                    given,
-                    when,
-                    then,
-                  })),
-                },
-              }),
+            run.mutate(
+              () =>
+                client.api.stories[":id"].$patch({
+                  param: { id },
+                  json: {
+                    asA: form.asA,
+                    iWant: form.iWant,
+                    soThat: form.soThat,
+                    notesMd: form.notesMd,
+                    criteria: form.criteria.map(({ given, when, then }) => ({
+                      given,
+                      when,
+                      then,
+                    })),
+                  },
+                }),
+              { onSuccess: () => toast("User story enregistrée.") },
             );
           }}
         >
@@ -518,6 +528,7 @@ export function StoryDecisions({
             <button
               type="submit"
               disabled={run.isPending}
+              aria-busy={run.isPending}
               className={panelPrimaryButton}
             >
               Enregistrer

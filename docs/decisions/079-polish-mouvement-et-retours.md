@@ -52,5 +52,5 @@ Vus et **gardés tels quels** : les états vides en une phrase (« Aucune équip
 - **Un même écran qui change de paramètre** (`/us/1` → `/us/2`) garde son `<main>` : il ne rejoue pas l'entrée, seul le défilement remonte.
 - **Un message déjà affiché dont seul le texte change** (`role="status"` qui reste monté) ne rejoue pas le fondu ; le panneau de droite qui change de clé (J / K, une autre carte) rejoue son entrée.
 - **Le titre « Chargement… » du Kanban** (dans le `h1`) n'a pas d'anneau : un anneau n'a pas sa place dans un titre.
-- **Les boutons ne montrent pas d'attente** pendant une requête (ils se désactivent, sans anneau) : à faire bouton par bouton, hors de ce passage.
+- **Les boutons ne montraient pas d'attente** pendant une requête : fait par la [080](080-retours-d-action.md).
 - **Les animations ne sont vérifiées qu'à l'œil dans Chromium** : les tests (jsdom) ne jouent pas le CSS ; ils vérifient le défilement, la classe des fenêtres et des chargements.

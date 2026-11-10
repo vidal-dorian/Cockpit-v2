@@ -47,6 +47,7 @@ export function TicketAttachments({
       }),
     ]);
   const remove = useMutation({
+    meta: { done: "Pièce jointe supprimée." },
     mutationFn: async (id: number) => {
       const res = await fetch(`/api/attachments/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Le retrait a échoué, réessaie.");
@@ -98,6 +99,7 @@ export function TicketAttachments({
                   <button
                     type="button"
                     disabled={remove.isPending}
+                    aria-busy={remove.isPending}
                     onClick={() => remove.mutate(file.id)}
                     className={dangerButton}
                   >

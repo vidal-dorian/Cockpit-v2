@@ -37,6 +37,7 @@ function NightStep() {
   const budgets = useQuery({ queryKey: ["budgets"], queryFn: fetchBudgets });
   const [typed, setTyped] = useState<Record<string, string>>({});
   const save = useMutation({
+    meta: { done: "Réglages enregistrés." },
     mutationFn: async () => {
       if (!hours.data || !budgets.data) return;
       const value = (key: string, saved: number | null) =>
@@ -117,6 +118,7 @@ function NightStep() {
         <button
           type="submit"
           disabled={save.isPending}
+          aria-busy={save.isPending}
           className={`justify-self-start ${button}`}
         >
           Enregistrer les heures
@@ -267,6 +269,7 @@ export function LauncherSettings() {
                           type="checkbox"
                           checked={data.projectIds.includes(p.id)}
                           disabled={tick.isPending}
+                          aria-busy={tick.isPending}
                           onChange={(e) =>
                             tick.mutate({
                               id: p.id,
@@ -292,6 +295,7 @@ export function LauncherSettings() {
                   type="checkbox"
                   checked={data.autoRelaunch}
                   disabled={relaunch.isPending}
+                  aria-busy={relaunch.isPending}
                   onChange={(e) => relaunch.mutate(e.target.checked)}
                 />
                 Relancer Claude quand la CI d'une PR échoue

@@ -5,6 +5,7 @@ import { type DiffLine, diffLines } from "./diff.ts";
 import { fetchMe } from "./Shell.tsx";
 import { useStoryValidation } from "./StoryDecisions.tsx";
 import { decisionError } from "./tickets.ts";
+import { toast } from "./toast.tsx";
 import { alertBox, button, card, primaryButton, sectionLabel } from "./ui.ts";
 import { ago } from "./when.ts";
 
@@ -145,7 +146,12 @@ export function StoryDiverged({
         <button
           type="button"
           disabled={archived || resolve.isPending}
-          onClick={() => resolve.mutate("take-github")}
+          aria-busy={resolve.isPending}
+          onClick={() =>
+            resolve.mutate("take-github", {
+              onSuccess: () => toast("Version de GitHub reprise."),
+            })
+          }
           className={primaryButton}
         >
           Garder la version GitHub
@@ -153,7 +159,12 @@ export function StoryDiverged({
         <button
           type="button"
           disabled={archived || resolve.isPending}
-          onClick={() => resolve.mutate("keep-cockpit")}
+          aria-busy={resolve.isPending}
+          onClick={() =>
+            resolve.mutate("keep-cockpit", {
+              onSuccess: () => toast("Version de Cockpit gardée."),
+            })
+          }
           className={button}
         >
           Garder la version Cockpit

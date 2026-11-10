@@ -70,6 +70,7 @@ export function TicketPanel({
     enabled: hasFiles,
   }).data;
   const remove = useMutation({
+    meta: { done: "Ticket supprimé." },
     mutationFn: async () => {
       const res = await client.api.tickets[":id"].$delete({
         param: { id: String(ticket.id) },
@@ -119,6 +120,7 @@ export function TicketPanel({
                     <button
                       type="button"
                       disabled={remove.isPending}
+                      aria-busy={remove.isPending}
                       onClick={() => remove.mutate()}
                       className={dangerButton}
                     >

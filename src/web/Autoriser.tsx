@@ -139,6 +139,7 @@ export function Autoriser() {
                   type="button"
                   onClick={() => decide.mutate("approve")}
                   disabled={decide.isPending || decide.isSuccess}
+                  aria-busy={decide.isPending}
                   className={`${panelPrimaryButton} flex-1`}
                 >
                   Autoriser
@@ -147,6 +148,7 @@ export function Autoriser() {
                   type="button"
                   onClick={() => decide.mutate("deny")}
                   disabled={decide.isPending || decide.isSuccess}
+                  aria-busy={decide.isPending}
                   className={`${panelButton} flex-1`}
                 >
                   Refuser

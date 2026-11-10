@@ -118,6 +118,7 @@ export function Tokens() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["tokens"] }),
   });
   const revoke = useMutation({
+    meta: { done: "Jeton révoqué." },
     mutationFn: async (id: number) => {
       const res = await client.api.me.tokens[":id"].revoke.$post({
         param: { id: String(id) },
@@ -198,6 +199,7 @@ export function Tokens() {
               <button
                 type="submit"
                 disabled={create.isPending}
+                aria-busy={create.isPending}
                 className={primaryButton}
               >
                 Créer
@@ -251,6 +253,7 @@ export function Tokens() {
                         type="button"
                         onClick={() => revoke.mutate(t.id)}
                         disabled={revoke.isPending}
+                        aria-busy={revoke.isPending}
                         className={dangerButton}
                       >
                         Confirmer la révocation

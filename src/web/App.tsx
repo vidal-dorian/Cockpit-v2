@@ -41,6 +41,7 @@ import {
 import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
 import { applyTheme } from "./theme.ts";
+import { Toaster } from "./toast.tsx";
 import {
   alertBox,
   button,
@@ -451,7 +452,29 @@ async function fetchSetupStatus() {
   return res.json();
 }
 
+/** The pages and the confirmations of `toast` (decision 080 B), over every page, Setup included. */
 export function App() {
+  // The last pressed button carries the ring of a request it started (decision 080 A).
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const pressed = (event.target as Element | null)?.closest?.("button");
+      if (!pressed) return;
+      for (const el of document.querySelectorAll("[data-pressed]"))
+        el.removeAttribute("data-pressed");
+      pressed.setAttribute("data-pressed", "");
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+  return (
+    <>
+      <Pages />
+      <Toaster />
+    </>
+  );
+}
+
+function Pages() {
   const setup = useQuery({ queryKey: ["setup"], queryFn: fetchSetupStatus });
   // Here, above the pages that load, so that a key pressed while Cockpit starts is not lost.
   const [overlay, setOverlay] = useState<Overlay>();

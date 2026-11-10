@@ -125,6 +125,7 @@ export function CatalogLine({
             <button
               type="button"
               disabled={archived || read.isPending || commit.isPending}
+              aria-busy={read.isPending || commit.isPending}
               aria-describedby={archived ? "catalog-archived" : undefined}
               onClick={() => {
                 setProblem(null);
@@ -174,6 +175,7 @@ export function CatalogLine({
             <button
               type="button"
               disabled={commit.isPending || plan.files.length === 0}
+              aria-busy={commit.isPending}
               onClick={() => {
                 setProblem(null);
                 commit.mutate(plan);

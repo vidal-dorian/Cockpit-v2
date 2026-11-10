@@ -98,6 +98,7 @@ function Device() {
           type="button"
           className={button}
           disabled={run.isPending}
+          aria-busy={run.isPending}
           onClick={() => run.mutate(enableDevice)}
         >
           Activer sur cet appareil
@@ -106,6 +107,7 @@ function Device() {
           type="button"
           className={button}
           disabled={run.isPending}
+          aria-busy={run.isPending}
           onClick={() => run.mutate(sendTest)}
         >
           Envoyer une notification de test

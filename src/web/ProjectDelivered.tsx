@@ -73,6 +73,7 @@ function BranchLine({
   const [asking, setAsking] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const remove = useMutation({
+    meta: { done: "Branche supprimée." },
     mutationFn: async () => {
       const res = await fetch(`/api/stories/${branch.storyId}/branch/delete`, {
         method: "POST",
@@ -105,6 +106,7 @@ function BranchLine({
               type="button"
               className={button}
               disabled={remove.isPending}
+              aria-busy={remove.isPending}
               onClick={() => {
                 setRefusal(null);
                 remove.mutate();

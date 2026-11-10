@@ -122,6 +122,7 @@ function WorkflowLine({
         <button
           type="button"
           disabled={archived || ask.isPending || ask.isSuccess}
+          aria-busy={ask.isPending}
           onClick={() => ask.mutate()}
           className={button}
         >

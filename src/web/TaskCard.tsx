@@ -25,6 +25,7 @@ export function useTask(
     onSettled: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
   };
   const save = useMutation({
+    meta: { done: "Tâche enregistrée." },
     mutationFn: async (json: { fireUrl: string; token: string }) => {
       const res = await put(json);
       if (!res.ok) throw failure(res);
@@ -32,6 +33,7 @@ export function useTask(
     ...settled,
   });
   const remove = useMutation({
+    meta: { done: "Tâche retirée." },
     mutationFn: async () => {
       const res = await del();
       if (!res.ok) throw failure(res);
@@ -101,6 +103,7 @@ export function ConnectStep({
       type="button"
       onClick={() => task.remove.mutate()}
       disabled={task.remove.isPending}
+      aria-busy={task.remove.isPending}
       className={button}
     >
       Retirer
@@ -165,6 +168,7 @@ export function ConnectStep({
             <button
               type="submit"
               disabled={task.save.isPending}
+              aria-busy={task.save.isPending}
               className={`justify-self-start ${primaryButton}`}
             >
               Enregistrer
