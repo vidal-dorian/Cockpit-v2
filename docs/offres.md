@@ -1,6 +1,6 @@
 # Offres — notes de Dorian
 
-- **Statut** : idées notées le 2026-10-22. **Construit** par la [décision 077](decisions/077-offres-et-quotas.md) (tranche 13.2) : la limite de 3 repos et la reprise réservée à Pro sont en place sans paiement, avec des codes Pro. **Tranché le 2026-11-08** par la [décision 064](decisions/064-tranches-restantes.md) (13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités, lecture seule au-delà de 3 après Pro, quota chez le propriétaire d'un projet partagé, Entreprise en « Nous contacter », codes Pro donnés par l'administrateur, prestataire de paiement plus tard. Le reste de ce fichier garde les idées d'origine. À reprendre avec la tranche « Service payant » (voir [`decoupage.md`](decoupage.md)) et le point ouvert 2 de la [décision 008](decisions/008-service-en-ligne.md).
+- **Statut** : idées notées le 2026-10-22. **Construit** par la [décision 077](decisions/077-offres-et-quotas.md) (tranche 13.2) : la limite de 3 repos et la reprise réservée à Pro sont en place sans paiement, avec des codes Pro. La [décision 082](decisions/082-deux-equipes-en-gratuit.md) (2026-11-10) limite en plus un compte Gratuit à 2 équipes d'agents (celles de `/equipes`), sans limite en Pro. **Tranché le 2026-11-08** par la [décision 064](decisions/064-tranches-restantes.md) (13.2) : Pro à 10 € par mois ou 96 € par an, repos illimités, lecture seule au-delà de 3 après Pro, quota chez le propriétaire d'un projet partagé, Entreprise en « Nous contacter », codes Pro donnés par l'administrateur, prestataire de paiement plus tard. Le reste de ce fichier garde les idées d'origine. À reprendre avec la tranche « Service payant » (voir [`decoupage.md`](decoupage.md)) et le point ouvert 2 de la [décision 008](decisions/008-service-en-ligne.md).
 
 - **Limite de 3 repos** : appliquée depuis la 13.2, **sans le paiement** ([077](decisions/077-offres-et-quotas.md)). Dorian avait décidé le 2026-10-24 de la mettre en place avec le paiement ; l'import n'était alors pas limité (inscription ouverte, [012](decisions/012-configuration-automatique.md)).
 
@@ -9,12 +9,14 @@
 ### Gratuite
 
 - **3 repos au total.** Ce n'est pas 3 repos en même temps : lier 3 repos, en supprimer un puis en lier un nouveau n'est pas possible.
+- **2 équipes d'agents** à la fois, celles de « Équipes d'agents » (`/equipes`) : en supprimer une libère sa place ([082](decisions/082-deux-equipes-en-gratuit.md)).
 - Toutes les fonctionnalités de base : développement, Kanban, tickets, MCP de Claude…
 
 ### Pro
 
 - Tout ce que contient l'offre gratuite.
 - **10 € par mois** en abonnement mensuel, ou **8 € par mois** en abonnement annuel (96 € par an).
+- **Équipes d'agents illimitées** ([082](decisions/082-deux-equipes-en-gratuit.md)).
 - **15 repos en même temps** (ou 20, à réfléchir).
 - Service client à disposition.
 - **Reprendre un projet fait par une IA**, pour revoir ses règles métier ([décision 007](decisions/007-reprise-app-existante.md)).

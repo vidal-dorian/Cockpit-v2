@@ -109,7 +109,7 @@ Pour qui change un fichier de `catalog/` : lancer `npm run catalog:history` (dan
 
 ### Abonnement
 
-« Réglages › Abonnement » dit ton offre. **Gratuit** : 3 repos dont tu es propriétaire, archivés compris ; un 4e import est refusé. **Pro** : repos illimités et la reprise d'une app existante ; tu l'es si tu es administrateur de l'instance ou si tu saisis un code Pro (« J'ai un code Pro »). L'administrateur génère les codes dans « Réglages › Instance › Codes Pro » : un code est montré une fois, sert à une personne, et peut avoir une fin. Un compte qui repasse Gratuit ne perd rien : ses 3 projets les plus anciens restent actifs, les autres sont en lecture seule pour tous leurs membres. Un projet partagé compte chez son propriétaire. Le paiement n'est pas encore ouvert. Décision [077](docs/decisions/077-offres-et-quotas.md).
+« Réglages › Abonnement » dit ton offre. **Gratuit** : 3 repos dont tu es propriétaire, archivés compris ; un 4e import est refusé ; 2 équipes d'agents (celles de « Équipes d'agents »), une 3e est refusée. **Pro** : repos et équipes d'agents illimités, et la reprise d'une app existante ; tu l'es si tu es administrateur de l'instance ou si tu saisis un code Pro (« J'ai un code Pro »). L'administrateur génère les codes dans « Réglages › Instance › Codes Pro » : un code est montré une fois, sert à une personne, et peut avoir une fin. Un compte qui repasse Gratuit ne perd rien : ses 3 projets les plus anciens restent actifs, les autres sont en lecture seule pour tous leurs membres. Un projet partagé compte chez son propriétaire. Le paiement n'est pas encore ouvert. Décisions [077](docs/decisions/077-offres-et-quotas.md) et [082](docs/decisions/082-deux-equipes-en-gratuit.md).
 
 ### Données
 

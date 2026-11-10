@@ -15,6 +15,8 @@ export const atLeast = (role: string | undefined, min: Role) =>
 export const ROLE_REFUSAL = "Ton rôle sur ce projet ne le permet pas.";
 export const QUOTA_REFUSAL =
   "Ton abonnement Gratuit couvre 3 repos, archivés compris. Passe à Pro pour en ajouter.";
+export const TEAM_QUOTA_REFUSAL =
+  "Ton abonnement Gratuit couvre 2 équipes d'agents. Passe à Pro pour en ajouter.";
 const PLAN_REFUSAL =
   "Ce projet est en lecture seule : l'abonnement Gratuit de son propriétaire ne le permet plus.";
 

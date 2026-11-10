@@ -87,6 +87,7 @@ export const planOf = async (app: App, cookie: string) =>
     until: string | null;
     repos: number;
     limit: number | null;
+    teamLimit: number | null;
   }>;
 
 /** `n` more projects owned by the user, imported one day apart from 2026-01-01 on (so older than anything created now), repo ids from 100. */

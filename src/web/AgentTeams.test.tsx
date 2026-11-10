@@ -107,6 +107,10 @@ type Options = {
   repoTeams?: { name: string; text: string }[];
   applies?: Answer[];
   archived?: boolean;
+  /** `teamLimit` of GET /api/me/plan (decision 082 E): 2 for a Free account, null (the default) for Pro. */
+  teamLimit?: number | null;
+  /** The answer of every PUT /api/agent-teams/:name, instead of saving the team. */
+  putAnswer?: Answer;
 };
 
 function stubApi(options: Options = {}) {
@@ -140,6 +144,15 @@ function stubApi(options: Options = {}) {
       // The shell's « Cockpit ne répond plus » banner (decision 072) reads it.
       if (path === "/api/health")
         return Response.json({ status: "ok", version: "0.1.0" });
+      if (path === "/api/me/plan")
+        return Response.json({
+          plan: options.teamLimit == null ? "pro" : "free",
+          via: options.teamLimit == null ? "code" : null,
+          until: null,
+          repos: 1,
+          limit: options.teamLimit == null ? null : 3,
+          teamLimit: options.teamLimit ?? null,
+        });
       if (path === "/api/projects" && method === "GET")
         return Response.json({
           projects: [
@@ -166,6 +179,10 @@ function stubApi(options: Options = {}) {
       const named = /^\/api\/agent-teams\/([^/]+)$/.exec(path);
       if (named && method === "PUT") {
         sent.push({ method, path, body });
+        if (options.putAnswer)
+          return Response.json(options.putAnswer.body, {
+            status: options.putAnswer.status,
+          });
         const name = decodeURIComponent(named[1] as string);
         const found = teams.find((t) => t.name === name);
         if (found) found.text = body.text;
@@ -843,5 +860,80 @@ describe("decision 074 B5: « Tes équipes » on the tab Agents of a project", (
     await openTab();
 
     expect(buttons("Ajouter au projet").every((b) => b.disabled)).toBe(true);
+  });
+});
+
+const PLAN_SENTENCE =
+  "Ton abonnement Gratuit couvre 2 équipes d'agents. Passe à Pro pour en ajouter.";
+const twoTeams = [
+  { id: 1, name: "leger", text: TEAM },
+  { id: 2, name: "lourd", text: TEAM },
+];
+
+describe("decision 082 E: the limit of the teams on /equipes", () => {
+  const newButton = () =>
+    screen.getByRole("button", {
+      name: "Nouvelle équipe",
+    }) as HTMLButtonElement;
+
+  it("given a Free account (teamLimit 2) with 2 teams, when /equipes opens, then « Nouvelle équipe » is disabled and the sentence with the link « Abonnement » is shown", async () => {
+    stubApi({ teams: twoTeams, teamLimit: 2 });
+
+    renderAt("/equipes");
+
+    await screen.findByText("lourd");
+    await screen.findByText(PLAN_SENTENCE, { exact: false });
+    expect(newButton().disabled).toBe(true);
+    expect(
+      screen.getByRole("link", { name: "Abonnement" }).getAttribute("href"),
+    ).toBe("/reglages/abonnement");
+  });
+
+  it("given a Free account with 1 team, when /equipes opens, then « Nouvelle équipe » is enabled and the sentence is absent", async () => {
+    stubApi({ teams: twoTeams.slice(0, 1), teamLimit: 2 });
+
+    renderAt("/equipes");
+
+    await screen.findByText("leger");
+    await waitFor(() => expect(newButton().disabled).toBe(false));
+    expect(screen.queryByText(/Passe à Pro pour en ajouter/)).toBeNull();
+  });
+
+  it("given a Pro account (teamLimit null) with 3 teams, when /equipes opens, then « Nouvelle équipe » is enabled and the sentence is absent", async () => {
+    stubApi({
+      teams: [...twoTeams, { id: 3, name: "moyen", text: TEAM }],
+      teamLimit: null,
+    });
+
+    renderAt("/equipes");
+
+    await screen.findByText("moyen");
+    expect(newButton().disabled).toBe(false);
+    expect(screen.queryByText(/Passe à Pro pour en ajouter/)).toBeNull();
+  });
+
+  it("given the canvas open for a new team and a server that answers 403 plan, when the team is created, then the canvas shows the sentence in its alert", async () => {
+    stubApi({
+      teams: twoTeams.slice(0, 1),
+      teamLimit: 2,
+      putAnswer: { status: 403, body: { error: "plan" } },
+    });
+    renderAt("/equipes");
+    await screen.findByText("leger");
+    await waitFor(() => expect(newButton().disabled).toBe(false));
+    click("Nouvelle équipe");
+    const ui = within(
+      await screen.findByRole("dialog", { name: /^Nouvelle équipe/ }),
+    );
+    fireEvent.change(ui.getByLabelText("Nom de l'équipe"), {
+      target: { value: "troisieme" },
+    });
+
+    fireEvent.click(
+      ui.getByRole("button", { name: /^(Créer l'équipe|Enregistrer)$/ }),
+    );
+
+    const alert = await ui.findByRole("alert");
+    expect(alert.textContent).toContain(PLAN_SENTENCE);
   });
 });

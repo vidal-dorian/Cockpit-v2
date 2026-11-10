@@ -24,6 +24,7 @@ export type Plan = {
   until: string | null;
   repos: number;
   limit: number | null;
+  teamLimit: number | null;
 };
 export type Code = {
   id: number;
@@ -42,8 +43,15 @@ export const FREE: Plan = {
   until: null,
   repos: 2,
   limit: 3,
+  teamLimit: 2,
 };
-export const PRO: Plan = { ...FREE, plan: "pro", via: "code", limit: null };
+export const PRO: Plan = {
+  ...FREE,
+  plan: "pro",
+  via: "code",
+  limit: null,
+  teamLimit: null,
+};
 
 export const code = (id: number, over: Partial<Code> = {}): Code => ({
   id,

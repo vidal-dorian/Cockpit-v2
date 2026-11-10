@@ -188,3 +188,18 @@ describe("S49: the Pro card of a Pro account", () => {
     expect(screen.queryByRole("button", { name: "Passer à Pro" })).toBeNull();
   });
 });
+
+describe("S49, 082 F: the teams in the cards", () => {
+  it("given a Free account, when the page loads, then the Gratuit card lists « 2 équipes d'agents » and the Pro card « Équipes d'agents illimitées »", async () => {
+    stubPlans({ plan: FREE });
+
+    renderAt("/reglages/abonnement");
+
+    const card = (name: string) =>
+      screen.getByRole("heading", { name }).closest("section")?.textContent ??
+      "";
+    await screen.findByText("2 repos sur 3 utilisés.");
+    expect(card("Gratuit")).toContain("2 équipes d'agents");
+    expect(card("Pro")).toContain("Équipes d'agents illimitées");
+  });
+});

@@ -18,7 +18,9 @@ import {
 } from "./ProjectPrepare.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { starterQuery } from "./ProjectTeam.tsx";
+import { TEAM_QUOTA_REFUSAL } from "./roles.ts";
 import { StateSentence } from "./Shell.tsx";
+import { fetchPlan } from "./Subscription.tsx";
 import { catalogAgents, TeamCanvas } from "./TeamCanvas.tsx";
 import { DEFAULT_STEPS, readTeam, writeTeam } from "./team-file.ts";
 import { toast } from "./toast.tsx";
@@ -351,6 +353,7 @@ export function AgentTeams() {
   const teams = useQuery({ queryKey: TEAMS_KEY, queryFn: fetchAgentTeams });
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
   const starters = useQuery(starterQuery);
+  const plan = useQuery({ queryKey: ["plan"], queryFn: fetchPlan });
   // The dialog: a new team (`name` absent) or the one being edited.
   const [dialog, setDialog] = useState<{ name?: string; text: string } | null>(
     null,
@@ -363,7 +366,11 @@ export function AgentTeams() {
         param: { name: sent.name },
         json: { text: sent.text },
       });
-      return res.ok ? null : failure(res);
+      if (res.ok) return null;
+      const refused = await failure(res);
+      return refused.code === "plan"
+        ? { ...refused, code: "team_quota" }
+        : refused;
     },
     onSuccess: (refused) => {
       setProblem(refused);
@@ -388,6 +395,8 @@ export function AgentTeams() {
     onSettled: reload,
   });
   const list = teams.data ?? [];
+  const full =
+    plan.data?.teamLimit != null && list.length >= plan.data.teamLimit;
   const open = projects.data?.filter((p) => !p.archived) ?? [];
   const start = dialog && readTeam(dialog.text);
   const catalog = useMemo(
@@ -407,7 +416,8 @@ export function AgentTeams() {
             </Link>
             <button
               type="button"
-              disabled={!starters.data}
+              disabled={!starters.data || full}
+              aria-describedby={full ? "team-quota" : undefined}
               onClick={() => {
                 setProblem(null);
                 setDialog({ text: writeTeam(DEFAULT_STEPS, "") });
@@ -419,6 +429,14 @@ export function AgentTeams() {
           </span>
         }
       />
+      {full && (
+        <p id="team-quota" className="mx-[26px] mt-3">
+          {TEAM_QUOTA_REFUSAL}{" "}
+          <Link to="/reglages/abonnement" className={`underline ${focusRing}`}>
+            Abonnement
+          </Link>
+        </p>
+      )}
       <section className="mx-[26px] mt-5" aria-labelledby="mes-equipes">
         <h2 id="mes-equipes" className={`mb-2 ${sectionLabel}`}>
           Mes équipes
