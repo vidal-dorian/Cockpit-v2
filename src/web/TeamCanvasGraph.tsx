@@ -14,14 +14,22 @@ import {
   MiniMap,
   type Node,
   type NodeProps,
+  Panel,
   Position,
   ReactFlow,
   type ReactFlowInstance,
   useConnection,
   useNodesState,
+  type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { type CSSProperties, useEffect, useMemo, useRef } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { parseAgent } from "./agent-file.ts";
 import {
   DRAG_TYPE,
@@ -30,7 +38,7 @@ import {
   stepLabel,
   type TeamStep,
 } from "./team-file.ts";
-import { focusRing } from "./ui.ts";
+import { button, focusRing } from "./ui.ts";
 
 const SESSION_MODEL = "Celui de la session";
 const COLUMN = 220;
@@ -47,7 +55,7 @@ type Drop = { after: string } | { parallelTo: string } | { group: number };
 
 // A handle that only anchors an edge: invisible, and nothing starts or ends there.
 const anchor = { opacity: 0 } as const;
-// A handle over the whole card: a link starts and ends anywhere on it (React Flow « easy connect »).
+// While a link is being drawn, the whole card takes it (React Flow « easy connect »).
 const wholeCard = {
   position: "absolute",
   inset: 0,
@@ -57,6 +65,26 @@ const wholeCard = {
   borderRadius: 12,
   opacity: 0,
 } as const;
+// A link starts from the edge of a card, a strip 8 px wide on each side; inside, the card is dragged.
+const EDGE = 8;
+const strips = [
+  ["from-top", Position.Top, { top: 0, left: 0, width: "100%", height: EDGE }],
+  [
+    "from-right",
+    Position.Right,
+    { top: 0, right: 0, width: EDGE, height: "100%" },
+  ],
+  [
+    "from-bottom",
+    Position.Bottom,
+    { bottom: 0, left: 0, width: "100%", height: EDGE },
+  ],
+  [
+    "from-left",
+    Position.Left,
+    { top: 0, left: 0, width: EDGE, height: "100%" },
+  ],
+] as const;
 
 type CardData = {
   step: TeamStep;
@@ -118,14 +146,31 @@ function StepCard({ data, selected }: NodeProps<CardNode>) {
           style={anchor}
         />
       ))}
-      <Handle type="target" position={Position.Top} id="to" style={wholeCard} />
-      {!inProgress && (
+      {inProgress ? (
         <Handle
-          type="source"
+          type="target"
           position={Position.Top}
-          id="from"
+          id="to"
           style={wholeCard}
         />
+      ) : (
+        strips.map(([id, position, place]) => (
+          <Handle
+            key={id}
+            type="source"
+            position={position}
+            id={id}
+            style={{
+              ...place,
+              position: "absolute",
+              transform: "none",
+              borderRadius: 0,
+              minWidth: 0,
+              minHeight: 0,
+            }}
+            className="cursor-crosshair border-0! bg-transparent! hover:bg-dim/50!"
+          />
+        ))
       )}
       <button
         type="button"
@@ -412,8 +457,18 @@ export default function TeamCanvasGraph({
       ),
     [steps, agents, selected],
   );
-  const [nodes, setNodes, onNodesChange] = useNodesState(drawn.nodes);
-  useEffect(() => setNodes(drawn.nodes), [drawn.nodes, setNodes]);
+  // Where the user moved a card: kept while the canvas is open (never written to the file), until « Ranger tout seul ».
+  const moved = useRef(new Map<string, XYPosition>());
+  const place = useCallback(
+    (all: (CardNode | BarNode)[]) =>
+      all.map((n) => {
+        const at = moved.current.get(n.id);
+        return at ? { ...n, position: at } : n;
+      }),
+    [],
+  );
+  const [nodes, setNodes, onNodesChange] = useNodesState(place(drawn.nodes));
+  useEffect(() => setNodes(place(drawn.nodes)), [drawn.nodes, setNodes, place]);
   // A step added or removed can fall off the view: fit it again, after the new nodes are drawn.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the number of steps is the trigger
   useEffect(() => {
@@ -494,7 +549,7 @@ export default function TeamCanvasGraph({
           else if (lost[0]) onRemoveLoop(lost[0].source);
         }}
         deleteKeyCode={["Delete", "Backspace"]}
-        nodesDraggable={false}
+        onNodeDragStop={(_, node) => moved.current.set(node.id, node.position)}
         nodesConnectable
         connectOnClick={false}
         style={flowColors}
@@ -509,6 +564,18 @@ export default function TeamCanvasGraph({
           color="var(--color-dim)"
         />
         <Controls showInteractive={false} />
+        <Panel position="top-right">
+          <button
+            type="button"
+            onClick={() => {
+              moved.current.clear();
+              setNodes(drawn.nodes);
+            }}
+            className={button}
+          >
+            Ranger tout seul
+          </button>
+        </Panel>
         <MiniMap
           pannable
           zoomable
