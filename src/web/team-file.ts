@@ -309,8 +309,8 @@ export function insertAtGroup(
   agent: string,
   does = "",
 ): TeamStep[] {
-  const at = Math.max(0, groupIndexes(steps).indexOf(group));
-  const i = groupIndexes(steps).includes(group) ? at : steps.length;
+  const at = groupIndexes(steps).indexOf(group);
+  const i = at === -1 ? steps.length : at;
   return [...steps.slice(0, i), newStep(steps, agent, does), ...steps.slice(i)];
 }
 

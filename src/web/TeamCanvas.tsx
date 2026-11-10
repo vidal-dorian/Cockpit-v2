@@ -60,7 +60,8 @@ type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type AgentFile = { name: string; before: null; after: string };
 /** A `link` is the « puis » link after the step `key`, up to the step labelled `to`. */
-type Selection = { kind: "step" | "loop" | "link"; key: string; to?: string };
+/** A `link` is the « puis » link that leaves the group of the step `key`. */
+type Selection = { kind: "step" | "loop" | "link"; key: string };
 type History = { past: TeamStep[][]; steps: TeamStep[]; future: TeamStep[][] };
 
 /** The steps in a list for the keyboard (decision 031 F, 079 D7): hidden from `sm` up until it has the focus when `className` says so. */
@@ -476,6 +477,12 @@ export function TeamCanvas({
       ? chosen
       : null;
 
+  // The step that follows the group of the selected link, worked out from the steps so it stays true after any change.
+  const groups = groupsOf(steps);
+  const next =
+    groups[groups.findIndex((g) => g.includes(target as TeamStep)) + 1]?.[0];
+  const after = next ? stepLabel(next) : "Fin";
+
   const change = (key: string, patch: Partial<TeamStep>) =>
     setSteps(
       tidy(steps.map((s) => (keyOf(s) === key ? { ...s, ...patch } : s))),
@@ -641,7 +648,8 @@ export function TeamCanvas({
             )}
           {group("Catalogue de Cockpit", inCatalog)}
           <p className="mt-3 text-[12.5px] text-muted-foreground">
-            Glisse un agent sur le canevas, ou sur un lien pour l'intercaler.
+            Glisse un agent sur le canevas, sur une carte pour le mettre en
+            parallèle, ou sur un lien pour l'intercaler.
           </p>
         </aside>
         <div className="flex min-w-0 flex-col gap-3">
@@ -679,7 +687,11 @@ export function TeamCanvas({
                   steps={steps}
                   agents={known}
                   selected={target && selected}
-                  onSelect={setSelected}
+                  onSelect={(s) => {
+                    setSelected(s);
+                    // « + » of a link: the list to choose from is in the panel, the keyboard goes there.
+                    if (s?.kind === "link") panelRef.current?.focus();
+                  }}
                   onLink={link}
                   onDropAt={(drop, agent) =>
                     setSteps(
@@ -738,7 +750,7 @@ export function TeamCanvas({
           ) : target && selected?.kind === "link" ? (
             <>
               <h3 className="font-heading font-bold">
-                Intercaler entre {stepLabel(target)} et {selected.to}
+                Intercaler entre {stepLabel(target)} et {after}
               </h3>
               <ul className="mt-2 flex flex-col gap-1">
                 {palette.map((agent) => (
@@ -748,6 +760,8 @@ export function TeamCanvas({
                       onClick={() => {
                         setSteps(insertStepAfter(steps, keyOf(target), agent));
                         setSelected(null);
+                        // The button that asked is gone: the keyboard stays in the panel.
+                        panelRef.current?.focus();
                       }}
                       className={`w-full text-left font-mono ${button}`}
                     >
@@ -758,7 +772,10 @@ export function TeamCanvas({
               </ul>
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => {
+                  setSelected(null);
+                  panelRef.current?.focus();
+                }}
                 className={`mt-3 ${button}`}
               >
                 Annuler

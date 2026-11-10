@@ -40,7 +40,7 @@ const START = ":start";
 const END = ":end";
 
 type Agent = { name: string; text: string | null };
-type Selection = { kind: "step" | "loop" | "link"; key: string; to?: string };
+type Selection = { kind: "step" | "loop" | "link"; key: string };
 
 /** Where an agent is dropped: on a link, on a card, or between the groups. */
 type Drop = { after: string } | { parallelTo: string } | { group: number };
@@ -408,7 +408,7 @@ export default function TeamCanvasGraph({
         agents,
         (key) => handlers.current.onSelect({ kind: "step", key }),
         selected,
-        (key, to) => handlers.current.onSelect({ kind: "link", key, to }),
+        (key) => handlers.current.onSelect({ kind: "link", key }),
       ),
     [steps, agents, selected],
   );
@@ -433,6 +433,8 @@ export default function TeamCanvasGraph({
         if (!agent) return;
         e.preventDefault();
         const under = document.elementsFromPoint(e.clientX, e.clientY);
+        // The mini-map sits over the canvas: a drop there aims at nothing.
+        if (under.some((el) => el.closest(".react-flow__minimap"))) return;
         // Where it is released: on a link, inserted there; on a card, in parallel with it; elsewhere, between the groups.
         const link = under
           .map((el) => el.closest(".react-flow__edge"))
@@ -474,10 +476,7 @@ export default function TeamCanvasGraph({
           flow.current = instance;
         }}
         onNodesChange={onNodesChange}
-        onConnect={({ source, target }: Connection) => {
-          if (!source.startsWith(":") && !target.startsWith(":"))
-            onLink(source, target);
-        }}
+        onConnect={({ source, target }: Connection) => onLink(source, target)}
         onNodeClick={(_, node) => {
           if (node.type === "card") onSelect({ kind: "step", key: node.id });
         }}
