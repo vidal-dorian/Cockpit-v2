@@ -236,7 +236,7 @@ function drawing(
   agents: Agent[],
   select: (key: string) => void,
   selected: Selection | null,
-  pick: (after: string, to: string) => void,
+  pick: (after: string) => void,
 ) {
   const groups = groupsOf(steps);
   const rows = Math.max(1, ...groups.map((g) => g.length));
@@ -277,7 +277,7 @@ function drawing(
         from: outLabel,
         to: then.to,
         after: then.after,
-        onPick: () => pick(then.after as string, then.to),
+        onPick: () => pick(then.after as string),
       },
     });
   for (const [g, group] of groups.entries()) {

@@ -59,7 +59,6 @@ export function catalogAgents({ teams }: StarterTeams) {
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type AgentFile = { name: string; before: null; after: string };
-/** A `link` is the « puis » link after the step `key`, up to the step labelled `to`. */
 /** A `link` is the « puis » link that leaves the group of the step `key`. */
 type Selection = { kind: "step" | "loop" | "link"; key: string };
 type History = { past: TeamStep[][]; steps: TeamStep[]; future: TeamStep[][] };
