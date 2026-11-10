@@ -6,6 +6,7 @@ import { HTTPException } from "hono/http-exception";
 import { accountRoutes } from "./accounts.ts";
 import { act } from "./action.ts";
 import { agentTeamRoutes } from "./agent-teams.ts";
+import type { Analytics } from "./analytics.ts";
 import { attachmentRoutes } from "./attachments.ts";
 import { authRoutes } from "./auth.ts";
 import { changelogRoutes } from "./changelog.ts";
@@ -64,6 +65,8 @@ export type AppOptions = {
   now?: () => number;
   /** The Web Push sender of the test notification (decision 072 F); `web-push` when absent. */
   sendPush?: SendPush;
+  /** The instance's PostHog project (decision 082 A), from `analyticsFromEnv`; no measure when absent. */
+  analytics?: Analytics;
 };
 
 const apiBodyLimit = bodyLimit({ maxSize: 256 * 1024 });
@@ -100,6 +103,7 @@ export function createApp(
     fetchEndOfLife = (url, init) => fetch(url, init),
     now = Date.now,
     sendPush = webPushSender(db, encryptionKey),
+    analytics,
   }: AppOptions,
 ) {
   const readInstance = instanceReader(db, encryptionKey);
@@ -165,6 +169,7 @@ export function createApp(
           async (c, config) =>
             (await invitationReturn(db)(c, config)) ??
             templateReturn(db, readGitHub, encryptionKey)(c, config),
+          analytics,
         ),
       )
       .route("/", historyRoutes(db))

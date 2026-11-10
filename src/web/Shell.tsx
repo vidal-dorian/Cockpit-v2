@@ -7,6 +7,7 @@ import {
   useMatch,
   useNavigationType,
 } from "react-router";
+import { stopAnalytics } from "./analytics.ts";
 import { client } from "./api.ts";
 import { uploadAttachment } from "./attachments.ts";
 import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
@@ -282,6 +283,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       // The copies of the service worker (same name as CACHE in public/sw.js) hold this user's pages.
       await window.caches?.delete("cockpit-v1");
+      stopAnalytics();
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
   });

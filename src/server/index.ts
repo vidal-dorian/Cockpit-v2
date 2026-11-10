@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { eq } from "drizzle-orm";
+import { analyticsFromEnv } from "./analytics.ts";
 import { createApp } from "./app.ts";
 import { openDatabase } from "./db/db.ts";
 import { instanceSettings, users } from "./db/schema.ts";
@@ -40,7 +41,11 @@ const port = Number(process.env.PORT ?? 3000);
 const version = readFileSync("version.txt", "utf8").trim();
 
 const db = await openDatabase(databaseUrl);
-const app = createApp(db, version, { encryptionKey, setupCode });
+const app = createApp(db, version, {
+  encryptionKey,
+  setupCode,
+  analytics: analyticsFromEnv(process.env),
+});
 
 try {
   await checkInstanceKey(db, encryptionKey, keyFile);

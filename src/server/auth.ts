@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import { act, type Entry, Refused, type Tx } from "./action.ts";
+import type { Analytics } from "./analytics.ts";
 import type { Db } from "./db/db.ts";
 import { instanceSettings, sessions, users } from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
@@ -134,6 +135,8 @@ export function authRoutes(
     c: Context,
     config: InstanceSettings,
   ) => Promise<Response | null>,
+  /** The instance's PostHog project, given to the page by GET /api/me (decision 082). */
+  analytics?: Analytics,
 ) {
   /** Where a fresh login lands (decision 012 H); a failing check never blocks the login. */
   async function landingPage(login: string, githubId: number) {
@@ -359,6 +362,15 @@ export function authRoutes(
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
       const { login, name, avatarUrl, isAdmin, theme } = user;
-      return c.json({ login, name, avatarUrl, isAdmin, theme });
+      return c.json({
+        login,
+        name,
+        avatarUrl,
+        isAdmin,
+        theme,
+        analytics: analytics
+          ? { ...analytics, distinctId: String(user.userId) }
+          : null,
+      });
     });
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { Modal } from "./Modal.tsx";
+import { fetchMe } from "./Shell.tsx";
 import { plural } from "./tickets.ts";
 import {
   alertBox,
@@ -145,6 +146,8 @@ function DeleteWindow({
 /** Réglages › Données (S50, decision 078 A): what Cockpit keeps, the export, the deletion. */
 export function Data() {
   const data = useQuery({ queryKey: ["data"], queryFn: fetchData });
+  const analytics = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data
+    ?.analytics;
   const [asking, setAsking] = useState(false);
   if (data.isPending)
     return <p className="loading text-muted-foreground">Chargement…</p>;
@@ -170,6 +173,14 @@ export function Data() {
       `${plural(d.tokens, "jeton chiffré", "jetons chiffrés")} · jamais affichés`,
     ],
     ["Code de tes repos", "jamais copié : lu sur GitHub à la demande"],
+    ...(analytics
+      ? [
+          [
+            "Mesure d'audience",
+            `pages vues et clics, sans texte ni cookie · envoyés au PostHog de l'instance (${new URL(analytics.host).host})`,
+          ],
+        ]
+      : []),
   ];
   return (
     <div className="grid gap-[22px]">
