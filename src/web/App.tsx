@@ -10,7 +10,7 @@ import {
 } from "react-router";
 import { AgentTeams } from "./AgentTeams.tsx";
 import { Autoriser } from "./Autoriser.tsx";
-import { startAnalytics } from "./analytics.ts";
+import { startAnalytics, stopAnalytics } from "./analytics.ts";
 import { client } from "./api.ts";
 import { Claude } from "./Claude.tsx";
 import { Cost } from "./Cost.tsx";
@@ -417,7 +417,10 @@ function Routed({
   }, [theme]);
   const analytics = me.data?.analytics;
   useEffect(() => {
-    if (analytics) void startAnalytics(analytics);
+    if (!analytics) return;
+    void startAnalytics(analytics);
+    // Logout, account deletion and an expired session all end here (decision 082 C).
+    return () => stopAnalytics();
   }, [analytics]);
   return (
     <Routes>
