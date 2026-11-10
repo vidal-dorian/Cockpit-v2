@@ -1,6 +1,6 @@
 # 079 — L'équipe en canevas
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit (tranche E6)
 - **Date** : 2026-11-09
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) E6 A à C ; le reste est proposé par Claude)
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (B, le format), [031 — L'équipe en graphe](031-equipe-en-graphe.md), [032 — Plusieurs équipes](032-plusieurs-equipes.md), [042 — « Nouvelle équipe » dans une fenêtre](042-nouvelle-equipe-fenetre.md), [045 — « Quatre temps »](045-interface-quatre-temps.md) (G, les outils plein écran), [074 — Les équipes à la demande](074-equipes-a-la-demande.md), [036 — Questions de Claude](036-questions-de-claude.md), [049 — Mise à jour du catalogue](049-mise-a-jour-du-catalogue.md)
@@ -43,6 +43,22 @@ Une équipe est une suite d'étapes, avec des boucles de retour (029, 031). Les 
 - **L'étiquette « si prêt »** sur le lien qui suit une étape à boucle.
 - **Garder la position des cartes** (031, repoussé).
 
+## Ce que le code a précisé (tranche E6)
+
+- **Un groupe est une colonne** : ses étapes sont empilées, le flux va de gauche à droite, et une barre « ⑂ » suit chaque groupe (précise D4, qui les disait côte à côte).
+- **Les fichiers** : `src/web/team-file.ts` (lecture, écriture et fonctions pures), `TeamCanvas.tsx` (la coque : en-tête, colonne de gauche, panneau, liste ; elle porte aussi `catalogAgents` et `StepList`) et `TeamCanvasGraph.tsx` (le seul dessin React Flow, chargé à la demande). La coque est dans le paquet principal (environ 15 ko). `NewTeamDialog` n'existe plus.
+- **`moveStep`** échange le contenu de deux étapes et laisse `parallel` et `wait` en place : la forme des groupes ne change jamais. **`removeStep`**, ou déplacer la tête d'un groupe, fait de l'étape suivante la tête, qui prend le `wait` de l'ancienne. **`tidy`** retire un `parallel` sur la première étape, un `wait` qui n'est pas sur une tête de groupe, et les boucles qui ne reviennent plus en arrière (avec leur `until` et leur `max`).
+- **`linkOnCanvas`** : un lien vers une autre étape du même groupe, vers l'étape juste après ou vers le groupe qui suit ne change rien ; un lien vers une étape plus loin la fait rejoindre, en parallèle, le groupe qui suit A (après sa dernière étape). **`insertStepAfter`** insère une étape seule après tout le groupe de la clé donnée ; le « + » est donc sur les liens qui arrivent à la première étape d'un groupe ou à Fin, jamais après Début.
+- **`addStep`** donne à un agent déjà dans l'équipe l'`id` libre `2`, `3`…
+- **`readTeam`** : `wait` seulement sur la première étape d'un groupe (sur une étape du milieu, le fichier n'est pas réécrivable) ; un `id` égal à son agent est lu et n'est pas réécrit.
+- **Les champs de C** : « Une condition à toi » part d'un `until` vide ; choisir une boucle dans le panneau donne « le verdict est prêt » et `max` 3 ; « Au plus » est ramené entre 1 et 9, vide veut dire sans limite. `DEFAULT_STEPS` (l'équipe sans `team.md`) a `max: 3` sur la boucle du `reviewer`.
+- **« Ce que Cockpit vérifie »** (`teamChecks`) écrit la ligne de limite dès que `max` est posé ; elle reste visible quand une étape ou une boucle est sélectionnée, alors que « L'équipe » et « Le fichier qui sera écrit » ne s'affichent que sans sélection.
+- **« Modifier sur le canevas »** part du brouillon de l'onglet (modifications non enregistrées comprises) et enregistre avec `before` = le texte lu à l'ouverture du canevas, même après un refus `repo_changed` et une relecture : un second enregistrement n'écrase donc jamais le commit de quelqu'un d'autre. Le bouton est désactivé tant qu'un niveau de départ est choisi et pas encore validé (063 F : seul le commit de l'onglet écrit les agents du niveau). Pour l'équipe par défaut, le canevas dit « Modifier l'équipe · par défaut » et écrit `.claude/team.md`.
+- **Sur `/equipes`**, le panneau dit « Agent du catalogue » sans « sera ajouté… au commit » (cette phrase est celle des projets).
+- **L'onglet Agents** (C, exception) : une boucle sans `max` ne bloque que si la base (le fichier lu, ou l'équipe de départ choisie) n'a pas la même boucle : même agent, même `loopTo`, même `until`, sans `max`.
+- **Échap dans le menu « + »** ferme le menu (géré sur ses boutons) et rend le focus au « + », sans annuler le canevas.
+- **`catalog/history.json`** : les deux empreintes de `/dev-us` ont été ajoutées à la main. `npm run catalog:history` sur ce clone aurait retiré 7 anciennes empreintes que l'historique de `main` n'atteint pas (des versions de branches fusionnées en squash).
+
 ## Limites connues
 
 - **Le fichier reste une consigne** que Claude suit (029, limites) : Cockpit ne peut pas garantir que deux étapes tournent vraiment en même temps, ni que la limite d'une boucle est tenue.
@@ -51,4 +67,5 @@ Une équipe est une suite d'étapes, avec des boucles de retour (029, 031). Les 
 - **La page d'un run** (033, 069) montre les étapes d'un groupe l'une après l'autre, et deux `developer` comme deux étapes du même nom.
 - **Les équipes de départ du catalogue** (`catalog/teams/*.md`) ont des boucles sans `max` : ouvertes sur le canevas, chacune est signalée ✗ « n'a pas de limite » et doit en recevoir une avant d'enregistrer. Leur ajouter `max` est une suite possible (leurs empreintes changeraient, 049).
 - **Un repo préparé avant cette tranche** suit un `/dev-us` qui ignore les groupes et les limites tant qu'il n'est pas mis à jour (B2).
-- **Non vérifiable ici** : le glisser-déposer dans un vrai navigateur (les tests passent par la colonne de gauche, le menu « + », la liste et le panneau) et une vraie session Claude Code avec des sous-agents en parallèle.
+- **Dans l'onglet Agents, une étape dont l'agent change compte comme changée** : sa boucle doit avoir une limite, même si elle n'en avait pas.
+- **Non vérifiable ici** : le glisser-déposer dans un vrai navigateur ; le menu « + » des liens, Échap dedans et « Supprimer le lien » (React Flow ne dessine aucun lien dans jsdom : une boucle se sélectionne en cliquant son lien) ; les tests passent par la colonne de gauche, la liste et le panneau, et par les fonctions pures `insertStepAfter` et `linkOnCanvas`. Reste aussi une vraie session Claude Code avec des sous-agents en parallèle.

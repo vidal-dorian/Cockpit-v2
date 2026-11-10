@@ -6,6 +6,7 @@
 - **Dépend de** : [029 — Équipe d'agents](029-equipe-d-agents.md) (B, C, F), [030 — Éditeur d'agent](030-editeur-d-agent.md), [007 — Reprise d'une app existante](007-reprise-app-existante.md) (la librairie de graphe et la règle d'accessibilité), [026 — Écrire dans un repo](026-ecrire-dans-un-repo.md)
 - **Modifie** : la [029](029-equipe-d-agents.md) F : l'écran « Équipe » est un **graphe** de cartes qu'on déplace et qu'on relie, en plus de la liste ; un ajout d'agent du catalogue passe par l'éditeur (030) avant l'équipe
 - **Modifiée par** : [045](045-interface-quatre-temps.md) : la liste des étapes devient un commutateur Graphe / Liste, visible en largeur téléphone et atteignable au clavier en vue Graphe (F)
+- **Modifiée par** : [079 — L'équipe en canevas](079-equipe-en-canevas.md) : un agent peut être deux fois dans une équipe, avec un `id` (E) ; dans le canevas, un lien vers une étape plus loin met l'étape en parallèle (C)
 - **Tranche** : E3 du [découpage](../decoupage.md)
 
 ## Contexte
