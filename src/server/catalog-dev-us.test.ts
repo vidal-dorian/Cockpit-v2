@@ -103,11 +103,11 @@ describe("slice E6 (decision 079 B): groups and limits in /dev-us", () => {
       "merged into the story branch",
       /merge[\s\S]*branch of the story|story branch/i,
     ],
-    ["wait: first", /`wait: first`/],
     [
-      "the first finished branch merged, the others abandoned",
-      /first[\s\S]*(abandon|discard)/i,
+      "a group waits until all its steps have finished, then merges each branch",
+      /wait until all of them have finished, then merge each branch/i,
     ],
+    ["an older `wait` key is ignored", /older[^.]*`wait`[^.]*ignored/i],
     ["a merge conflict asks the user", /conflict[\s\S]*`?ask_user`?/i],
     ["max", /`max`/],
     ["at the limit, stop and ask", /limit[\s\S]*ask_user/i],
@@ -123,6 +123,12 @@ describe("slice E6 (decision 079 B): groups and limits in /dev-us", () => {
       expect(develop).toMatch(pattern);
     },
   );
+
+  it("given the skill dev-us, when its Develop section is read, then it no longer describes `wait: first`", () => {
+    expect(develop).not.toMatch(/`wait: first`/);
+    expect(develop).not.toMatch(/first step to finish/i);
+    expect(develop).not.toMatch(/abandon/i);
+  });
 
   it("given the skill dev-us, when its Develop section is read, then it says always follows the loop exactly `max` times", () => {
     expect(develop).toMatch(

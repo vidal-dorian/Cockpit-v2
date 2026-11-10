@@ -21,7 +21,7 @@ import { readTeam } from "./team-file.ts";
 //   « Catalogue de Cockpit » lists the agents of GET /api/starter-teams that the repo lacks.
 // - A new team starts from the team shown, as read from the repo (042, unchanged).
 // - The keyboard list is the one of 031: one `li` per step with « Monter », « Descendre », « Modifier »; « Modifier » selects the step and shows the panel (a region of the dialog) whose heading is « Étape sélectionnée ».
-// - The step panel fields (labels): « Nom de l'étape » (text), « Consigne pour cette étape » (text), « En même temps que l'étape d'avant » (checkbox), « Quand plusieurs liens arrivent » (select, options « Attendre tous » / « Le premier suffit », shown on a step of a group, it sets `wait` on the first step of the group),
+// - The step panel fields (labels): « Nom de l'étape » (text), « Consigne pour cette étape » (text), « En même temps que l'étape d'avant » (checkbox),
 //   « Boucle » (select, « Aucune » first, then the keys of the steps of a previous group and of itself), « Quand suivre ce lien » (select of the four choices of 079 C, labelled « Si le <agent> bloque », « Si les tests échouent »... exactly as in the decision), « Jusqu'à ce que » (text, only for « Une condition à toi »), « Au plus » (number, 3 by default), the sentence « Si la limite est atteinte, Claude s'arrête et te pose la question ».
 // - With nothing selected the panel shows « Ce que Cockpit vérifie », « Le fichier qui sera écrit » with `.claude/teams/<nom>.md` (the typed name once there is one) and `--team <nom>`.
 // - The Agents tab: « Modifier sur le canevas » (button) and, for a team with a group or an `id`, the sentence « Cette équipe a des étapes en parallèle : modifie-la sur le canevas. » instead of the graph, the list and the « Graphe » / « Liste » switch.
@@ -346,21 +346,16 @@ describe("decision 079 D6: the panel of a step", () => {
     expect(ui().queryByLabelText("Quand plusieurs liens arrivent")).toBeNull();
   });
 
-  it("given the second step made parallel, when its panel is read, then « Quand plusieurs liens arrivent » offers « Attendre tous » and « Le premier suffit », and the summary counts the group", async () => {
+  it("given the second step made parallel, when its panel is read, then it has no « Quand plusieurs liens arrivent », and the summary counts the group", async () => {
     stubApi();
     await openCanvas();
     select(1);
 
     fireEvent.click(field("En même temps que l'étape d'avant"));
 
-    const wait = field(
-      "Quand plusieurs liens arrivent",
-    ) as unknown as HTMLSelectElement;
-    expect(
-      within(wait)
-        .getAllByRole("option")
-        .map((o) => o.textContent),
-    ).toEqual(["Attendre tous", "Le premier suffit"]);
+    expect(ui().queryByLabelText("Quand plusieurs liens arrivent")).toBeNull();
+    expect(ui().queryByText("Le premier suffit")).toBeNull();
+    expect(ui().queryByText("Attendre tous")).toBeNull();
     expect(
       ui().getByText("3 étapes · 2 en parallèle · 1 boucle"),
     ).toBeDefined();

@@ -25,7 +25,7 @@ import {
 // - `writeTeam(steps, body)` returns the whole file text: the front matter of 031 G, then `body` byte for byte. `does` is always written, `loop_to` and `until` only for a step with a loop.
 // - `DEFAULT_STEPS` is the draft without a file (029 C).
 // Slice E6 (decision 079), new exports assumed in `src/web/team-file.ts` (the developer implements these names):
-// - `TeamStep` gains four OPTIONAL fields, undefined when absent (so `toEqual` of a plain step still holds): `id?: string`, `parallel?: boolean`, `wait?: "first" | "all"`, `max?: number`.
+// - `TeamStep` gains four OPTIONAL fields, undefined when absent (so `toEqual` of a plain step still holds): `id?: string`, `parallel?: boolean`, `max?: number` (no `wait`: a group always waits for all its steps, an older `wait` key is read and ignored).
 //   The key of a step is `id ?? agent`; `loopTo`, and the key arguments of moveStep / removeStep / linkSteps, name a key.
 // - `DEFAULT_STEPS` reviewer gets `max: 3` (a loop always has a limit, 079 C: otherwise « Faire le commit » of the default team would be disabled).
 // - `addStep` adds an agent already in the team with the free `id` "2", "3"... (079 D5, changes the 031 E behaviour).
@@ -363,11 +363,10 @@ const roundTrip = (t: string) => {
 };
 
 describe("decision 079 A: the new keys", () => {
-  it("given a team with id, parallel, wait first, loop_to, until and max, when it is read then written back, then the text is identical", () => {
+  it("given a team with id, parallel, loop_to, until and max, when it is read then written back, then the text is identical", () => {
     const ok = text(
       "  - agent: developer",
       '    does: "the screen"',
-      "    wait: first",
       "  - agent: developer",
       "    id: web",
       '    does: "the server"',
@@ -385,7 +384,6 @@ describe("decision 079 A: the new keys", () => {
         does: "the screen",
         loopTo: null,
         until: "",
-        wait: "first",
       },
       {
         agent: "developer",
@@ -405,6 +403,25 @@ describe("decision 079 A: the new keys", () => {
     ]);
     expect(roundTrip(ok)).toBe(ok);
   });
+
+  it.each(["first", "all"])(
+    "given a group head with `wait: %s`, when it is read then written, then the step has no wait and no wait line is written",
+    (value) => {
+      const old = text(
+        "  - agent: a",
+        `    wait: ${value}`,
+        "  - agent: b",
+        "    parallel: true",
+      );
+      const read = readTeam(old);
+
+      expect(read?.steps).toHaveLength(2);
+      expect(read?.steps[0]).not.toHaveProperty("wait");
+      expect(writeTeam(read?.steps ?? [], read?.body ?? "")).toBe(
+        text("  - agent: a", "  - agent: b", "    parallel: true"),
+      );
+    },
+  );
 
   it("given an id equal to its agent, when written, then the id is not written", () => {
     const out = writeTeam([{ ...step("developer"), id: "developer" }], "");
