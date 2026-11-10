@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Row, rows, setup, userWithToken } from "./test-mcp.ts";
+import { admin, makePro, planOf, revoke } from "./test-plans.ts";
 
 // Decision 074 (story B): the agent teams of a user, stored in Cockpit, through `app.request()`.
 //
@@ -198,5 +199,102 @@ describe("decision 074 B: the routes of the agent teams", () => {
     expect(await ctx.list(ctx.bob)).toMatchObject([
       { name: "leger", text: TEAM },
     ]);
+  });
+});
+
+// Decision 082: a Free account has 2 agent teams at once; Pro and the administrator have no limit.
+describe("decision 082: the limit of 2 teams for a Free account", () => {
+  const PLAN = { error: "plan" };
+  const names = async (ctx: Awaited<ReturnType<typeof ready>>) =>
+    (await ctx.list(ctx.alice)).map((t) => t.name);
+
+  async function withTeams(n: number) {
+    const ctx = await ready();
+    for (let i = 0; i < n; i++)
+      expect((await ctx.put(ctx.alice, `team${i}`, LEGER)).status).toBe(200);
+    return ctx;
+  }
+
+  it("given a Free account with 2 teams, when PUT is sent for a new name, then 403 plan, no team created and the history says refused", async () => {
+    const ctx = await withTeams(2);
+
+    const res = await ctx.put(ctx.alice, "third", LEGER);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual(PLAN);
+    expect(await names(ctx)).toEqual(["team0", "team1"]);
+    expect(await ctx.history("save_agent_team")).toMatchObject([
+      { result: "ok" },
+      { result: "ok" },
+      { result: "refused" },
+    ]);
+  });
+
+  it("given a Free account with 2 teams, when PUT is sent for an existing name with a new text, then 200 and the text is replaced", async () => {
+    const ctx = await withTeams(2);
+
+    const res = await ctx.put(ctx.alice, "team1", TEAM);
+
+    expect(res.status).toBe(200);
+    expect(
+      (await ctx.list(ctx.alice)).find((t) => t.name === "team1")?.text,
+    ).toBe(TEAM);
+  });
+
+  it("given a Free account with 1 team, when PUT is sent for a new name, then 200 (the 2nd team)", async () => {
+    const ctx = await withTeams(1);
+
+    expect((await ctx.put(ctx.alice, "second", LEGER)).status).toBe(200);
+    expect(await names(ctx)).toHaveLength(2);
+  });
+
+  it("given a Pro account by a code with 2 teams, when PUT is sent for a new name, then 200", async () => {
+    const ctx = await withTeams(2);
+    const boss = await admin(ctx.db);
+    await makePro(ctx.app, boss.cookie, ctx.alice.cookie);
+
+    expect((await ctx.put(ctx.alice, "third", LEGER)).status).toBe(200);
+    expect(await names(ctx)).toHaveLength(3);
+  });
+
+  it("given an instance administrator with 2 teams, when PUT is sent for a new name, then 200", async () => {
+    const ctx = await ready();
+    const boss = await admin(ctx.db);
+    for (const name of ["a", "b", "c"])
+      expect((await ctx.put(boss, name, LEGER)).status).toBe(200);
+  });
+
+  it("given a Free account with 2 teams, when one is deleted and a new name is PUT, then 200", async () => {
+    const ctx = await withTeams(2);
+    expect((await ctx.send(ctx.alice, "DELETE", "/team0")).status).toBe(200);
+
+    expect((await ctx.put(ctx.alice, "third", LEGER)).status).toBe(200);
+  });
+
+  it("given a Free account with 3 teams made while Pro and the code revoked, when it replaces, deletes then creates, then 200, 200 and 403 plan", async () => {
+    const ctx = await ready();
+    const boss = await admin(ctx.db);
+    const codeId = await makePro(ctx.app, boss.cookie, ctx.alice.cookie);
+    for (const name of ["a", "b", "c"])
+      expect((await ctx.put(ctx.alice, name, LEGER)).status).toBe(200);
+    expect((await revoke(ctx.app, boss.cookie, codeId)).status).toBe(200);
+    expect((await planOf(ctx.app, ctx.alice.cookie)).plan).toBe("free");
+
+    expect((await ctx.put(ctx.alice, "a", TEAM)).status).toBe(200);
+    expect((await ctx.send(ctx.alice, "DELETE", "/c")).status).toBe(200);
+    const res = await ctx.put(ctx.alice, "d", LEGER);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual(PLAN);
+    expect(await names(ctx)).toEqual(["a", "b"]);
+  });
+
+  it("given a Free and a Pro account, when GET /api/me/plan is read, then teamLimit is 2 and null", async () => {
+    const ctx = await ready();
+    expect((await planOf(ctx.app, ctx.alice.cookie)).teamLimit).toBe(2);
+    const boss = await admin(ctx.db);
+    await makePro(ctx.app, boss.cookie, ctx.bob.cookie);
+
+    expect((await planOf(ctx.app, ctx.bob.cookie)).teamLimit).toBeNull();
   });
 });
