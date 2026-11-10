@@ -663,7 +663,9 @@ export function TeamCanvas({
               Refaire
             </button>
           </div>
-          <div className={`${card} relative hidden h-[28rem] sm:block`}>
+          <div
+            className={`${card} relative hidden h-[max(28rem,calc(100dvh-13rem))] sm:block`}
+          >
             {shown && (
               <Suspense
                 fallback={

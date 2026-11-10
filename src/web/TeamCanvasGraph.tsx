@@ -181,7 +181,11 @@ function ThenEdge({
           <button
             type="button"
             aria-label={`Intercaler entre ${data.from} et ${data.to}`}
-            onClick={data.onPick}
+            // The label is in a portal but React bubbles the click to the edge, whose click would clear the selection.
+            onClick={(e) => {
+              e.stopPropagation();
+              data.onPick();
+            }}
             style={{
               transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
             }}
@@ -242,7 +246,8 @@ function drawing(
   const bar = (id: string, x: number, text: string): BarNode => ({
     id,
     type: "bar",
-    position: { x, y: middle + 40 },
+    // Centred on the cards (100 high) so the links leave them straight.
+    position: { x, y: middle + 35 },
     deletable: false,
     data: { text },
   });
@@ -409,6 +414,13 @@ export default function TeamCanvasGraph({
   );
   const [nodes, setNodes, onNodesChange] = useNodesState(drawn.nodes);
   useEffect(() => setNodes(drawn.nodes), [drawn.nodes, setNodes]);
+  // A step added or removed can fall off the view: fit it again, after the new nodes are drawn.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the number of steps is the trigger
+  useEffect(() => {
+    requestAnimationFrame(() =>
+      flow.current?.fitView({ maxZoom: 1, padding: 0.1, duration: 200 }),
+    );
+  }, [steps.length]);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: dropping is a pointer extra, the keyboard adds with the buttons of the left column
     <div
@@ -502,6 +514,8 @@ export default function TeamCanvasGraph({
           pannable
           zoomable
           className="overflow-hidden rounded-lg border border-border-strong"
+          // Small enough not to hide the cards it sits on.
+          style={{ width: 128, height: 80 }}
         />
       </ReactFlow>
     </div>
