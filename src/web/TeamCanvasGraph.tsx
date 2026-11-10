@@ -541,6 +541,9 @@ export default function TeamCanvasGraph({
         }}
         // The app owns the selection: a drag must not select a card behind its back (Suppr would remove it).
         selectNodesOnDrag={false}
+        // One selection, the app's: no box or Shift multi-selection that Suppr would act on behind its back.
+        selectionKeyCode={null}
+        multiSelectionKeyCode={null}
         // React Flow still drops its own selection when a drag starts: give back the app's.
         onNodeDragStop={() => setNodes(place(drawn.nodes))}
         onConnect={({ source, target }: Connection) => onLink(source, target)}
