@@ -203,9 +203,11 @@ function StepCard({ data, selected }: NodeProps<CardNode>) {
         type="button"
         data-testid={`team-card-${keyOf(step)}`}
         onClick={onOpen}
-        className={`flex h-25 w-40 flex-col gap-[3px] rounded-xl border bg-card px-3 py-2.5 text-left hover:bg-raised ${selected ? "border-foreground" : "border-border-strong"} ${focusRing}`}
+        className={`flex h-25 w-40 flex-col gap-[3px] overflow-hidden rounded-xl border bg-card px-3 py-2.5 text-left hover:bg-raised ${selected ? "border-foreground" : "border-border-strong"} ${focusRing}`}
       >
-        <span className="text-[13px] font-semibold">{stepLabel(step)}</span>
+        <span className="truncate text-[13px] font-semibold">
+          {stepLabel(step)}
+        </span>
         <span className="line-clamp-2 text-[11.5px] text-muted-foreground">
           {step.does}
         </span>
