@@ -666,6 +666,115 @@ describe("decision 074 B4: a team of the list", () => {
   });
 });
 
+describe("feedback on E6: adding a team to a project", () => {
+  async function openAdd(name: string) {
+    const li = await row(name);
+    fireEvent.click(li.getByRole("button", { name: "Ajouter à un projet" }));
+    return li;
+  }
+  const option = (li: Awaited<ReturnType<typeof row>>, name: string) =>
+    li.findByRole("option", { name }) as Promise<HTMLOptionElement>;
+
+  it("given an add that has not answered, when « Ajouter » is clicked, then « Ajout en cours… » is a status and « Ajouter » is disabled", async () => {
+    stubApi({
+      teams: [{ id: 1, name: "leger", text: TEAM }],
+      repoAgents: ["test-writer", "developer", "reviewer"],
+    });
+    const inner = globalThis.fetch;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        if (String(input).endsWith("/team/apply")) await gate;
+        return inner(input, init);
+      }),
+    );
+    renderAt("/equipes");
+    const li = await openAdd("leger");
+    fireEvent.change(li.getByRole("combobox", { name: "Projet" }), {
+      target: { value: "5" },
+    });
+
+    fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("Ajout en cours…");
+    expect(
+      (li.getByRole("button", { name: "Ajouter" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    release();
+    expect(await screen.findByText(/C'est fait/)).toBeDefined();
+  });
+
+  it("given a repo with the same team, when the panel opens, then its project is a disabled option « déjà dans ce projet »", async () => {
+    stubApi({
+      teams: [{ id: 1, name: "leger", text: TEAM }],
+      repoTeams: [{ name: "leger", text: TEAM }],
+    });
+    renderAt("/equipes");
+
+    const li = await openAdd("leger");
+
+    expect(
+      (await option(li, "octocat/hello · déjà dans ce projet")).disabled,
+    ).toBe(true);
+  });
+
+  it("given a repo with the team under another text, when the panel opens, then its project is an enabled option « à mettre à jour »", async () => {
+    stubApi({
+      teams: [{ id: 1, name: "leger", text: TEAM }],
+      repoTeams: [{ name: "leger", text: DOCS }],
+    });
+    renderAt("/equipes");
+
+    const li = await openAdd("leger");
+
+    expect((await option(li, "octocat/hello · à mettre à jour")).disabled).toBe(
+      false,
+    );
+  });
+
+  it("given a repo without the team, when the panel opens, then the project is read and offered as « octocat/hello » alone", async () => {
+    const { calls } = stubApi({
+      teams: [{ id: 1, name: "leger", text: TEAM }],
+    });
+    renderAt("/equipes");
+
+    const li = await openAdd("leger");
+
+    await waitFor(() => expect(calls.agentReads).toBeGreaterThan(0));
+    expect((await option(li, "octocat/hello")).disabled).toBe(false);
+  });
+
+  it("given a successful add, when « C'est fait » is shown, then the result stays, the select is back on « Choisir un projet » and the project reads « déjà dans ce projet »", async () => {
+    stubApi({
+      teams: [{ id: 1, name: "leger", text: TEAM }],
+      repoAgents: ["test-writer", "developer", "reviewer"],
+      repoTeams: [],
+    });
+    renderAt("/equipes");
+    const li = await openAdd("leger");
+    const select = li.getByRole("combobox", {
+      name: "Projet",
+    }) as HTMLSelectElement;
+    await option(li, "octocat/hello");
+    fireEvent.change(select, { target: { value: "5" } });
+
+    fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+
+    expect(await screen.findByText(/C'est fait/)).toBeDefined();
+    await waitFor(() => expect(select.value).toBe(""));
+    expect(screen.getByText(/C'est fait/)).toBeDefined();
+    expect(
+      (await option(li, "octocat/hello · déjà dans ce projet")).disabled,
+    ).toBe(true);
+  });
+});
+
 describe("decision 074 B5: « Tes équipes » on the tab Agents of a project", () => {
   async function openTab() {
     renderAt("/projets/5/agents");
