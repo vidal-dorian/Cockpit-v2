@@ -20,6 +20,7 @@
 - **Modifiée par** : [053](053-journal-filtrable.md) : l'onglet Historique d'un projet (H) existe depuis la tranche 11.1
 - **Modifiée par** : [055](055-tickets-complets.md) : dans F, Entrée dans la barre « Noter une idée » ne crée plus le ticket, elle agrandit la barre en un panneau (tranche 11.2)
 - **Modifiée par** : [046](046-logo-la-boucle.md) : le logo, repoussé ici, est tranché
+- **Modifiée par** : [079 — L'équipe en canevas](079-equipe-en-canevas.md) : l'éditeur d'équipe en canevas (G) est construit (tranche E6) ; les branches en parallèle et la condition écrite y sont tranchées
 - **Écrans** : [`docs/ecrans/`](../ecrans/README.md) (63 écrans, PNG et HTML), validés par Dorian le 2026-11-07
 - **Tranche** : 9.3 du [découpage](../decoupage.md) pour la coque commune, puis la tranche de chaque écran
 

@@ -19,7 +19,7 @@ import { DEFAULT_STEPS, readTeam, writeTeam } from "./team-file.ts";
 //   PUT /api/agent-teams/:name { text } answers { id, name, text } and DELETE /api/agent-teams/:name answers 200 { ok: true }; the list is read again after each.
 // - Each team is a list item (li) with its name, its steps « a → b → c », and the buttons « Modifier », « Supprimer », « Ajouter à un projet ».
 // - « Ajouter à un projet » reveals a select « Projet » (option value = the project id, the non-archived projects only) and a button « Ajouter ».
-// - « Modifier » opens the dialog « Modifier l'équipe »: « Nom de l'équipe » is shown read-only (or disabled), the button is « Enregistrer ».
+// - « Modifier » opens the canvas « Modifier l'équipe · <nom> » (decision 079): « Nom de l'équipe » is shown read-only (or disabled), the button is « Enregistrer ».
 // - « Supprimer » shows « Confirmer la suppression », « Annuler » and « Les projets qui l'ont gardent leur copie. » before the DELETE.
 // - Adding reads GET /api/projects/:id/agents, then POSTs /api/projects/:id/team/apply { name, before, after, agents: [{ name, before: null, after }] } (the agents the repo lacks, text from the starter teams, standard first, then premium, max, eco);
 //   nothing is posted when the repo already has the same team and every agent: « Déjà à jour dans ce projet ». Success: « C'est fait » and a link to the commit (or the pull request).
@@ -314,7 +314,7 @@ describe("decision 074 B3: creating a team", () => {
     await screen.findByText("Aucune équipe pour l'instant.");
     click("Nouvelle équipe");
     const dialog = (await screen.findByRole("dialog", {
-      name: "Nouvelle équipe",
+      name: /^Nouvelle équipe/,
     })) as HTMLElement;
     return within(dialog);
   }
@@ -359,7 +359,7 @@ describe("decision 074 B3: creating a team", () => {
     await screen.findByText("leger");
     click("Nouvelle équipe");
     const ui = within(
-      await screen.findByRole("dialog", { name: "Nouvelle équipe" }),
+      await screen.findByRole("dialog", { name: /^Nouvelle équipe/ }),
     );
 
     typeName(ui, "leger");
@@ -369,6 +369,56 @@ describe("decision 074 B3: creating a team", () => {
       (ui.getByRole("button", { name: "Créer l'équipe" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+});
+
+describe("decision 079 D, E: the canvas on /equipes", () => {
+  it("given the page, when « Nouvelle équipe » is clicked, then the canvas offers only « Catalogue de Cockpit » (no « Agents du repo ») and the header « ‹ Équipes d'agents »", async () => {
+    stubApi();
+    renderAt("/equipes");
+    await screen.findByText("Aucune équipe pour l'instant.");
+
+    click("Nouvelle équipe");
+
+    const ui = within(
+      await screen.findByRole("dialog", { name: /^Nouvelle équipe ·/ }),
+    );
+    const catalogue = within(
+      ui.getByRole("group", { name: "Catalogue de Cockpit" }),
+    );
+    expect(catalogue.getByRole("button", { name: "doc-writer" })).toBeDefined();
+    expect(ui.queryByRole("group", { name: "Agents du repo" })).toBeNull();
+    expect(
+      ui.getByRole("button", { name: "‹ Équipes d'agents" }),
+    ).toBeDefined();
+  });
+
+  it("given the canvas of a team, when a catalogue agent is added and « Enregistrer » clicked, then PUT /api/agent-teams/<name> still carries the team with that step", async () => {
+    const { sent } = stubApi({ teams: [{ id: 1, name: "leger", text: TEAM }] });
+    renderAt("/equipes");
+    fireEvent.click(
+      (await row("leger")).getByRole("button", { name: "Modifier" }),
+    );
+    const ui = within(
+      await screen.findByRole("dialog", { name: /^Modifier l'équipe · leger/ }),
+    );
+    fireEvent.click(
+      within(ui.getByRole("group", { name: "Catalogue de Cockpit" })).getByRole(
+        "button",
+        { name: "doc-writer" },
+      ),
+    );
+
+    fireEvent.click(ui.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => expect(puts(sent)).toHaveLength(1));
+    const [put] = puts(sent);
+    expect(put?.path).toBe("/api/agent-teams/leger");
+    expect(
+      readTeam((put as { body: { text: string } }).body.text)?.steps.map(
+        (s) => s.agent,
+      ),
+    ).toEqual(["test-writer", "developer", "reviewer", "doc-writer"]);
   });
 });
 
@@ -396,7 +446,7 @@ describe("decision 074 B4: a team of the list", () => {
       (await row("leger")).getByRole("button", { name: "Modifier" }),
     );
     const dialog = await screen.findByRole("dialog", {
-      name: "Modifier l'équipe",
+      name: /^Modifier l'équipe · leger/,
     });
     const ui = within(dialog);
     const name = ui.getByLabelText("Nom de l'équipe") as HTMLInputElement;

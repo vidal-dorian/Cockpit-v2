@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Modal } from "./Modal.tsx";
 import { ScrollToTop } from "./Shell.tsx";
 
-// Decision 079: the polish of motion, loading and feedback. jsdom plays no CSS: these tests pin what the CSS hangs on.
+// Decision 080: the polish of motion, loading and feedback. jsdom plays no CSS: these tests pin what the CSS hangs on.
 
 afterEach(() => {
   cleanup();
@@ -30,7 +30,7 @@ function Nav() {
   );
 }
 
-describe("079 D: a new page starts at the top", () => {
+describe("080 D: a new page starts at the top", () => {
   const renderNav = () => {
     const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     render(
@@ -66,7 +66,7 @@ describe("079 D: a new page starts at the top", () => {
   });
 });
 
-describe("079 E: every window rises in", () => {
+describe("080 E: every window rises in", () => {
   it("given a Modal, when it opens, then its dialog carries the entrance of the import window", () => {
     render(
       <Modal label="Fenêtre" onClose={() => {}}>
@@ -79,14 +79,14 @@ describe("079 E: every window rises in", () => {
   });
 });
 
-describe("079 E: the page entrance cannot fight the panel or the loading", () => {
+describe("080 E: the page entrance cannot fight the panel or the loading", () => {
   it("given styles.css, when I read the page entrance, then only <main> fades: no rule animates its children", () => {
     expect(css).toMatch(/main\s*\{[^}]*animation:\s*fade-in/);
     expect(css).not.toMatch(/^\s*main\s*>/m);
   });
 });
 
-describe("079 F: every « Chargement… » waits and spins", () => {
+describe("080 F: every « Chargement… » waits and spins", () => {
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".tsx"))
     .filter((f) => !/\.test\.tsx$/.test(f) && !/^test-/.test(f));
@@ -108,7 +108,7 @@ describe("079 F: every « Chargement… » waits and spins", () => {
   });
 });
 
-describe("079 A, B, M: the motion of the whole page", () => {
+describe("080 A, B, M: the motion of the whole page", () => {
   it("given styles.css, when I read it, then it holds the three durations and the curve", () => {
     for (const token of [
       "--duration-fast",

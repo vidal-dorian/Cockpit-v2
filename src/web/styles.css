@@ -7,7 +7,7 @@
   --font-heading: "Urbanist Variable", sans-serif;
   --font-mono: "JetBrains Mono Variable", monospace;
 
-  /* Motion (decision 079 A): one curve that starts fast and settles, the one of the import window. */
+  /* Motion (decision 080 A): one curve that starts fast and settles, the one of the import window. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   --color-background: #0e1015;
@@ -60,11 +60,11 @@
 
 :root {
   color-scheme: dark;
-  /* Decision 079 A: a hover or a press, a colour or a message, a page or a window. */
+  /* Decision 080 A: a hover or a press, a colour or a message, a page or a window. */
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --duration-slow: 280ms;
-  /* Decision 079 L: thin scrollbars, no new colour token. */
+  /* Decision 080 L: thin scrollbars, no new colour token. */
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-strong) transparent;
 }
@@ -78,7 +78,7 @@ body {
   background: color-mix(in oklab, var(--color-claude) 35%, transparent);
 }
 
-/* Decision 079 B: what is clicked says so, and changes state smoothly instead of at once. */
+/* Decision 080 B: what is clicked says so, and changes state smoothly instead of at once. */
 @layer base {
   /* Not inherited: every scroll area gets the thin bar, a utility can still hide it. */
   * {
@@ -334,7 +334,7 @@ body {
   .dialog-in[open]::backdrop {
     animation: backdrop-in var(--duration-slow) var(--ease-out);
   }
-  /* A window over the page blurs it a little (decision 079 E). */
+  /* A window over the page blurs it a little (decision 080 E). */
   .dialog-in::backdrop {
     backdrop-filter: blur(2px);
   }
@@ -359,7 +359,7 @@ body {
   }
 }
 
-/* Decision 079 E, G: a page fades in, the right panel slides in, a message fades in. No exit animation: closing is immediate. */
+/* Decision 080 E, G: a page fades in, the right panel slides in, a message fades in. No exit animation: closing is immediate. */
 @media (prefers-reduced-motion: no-preference) {
   /* Only a fade: a transform on <main> or a child would re-anchor the fixed panel, and a :has() exclusion would replay when the panel closes. */
   main {
@@ -396,7 +396,7 @@ body {
   }
 }
 
-/* Decision 079 F: « Chargement… » shows only past 300 ms, so a quick answer does not flash, with a small spinning ring.
+/* Decision 080 F: « Chargement… » shows only past 300 ms, so a quick answer does not flash, with a small spinning ring.
    A component layer, so that a utility (`hidden`, `sm:flex`) still wins. */
 @layer components {
   .loading {
@@ -422,7 +422,7 @@ body {
   }
 }
 
-/* Decision 079 H: the live dot stays lit, a halo of its colour breathes out of it. */
+/* Decision 080 H: the live dot stays lit, a halo of its colour breathes out of it. */
 /* Still under reduced motion: a steady ring keeps the cue. */
 .live-dot {
   box-shadow: 0 0 0 3px var(--color-claude-glow);
@@ -442,7 +442,7 @@ body {
   }
 }
 
-/* Decision 079 K: the arrow of a foldable section turns, its content opens in height where the browser can animate it. */
+/* Decision 080 K: the arrow of a foldable section turns, its content opens in height where the browser can animate it. */
 summary {
   list-style: none;
 }
@@ -477,7 +477,7 @@ details[open] > summary::before {
   }
 }
 
-/* Decision 079 M: less motion asked, no motion: states still change, at once. */
+/* Decision 080 M: less motion asked, no motion: states still change, at once. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -491,7 +491,7 @@ details[open] > summary::before {
   }
 }
 
-/* Decision 080 A: a button waiting for its request keeps its look (not the faded disabled one) and spins; the ring goes on the
+/* Decision 081 A: a button waiting for its request keeps its look (not the faded disabled one) and spins; the ring goes on the
    button that was pressed (App marks it data-pressed), so the other buttons of the same request only wait. Unlayered: beats `disabled:opacity-50`. */
 button[aria-busy="true"] {
   cursor: progress;
@@ -511,7 +511,7 @@ button[aria-busy="true"][data-pressed]::before {
   animation: spin 0.8s linear infinite;
 }
 
-/* Decision 080 B: a confirmation rises in. */
+/* Decision 081 B: a confirmation rises in. */
 @media (prefers-reduced-motion: no-preference) {
   .toast {
     animation: message-in var(--duration-base) var(--ease-out);

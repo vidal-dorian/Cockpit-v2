@@ -178,7 +178,7 @@ function CommitButton({
   /** The App itself lacks the permission: the link is the App's settings, not the installation's. */
   appMissing: boolean;
   disabled: boolean;
-  /** The commit is on its way (decision 080 A). */
+  /** The commit is on its way (decision 081 A). */
   busy: boolean;
   onClick: () => void;
   children?: React.ReactNode;

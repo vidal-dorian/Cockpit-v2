@@ -452,9 +452,9 @@ async function fetchSetupStatus() {
   return res.json();
 }
 
-/** The pages and the confirmations of `toast` (decision 080 B), over every page, Setup included. */
+/** The pages and the confirmations of `toast` (decision 081 B), over every page, Setup included. */
 export function App() {
-  // The last pressed button carries the ring of a request it started (decision 080 A).
+  // The last pressed button carries the ring of a request it started (decision 081 A).
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       const pressed = (event.target as Element | null)?.closest?.("button");

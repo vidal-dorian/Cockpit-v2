@@ -10,7 +10,7 @@ export const markdownStyle =
 // badges are pills, 1px borders, no shadow on what is laid down. Each size is built from the shared base without the
 // classes it sets itself, so no constant needs a conflicting class appended to it.
 
-// A pressed button settles to 97 % (decision 079 C).
+// A pressed button settles to 97 % (decision 080 C).
 const buttonBase = `inline-flex items-center justify-center gap-2 whitespace-nowrap border font-semibold not-disabled:not-aria-disabled:active:scale-[.97] disabled:opacity-50 ${focusRing}`;
 const buttonSize = "h-11 rounded-[10px] px-3.5 text-[13px] md:h-[34px]";
 const panelSize = "h-11 w-full rounded-[10px] px-3.5 text-sm md:h-[42px]";

@@ -85,7 +85,8 @@
 - **Fait** : tranche 13.1 (plusieurs utilisateurs sur un projet : trois rôles, invitation par login GitHub, la liste des membres dans Réglages, [décision 076](decisions/076-plusieurs-utilisateurs.md)).
 - **Fait** : tranche 13.2 (offres et quotas : Gratuit à 3 repos, Pro, codes Pro donnés par l'administrateur, lecture seule au-delà de 3, Réglages › Abonnement, [décision 077](decisions/077-offres-et-quotas.md)).
 - **Fait** : tranche 13.5 (ses données : Réglages › Données, export JSON, suppression du compte, empreinte du compteur Gratuit, [décision 078](decisions/078-ses-donnees.md)).
-- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.1, 13.2 et 13.5 faites ; 13.3 et 13.4 attendent Dorian).
+- **Fait** : tranche E6 (l'équipe en canevas : plein écran, glisser des agents, tracer des liens, intercaler sur un lien, branches en parallèle, boucles avec limite, [décision 079](decisions/079-equipe-en-canevas.md)).
+- **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.1, 13.2 et 13.5 faites ; 13.3 et 13.4 attendent Dorian), et la tranche E6 (faite). Il ne reste que 13.3 et 13.4, qui attendent Dorian.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).
 
@@ -309,9 +310,9 @@ Demande du 2026-11-03 : `/dev-us` reste le défaut, mais l'utilisateur ajoute, m
 | E2 | **Éditeur d'agent** ([030](decisions/030-editeur-d-agent.md)) : description, outils, modèle, prompt, aperçu ; ajouter, supprimer ; un commit, diff avant | Je change le modèle du `developer` et j'ajoute un `doc-writer` |
 | E3 | **Écran « Équipe »** en graphe ([031](decisions/031-equipe-en-graphe.md)) : cartes déplaçables, liens « puis » et « boucle », liste pour le clavier, un commit | J'ajoute `doc-writer` après `developer` et j'enregistre |
 | E4 | **Plusieurs équipes par projet** ([032](decisions/032-plusieurs-equipes.md)) : `.claude/teams/<nom>.md`, `--team` | `/dev-us 42 --team leger` suit l'équipe « leger » |
-| E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle, un worktree par branche, et la condition écrite en une phrase ([064](decisions/064-tranches-restantes.md)) | Je crée une équipe en traçant ses liens sur le canevas, puis un commit |
+| E6 | **Nouvelle équipe en canevas** ([045](decisions/045-interface-quatre-temps.md) G, écrans S38 à S38c) : plein écran, glisser des agents, tracer des liens, boucles avec limite, intercaler un agent sur un lien. Les branches en parallèle, un worktree par branche, et la condition écrite en une phrase ([064](decisions/064-tranches-restantes.md)) | Je crée une équipe en traçant ses liens sur le canevas, puis un commit ([079](decisions/079-equipe-en-canevas.md)) |
 
-Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6. La [074](decisions/074-equipes-a-la-demande.md) construit « une équipe globale à tous les projets » que la 029 et la 032 repoussaient.
+Suite : « Nouvelle équipe » s'ouvre dans une fenêtre ([042](decisions/042-nouvelle-equipe-fenetre.md)), puis sur le canevas plein écran de la E6 ([079](decisions/079-equipe-en-canevas.md)). Les équipes de départ (E5) sont faites, voir la tranche 11.6. La [074](decisions/074-equipes-a-la-demande.md) construit « une équipe globale à tous les projets » que la 029 et la 032 repoussaient.
 
 ## Après la V1
 

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fail, renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
 import { TOAST_MS, Toaster, toast } from "./toast.tsx";
 
-// Decision 080: a busy button spins, a finished action says so.
+// Decision 081: a busy button spins, a finished action says so.
 
 afterEach(() => {
   cleanup();
@@ -22,7 +22,7 @@ const files = readdirSync(dir)
   .filter((f) => f.endsWith(".tsx"))
   .filter((f) => !/\.test\.tsx$/.test(f) && !/^test-/.test(f));
 
-describe("080 A: a button waiting for its request spins", () => {
+describe("081 A: a button waiting for its request spins", () => {
   it.each(files)(
     "given %s, when a button is disabled while its mutation runs, then it says it is busy with that mutation",
     (file) => {
@@ -59,7 +59,7 @@ describe("080 A: a button waiting for its request spins", () => {
   });
 });
 
-describe("080 B: a finished action says so", () => {
+describe("081 B: a finished action says so", () => {
   it("given the Toaster, when toast is called, then the line shows and leaves after 4 s", () => {
     vi.useFakeTimers();
     render(
@@ -83,7 +83,7 @@ describe("080 B: a finished action says so", () => {
   });
 });
 
-describe("080 D: a refused action says nothing in the bottom line", () => {
+describe("081 D: a refused action says nothing in the bottom line", () => {
   it("given a ticket whose project got archived, when its form is saved and refused, then the error shows and no confirmation", async () => {
     const api = stubTicketApi([ticket(7, "Avant", "ancien")]);
     api.failNext.patch = fail(409, "project_archived");

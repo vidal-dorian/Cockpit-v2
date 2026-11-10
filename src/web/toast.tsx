@@ -8,7 +8,7 @@ declare module "@tanstack/react-query" {
   }
 }
 
-/** How long a confirmation stays on screen (decision 080 B). */
+/** How long a confirmation stays on screen (decision 081 B). */
 export const TOAST_MS = 4000;
 
 type Item = { id: number; text: string };
@@ -19,7 +19,7 @@ const emit = () => {
   for (const listener of listeners) listener(items);
 };
 
-/** Says that an action went well (decision 080 B): « Ticket enregistré. », for 4 s, at the bottom of the page. */
+/** Says that an action went well (decision 081 B): « Ticket enregistré. », for 4 s, at the bottom of the page. */
 export function toast(text: string) {
   const item = { id: next++, text };
   items = [...items, item];

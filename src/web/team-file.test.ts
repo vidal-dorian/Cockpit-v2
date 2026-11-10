@@ -3,11 +3,17 @@ import { parseTeam } from "../server/team.ts";
 import {
   addStep,
   DEFAULT_STEPS,
+  insertStepAfter,
+  linkOnCanvas,
   linkSteps,
   moveStep,
   readTeam,
   removeStep,
+  stepLabel,
   type TeamStep,
+  teamChecks,
+  teamSummary,
+  untilChoice,
   writeTeam,
 } from "./team-file.ts";
 
@@ -18,6 +24,15 @@ import {
 // - `readTeam(text)` is `{ steps, body }` (body: everything after the closing `---` line, after its line break), or `null` when Cockpit cannot rewrite the file without loss.
 // - `writeTeam(steps, body)` returns the whole file text: the front matter of 031 G, then `body` byte for byte. `does` is always written, `loop_to` and `until` only for a step with a loop.
 // - `DEFAULT_STEPS` is the draft without a file (029 C).
+// Slice E6 (decision 079), new exports assumed in `src/web/team-file.ts` (the developer implements these names):
+// - `TeamStep` gains four OPTIONAL fields, undefined when absent (so `toEqual` of a plain step still holds): `id?: string`, `parallel?: boolean`, `wait?: "first" | "all"`, `max?: number`.
+//   The key of a step is `id ?? agent`; `loopTo`, and the key arguments of moveStep / removeStep / linkSteps, name a key.
+// - `DEFAULT_STEPS` reviewer gets `max: 3` (a loop always has a limit, 079 C: otherwise « Faire le commit » of the default team would be disabled).
+// - `addStep` adds an agent already in the team with the free `id` "2", "3"... (079 D5, changes the 031 E behaviour).
+// - `linkOnCanvas(steps, fromKey, toKey, until = "the verdict is ready", max = 3)`: the canvas gesture of 079 D5 (the in-page `linkSteps` keeps 031 C).
+// - `insertStepAfter(steps, key, agent, does = "")`: the agent becomes a step of its own right after the step `key` (079 D5, « + » on a link).
+// - `teamSummary(steps): string` (079 D2), `teamChecks(steps): { ok: boolean; text: string }[]` (079 D6), `stepLabel(step): string`,
+//   `untilChoice(until, agent): string` the label of the choice of « Quand suivre ce lien » (079 C).
 // - The draft functions are pure and return a new array; `agent`s are names:
 //   `linkSteps(steps, from, to, until = "")` is the link of 031 C (a loop to an earlier step or itself, with the condition `until`; or `to` moved right after `from`);
 //   `moveStep(steps, agent, "up" | "down")`; `removeStep(steps, agent)`; `addStep(steps, agent, does = "")` appends last, and does nothing when the agent is already there.
@@ -220,6 +235,7 @@ describe("decision 031 G: the default steps", () => {
         does: "reviews the diff with a fresh context",
         loopTo: "developer",
         until: "the verdict is ready",
+        max: 3,
       },
     ]);
     expect(parseTeam(writeTeam(DEFAULT_STEPS, ""))).toEqual([
@@ -315,8 +331,8 @@ describe("decision 031 C: linking and reordering", () => {
     expect(out[1]).toMatchObject({ loopTo: "c", until: "again" });
   });
 
-  it("given an agent already in the team, when it is added, then nothing changes; a new agent is appended last", () => {
-    expect(names(addStep(abc(), "b"))).toEqual(["a", "b", "c"]);
+  it("given an agent already in the team, when it is added, then it is a new last step with the free id 2 (decision 079 D5); a new agent is appended last", () => {
+    expect(names(addStep(abc(), "b"))).toEqual(["a", "b", "c", "b"]);
 
     const out = addStep(abc(), "d", "does d");
     expect(names(out)).toEqual(["a", "b", "c", "d"]);
@@ -337,4 +353,277 @@ describe("decision 031 C: linking and reordering", () => {
 
     expect(names(steps)).toEqual(["a", "b", "c"]);
   });
+});
+
+const text = (...steps: string[]) =>
+  `---\nsteps:\n${steps.join("\n")}\n---\nBody.\n`;
+const roundTrip = (t: string) => {
+  const read = readTeam(t);
+  return read && writeTeam(read.steps, read.body);
+};
+
+describe("decision 079 A: the new keys", () => {
+  it("given a team with id, parallel, wait first, loop_to, until and max, when it is read then written back, then the text is identical", () => {
+    const ok = text(
+      "  - agent: developer",
+      '    does: "the screen"',
+      "    wait: first",
+      "  - agent: developer",
+      "    id: web",
+      '    does: "the server"',
+      "    parallel: true",
+      "  - agent: reviewer",
+      '    does: "reviews"',
+      "    loop_to: web",
+      '    until: "the verdict is ready"',
+      "    max: 3",
+    );
+    // loop_to web (a step of the previous group) is allowed: the loop is on a later group.
+    expect(readTeam(ok)?.steps).toEqual([
+      {
+        agent: "developer",
+        does: "the screen",
+        loopTo: null,
+        until: "",
+        wait: "first",
+      },
+      {
+        agent: "developer",
+        id: "web",
+        does: "the server",
+        loopTo: null,
+        until: "",
+        parallel: true,
+      },
+      {
+        agent: "reviewer",
+        does: "reviews",
+        loopTo: "web",
+        until: "the verdict is ready",
+        max: 3,
+      },
+    ]);
+    expect(roundTrip(ok)).toBe(ok);
+  });
+
+  it("given an id equal to its agent, when written, then the id is not written", () => {
+    const out = writeTeam([{ ...step("developer"), id: "developer" }], "");
+    expect(out).not.toContain("id:");
+  });
+
+  it.each([
+    [
+      "two steps with the same key",
+      ["  - agent: a", "  - agent: b", "    id: a"],
+    ],
+    ["parallel on the first step", ["  - agent: a", "    parallel: true"]],
+    [
+      "wait on a step not followed by a parallel step",
+      ["  - agent: a", "    wait: first", "  - agent: b"],
+    ],
+    [
+      "wait with another value",
+      [
+        "  - agent: a",
+        "    wait: second",
+        "  - agent: b",
+        "    parallel: true",
+      ],
+    ],
+    ["max 0", ["  - agent: a", "    loop_to: a", "    until: x", "    max: 0"]],
+    [
+      "max 10",
+      ["  - agent: a", "    loop_to: a", "    until: x", "    max: 10"],
+    ],
+    [
+      "max not an integer",
+      ["  - agent: a", "    loop_to: a", "    until: x", "    max: 2.5"],
+    ],
+    ["max without loop_to", ["  - agent: a", "    max: 3"]],
+    [
+      "loop_to naming another step of its own group",
+      [
+        "  - agent: a",
+        "  - agent: b",
+        "    parallel: true",
+        "  - agent: c",
+        "    parallel: true",
+        "    loop_to: b",
+        "    until: x",
+        "    max: 3",
+      ],
+    ],
+    [
+      "wait first on the middle step of a group",
+      [
+        "  - agent: a",
+        "  - agent: b",
+        "    parallel: true",
+        "    wait: first",
+        "  - agent: c",
+        "    parallel: true",
+      ],
+    ],
+    [
+      "loop_to naming a later step",
+      [
+        "  - agent: a",
+        "    loop_to: b",
+        "    until: x",
+        "    max: 3",
+        "  - agent: b",
+      ],
+    ],
+  ])(
+    "given %s, when it is read, then it is not rewritable (null)",
+    (_n, lines) => {
+      expect(readTeam(text(...lines))).toBeNull();
+    },
+  );
+
+  it("given a loop without max, when it is read, then it stays readable", () => {
+    const t = text("  - agent: a", "    loop_to: a", '    until: "x"');
+    expect(readTeam(t)?.steps[0]).toMatchObject({ loopTo: "a", until: "x" });
+    expect(readTeam(t)?.steps[0]?.max).toBeUndefined();
+  });
+});
+
+describe("decision 079 D5: the canvas gestures", () => {
+  it("given steps a, b, c and a twice, when the agent is added again, then the new step has the free id 2, then 3, and keys stay unique", () => {
+    const twice = addStep([step("developer")], "developer");
+    expect(twice[1]).toMatchObject({ agent: "developer", id: "2" });
+    const thrice = addStep(twice, "developer");
+    expect(thrice[2]).toMatchObject({ agent: "developer", id: "3" });
+    const keys = thrice.map((s) => s.id ?? s.agent);
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it("given steps A, B, C, D in sequence, when a link is traced from A to D, then D joins in parallel the step that follows A", () => {
+    const out = linkOnCanvas(
+      [step("a"), step("b"), step("c"), step("d")],
+      "a",
+      "d",
+    );
+
+    expect(names(out)).toEqual(["a", "b", "d", "c"]);
+    expect(out[2]?.parallel).toBe(true);
+    expect(out[1]?.parallel).toBeFalsy();
+    expect(out[3]?.parallel).toBeFalsy();
+    expect(out.every((s) => s.loopTo === null)).toBe(true);
+  });
+
+  it.each([
+    ["an earlier step", "c", "a"],
+    ["itself", "c", "c"],
+  ])(
+    "given steps A, B, C, when a link is traced from C to %s, then it is a loop until the verdict is ready, at most 3 times",
+    (_n, from, to) => {
+      const out = linkOnCanvas([step("a"), step("b"), step("c")], from, to);
+
+      expect(names(out)).toEqual(["a", "b", "c"]);
+      expect(out[2]).toMatchObject({
+        loopTo: to,
+        until: "the verdict is ready",
+        max: 3,
+      });
+    },
+  );
+
+  it("given A then B, when an agent X is inserted between them, then X is a step alone between A and B", () => {
+    const out = insertStepAfter([step("a"), step("b")], "a", "x");
+
+    expect(names(out)).toEqual(["a", "x", "b"]);
+    expect(out[1]?.parallel).toBeFalsy();
+    expect(out[2]?.parallel).toBeFalsy();
+  });
+});
+
+const par = (agent: string, extra: Partial<TeamStep> = {}): TeamStep => ({
+  ...step(agent),
+  parallel: true,
+  ...extra,
+});
+const loop = (
+  agent: string,
+  to: string,
+  until = "the tests pass",
+  max?: number,
+): TeamStep => ({
+  ...step(agent, to, until),
+  ...(max === undefined ? {} : { max }),
+});
+
+describe("decision 079 D2: the summary", () => {
+  it.each([
+    [
+      "one group of two and one loop",
+      [step("a"), step("b"), par("c"), step("d"), loop("e", "d", "x", 3)],
+      "5 étapes · 2 en parallèle · 1 boucle",
+    ],
+    [
+      "two groups",
+      [step("a"), par("b"), step("c"), par("d"), step("e"), step("f")],
+      "6 étapes · 2 fois en parallèle",
+    ],
+    ["no group and no loop", [step("a"), step("b"), step("c")], "3 étapes"],
+    [
+      "two loops",
+      [step("a"), loop("b", "a", "x", 3), loop("c", "a", "x", 3)],
+      "3 étapes · 2 boucles",
+    ],
+  ])(
+    "given %s, when summed up, then the text follows 079 D2",
+    (_n, steps, expected) => {
+      expect(teamSummary(steps)).toBe(expected);
+    },
+  );
+});
+
+describe("decision 079 D6: the checks", () => {
+  const texts = (steps: TeamStep[]) => teamChecks(steps).map((c) => c.text);
+
+  it("given a group, when checked, then the branches join before the next step, or before Fin when last", () => {
+    expect(texts([step("a"), step("b"), par("c"), step("d")])).toContain(
+      "Les branches b et c se rejoignent avant d",
+    );
+    expect(texts([step("a"), par("b")])).toContain(
+      "Les branches a et b se rejoignent avant Fin",
+    );
+  });
+
+  it("given loops, when checked, then the limit, the missing condition and the missing limit are said", () => {
+    const ok = teamChecks([step("a"), loop("b", "a", "x", 3)]);
+    expect(
+      ok.find((c) => c.text === "La boucle de b a une limite : 3 fois")?.ok,
+    ).toBe(true);
+    const noUntil = teamChecks([step("a"), loop("b", "a", "", 3)]);
+    expect(
+      noUntil.find((c) => c.text === "La boucle de b n'a pas de condition")?.ok,
+    ).toBe(false);
+    const noMax = teamChecks([step("a"), loop("b", "a", "x")]);
+    expect(
+      noMax.find((c) => c.text === "La boucle de b n'a pas de limite")?.ok,
+    ).toBe(false);
+  });
+
+  it("given a step with an id, when labelled, then it reads agent · id", () => {
+    expect(stepLabel({ ...step("developer"), id: "web" })).toBe(
+      "developer · web",
+    );
+    expect(stepLabel(step("developer"))).toBe("developer");
+  });
+});
+
+describe("decision 079 C: the conditions", () => {
+  it.each([
+    ["the verdict is ready", "Si le reviewer bloque"],
+    ["the tests pass", "Si les tests échouent"],
+    ["always", "Toujours"],
+    ["when the docs build", "Une condition à toi"],
+  ])(
+    "given until %j, when its choice is looked up, then it is %s",
+    (until, label) => {
+      expect(untilChoice(until, "reviewer")).toBe(label);
+    },
+  );
 });

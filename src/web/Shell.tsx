@@ -63,7 +63,7 @@ const DOT_TONES = {
   none: "bg-border-strong",
 };
 
-/** A 7 px dot naming a « temps » (the colour budget of 045 C); `live` makes a halo breathe out of the Claude dot (decision 079 H). */
+/** A 7 px dot naming a « temps » (the colour budget of 045 C); `live` makes a halo breathe out of the Claude dot (decision 080 H). */
 export function Dot({
   tone,
   live = false,
@@ -143,7 +143,7 @@ export function Breadcrumb({
   );
 }
 
-/** A new page starts at the top (decision 079 D); Précédent and Suivant keep the browser's scroll, a change of query (a Kanban card) keeps the page where it is. */
+/** A new page starts at the top (decision 080 D); Précédent and Suivant keep the browser's scroll, a change of query (a Kanban card) keeps the page where it is. */
 export function ScrollToTop() {
   const { pathname } = useLocation();
   const type = useNavigationType();
@@ -611,7 +611,7 @@ export function IdeaBar({
       {projects.length > 0 && (
         <div
           ref={wrapper}
-          // The content fades out as it passes under the bar (decision 079 J); as tall as the margin above, so nothing is covered at rest.
+          // The content fades out as it passes under the bar (decision 080 J); as tall as the margin above, so nothing is covered at rest.
           className="sticky bottom-0 mx-[26px] mt-4 mb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-linear-to-t before:from-background before:content-[''] max-md:bottom-16"
         >
           {send.isError && (

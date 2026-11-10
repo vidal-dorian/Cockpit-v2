@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import {
@@ -15,12 +15,9 @@ import {
   ProblemAlert,
 } from "./ProjectPrepare.tsx";
 import { fetchProjects } from "./Projects.tsx";
-import {
-  NewTeamDialog,
-  type StarterTeams,
-  starterQuery,
-} from "./ProjectTeam.tsx";
+import { starterQuery } from "./ProjectTeam.tsx";
 import { StateSentence } from "./Shell.tsx";
+import { catalogAgents, TeamCanvas } from "./TeamCanvas.tsx";
 import { DEFAULT_STEPS, readTeam, writeTeam } from "./team-file.ts";
 import { toast } from "./toast.tsx";
 import {
@@ -35,22 +32,11 @@ import {
 
 type Team = { id: number; name: string; text: string };
 const TEAMS_KEY = ["agent-teams"];
-// Decision 074 B: the text of an agent a team needs and the repo lacks comes from the starter teams, in this order.
-const LEVEL_ORDER = ["standard", "premium", "max", "eco"];
 
 export async function fetchAgentTeams(): Promise<Team[]> {
   const res = await client.api["agent-teams"].$get();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()).teams;
-}
-
-/** The development agents of the catalog: those of the four starter teams, one text each. */
-function catalogAgents({ teams }: StarterTeams) {
-  const found = new Map<string, string>();
-  for (const id of LEVEL_ORDER)
-    for (const { name, text } of teams.find((t) => t.id === id)?.agents ?? [])
-      if (!found.has(name)) found.set(name, text);
-  return found;
 }
 
 const stepsOf = (text: string) =>
@@ -372,6 +358,10 @@ export function AgentTeams() {
   const list = teams.data ?? [];
   const open = projects.data?.filter((p) => !p.archived) ?? [];
   const start = dialog && readTeam(dialog.text);
+  const catalog = useMemo(
+    () => (starters.data ? catalogAgents(starters.data) : new Map()),
+    [starters.data],
+  );
 
   return (
     <main className="pb-6">
@@ -433,18 +423,16 @@ export function AgentTeams() {
         {starters.isError && <ProblemAlert problem={{ code: "", status: 0 }} />}
       </section>
       {dialog && start && starters.data && (
-        <NewTeamDialog
+        <TeamCanvas
+          back="‹ Équipes d'agents"
           edit={dialog.name}
           start={start}
           taken={list.map((t) => t.name)}
-          agents={[...catalogAgents(starters.data)].map(([name, text]) => ({
-            name,
-            text,
-          }))}
+          catalog={catalog}
           archived={false}
           pending={save.isPending}
           problem={problem}
-          onCreate={(name, draft) =>
+          onSave={(name, draft) =>
             save.mutate({ name, text: writeTeam(draft.steps, draft.body) })
           }
           onCancel={() => setDialog(null)}
