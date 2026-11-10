@@ -293,6 +293,8 @@ function drawing(
     type: "bar",
     // Centred on the cards (100 high) so the links leave them straight.
     position: { x, y: middle + 35 },
+    // Fixed: a wait bar is keyed by its group's rank, a kept position would land on another bar.
+    draggable: false,
     deletable: false,
     data: { text },
   });
@@ -530,7 +532,17 @@ export default function TeamCanvasGraph({
         onInit={(instance) => {
           flow.current = instance;
         }}
-        onNodesChange={onNodesChange}
+        onNodesChange={(changes) => {
+          // Every move is kept: a drag, several cards at once, or the arrow keys.
+          for (const c of changes)
+            if (c.type === "position" && c.position)
+              moved.current.set(c.id, c.position);
+          onNodesChange(changes);
+        }}
+        // The app owns the selection: a drag must not select a card behind its back (Suppr would remove it).
+        selectNodesOnDrag={false}
+        // React Flow still drops its own selection when a drag starts: give back the app's.
+        onNodeDragStop={() => setNodes(place(drawn.nodes))}
         onConnect={({ source, target }: Connection) => onLink(source, target)}
         onNodeClick={(_, node) => {
           if (node.type === "card") onSelect({ kind: "step", key: node.id });
@@ -549,7 +561,6 @@ export default function TeamCanvasGraph({
           else if (lost[0]) onRemoveLoop(lost[0].source);
         }}
         deleteKeyCode={["Delete", "Backspace"]}
-        onNodeDragStop={(_, node) => moved.current.set(node.id, node.position)}
         nodesConnectable
         connectOnClick={false}
         style={flowColors}
