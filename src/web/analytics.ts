@@ -40,6 +40,8 @@ export function startAnalytics(config: {
       api_host: config.host,
       persistence: "memory",
       capture_pageview: "history_change",
+      // Page views and clicks only (decision 082 B): no page-leave event with its duration and scroll depth.
+      capture_pageleave: false,
       mask_all_text: true,
       mask_all_element_attributes: true,
       disable_session_recording: true,

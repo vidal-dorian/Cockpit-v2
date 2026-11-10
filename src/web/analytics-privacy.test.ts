@@ -62,6 +62,7 @@ describe("a measure that stops (decision 082 C)", () => {
       capture_heatmaps: false,
       capture_dead_clicks: false,
       capture_performance: false,
+      capture_pageleave: false,
     });
   });
 
@@ -69,6 +70,9 @@ describe("a measure that stops (decision 082 C)", () => {
     await startAnalytics(config);
     const send = beforeSend();
     expect(send({ event: "$pageview" })).not.toBeNull();
+    expect(send({ properties: { $current_url: "https://x/a?q=1#h" } })).toEqual(
+      { properties: { $current_url: "https://x/a" } },
+    );
 
     stopAnalytics();
 
