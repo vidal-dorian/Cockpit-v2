@@ -34,7 +34,6 @@ export function Invitation() {
     },
   });
   const accept = useMutation({
-    meta: { done: "Invitation acceptée." },
     mutationFn: async () => {
       const res = await client.api.invitations[":secret"].accept.$post({
         param: { secret },

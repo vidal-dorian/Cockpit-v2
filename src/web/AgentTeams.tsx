@@ -209,6 +209,7 @@ function TeamRow({
             type="button"
             aria-describedby={`delete-${team.id}`}
             disabled={deleting}
+            aria-busy={deleting}
             onClick={onDelete}
             className={`mt-2 ${dangerButton}`}
           >
@@ -356,12 +357,15 @@ export function AgentTeams() {
     onError: () => setProblem({ code: "", status: 0 }),
   });
   const remove = useMutation({
-    meta: { done: "Équipe supprimée." },
     mutationFn: async (name: string) => {
       const res = await client.api["agent-teams"][":name"].$delete({
         param: { name },
       });
       return res.ok ? null : failure(res);
+    },
+    // A refusal comes back as data (shown by ProblemAlert): confirm only a real deletion.
+    onSuccess: (refused) => {
+      if (!refused) toast("Équipe supprimée.");
     },
     onSettled: reload,
   });

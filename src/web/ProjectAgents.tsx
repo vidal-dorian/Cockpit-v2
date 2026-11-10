@@ -177,6 +177,7 @@ export function AgentForm({
               fields.description.trim() === "" ||
               after === before
             }
+            aria-busy={pending}
             onClick={() => onCommit(after)}
             className={primaryButton}
           >
@@ -197,6 +198,7 @@ export function AgentForm({
                   type="button"
                   aria-describedby="delete-agent-warning"
                   disabled={archived || pending}
+                  aria-busy={pending}
                   onClick={() => onCommit(null)}
                   className={dangerButton}
                 >
@@ -218,6 +220,7 @@ export function AgentForm({
               <button
                 type="button"
                 disabled={archived || pending}
+                aria-busy={pending}
                 onClick={() => setConfirming(true)}
                 className={ghostButton}
               >

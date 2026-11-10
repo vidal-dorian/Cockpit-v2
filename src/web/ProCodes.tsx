@@ -132,7 +132,6 @@ export function ProCodes() {
   };
 
   const create = useMutation({
-    meta: { done: "Code créé." },
     mutationFn: async () => {
       const res = await client.api.settings["pro-codes"].$post(
         {},

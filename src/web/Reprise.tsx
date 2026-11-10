@@ -382,6 +382,7 @@ function RulePanel({
               type="submit"
               className={panelPrimaryButton}
               disabled={incomplete || busy}
+              aria-busy={busy}
             >
               Enregistrer
             </button>

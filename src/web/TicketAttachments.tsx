@@ -163,6 +163,7 @@ export function TicketAttachments({
             <button
               type="button"
               disabled={sending}
+              aria-busy={sending}
               onClick={() => input.current?.click()}
               className={button}
             >

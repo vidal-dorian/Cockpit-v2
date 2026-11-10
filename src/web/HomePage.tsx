@@ -165,6 +165,7 @@ function RowActions({
             type="button"
             onClick={validate}
             disabled={validating}
+            aria-busy={validating}
             className={rowAction}
           >
             Valider

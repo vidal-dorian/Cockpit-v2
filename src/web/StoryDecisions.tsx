@@ -205,6 +205,7 @@ export function StoryDecisions({
                 <button
                   type="button"
                   disabled={!canValidate}
+                  aria-busy={run.isPending}
                   aria-keyshortcuts="V"
                   aria-describedby={
                     toDecide.length > 0 ? "to-decide" : undefined

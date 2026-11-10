@@ -37,7 +37,6 @@ function NightStep() {
   const budgets = useQuery({ queryKey: ["budgets"], queryFn: fetchBudgets });
   const [typed, setTyped] = useState<Record<string, string>>({});
   const save = useMutation({
-    meta: { done: "Réglages enregistrés." },
     mutationFn: async () => {
       if (!hours.data || !budgets.data) return;
       const value = (key: string, saved: number | null) =>

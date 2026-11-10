@@ -74,6 +74,7 @@ export function AnswerForm({
             key={answer}
             type="button"
             disabled={busy}
+            aria-busy={busy}
             onClick={() => send.mutate(answer)}
             className={`flex items-center gap-[9px] rounded-[14px] border px-3.5 py-[11px] text-left text-[13.5px] font-semibold disabled:opacity-50 ${focusRing} ${send.variables === answer && busy ? "border-foreground bg-raised" : "border-border-strong bg-card hover:bg-raised-hover"}`}
           >
@@ -103,6 +104,7 @@ export function AnswerForm({
         <button
           type="submit"
           disabled={busy || typed.trim() === ""}
+          aria-busy={busy}
           className={`${panelPrimaryButton} mt-auto`}
         >
           {label}

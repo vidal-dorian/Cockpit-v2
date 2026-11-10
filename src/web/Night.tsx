@@ -307,7 +307,7 @@ export function Night() {
                     className={button}
                     onClick={() =>
                       act.mutate(() => client.api.nights.current.stop.$post(), {
-                        onSuccess: () => toast("Nuit arrêtée."),
+                        onSuccess: () => toast("Arrêt de la nuit demandé."),
                       })
                     }
                   >

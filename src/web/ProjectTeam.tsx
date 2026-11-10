@@ -596,6 +596,7 @@ export function NewTeamDialog({
             steps.length === 0 ||
             !steps.every((s) => s.loopTo === null || s.until.trim() !== "")
           }
+          aria-busy={pending}
           onClick={() => onCreate(newName, draft)}
           className={primaryButton}
         >

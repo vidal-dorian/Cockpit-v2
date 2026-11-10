@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
+import { fail, renderAt, stubTicketApi, ticket } from "./test-tickets.tsx";
 import { TOAST_MS, Toaster, toast } from "./toast.tsx";
 
 // Decision 080: a busy button spins, a finished action says so.
@@ -28,10 +28,13 @@ describe("080 A: a button waiting for its request spins", () => {
     (file) => {
       const text = readFileSync(join(dir, file), "utf8");
       for (const match of text.matchAll(
-        /disabled=\{([^}]*\.isPending[^}]*)\}/g,
+        /disabled=\{([^{}]*(?:\.isPending|(?<![.\w])(?:pending|validating|deleting|busy|sending)\b|canSend|canValidate)[^{}]*)\}/g,
       )) {
         const expr = match[1];
-        const pending = expr?.match(/[\w.]+\.isPending/g) ?? [];
+        // A request flag, read directly or through a prop or a variable; canSend / canValidate hide one.
+        const pending = expr?.match(
+          /[\w.]+\.isPending|(?<![.\w])(?:pending|validating|deleting|busy|sending)\b|\.isPending/g,
+        ) ?? [".isPending", "pending"];
         // aria-busy follows disabled on the same element.
         const busy =
           /^\s*aria-busy=\{([^}]*)\}/.exec(
@@ -75,5 +78,18 @@ describe("080 B: a finished action says so", () => {
     act(() => screen.getByRole("button", { name: "Modifier" }).click());
     act(() => screen.getByRole("button", { name: "Enregistrer" }).click());
     expect(await screen.findByText("Ticket enregistré.")).toBeDefined();
+  });
+});
+
+describe("080 D: a refused action says nothing in the bottom line", () => {
+  it("given a ticket whose project got archived, when its form is saved and refused, then the error shows and no confirmation", async () => {
+    const api = stubTicketApi([ticket(7, "Avant", "ancien")]);
+    api.failNext.patch = fail(409, "project_archived");
+    renderAt("/tickets/7");
+    await screen.findByRole("heading", { level: 1, name: /^Avant/ });
+    act(() => screen.getByRole("button", { name: "Modifier" }).click());
+    act(() => screen.getByRole("button", { name: "Enregistrer" }).click());
+    await screen.findByRole("alert");
+    expect(screen.queryByText("Ticket enregistré.")).toBeNull();
   });
 });

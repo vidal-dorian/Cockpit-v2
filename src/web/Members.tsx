@@ -111,7 +111,6 @@ export function Members() {
     return queryClient.invalidateQueries({ queryKey: ["members"] });
   };
   const invite = useMutation({
-    meta: { done: "Invitation créée." },
     mutationFn: async () => {
       const clean = login.trim().replace(/^@/, "");
       // The routes read their body by hand (the role is checked first), so the client does not type it: `init` sends it.
@@ -128,7 +127,6 @@ export function Members() {
     },
   });
   const renew = useMutation({
-    meta: { done: "Invitation renouvelée." },
     mutationFn: async (id: number) => {
       const res = await client.api.invitations[":id"].renew.$post({
         param: { id: String(id) },

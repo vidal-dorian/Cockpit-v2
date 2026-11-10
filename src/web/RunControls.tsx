@@ -54,6 +54,7 @@ function CloseDialog({
           type="button"
           aria-describedby="close-run-warning"
           disabled={archived || pending}
+          aria-busy={pending}
           onClick={onConfirm}
           className={primaryButton}
         >
@@ -117,11 +118,7 @@ export function RunControls({
             type="button"
             disabled={archived || send.isPending}
             aria-busy={send.isPending}
-            onClick={() =>
-              send.mutate("stop", {
-                onSuccess: () => toast("Arrêt demandé à Claude."),
-              })
-            }
+            onClick={() => send.mutate("stop")}
             className={button}
           >
             Demander l'arrêt

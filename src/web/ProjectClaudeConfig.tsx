@@ -109,6 +109,7 @@ export function Editor({
         <button
           type="button"
           disabled={archived || pending || !valid || after === (before ?? "")}
+          aria-busy={pending}
           onClick={() => onCommit(after)}
           className={primaryButton}
         >
@@ -133,6 +134,7 @@ export function Editor({
                 <button
                   type="button"
                   disabled={archived || pending}
+                  aria-busy={pending}
                   onClick={() => onCommit(null)}
                   className={dangerButton}
                 >
@@ -153,6 +155,7 @@ export function Editor({
               <button
                 type="button"
                 disabled={archived || pending}
+                aria-busy={pending}
                 onClick={() => setConfirming(true)}
                 className={ghostButton}
               >

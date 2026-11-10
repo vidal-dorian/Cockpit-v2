@@ -37,6 +37,8 @@ export function Toaster() {
     listeners.add(setShown);
     return () => {
       listeners.delete(setShown);
+      // Nobody left to show them: the lines go too (a test's render, a remount).
+      if (listeners.size === 0) items = [];
     };
   }, []);
   const mutations = useQueryClient().getMutationCache();

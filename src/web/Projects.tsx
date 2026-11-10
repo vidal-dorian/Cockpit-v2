@@ -535,6 +535,7 @@ function ImportDialog({
           <button
             type="button"
             disabled={pending}
+            aria-busy={pending}
             onClick={onCancel}
             className={ghostButton}
           >
@@ -543,6 +544,7 @@ function ImportDialog({
           <button
             type="button"
             disabled={pending}
+            aria-busy={pending}
             onClick={() => onImport(level.id)}
             className={primaryButton}
           >

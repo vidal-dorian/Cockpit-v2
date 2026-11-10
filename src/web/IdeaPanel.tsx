@@ -172,6 +172,7 @@ export function IdeaPanel({
                 type="button"
                 aria-label={`Retirer ${file.name}`}
                 disabled={pending}
+                aria-busy={pending}
                 onClick={() =>
                   set({ files: idea.files.filter((_, j) => j !== i) })
                 }
@@ -196,6 +197,7 @@ export function IdeaPanel({
         <button
           type="button"
           disabled={pending}
+          aria-busy={pending}
           onClick={() => picker.current?.click()}
           className={ghostButton}
         >
@@ -204,6 +206,7 @@ export function IdeaPanel({
         <button
           type="button"
           disabled={pending}
+          aria-busy={pending}
           onClick={() => camera.current?.click()}
           className={`md:hidden ${ghostButton}`}
         >
@@ -215,6 +218,7 @@ export function IdeaPanel({
         <button
           type="button"
           disabled={pending}
+          aria-busy={pending}
           onClick={onCancel}
           className={button}
         >
@@ -223,6 +227,7 @@ export function IdeaPanel({
         <button
           type="button"
           disabled={!canSend}
+          aria-busy={pending}
           onClick={send}
           className={primaryButton}
         >

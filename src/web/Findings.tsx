@@ -345,7 +345,6 @@ export function Findings({
   };
 
   const refresh = useMutation({
-    meta: { done: "Constats mis à jour." },
     mutationFn: () => refreshFindings(projectId),
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: findingsKey(projectId) }),
@@ -494,6 +493,7 @@ export function Findings({
                   type="button"
                   className={primaryButton}
                   disabled={archived || busy}
+                  aria-busy={busy}
                   onClick={() => run(first.id, "ticket")}
                 >
                   En faire un ticket
