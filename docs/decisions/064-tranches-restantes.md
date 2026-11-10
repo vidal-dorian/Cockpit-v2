@@ -21,7 +21,7 @@ Dorian veut pouvoir dire « développe toute cette tranche » sans que Claude ai
 
 | # | Tranche | Décision |
 |---|---|---|
-| E6 A | Les branches en parallèle (S38, S38c) | **Construites, comme S38** : le bloc « ⑂ Attendre les branches » rejoint des étapes en parallèle, avec « Attendre tous » ou « Le premier suffit ». `/dev-us` lance les étapes d'une même vague en même temps (sous-agents en parallèle) |
+| E6 A | Les branches en parallèle (S38, S38c) | **Construites, comme S38** : le bloc « ⑂ Attendre les branches » rejoint des étapes en parallèle, avec « Attendre tous » ou « Le premier suffit » (**rouverte par la [079](079-equipe-en-canevas.md)** : « Le premier suffit » est retiré, un groupe attend toujours toutes ses étapes). `/dev-us` lance les étapes d'une même vague en même temps (sous-agents en parallèle) |
 | E6 B | Deux agents qui écrivent en même temps | **Un worktree git par branche parallèle** (l'isolation des sous-agents de Claude Code). Le bloc « Attendre » fusionne les branches dans la branche de l'US ; un conflit de fusion arrête le run sur une question à l'humain (`ask_user`, 036) |
 | E6 C | La condition d'un lien | Les trois conditions fixes (« Toujours », « Si le reviewer bloque », « Si les tests échouent ») **et « Une condition à toi »**, une phrase libre écrite dans `.claude/teams/<nom>.md`, que `/dev-us` lit et juge. Une boucle a toujours une limite, obligatoire (S38) |
 

@@ -28,15 +28,11 @@ const shape = (steps: TeamStep[]) =>
   groupsOf(steps).map((g) => g.map((s) => s.agent));
 
 describe("decision 079: groups in the draft", () => {
-  it("given a group head removed, when the group has other steps, then the next one heads it and takes the wait", () => {
-    const out = removeStep(
-      [step("a", { wait: "first" }), par("b"), par("c")],
-      "a",
-    );
+  it("given a group head removed, when the group has other steps, then the next one heads it", () => {
+    const out = removeStep([step("a"), par("b"), par("c")], "a");
 
     expect(shape(out)).toEqual([["b", "c"]]);
     expect(out[0]?.parallel).toBeFalsy();
-    expect(out[0]?.wait).toBe("first");
   });
 
   it("given a step moved inside a group, when it swaps with its neighbour, then the shape of the groups stays", () => {
@@ -87,12 +83,6 @@ describe("decision 079: groups in the draft", () => {
 
     expect(out[1]).toMatchObject({ loopTo: null, until: "" });
     expect(out[1]?.max).toBeUndefined();
-  });
-
-  it("given a wait that is not on a group head, when the draft is tidied, then it goes", () => {
-    const out = tidy([step("a", { wait: "first" }), step("b")]);
-
-    expect(out[0]?.wait).toBeUndefined();
   });
 });
 

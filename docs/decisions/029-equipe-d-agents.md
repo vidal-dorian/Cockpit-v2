@@ -10,7 +10,7 @@
 - **Modifiée par** : [031 — L'équipe en graphe](031-equipe-en-graphe.md) : l'écran « Équipe » (F) est un graphe de cartes, en plus de la liste ; un agent du catalogue s'ajoute par l'éditeur avant l'équipe
 - **Modifiée par** : [032 — Plusieurs équipes](032-plusieurs-equipes.md) : les équipes nommées (G) sont vérifiées par le bilan et modifiables dans l'écran « Équipe »
 - **Modifiée par** : [074 — Les équipes à la demande](074-equipes-a-la-demande.md) : « une équipe globale à tous les projets », repoussée ici, est construite (équipes de l'utilisateur ajoutées à un projet au format de B)
-- **Modifiée par** : [079 — L'équipe en canevas](079-equipe-en-canevas.md) : le format (B) gagne `id`, `parallel`, `wait` et `max`
+- **Modifiée par** : [079 — L'équipe en canevas](079-equipe-en-canevas.md) : le format (B) gagne `id`, `parallel` et `max`
 
 ## Contexte
 
