@@ -16,17 +16,12 @@ import {
   type NodeProps,
   Position,
   ReactFlow,
+  type ReactFlowInstance,
+  useConnection,
   useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, useEffect, useMemo, useRef } from "react";
 import { parseAgent } from "./agent-file.ts";
 import {
   DRAG_TYPE,
@@ -45,7 +40,23 @@ const START = ":start";
 const END = ":end";
 
 type Agent = { name: string; text: string | null };
-type Selection = { kind: "step" | "loop"; key: string };
+type Selection = { kind: "step" | "loop" | "link"; key: string; to?: string };
+
+/** Where an agent is dropped: on a link, on a card, or between the groups. */
+type Drop = { after: string } | { parallelTo: string } | { group: number };
+
+// A handle that only anchors an edge: invisible, and nothing starts or ends there.
+const anchor = { opacity: 0 } as const;
+// A handle over the whole card: a link starts and ends anywhere on it (React Flow « easy connect »).
+const wholeCard = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  transform: "none",
+  borderRadius: 12,
+  opacity: 0,
+} as const;
 
 type CardData = {
   step: TeamStep;
@@ -61,10 +72,22 @@ function Bar({ data, id }: NodeProps<BarNode>) {
   return (
     <>
       {id !== START && (
-        <Handle type="target" position={Position.Left} id="in" />
+        <Handle
+          type="target"
+          position={Position.Left}
+          id="in"
+          isConnectable={false}
+          style={anchor}
+        />
       )}
       {id !== END && (
-        <Handle type="source" position={Position.Right} id="out" />
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="out"
+          isConnectable={false}
+          style={anchor}
+        />
       )}
       <div className="rounded-full border border-border-strong bg-raised px-3 py-1.5 text-[12.5px] font-semibold">
         {data.text}
@@ -75,12 +98,35 @@ function Bar({ data, id }: NodeProps<BarNode>) {
 
 function StepCard({ data, selected }: NodeProps<CardNode>) {
   const { step, model, absent, onOpen } = data;
+  const { inProgress } = useConnection();
   return (
     <>
-      <Handle type="target" position={Position.Left} id="in" />
-      <Handle type="source" position={Position.Right} id="out" />
-      <Handle type="target" position={Position.Bottom} id="loop-in" />
-      <Handle type="source" position={Position.Bottom} id="loop-out" />
+      {(
+        [
+          ["target", Position.Left, "in"],
+          ["source", Position.Right, "out"],
+          ["target", Position.Bottom, "loop-in"],
+          ["source", Position.Bottom, "loop-out"],
+        ] as const
+      ).map(([type, position, id]) => (
+        <Handle
+          key={id}
+          type={type}
+          position={position}
+          id={id}
+          isConnectable={false}
+          style={anchor}
+        />
+      ))}
+      <Handle type="target" position={Position.Top} id="to" style={wholeCard} />
+      {!inProgress && (
+        <Handle
+          type="source"
+          position={Position.Top}
+          id="from"
+          style={wholeCard}
+        />
+      )}
       <button
         type="button"
         data-testid={`team-card-${keyOf(step)}`}
@@ -104,11 +150,10 @@ type ThenData = {
   after?: string;
   from: string;
   to: string;
-  agents: string[];
-  onInsert: (after: string, agent: string) => void;
+  onPick: () => void;
 };
 
-/** A « puis » link; with `after`, the « + » in its middle opens the list of agents to insert (decision 079 D5). */
+/** A « puis » link; with `after`, the « + » in its middle selects it: the panel then lists the agents to insert (decision 079 D5). */
 function ThenEdge({
   id,
   sourceX,
@@ -120,7 +165,6 @@ function ThenEdge({
   markerEnd,
   data,
 }: EdgeProps<Edge<ThenData, "next">>) {
-  const [open, setOpen] = useState(false);
   const [path, x, y] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -129,59 +173,22 @@ function ThenEdge({
     sourcePosition,
     targetPosition,
   });
-  const plus = useRef<HTMLButtonElement>(null);
-  // Escape closes the menu only: left alone it reaches the dialog, whose cancel throws away the draft. The focus goes back to « + ».
-  const closeOnEscape = (e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key !== "Escape" || !open) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen(false);
-    plus.current?.focus();
-  };
   return (
     <>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} />
       {data?.after !== undefined && (
         <EdgeLabelRenderer>
-          <div
+          <button
+            type="button"
+            aria-label={`Intercaler entre ${data.from} et ${data.to}`}
+            onClick={data.onPick}
             style={{
               transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
             }}
-            className="nodrag nopan pointer-events-auto absolute"
+            className={`nodrag nopan pointer-events-auto absolute grid size-6 place-items-center rounded-full border border-border-strong bg-raised text-sm font-bold hover:bg-raised-hover ${focusRing}`}
           >
-            <button
-              ref={plus}
-              type="button"
-              onKeyDown={closeOnEscape}
-              aria-label={`Intercaler entre ${data.from} et ${data.to}`}
-              aria-expanded={open}
-              onClick={() => setOpen(!open)}
-              className={`grid size-6 place-items-center rounded-full border border-border-strong bg-raised text-sm font-bold hover:bg-raised-hover ${focusRing}`}
-            >
-              +
-            </button>
-            {open && (
-              <div className="absolute top-7 left-1/2 z-10 flex max-h-56 w-44 -translate-x-1/2 flex-col gap-1 overflow-auto rounded-xl border border-border-strong bg-card p-2">
-                <p className="text-[11.5px] text-muted-foreground">
-                  Intercaler entre {data.from} et {data.to}
-                </p>
-                {data.agents.map((agent) => (
-                  <button
-                    key={agent}
-                    type="button"
-                    onKeyDown={closeOnEscape}
-                    onClick={() => {
-                      setOpen(false);
-                      data.onInsert(data.after as string, agent);
-                    }}
-                    className={`rounded-lg px-2 py-1 text-left font-mono text-[12.5px] hover:bg-raised ${focusRing}`}
-                  >
-                    {agent}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            +
+          </button>
         </EdgeLabelRenderer>
       )}
     </>
@@ -212,11 +219,10 @@ const flowColors = {
     "var(--color-raised-hover)",
   "--xy-controls-button-color-default": "var(--color-foreground)",
   "--xy-controls-button-border-color-default": "var(--color-border-strong)",
-  "--xy-minimap-background-color-default": "var(--color-sunken)",
+  "--xy-minimap-background-color-default": "var(--color-raised)",
   "--xy-minimap-node-background-color-default": "var(--color-border-strong)",
   "--xy-minimap-mask-background-color-default":
     "color-mix(in srgb, var(--color-background) 60%, transparent)",
-  "--xy-background-pattern-dots-color-default": "var(--color-border-strong)",
   "--xy-edge-label-color-default": "var(--color-muted-foreground)",
 } as CSSProperties;
 
@@ -226,8 +232,7 @@ function drawing(
   agents: Agent[],
   select: (key: string) => void,
   selected: Selection | null,
-  names: string[],
-  onInsert: ThenData["onInsert"],
+  pick: (after: string, to: string) => void,
 ) {
   const groups = groupsOf(steps);
   const rows = Math.max(1, ...groups.map((g) => g.length));
@@ -251,7 +256,7 @@ function drawing(
     id: string,
     source: string,
     target: string,
-    then?: { after?: string; to: string },
+    then: { after?: string; to: string },
   ) =>
     edges.push({
       id,
@@ -265,10 +270,9 @@ function drawing(
       deletable: false,
       data: {
         from: outLabel,
-        to: then?.to ?? "",
-        after: then?.after,
-        agents: names,
-        onInsert,
+        to: then.to,
+        after: then.after,
+        onPick: () => pick(then.after as string, then.to),
       },
     });
   for (const [g, group] of groups.entries()) {
@@ -331,27 +335,38 @@ function drawing(
   nodes.push(bar(END, x, "■ Fin"));
   for (const source of out)
     link(`next-${source}-end`, source, END, { after: last, to: "Fin" });
-  for (const s of steps)
-    if (s.loopTo !== null)
-      edges.push({
-        id: `loop-${keyOf(s)}`,
-        source: keyOf(s),
-        target: s.loopTo,
-        sourceHandle: "loop-out",
-        targetHandle: "loop-in",
-        type: "smoothstep",
-        pathOptions: { offset: 28 },
-        markerEnd: arrow,
-        label: loopLabel(s),
-        labelShowBg: false,
-        labelStyle: {
-          fill: "var(--color-muted-foreground)",
-          fontSize: 11.5,
-          transform: "translateY(14px)",
-        },
-        style: { strokeDasharray: "4 4" },
-        selected: selected?.kind === "loop" && selected.key === keyOf(s),
-      });
+  // Each loop has its own lane, the longest outermost, so that two loops into one step never share a line.
+  const column = (key: string) =>
+    groups.findIndex((g) => g.some((t) => keyOf(t) === key));
+  const loops = steps
+    .filter((s) => s.loopTo !== null)
+    .sort(
+      (a, b) =>
+        column(keyOf(a)) -
+        column(a.loopTo as string) -
+        (column(keyOf(b)) - column(b.loopTo as string)),
+    );
+  for (const [rank, s] of loops.entries()) {
+    edges.push({
+      id: `loop-${keyOf(s)}`,
+      source: keyOf(s),
+      target: s.loopTo as string,
+      sourceHandle: "loop-out",
+      targetHandle: "loop-in",
+      type: "smoothstep",
+      pathOptions: { offset: 28 + 24 * rank },
+      markerEnd: arrow,
+      label: loopLabel(s),
+      labelShowBg: false,
+      labelStyle: {
+        fill: "var(--color-muted-foreground)",
+        fontSize: 11.5,
+        transform: "translateY(14px)",
+      },
+      style: { strokeDasharray: "4 4" },
+      selected: selected?.kind === "loop" && selected.key === keyOf(s),
+    });
+  }
   return { nodes, edges };
 }
 
@@ -359,13 +374,10 @@ export default function TeamCanvasGraph({
   id,
   steps,
   agents,
-  tidied,
   selected,
-  palette,
   onSelect,
   onLink,
-  onInsert,
-  onAdd,
+  onDropAt,
   onRemoveStep,
   onRemoveLoop,
 }: {
@@ -373,21 +385,17 @@ export default function TeamCanvasGraph({
   id: string;
   steps: TeamStep[];
   agents: Agent[];
-  /** Changes when « Ranger tout seul » is clicked. */
-  tidied: number;
   selected: Selection | null;
-  /** The agents of the left column, for the « + » menu of a link. */
-  palette: string[];
   onSelect: (selection: Selection | null) => void;
   onLink: (from: string, to: string) => void;
-  onInsert: (after: string, agent: string) => void;
-  onAdd: (agent: string) => void;
+  onDropAt: (drop: Drop, agent: string) => void;
   onRemoveStep: (key: string) => void;
   onRemoveLoop: (key: string) => void;
 }) {
-  // The handlers are read through a ref: a new function each render must not put moved cards back.
-  const handlers = useRef({ onSelect, onInsert });
-  handlers.current = { onSelect, onInsert };
+  // The handlers are read through a ref: a new function each render must not redraw the graph.
+  const handlers = useRef({ onSelect });
+  handlers.current = { onSelect };
+  const flow = useRef<ReactFlowInstance<CardNode | BarNode> | null>(null);
   const drawn = useMemo(
     () =>
       drawing(
@@ -395,15 +403,12 @@ export default function TeamCanvasGraph({
         agents,
         (key) => handlers.current.onSelect({ kind: "step", key }),
         selected,
-        palette,
-        (after, agent) => handlers.current.onInsert(after, agent),
+        (key, to) => handlers.current.onSelect({ kind: "link", key, to }),
       ),
-    [steps, agents, selected, palette],
+    [steps, agents, selected],
   );
-  // A card moved by hand is only for reading: any change of the draft, or « Ranger tout seul », puts them back in place.
   const [nodes, setNodes, onNodesChange] = useNodesState(drawn.nodes);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `tidied` is the trigger
-  useEffect(() => setNodes(drawn.nodes), [drawn.nodes, tidied, setNodes]);
+  useEffect(() => setNodes(drawn.nodes), [drawn.nodes, setNodes]);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: dropping is a pointer extra, the keyboard adds with the buttons of the left column
     <div
@@ -415,17 +420,36 @@ export default function TeamCanvasGraph({
         const agent = e.dataTransfer.getData(DRAG_TYPE);
         if (!agent) return;
         e.preventDefault();
-        // On a link: inserted there; elsewhere: the last step.
-        const link = document
-          .elementsFromPoint(e.clientX, e.clientY)
+        const under = document.elementsFromPoint(e.clientX, e.clientY);
+        // Where it is released: on a link, inserted there; on a card, in parallel with it; elsewhere, between the groups.
+        const link = under
           .map((el) => el.closest(".react-flow__edge"))
           .find((el) => el?.getAttribute("data-id")?.startsWith("next-"));
         const edge = drawn.edges.find(
           (x) => x.id === link?.getAttribute("data-id"),
         );
         const after = (edge?.data as ThenData | undefined)?.after;
-        if (after !== undefined) onInsert(after, agent);
-        else onAdd(agent);
+        const card = under
+          .map((el) => el.closest(".react-flow__node")?.getAttribute("data-id"))
+          .find((key) => key && !key.startsWith(":"));
+        if (after !== undefined) onDropAt({ after }, agent);
+        else if (card) onDropAt({ parallelTo: card }, agent);
+        else {
+          const x = flow.current?.screenToFlowPosition({
+            x: e.clientX,
+            y: e.clientY,
+          }).x;
+          const centres = groupsOf(steps).map(
+            (g) =>
+              (nodes.find((n) => n.id === keyOf(g[0] as TeamStep))?.position
+                .x ?? 0) +
+              CARD / 2,
+          );
+          onDropAt(
+            { group: centres.filter((c) => c < (x ?? Infinity)).length },
+            agent,
+          );
+        }
       }}
     >
       <ReactFlow
@@ -434,10 +458,16 @@ export default function TeamCanvasGraph({
         edges={drawn.edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onInit={(instance) => {
+          flow.current = instance;
+        }}
         onNodesChange={onNodesChange}
         onConnect={({ source, target }: Connection) => {
           if (!source.startsWith(":") && !target.startsWith(":"))
             onLink(source, target);
+        }}
+        onNodeClick={(_, node) => {
+          if (node.type === "card") onSelect({ kind: "step", key: node.id });
         }}
         onEdgeClick={(_, edge) =>
           onSelect(
@@ -453,15 +483,26 @@ export default function TeamCanvasGraph({
           else if (lost[0]) onRemoveLoop(lost[0].source);
         }}
         deleteKeyCode={["Delete", "Backspace"]}
+        nodesDraggable={false}
         nodesConnectable
+        connectOnClick={false}
         style={flowColors}
         proOptions={{ hideAttribution: true }}
         fitView
         fitViewOptions={{ maxZoom: 1, padding: 0.1 }}
       >
-        <Background variant={BackgroundVariant.Dots} />
+        <Background
+          variant={BackgroundVariant.Dots}
+          size={1.5}
+          gap={20}
+          color="var(--color-dim)"
+        />
         <Controls showInteractive={false} />
-        <MiniMap pannable zoomable />
+        <MiniMap
+          pannable
+          zoomable
+          className="overflow-hidden rounded-lg border border-border-strong"
+        />
       </ReactFlow>
     </div>
   );

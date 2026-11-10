@@ -302,6 +302,35 @@ export function insertStepAfter(
   ];
 }
 
+/** Feedback on E6, a drop between groups: the agent is a step alone at group `group` (past the last group: the last step). */
+export function insertAtGroup(
+  steps: TeamStep[],
+  group: number,
+  agent: string,
+  does = "",
+): TeamStep[] {
+  const at = Math.max(0, groupIndexes(steps).indexOf(group));
+  const i = groupIndexes(steps).includes(group) ? at : steps.length;
+  return [...steps.slice(0, i), newStep(steps, agent, does), ...steps.slice(i)];
+}
+
+/** Feedback on E6, a drop on a card: the agent joins the group of the step `key`, as its last step. */
+export function addParallelTo(
+  steps: TeamStep[],
+  key: string,
+  agent: string,
+  does = "",
+): TeamStep[] {
+  const i = steps.findIndex((s) => keyOf(s) === key);
+  if (i === -1) return steps;
+  const at = groupIndexes(steps).lastIndexOf(groupIndexes(steps)[i] ?? 0) + 1;
+  return [
+    ...steps.slice(0, at),
+    { ...newStep(steps, agent, does), parallel: true },
+    ...steps.slice(at),
+  ];
+}
+
 /** The number of a « Au plus » field (decision 079 C): 1 to 9, undefined when empty or not a number. */
 export const parseMax = (value: string): number | undefined => {
   const n = Math.round(Number(value));
