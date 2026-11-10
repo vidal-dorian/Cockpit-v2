@@ -68,6 +68,7 @@ describe("077 A: who is Pro", () => {
       until: null,
       repos: 1,
       limit: 3,
+      teamLimit: 2,
     });
   });
 

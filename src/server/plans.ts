@@ -12,6 +12,9 @@ import {
 /** Repos a Free account owns, archived included (decision 077 B). */
 export const FREE_LIMIT = 3;
 
+/** Agent teams a Free account keeps (decision 082). */
+export const FREE_TEAM_LIMIT = 2;
+
 /** Who is Pro, computed at every read from the clock (decision 077 A): an administrator, or the last code entered if neither revoked nor ended. */
 export async function planOf(db: Db, userId: number) {
   const [user] = await db

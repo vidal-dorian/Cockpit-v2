@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
-import { ROLE_REFUSAL } from "./roles.ts";
+import { ROLE_REFUSAL, TEAM_QUOTA_REFUSAL } from "./roles.ts";
 import { plural } from "./tickets.ts";
 import {
   alertBox,
@@ -16,6 +16,7 @@ import {
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
+  team_quota: TEAM_QUOTA_REFUSAL,
   role: ROLE_REFUSAL,
   empty_repo:
     "Ce repo n'a encore aucun commit : fais-en un premier sur GitHub, puis réessaie.",

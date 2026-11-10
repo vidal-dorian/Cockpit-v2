@@ -118,6 +118,7 @@ export function Subscription() {
           price="0 €"
           items={[
             "3 repos, archivés compris",
+            "2 équipes d'agents",
             "Tickets, US, Kanban",
             "Runs et la nuit de Claude",
           ]}
@@ -137,7 +138,11 @@ export function Subscription() {
           title="Pro"
           current={plan.data?.plan === "pro"}
           price="10 € par mois ou 96 € par an"
-          items={["Repos illimités", "Reprendre une app existante"]}
+          items={[
+            "Repos illimités",
+            "Équipes d'agents illimitées",
+            "Reprendre une app existante",
+          ]}
         >
           {plan.data?.plan !== "pro" && (
             <button

@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { act } from "./action.ts";
+import { act, Refused } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { agentTeams } from "./db/schema.ts";
+import { agentTeams, users } from "./db/schema.ts";
+import { FREE_TEAM_LIMIT, planOf } from "./plans.ts";
 import { entryOf, signedIn } from "./routines.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
 import { body } from "./tickets.ts";
@@ -42,19 +43,43 @@ export function agentTeamRoutes(db: Db) {
       const userId = c.get("userId");
       const { text } = c.req.valid("json");
       const entry = entryOf(userId, "save_agent_team");
-      const saved = await act(db, entry, async (tx) => {
-        const [row] = await tx
-          .insert(agentTeams)
-          .values({ userId, name, text })
-          .onConflictDoUpdate({
-            target: [agentTeams.userId, agentTeams.name],
-            set: { text, updatedAt: new Date() },
-          })
-          .returning({ id: agentTeams.id });
-        entry.args = { teamId: (row as { id: number }).id };
-        return row as { id: number };
-      });
-      return c.json({ id: saved.id, name, text });
+      try {
+        const saved = await act(db, entry, async (tx) => {
+          // The user row is locked, so two saves at once cannot both pass the quota.
+          await tx
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.id, userId))
+            .for("update");
+          const mine = eq(agentTeams.userId, userId);
+          const [known] = await tx
+            .select({ id: agentTeams.id })
+            .from(agentTeams)
+            .where(and(mine, eq(agentTeams.name, name)));
+          if (!known && (await planOf(tx, userId)).plan === "free") {
+            const [owned] = await tx
+              .select({ n: count() })
+              .from(agentTeams)
+              .where(mine);
+            if ((owned?.n ?? 0) >= FREE_TEAM_LIMIT) throw new Refused("plan");
+          }
+          const [row] = await tx
+            .insert(agentTeams)
+            .values({ userId, name, text })
+            .onConflictDoUpdate({
+              target: [agentTeams.userId, agentTeams.name],
+              set: { text, updatedAt: new Date() },
+            })
+            .returning({ id: agentTeams.id });
+          entry.args = { teamId: (row as { id: number }).id };
+          return row as { id: number };
+        });
+        return c.json({ id: saved.id, name, text });
+      } catch (error) {
+        if (error instanceof Refused && error.message === "plan")
+          return c.json({ error: "plan" }, 403);
+        throw error;
+      }
     })
     .delete("/api/agent-teams/:name", async (c) => {
       const userId = c.get("userId");

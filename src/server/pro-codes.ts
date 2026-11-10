@@ -6,7 +6,7 @@ import { act, type Entry, Refused } from "./action.ts";
 import { currentUser, sha256 } from "./auth.ts";
 import type { Db } from "./db/db.ts";
 import { proCodes, users } from "./db/schema.ts";
-import { FREE_LIMIT, ownedRepos, planOf } from "./plans.ts";
+import { FREE_LIMIT, FREE_TEAM_LIMIT, ownedRepos, planOf } from "./plans.ts";
 import { isDatabaseId } from "./projects.ts";
 
 const THIRTY_DAYS = 30 * 86_400_000;
@@ -78,6 +78,7 @@ export function planRoutes(db: Db, key: Buffer) {
       ...plan,
       repos: await ownedRepos(db, key, userId),
       limit: plan.plan === "pro" ? null : FREE_LIMIT,
+      teamLimit: plan.plan === "pro" ? null : FREE_TEAM_LIMIT,
     };
   };
   return new Hono()
