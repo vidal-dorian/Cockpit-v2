@@ -417,6 +417,7 @@ export function AgentTeams() {
             <button
               type="button"
               disabled={!starters.data || full}
+              aria-describedby={full ? "team-quota" : undefined}
               onClick={() => {
                 setProblem(null);
                 setDialog({ text: writeTeam(DEFAULT_STEPS, "") });
@@ -429,7 +430,7 @@ export function AgentTeams() {
         }
       />
       {full && (
-        <p className="mx-[26px] mt-3">
+        <p id="team-quota" className="mx-[26px] mt-3">
           {TEAM_QUOTA_REFUSAL}{" "}
           <Link to="/reglages/abonnement" className={`underline ${focusRing}`}>
             Abonnement

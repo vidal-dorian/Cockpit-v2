@@ -16,6 +16,7 @@ import {
 
 // The server's refusals, in French; its codes are not meant to be read.
 const REFUSALS: Record<string, string> = {
+  // Not a server code: `AgentTeams.tsx` turns a 403 `plan` on a team into it.
   team_quota: TEAM_QUOTA_REFUSAL,
   role: ROLE_REFUSAL,
   empty_repo:
