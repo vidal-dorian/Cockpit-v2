@@ -113,7 +113,7 @@ Pour qui change un fichier de `catalog/` : lancer `npm run catalog:history` (dan
 
 ### Données
 
-« Réglages › Données » dit ce que Cockpit garde sur toi : ton compte, tes projets (tickets, US, runs, questions), les entrées de ton journal, tes jetons chiffrés ; le code de tes repos n'est jamais copié. « Préparer l'export » télécharge tout cela en JSON, sans aucun secret. « Supprimer mon compte… » demande ton login GitHub et efface tes projets et tout ce qu'ils contiennent (pour leurs autres membres aussi : la fenêtre les nomme), tes appartenances, jetons, sessions, routines, réglages et **les entrées de ton journal**. Tes runs sur les projets des autres restent, sans ton nom ; ceux encore ouverts sont clos. Rien ne change sur GitHub. Cockpit garde seulement une empreinte de ton compte GitHub et le nombre de repos gratuits utilisés, pour qu'une suppression ne redonne pas 3 repos ; l'administrateur l'efface sur demande (« Réglages › Instance »). Un administrateur ne peut pas supprimer son compte ici. Décision [078](docs/decisions/078-ses-donnees.md).
+« Réglages › Données » dit ce que Cockpit garde sur toi : ton compte, tes projets (tickets, US, runs, questions), les entrées de ton journal, tes jetons chiffrés ; le code de tes repos n'est jamais copié. Si l'administrateur a activé la mesure d'audience, une ligne le dit. « Préparer l'export » télécharge tout cela en JSON, sans aucun secret. « Supprimer mon compte… » demande ton login GitHub et efface tes projets et tout ce qu'ils contiennent (pour leurs autres membres aussi : la fenêtre les nomme), tes appartenances, jetons, sessions, routines, réglages et **les entrées de ton journal**. Tes runs sur les projets des autres restent, sans ton nom ; ceux encore ouverts sont clos. Rien ne change sur GitHub. Cockpit garde seulement une empreinte de ton compte GitHub et le nombre de repos gratuits utilisés, pour qu'une suppression ne redonne pas 3 repos ; l'administrateur l'efface sur demande (« Réglages › Instance »). Un administrateur ne peut pas supprimer son compte ici. Décision [078](docs/decisions/078-ses-donnees.md).
 
 ### Partager un projet
 
@@ -250,6 +250,8 @@ Cockpit tourne sur le Raspberry Pi avec Docker Compose (Cockpit, PostgreSQL, `cl
    ```
 
    Le fichier reste hors du repo, car `actions/checkout` supprime à chaque déploiement les fichiers non suivis.
+
+   **Mesure d'audience (facultatif).** Pour savoir quels écrans servent, ajouter `POSTHOG_KEY=<clé publique du projet PostHog, phc_…>` à ce fichier, et `POSTHOG_HOST=<adresse>` pour un autre PostHog que celui d'Europe (`https://eu.i.posthog.com`, par défaut). Sans clé, rien n'est chargé ni envoyé. Avec, les pages vues et les clics des personnes connectées partent au PostHog de l'instance, sans texte, sans paramètres d'adresse et sans cookie, sous leur identifiant interne ; Réglages › Données le dit. Décision [082](docs/decisions/082-mesure-d-audience.md).
 
 ### Déployer
 
