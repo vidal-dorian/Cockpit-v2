@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  addParallelTo,
   groupsOf,
+  insertAtGroup,
   insertStepAfter,
   linkOnCanvas,
   moveStep,
@@ -103,5 +105,84 @@ describe("decision 079 C: the number of « Au plus »", () => {
     ["12", 9],
   ])("given %j, when read, then it is %s", (value, expected) => {
     expect(parseMax(value)).toBe(expected);
+  });
+});
+
+describe("feedback on E6: the place where an agent is dropped", () => {
+  it("given three groups, when an agent is inserted at group 0, then it comes first alone and the old head keeps no parallel", () => {
+    const out = insertAtGroup([step("a"), par("b"), step("c")], 0, "x");
+
+    expect(shape(out)).toEqual([["x"], ["a", "b"], ["c"]]);
+    expect(out[1]?.parallel).toBeFalsy();
+    expect(out[2]?.parallel).toBe(true);
+  });
+
+  it("given three groups, when an agent is inserted at group 1, then it is alone between the first and the second group", () => {
+    const out = insertAtGroup([step("a"), step("b"), par("c")], 1, "x", "does");
+
+    expect(shape(out)).toEqual([["a"], ["x"], ["b", "c"]]);
+    expect(out[1]?.does).toBe("does");
+    expect(out[2]?.parallel).toBeFalsy();
+    expect(out[3]?.parallel).toBe(true);
+  });
+
+  it("given two groups, when the index is the number of groups or more, then the agent is the last step", () => {
+    const steps = [step("a"), par("b"), step("c")];
+
+    expect(names(insertAtGroup(steps, 3, "x"))).toEqual(["a", "b", "c", "x"]);
+    expect(names(insertAtGroup(steps, 99, "x"))).toEqual(["a", "b", "c", "x"]);
+    expect(shape(insertAtGroup(steps, 99, "x"))).toEqual([
+      ["a", "b"],
+      ["c"],
+      ["x"],
+    ]);
+  });
+
+  it("given an agent already in the team, when it is inserted, then it gets the free id 2 then 3", () => {
+    const once = insertAtGroup([step("a"), step("b")], 1, "a");
+    const twice = insertAtGroup(once, 0, "a");
+
+    expect(once[1]?.id).toBe("2");
+    expect(twice[0]?.id).toBe("3");
+    expect(twice[0]?.agent).toBe("a");
+  });
+
+  it("given a loop, when an agent is inserted before its target, then the loop still points to its key", () => {
+    const out = insertAtGroup(
+      [step("a"), step("b", { loopTo: "a", until: "ok", max: 2 })],
+      0,
+      "x",
+    );
+
+    expect(out.find((s) => s.agent === "b")?.loopTo).toBe("a");
+    expect(names(out)).toEqual(["x", "a", "b"]);
+  });
+});
+
+describe("feedback on E6: an agent dropped on a step to run in parallel", () => {
+  it("given a step alone, when an agent is added in parallel, then the two form a group", () => {
+    const out = addParallelTo([step("a"), step("b")], "a", "x");
+
+    expect(shape(out)).toEqual([["a", "x"], ["b"]]);
+    expect(out[1]?.parallel).toBe(true);
+  });
+
+  it("given a group, when an agent is added in parallel to one member, then it goes after the last step of the group", () => {
+    const out = addParallelTo([step("a"), par("b"), step("c")], "a", "x", "d");
+
+    expect(names(out)).toEqual(["a", "b", "x", "c"]);
+    expect(out[2]).toMatchObject({ parallel: true, does: "d" });
+  });
+
+  it("given an agent already in the team, when it is added in parallel, then it gets the free id 2", () => {
+    const out = addParallelTo([step("a")], "a", "a");
+
+    expect(out[1]).toMatchObject({ agent: "a", id: "2", parallel: true });
+  });
+
+  it("given an unknown key, when an agent is added in parallel, then the steps are unchanged", () => {
+    const steps = [step("a"), step("b")];
+
+    expect(addParallelTo(steps, "nope", "x")).toEqual(steps);
   });
 });

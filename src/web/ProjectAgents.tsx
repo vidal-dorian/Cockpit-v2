@@ -47,7 +47,7 @@ const ANALYSIS_AGENTS = [
 export type Editing = { name: string; before: string | null; base: string };
 type Done = { url: string; pullRequest: boolean };
 
-async function fetchAgents(id: string) {
+export async function fetchAgents(id: string) {
   const res = await client.api.projects[":id"].agents.$get({ param: { id } });
   if (!res.ok) return { failure: await failure(res) };
   return { data: await res.json() };
