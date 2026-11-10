@@ -1,12 +1,14 @@
 import {
   type QueryClient,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { fetchAgents } from "./ProjectAgents.tsx";
 import {
   type Done,
   DoneBox,
@@ -151,6 +153,17 @@ function TeamRow({
   const [projectId, setProjectId] = useState("");
   const add = useAddTeam();
   const project = projects.find((p) => String(p.id) === projectId);
+  // The agents of each project, read once the panel is open: what it already has of this team.
+  const repos = useQueries({
+    queries: projects.map((p) => ({
+      queryKey: ["agents", String(p.id)],
+      queryFn: () => fetchAgents(String(p.id)),
+      retry: false,
+      enabled: mode === "add",
+    })),
+  });
+  const there = (i: number) =>
+    repos[i]?.data?.data?.teams?.find((t) => t.name === team.name);
   return (
     <li className="px-[18px] py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -226,22 +239,41 @@ function TeamRow({
                 }}
               >
                 <option value="">Choisir un projet</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.fullName}
-                  </option>
-                ))}
+                {projects.map((p, i) => {
+                  const found = there(i);
+                  const same = found?.text === team.text;
+                  return (
+                    <option key={p.id} value={p.id} disabled={same}>
+                      {p.fullName}
+                      {found &&
+                        (same
+                          ? " · déjà dans ce projet"
+                          : " · à mettre à jour")}
+                    </option>
+                  );
+                })}
               </select>
             </label>
             <button
               type="button"
               disabled={!project || add.isPending}
-              onClick={() => project && add.mutate({ project, team })}
+              onClick={() =>
+                project &&
+                add.mutate(
+                  { project, team },
+                  { onSuccess: () => setProjectId("") },
+                )
+              }
               className={button}
             >
               Ajouter
             </button>
           </div>
+          {add.isPending && (
+            <p role="status" className="mt-3">
+              Ajout en cours…
+            </p>
+          )}
           <AddResult added={add.data} failed={add.isError} />
         </>
       )}

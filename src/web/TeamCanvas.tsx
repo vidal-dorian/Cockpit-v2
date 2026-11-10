@@ -12,9 +12,11 @@ import { parseAgent } from "./agent-file.ts";
 import { type Failure, ProblemAlert } from "./ProjectPrepare.tsx";
 import type { StarterTeams } from "./ProjectTeam.tsx";
 import {
+  addParallelTo,
   addStep,
   DRAG_TYPE,
   groupsOf,
+  insertAtGroup,
   insertStepAfter,
   keyOf,
   linkOnCanvas,
@@ -57,7 +59,8 @@ export function catalogAgents({ teams }: StarterTeams) {
 type Agent = { name: string; text: string | null };
 type Draft = { steps: TeamStep[]; body: string };
 type AgentFile = { name: string; before: null; after: string };
-type Selection = { kind: "step" | "loop"; key: string };
+/** A `link` is the « puis » link that leaves the group of the step `key`. */
+type Selection = { kind: "step" | "loop" | "link"; key: string };
 type History = { past: TeamStep[][]; steps: TeamStep[]; future: TeamStep[][] };
 
 /** The steps in a list for the keyboard (decision 031 F, 079 D7): hidden from `sm` up until it has the focus when `className` says so. */
@@ -420,8 +423,6 @@ export function TeamCanvas({
     future: [],
   });
   const [selected, setSelected] = useState<Selection | null>(null);
-  // Counts the « Ranger tout seul » clicks: the graph puts the cards back in place when it changes.
-  const [tidied, setTidied] = useState(0);
   // The graph measures its box when it mounts: only once the dialog is shown, or it fits into nothing.
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -471,9 +472,15 @@ export function TeamCanvas({
   const chosen = steps.find((s) => keyOf(s) === selected?.key);
   // A selection is only kept while its step (or its loop) exists.
   const target =
-    chosen && (selected?.kind === "step" || chosen.loopTo !== null)
+    chosen && (selected?.kind !== "loop" || chosen.loopTo !== null)
       ? chosen
       : null;
+
+  // The step that follows the group of the selected link, worked out from the steps so it stays true after any change.
+  const groups = groupsOf(steps);
+  const next =
+    groups[groups.findIndex((g) => g.includes(target as TeamStep)) + 1]?.[0];
+  const after = next ? stepLabel(next) : "Fin";
 
   const change = (key: string, patch: Partial<TeamStep>) =>
     setSteps(
@@ -640,7 +647,8 @@ export function TeamCanvas({
             )}
           {group("Catalogue de Cockpit", inCatalog)}
           <p className="mt-3 text-[12.5px] text-muted-foreground">
-            Glisse un agent sur le canevas, ou sur un lien pour l'intercaler.
+            Glisse un agent sur le canevas, sur une carte pour le mettre en
+            parallèle, ou sur un lien pour l'intercaler.
           </p>
         </aside>
         <div className="flex min-w-0 flex-col gap-3">
@@ -661,15 +669,10 @@ export function TeamCanvas({
             >
               Refaire
             </button>
-            <button
-              type="button"
-              onClick={() => setTidied(tidied + 1)}
-              className={`hidden sm:inline-flex ${button}`}
-            >
-              Ranger tout seul
-            </button>
           </div>
-          <div className={`${card} relative hidden h-[28rem] sm:block`}>
+          <div
+            className={`${card} relative hidden h-[max(28rem,calc(100dvh-13rem))] sm:block`}
+          >
             {shown && (
               <Suspense
                 fallback={
@@ -682,20 +685,27 @@ export function TeamCanvas({
                   id={uid}
                   steps={steps}
                   agents={known}
-                  tidied={tidied}
                   selected={target && selected}
-                  onSelect={setSelected}
+                  onSelect={(s) => {
+                    setSelected(s);
+                    // « + » of a link: the list to choose from is in the panel, the keyboard goes there.
+                    if (s?.kind === "link") panelRef.current?.focus();
+                  }}
                   onLink={link}
-                  onInsert={(after, agent) =>
-                    setSteps(insertStepAfter(steps, after, agent))
+                  onDropAt={(drop, agent) =>
+                    setSteps(
+                      "after" in drop
+                        ? insertStepAfter(steps, drop.after, agent)
+                        : "parallelTo" in drop
+                          ? addParallelTo(steps, drop.parallelTo, agent)
+                          : insertAtGroup(steps, drop.group, agent),
+                    )
                   }
-                  onAdd={(agent) => setSteps(addStep(steps, agent))}
                   onRemoveStep={remove}
                   onRemoveLoop={(key) => {
                     change(key, { loopTo: null, until: "", max: undefined });
                     setSelected(null);
                   }}
-                  palette={palette}
                 />
               </Suspense>
             )}
@@ -736,6 +746,40 @@ export function TeamCanvas({
               onRename={(id) => rename(target, id)}
               onRemove={() => remove(keyOf(target))}
             />
+          ) : target && selected?.kind === "link" ? (
+            <>
+              <h3 className="font-heading font-bold">
+                Intercaler entre {stepLabel(target)} et {after}
+              </h3>
+              <ul className="mt-2 flex flex-col gap-1">
+                {palette.map((agent) => (
+                  <li key={agent}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSteps(insertStepAfter(steps, keyOf(target), agent));
+                        setSelected(null);
+                        // The button that asked is gone: the keyboard stays in the panel.
+                        panelRef.current?.focus();
+                      }}
+                      className={`w-full text-left font-mono ${button}`}
+                    >
+                      {agent}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelected(null);
+                  panelRef.current?.focus();
+                }}
+                className={`mt-3 ${button}`}
+              >
+                Annuler
+              </button>
+            </>
           ) : target ? (
             <>
               <h3 className="font-heading font-bold">
