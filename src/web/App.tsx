@@ -44,7 +44,7 @@ import {
 } from "./Shell.tsx";
 import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
-import { identify, reset, track } from "./telemetry.ts";
+import { reset, track } from "./telemetry.ts";
 import { applyTheme } from "./theme.ts";
 import { Toaster } from "./toast.tsx";
 import {
@@ -410,10 +410,8 @@ function Routed({
   const id = me.data?.id;
   const wasIdentified = useRef(false);
   useEffect(() => {
-    if (id !== undefined) {
-      identify(String(id));
-      wasIdentified.current = true;
-    } else if (me.data === null && wasIdentified.current) {
+    if (id !== undefined) wasIdentified.current = true;
+    else if (me.data === null && wasIdentified.current) {
       // Logged out: PostHog must not carry the previous identity.
       reset();
       wasIdentified.current = false;

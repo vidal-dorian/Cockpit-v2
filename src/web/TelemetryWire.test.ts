@@ -39,16 +39,27 @@ describe("posthog-js on the wire", () => {
     window.history.replaceState({}, "", "/tickets/42");
     track("$pageview", { screen: "/tickets/:id" });
     identify("7");
-    await vi.waitFor(() =>
-      expect(sent.some((r) => r.url.includes("/e/"))).toBe(true),
+    // posthog-js sends $identify at once but batches the other events a few seconds later.
+    const events = () =>
+      sent.flatMap(({ body }) => {
+        try {
+          const parsed = JSON.parse(body);
+          return parsed.batch ?? [parsed];
+        } catch {
+          return [];
+        }
+      });
+    await vi.waitFor(
+      () =>
+        expect(events().filter((e) => e.event === "$pageview")).toHaveLength(2),
+      { timeout: 8000 },
     );
-    await new Promise((resolve) => setTimeout(resolve, 200));
 
     expect(sent.filter((r) => r.url.includes("/flags"))).toEqual([]);
     for (const { body } of sent) {
       expect(body).not.toMatch(
-        /projets\/12|tickets\/42|tab=x|secret-repo|github\.com/,
+        /projets\/12|tickets\/42|tab=x|secret-repo|github\.com|localhost/,
       );
     }
-  });
+  }, 10_000);
 });

@@ -4,6 +4,7 @@ import type { PostHog } from "posthog-js";
 // posthog-js is loaded only then, so a Cockpit without a key does not ship it to the page.
 let posthog: PostHog | undefined;
 let started = false;
+let failed = false;
 // Calls made while posthog-js is still loading, replayed in order once it is there.
 let waiting: ((ph: PostHog) => void)[] = [];
 
@@ -33,29 +34,38 @@ function beforeSend(event: any) {
 
 /** Resolves once posthog-js runs (at once without a key); the page waits for it before showing screens. */
 export async function init(key: string | null) {
-  if (!key || started) return;
+  if (!key || started || failed) return;
   started = true;
-  // Under nodenext the default import is typed as the module namespace; at run time it is the instance.
-  const loaded = (await import("posthog-js")).default as unknown as PostHog;
-  loaded.init(key, {
-    api_host: "https://eu.i.posthog.com",
-    persistence: "memory",
-    person_profiles: "identified_only",
-    autocapture: false,
-    disable_session_recording: true,
-    capture_pageview: false,
-    capture_exceptions: true,
-    reuseAnonymousId: true,
-    // What would leave without going through before_send, or that the PostHog project could switch on.
-    advanced_disable_flags: true,
-    capture_heatmaps: false,
-    capture_dead_clicks: false,
-    capture_performance: false,
-    disable_surveys: true,
-    disable_product_tours: true,
-    disable_conversations: true,
-    before_send: beforeSend,
-  });
+  let loaded: PostHog;
+  try {
+    // Under nodenext the default import is typed as the module namespace; at run time it is the instance.
+    loaded = (await import("posthog-js")).default as unknown as PostHog;
+    loaded.init(key, {
+      api_host: "https://eu.i.posthog.com",
+      persistence: "memory",
+      person_profiles: "identified_only",
+      autocapture: false,
+      disable_session_recording: true,
+      capture_pageview: false,
+      capture_exceptions: true,
+      reuseAnonymousId: true,
+      // What would leave without going through before_send, or that the PostHog project could switch on.
+      advanced_disable_flags: true,
+      capture_heatmaps: false,
+      capture_dead_clicks: false,
+      capture_performance: false,
+      disable_surveys: true,
+      disable_product_tours: true,
+      disable_conversations: true,
+      before_send: beforeSend,
+    });
+  } catch (error) {
+    // Telemetry is never worth a broken page: stop queuing, every later call is a no-op.
+    waiting = [];
+    started = false;
+    failed = true;
+    throw error;
+  }
   posthog = loaded;
   for (const call of waiting) call(loaded);
   waiting = [];
