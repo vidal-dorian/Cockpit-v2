@@ -29,6 +29,17 @@ Les US du ticket ont été rangées dans le projet Cockpit `vidal-dorian/cockpit
 - **Modifie le texte des US** (C, D, F) : la revue a montré, avec le vrai posthog-js, que `$session_entry_url`, `$prev_pageview_pathname`, `$host` et la requête `/flags` portaient l'adresse réelle, et que `route` gardait le secret d'une invitation. Les règles ci-dessus les ferment.
 - **`compose.yaml`** transmet `POSTHOG_KEY` au service `app` (`${POSTHOG_KEY:-}`) : sans elle, la clé du fichier d'environnement ne servait qu'à la substitution.
 
+## Ce que le code a précisé
+
+- **`src/web/telemetry.ts`** : `init(key)`, `track`, `identify`, `reset` et `captureException`. `posthog-js` est chargé par un `import()` dynamique, et seulement avec une clé ; les appels faits pendant le chargement sont mis en file puis rejoués dans l'ordre. `init` ne bloque pas la page ; si le démarrage échoue, la file est vidée et la télémétrie se tait pour de bon.
+- **`fetchTelemetry`** (`Shell.tsx`) lit `GET /api/telemetry` (une réponse en échec donne `null`, jamais un écran d'erreur) et lance `init` sans l'attendre, avant qu'un écran ne s'affiche. **`fetchMe`** appelle `identify(String(me.id))` : dans la requête et non dans un effet, pour que le premier `$pageview` porte déjà le compte. `GET /api/me` rend donc aussi **`id`**.
+- **Le tri du `before_send`** : tout nom de propriété qui contient `url`, `pathname`, `referr` ou `host`, ou qui commence par `$initial_`, est retiré de `properties`, `$set` et `$set_once`.
+- **`api.ts`** : le `fetch` donné à `hc` rend la réponse ou relance l'erreur telle quelle, et appelle `track("api_error", { route, status })` sauf pour 401, 403 et 404. Une erreur réseau donne `status: 0`. Dans `route`, un segment numérique ou un UUID devient `:id`, celui qui suit `invitations` `:secret`, celui qui suit `agent-teams` `:name`.
+- **`App.tsx`** : un `$pageview` avec `screen` = le motif de route. **`LoadErrorBoundary`** gagne une prop `fallback` : avec elle, la limite entoure toute l'app, appelle `captureException` et montre « Quelque chose a planté. Recharge la page. » ; sans elle, elle garde « Impossible de charger la page. ». Une déconnexion appelle `reset()`.
+- **`Settings.tsx`** : la ligne de H s'affiche quand `GET /api/telemetry` rend une clé.
+- **`src/server/telemetry.ts`** : `sendEvent(event, userId, properties)` ne fait rien sans `POSTHOG_KEY`. **`act()`** l'appelle une fois la transaction terminée (entrée `ok`) ou l'entrée `refused` / `error` écrite, hors du `try` qui journalise, avec `result`, `actor`, `origin` et `reason`.
+- **`src/server/test-setup.ts`** supprime `POSTHOG_KEY` : quoi que le shell exporte, la suite n'appelle jamais PostHog.
+
 ## Ce qui ne change pas
 
 - L'historique, le journal et les logs du serveur : la télémétrie s'ajoute, elle ne remplace rien.
@@ -40,3 +51,6 @@ Les US du ticket ont été rangées dans le projet Cockpit `vidal-dorian/cockpit
 - **Un plantage de la page envoie son message et sa pile** (`captureException`) : ce sont des textes du code, mais un message peut citer une valeur affichée.
 - **Le motif de route ne vient que des écrans connectés** (ceux du shell) : la connexion, l'installation, `/autoriser` et les invitations n'envoient pas de `$pageview`.
 - **Un événement du serveur qui échoue est perdu** : pas de file ni de nouvel essai, l'historique reste la source sûre.
+- **Seul `act()` envoie** : l'historique écrit sans lui n'arrive jamais à PostHog (les webhooks, `queue.ts`, `routines.ts`, la nuit, le coût, les jetons, les issues, `pr-follow.ts`), alors que la phrase de Réglages dit « les actions faites ».
+- **Un `$pageview` part deux fois en développement** (StrictMode rejoue les effets), et une route de redirection en envoie un, puis sa cible un autre.
+- **`/autoriser` a son propre `fetchMe`**, qui n'appelle pas `identify` : sans conséquence, rien n'y part (pas de `$pageview` sur cet écran).

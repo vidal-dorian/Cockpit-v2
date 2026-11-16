@@ -82,6 +82,7 @@
 - **Fait** : tranche 15.3 (ergonomie : recherche `Ctrl K`, raccourcis clavier, thème clair à valider par Dorian, projets favoris, [décision 073](decisions/073-ergonomie.md)).
 - **Fait** : hors tranche, des demandes de Dorian du 2026-11-09 (le niveau de l'équipe de départ choisi après « Importer », dans un carrousel ; des équipes d'agents créées une fois et ajoutées à un projet, avec un avertissement au lancement quand l'équipe du repo a changé, [décision 074](decisions/074-equipes-a-la-demande.md)).
 - **Fait** : hors tranche, une demande de Dorian du 2026-11-10 (un compte Gratuit n'a que 2 équipes d'agents, Pro sans limite, [décision 082](decisions/082-deux-equipes-en-gratuit.md)).
+- **Fait** : hors tranche, une demande de Dorian du 2026-11-16 (la télémétrie PostHog, facultative : les écrans, les actions et les erreurs, sans donnée personnelle, [décision 083](decisions/083-telemetrie-posthog.md)).
 - **Fait** : tranche 15.4 (la mise en route : les sept étapes de S06 en haut de l'accueil, qui se cochent toutes seules, « Masquer ce guide », [décision 075](decisions/075-mise-en-route.md)) ; la phase 15 est terminée.
 - **Fait** : tranche 13.1 (plusieurs utilisateurs sur un projet : trois rôles, invitation par login GitHub, la liste des membres dans Réglages, [décision 076](decisions/076-plusieurs-utilisateurs.md)).
 - **Fait** : tranche 13.2 (offres et quotas : Gratuit à 3 repos, Pro, codes Pro donnés par l'administrateur, lecture seule au-delà de 3, Réglages › Abonnement, [décision 077](decisions/077-offres-et-quotas.md)).
