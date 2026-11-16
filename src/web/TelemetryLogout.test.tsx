@@ -69,7 +69,7 @@ it("given a logged-in user 7, when /api/me then answers 401, then reset is calle
     ([event]) => event === "$pageview",
   );
   expect(ph.identify.mock.invocationCallOrder[0]).toBeLessThan(
-    ph.capture.mock.invocationCallOrder[pageview],
+    ph.capture.mock.invocationCallOrder[pageview] ?? 0,
   );
   expect(ph.reset).not.toHaveBeenCalled();
 
