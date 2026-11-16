@@ -49,7 +49,7 @@ Les US du ticket ont été rangées dans le projet Cockpit `vidal-dorian/cockpit
 ## Limites connues
 
 - **L'adresse IP** : PostHog la garde par défaut. À couper dans le projet PostHog (« Discard client IP data »), Cockpit ne peut pas le faire pour lui.
-- **Un plantage de la page envoie son message et sa pile** (`captureException`) : ce sont des textes du code, mais un message peut citer une valeur affichée, et la pile nomme les scripts de la page (leur adresse, donc l'hôte de l'instance).
+- **Un plantage de la page envoie son message et sa pile** (`captureException`) : ce sont des textes du code, mais un message peut citer une valeur affichée ou une adresse, et la pile nomme les scripts de la page (leur adresse, donc l'hôte de l'instance).
 - **Le motif de route ne vient que des écrans connectés** (ceux du shell) : la connexion, l'installation, `/autoriser` et les invitations n'envoient pas de `$pageview`.
 - **Un événement du serveur qui échoue est perdu** : pas de file ni de nouvel essai, l'historique reste la source sûre.
 - **Seul `act()` envoie** : l'historique écrit sans lui n'arrive jamais à PostHog (les webhooks, `queue.ts`, `routines.ts`, la nuit, le coût, les jetons, les issues, `pr-follow.ts`), alors que la phrase de Réglages dit « les actions faites ».
