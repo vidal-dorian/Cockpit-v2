@@ -30,7 +30,7 @@ export async function fetchHealth() {
   return res.json();
 }
 
-/** The PostHog key, or null (also when posthog-js does not load): also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
+/** The PostHog key, or null: also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
 export async function fetchTelemetry() {
   let key: string | null = null;
   try {

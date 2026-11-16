@@ -60,7 +60,17 @@ it("given a logged-in user 7, when /api/me then answers 401, then reset is calle
     </QueryClientProvider>,
   );
   await screen.findByText("Dorian");
-  expect(ph.identify).toHaveBeenCalledWith("7");
+  // identify precedes the first $pageview, so no screen goes out as an anonymous visitor.
+  await vi.waitFor(() => {
+    expect(ph.identify).toHaveBeenCalledWith("7");
+    expect(ph.capture).toHaveBeenCalledWith("$pageview", expect.anything());
+  });
+  const pageview = ph.capture.mock.calls.findIndex(
+    ([event]) => event === "$pageview",
+  );
+  expect(ph.identify.mock.invocationCallOrder[0]).toBeLessThan(
+    ph.capture.mock.invocationCallOrder[pageview],
+  );
   expect(ph.reset).not.toHaveBeenCalled();
 
   loggedIn = false;

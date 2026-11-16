@@ -32,7 +32,7 @@ function beforeSend(event: any) {
   return event;
 }
 
-/** Resolves once posthog-js runs (at once without a key); the page waits for it before showing screens. */
+/** Resolves once posthog-js runs (at once without a key); the page does not wait for it, calls made meanwhile are queued. */
 export async function init(key: string | null) {
   if (!key || started || failed) return;
   started = true;
