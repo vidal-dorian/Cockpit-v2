@@ -41,7 +41,6 @@ describe("api_error", () => {
 
     const res = await client.api.projects[":id"].tickets.$get({
       param: { id: "12" },
-      query: {},
     });
 
     expect(res.status).toBe(503);
