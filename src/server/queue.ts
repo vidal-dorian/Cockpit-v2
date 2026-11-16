@@ -311,7 +311,12 @@ async function launchNext(db: Db, deps: Fire, userId: number, at: Date) {
         fromQueue: true,
       }),
     );
-    if (!("error" in launched))
+    // A story its launcher may no longer launch (a lower role, a project the plan locks) leaves the queue, as a change of role empties it (076), instead of blocking it.
+    if (
+      !("error" in launched) ||
+      launched.error === "role" ||
+      launched.error === "plan"
+    )
       await db.delete(queueItems).where(eq(queueItems.storyId, next.storyId));
     // Only a launcher that cannot launch pauses the queue; any other refusal leaves the story for a later pass (a manual launch, a pending one).
     else if (STOPS_QUEUE.includes(`${launched.error}`))

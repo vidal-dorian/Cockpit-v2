@@ -610,7 +610,16 @@ export async function launchCloud(
   };
   try {
     reserved = await db.transaction(async (tx) => {
-      for (const id of projectIds) await assertActive(tx, id);
+      for (const id of projectIds) {
+        await assertActive(tx, id);
+        // An unattended launch (queue, night, routine, CI relaunch, answer) checks the role and the plan lock as the button would: a member moved below « peut lancer » or a project its owner's plan locks is not launched in (decisions 076 A, 077 E). A `RoleRefused` is a `Refused`: it ends as a `role` or `plan` refusal below.
+        await memberProject(
+          tx,
+          entry.userId,
+          id,
+          entry.action === "launch_story" ? "can_launch" : "owner",
+        );
+      }
       const launcher = await readyLauncher(tx, entry.userId, projectIds);
       const budgets = await budgetsOf(tx, entry.userId);
       if (
