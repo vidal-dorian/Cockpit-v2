@@ -41,14 +41,13 @@ export async function act<T>(
       origin: entry.origin,
       ...(reason && { reason }),
     });
+  let done: T;
   try {
-    const done = await db.transaction(async (tx) => {
+    done = await db.transaction(async (tx) => {
       const result = await work(tx);
       await tx.insert(history).values({ ...entry, result: "ok" });
       return result;
     });
-    send("ok");
-    return done;
   } catch (error) {
     // An error's message may carry SQL parameters or third-party text: the history only gets a closed value, the log gets the rest.
     if (!(error instanceof Refused))
@@ -70,4 +69,7 @@ export async function act<T>(
     );
     throw error;
   }
+  // Outside the try: the action is committed, nothing here may journal it as an error.
+  send("ok");
+  return done;
 }

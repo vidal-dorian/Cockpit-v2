@@ -14,6 +14,7 @@ import { Logo } from "./Logo.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { atLeast } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
+import { init } from "./telemetry.ts";
 import { ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
 
@@ -29,14 +30,16 @@ export async function fetchHealth() {
   return res.json();
 }
 
-/** The PostHog key, or null: also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
+/** The PostHog key, or null (also when posthog-js does not load): also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
 export async function fetchTelemetry() {
+  let key: string | null = null;
   try {
     const res = await client.api.telemetry.$get();
-    return res.ok ? (await res.json()).key : null;
-  } catch {
-    return null;
-  }
+    if (res.ok) key = (await res.json()).key;
+  } catch {}
+  // Starts telemetry before any screen mounts, so that the first $pageview is not lost; a no-op the next times.
+  await init(key).catch(() => {});
+  return key;
 }
 
 /** The logged-in account, or null when the server answers 401. */

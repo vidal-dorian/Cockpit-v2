@@ -13,11 +13,15 @@ async function reportingFetch(input: RequestInfo | URL, init?: RequestInit) {
           : input.url;
     const route = new URL(raw, "http://localhost").pathname
       .split("/")
-      .map((part) =>
+      .map((part, i, parts) =>
         /^\d+$/.test(part) ||
         /^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(part)
           ? ":id"
-          : part,
+          : parts[i - 1] === "invitations"
+            ? ":secret"
+            : parts[i - 1] === "agent-teams"
+              ? ":name"
+              : part,
       )
       .join("/");
     track("api_error", { route, status });

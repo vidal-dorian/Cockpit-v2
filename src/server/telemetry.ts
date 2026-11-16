@@ -21,6 +21,8 @@ export function sendEvent(
     signal: AbortSignal.timeout(10_000),
   })
     .then((res) => {
+      // Frees the connection: undici keeps it until the body is read or cancelled.
+      res.body?.cancel().catch(() => {});
       if (!res.ok) console.warn(`PostHog answered ${res.status} for ${event}`);
     })
     .catch((error) => console.warn(`PostHog event ${event} not sent:`, error));

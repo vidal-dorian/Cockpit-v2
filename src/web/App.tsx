@@ -44,7 +44,7 @@ import {
 } from "./Shell.tsx";
 import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
-import { identify, init, track } from "./telemetry.ts";
+import { identify, reset, track } from "./telemetry.ts";
 import { applyTheme } from "./theme.ts";
 import { Toaster } from "./toast.tsx";
 import {
@@ -408,9 +408,17 @@ function Routed({
 }) {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const id = me.data?.id;
+  const wasIdentified = useRef(false);
   useEffect(() => {
-    if (id !== undefined) identify(String(id));
-  }, [id]);
+    if (id !== undefined) {
+      identify(String(id));
+      wasIdentified.current = true;
+    } else if (me.data === null && wasIdentified.current) {
+      // Logged out: PostHog must not carry the previous identity.
+      reset();
+      wasIdentified.current = false;
+    }
+  }, [id, me.data]);
   // The theme kept on the server is the same on every device (decision 073 F).
   const theme = me.data?.theme;
   useEffect(() => {
@@ -486,14 +494,10 @@ export function App() {
 
 function Pages() {
   const setup = useQuery({ queryKey: ["setup"], queryFn: fetchSetupStatus });
-  // Starts telemetry before any screen mounts, so that the first $pageview is not lost (decision 083 B).
+  // Decision 083 B: telemetry starts in this query, before any screen mounts.
   const telemetry = useQuery({
     queryKey: ["telemetry"],
-    queryFn: async () => {
-      const key = await fetchTelemetry();
-      init(key);
-      return key;
-    },
+    queryFn: fetchTelemetry,
   });
   // Here, above the pages that load, so that a key pressed while Cockpit starts is not lost.
   const [overlay, setOverlay] = useState<Overlay>();
