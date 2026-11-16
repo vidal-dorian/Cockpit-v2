@@ -155,6 +155,10 @@ export function createApp(
         await db.execute(sql`select 1`);
         return c.json({ status: "ok", version });
       })
+      // Decision 083 B: no session, the page needs the key before it knows who is logged in.
+      .get("/api/telemetry", (c) =>
+        c.json({ key: process.env.POSTHOG_KEY || null }),
+      )
       .route("/", setupRoutes(db, readInstance, encryptionKey, setupCode))
       .route(
         "/",

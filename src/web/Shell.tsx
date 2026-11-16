@@ -29,6 +29,16 @@ export async function fetchHealth() {
   return res.json();
 }
 
+/** The PostHog key, or null: also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
+export async function fetchTelemetry() {
+  try {
+    const res = await client.api.telemetry.$get();
+    return res.ok ? (await res.json()).key : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The logged-in account, or null when the server answers 401. */
 export async function fetchMe() {
   const res = await client.api.me.$get();

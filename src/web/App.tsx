@@ -2,10 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
+  createRoutesFromChildren,
   Link,
+  matchRoutes,
   Navigate,
   Route,
   Routes,
+  useLocation,
   useParams,
 } from "react-router";
 import { AgentTeams } from "./AgentTeams.tsx";
@@ -33,6 +36,7 @@ import {
   Dot,
   fetchHealth,
   fetchMe,
+  fetchTelemetry,
   IdeaBar,
   ScrollToTop,
   Sidebar,
@@ -40,6 +44,7 @@ import {
 } from "./Shell.tsx";
 import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
+import { identify, init, track } from "./telemetry.ts";
 import { applyTheme } from "./theme.ts";
 import { Toaster } from "./toast.tsx";
 import {
@@ -246,6 +251,123 @@ function Shell({
   const idea = useRef<(opener: HTMLElement | null) => void>(null);
   // The idea panel only exists with a project.
   const hasProject = (useHome().data?.projects.length ?? 0) > 0;
+  const routes = (
+    <Routes>
+      <Route path="/" element={<Home onIdea={(el) => idea.current?.(el)} />} />
+      <Route path="/projets" element={<Projects />} />
+      <Route path="/projets/nouveau" element={<ProjectFromTemplate />} />
+      <Route path="/projets/:id" element={<ProjectPage tab="kanban" />} />
+      <Route
+        path="/projets/:id/tickets"
+        element={<ProjectPage tab="tickets" />}
+      />
+      <Route path="/projets/:id/tickets/importer" element={<IssueImport />} />
+      <Route
+        path="/projets/:id/conception"
+        element={<ProjectPage tab="conception" />}
+      />
+      <Route
+        path="/projets/:id/conception/regles"
+        element={<ProjectPage tab="conception" view="rules" />}
+      />
+      <Route
+        path="/projets/:id/conception/constats"
+        element={<ProjectPage tab="conception" view="findings" />}
+      />
+      <Route
+        path="/projets/:id/conception/fonctionnalites"
+        element={<ProjectPage tab="conception" view="features" />}
+      />
+      <Route path="/projets/:id/sante" element={<ProjectPage tab="sante" />} />
+      <Route
+        path="/projets/:id/agents"
+        element={<ProjectPage tab="agents" />}
+      />
+      <Route path="/projets/:id/ci" element={<ProjectPage tab="ci" />} />
+      <Route
+        path="/projets/:id/historique"
+        element={<ProjectPage tab="historique" />}
+      />
+      <Route
+        path="/projets/:id/historique/livre"
+        element={<ProjectPage tab="historique" view="delivered" />}
+      />
+      <Route
+        path="/projets/:id/reglages"
+        element={<ProjectPage tab="reglages" />}
+      />
+      <Route path="/projets/:id/ecriture-us" element={<RedirectToSettings />} />
+      <Route
+        path="/tickets/:id"
+        element={
+          <LoadErrorBoundary>
+            <Suspense fallback={loading}>
+              <TicketPage />
+            </Suspense>
+          </LoadErrorBoundary>
+        }
+      />
+      <Route
+        path="/us/:id"
+        element={
+          <LoadErrorBoundary>
+            <Suspense fallback={loading}>
+              <StoryPage />
+            </Suspense>
+          </LoadErrorBoundary>
+        }
+      />
+      <Route path="/runs/:id" element={<RunPage />} />
+      <Route path="/claude" element={<Claude />} />
+      <Route path="/nuit" element={<Night />} />
+      <Route path="/claude/taches" element={<Taches />} />
+      <Route path="/claude/cout" element={<Cost />} />
+      <Route path="/equipes" element={<AgentTeams />} />
+      <Route path="/equipes/commun" element={<Plugins />} />
+      <Route path="/journal" element={<Journal />} />
+      <Route path="/reglages" element={<Settings tab="claude" />} />
+      <Route
+        path="/reglages/jetons"
+        element={<Navigate to="/reglages" replace />}
+      />
+      <Route
+        path="/reglages/utilisateurs"
+        element={<Settings tab="utilisateurs" />}
+      />
+      <Route
+        path="/reglages/preferences"
+        element={<Settings tab="preferences" />}
+      />
+      <Route path="/reglages/membres" element={<Settings tab="membres" />} />
+      <Route
+        path="/reglages/abonnement"
+        element={<Settings tab="abonnement" />}
+      />
+      <Route path="/reglages/donnees" element={<Settings tab="donnees" />} />
+      <Route
+        path="/reglages/taches-cloud"
+        element={<Settings tab="taches-cloud" />}
+      />
+      <Route
+        path="/reglages/ecriture-us"
+        element={<Navigate to="/reglages/taches-cloud" replace />}
+      />
+      <Route path="/bienvenue" element={<Welcome />} />
+      {/* The wizard's address: once it is done, nothing to show there. */}
+      <Route path="/installation" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+  // Decision 083 D: the screen is the route pattern React Router finds, never the address.
+  const location = useLocation();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one $pageview per address, not per render
+  useEffect(() => {
+    const matches = matchRoutes(
+      createRoutesFromChildren(routes.props.children),
+      location,
+    );
+    track("$pageview", { screen: matches?.at(-1)?.route.path });
+  }, [location.pathname]);
   return (
     <div className="md:grid md:grid-cols-[224px_minmax(0,1fr)]">
       <ScrollToTop />
@@ -263,131 +385,7 @@ function Shell({
       <div className="flex min-h-screen min-w-0 flex-col pb-16 md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
         <OfflineBanner />
         <InstallBanner />
-        <div className="flex-1">
-          <Routes>
-            <Route
-              path="/"
-              element={<Home onIdea={(el) => idea.current?.(el)} />}
-            />
-            <Route path="/projets" element={<Projects />} />
-            <Route path="/projets/nouveau" element={<ProjectFromTemplate />} />
-            <Route path="/projets/:id" element={<ProjectPage tab="kanban" />} />
-            <Route
-              path="/projets/:id/tickets"
-              element={<ProjectPage tab="tickets" />}
-            />
-            <Route
-              path="/projets/:id/tickets/importer"
-              element={<IssueImport />}
-            />
-            <Route
-              path="/projets/:id/conception"
-              element={<ProjectPage tab="conception" />}
-            />
-            <Route
-              path="/projets/:id/conception/regles"
-              element={<ProjectPage tab="conception" view="rules" />}
-            />
-            <Route
-              path="/projets/:id/conception/constats"
-              element={<ProjectPage tab="conception" view="findings" />}
-            />
-            <Route
-              path="/projets/:id/conception/fonctionnalites"
-              element={<ProjectPage tab="conception" view="features" />}
-            />
-            <Route
-              path="/projets/:id/sante"
-              element={<ProjectPage tab="sante" />}
-            />
-            <Route
-              path="/projets/:id/agents"
-              element={<ProjectPage tab="agents" />}
-            />
-            <Route path="/projets/:id/ci" element={<ProjectPage tab="ci" />} />
-            <Route
-              path="/projets/:id/historique"
-              element={<ProjectPage tab="historique" />}
-            />
-            <Route
-              path="/projets/:id/historique/livre"
-              element={<ProjectPage tab="historique" view="delivered" />}
-            />
-            <Route
-              path="/projets/:id/reglages"
-              element={<ProjectPage tab="reglages" />}
-            />
-            <Route
-              path="/projets/:id/ecriture-us"
-              element={<RedirectToSettings />}
-            />
-            <Route
-              path="/tickets/:id"
-              element={
-                <LoadErrorBoundary>
-                  <Suspense fallback={loading}>
-                    <TicketPage />
-                  </Suspense>
-                </LoadErrorBoundary>
-              }
-            />
-            <Route
-              path="/us/:id"
-              element={
-                <LoadErrorBoundary>
-                  <Suspense fallback={loading}>
-                    <StoryPage />
-                  </Suspense>
-                </LoadErrorBoundary>
-              }
-            />
-            <Route path="/runs/:id" element={<RunPage />} />
-            <Route path="/claude" element={<Claude />} />
-            <Route path="/nuit" element={<Night />} />
-            <Route path="/claude/taches" element={<Taches />} />
-            <Route path="/claude/cout" element={<Cost />} />
-            <Route path="/equipes" element={<AgentTeams />} />
-            <Route path="/equipes/commun" element={<Plugins />} />
-            <Route path="/journal" element={<Journal />} />
-            <Route path="/reglages" element={<Settings tab="claude" />} />
-            <Route
-              path="/reglages/jetons"
-              element={<Navigate to="/reglages" replace />}
-            />
-            <Route
-              path="/reglages/utilisateurs"
-              element={<Settings tab="utilisateurs" />}
-            />
-            <Route
-              path="/reglages/preferences"
-              element={<Settings tab="preferences" />}
-            />
-            <Route
-              path="/reglages/membres"
-              element={<Settings tab="membres" />}
-            />
-            <Route
-              path="/reglages/abonnement"
-              element={<Settings tab="abonnement" />}
-            />
-            <Route
-              path="/reglages/donnees"
-              element={<Settings tab="donnees" />}
-            />
-            <Route
-              path="/reglages/taches-cloud"
-              element={<Settings tab="taches-cloud" />}
-            />
-            <Route
-              path="/reglages/ecriture-us"
-              element={<Navigate to="/reglages/taches-cloud" replace />}
-            />
-            <Route path="/bienvenue" element={<Welcome />} />
-            {/* The wizard's address: once it is done, nothing to show there. */}
-            <Route path="/installation" element={<Navigate to="/" replace />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
+        <div className="flex-1">{routes}</div>
         <IdeaBar ref={idea} />
       </div>
     </div>
@@ -409,6 +407,10 @@ function Routed({
   onOverlay: (overlay: Overlay) => void;
 }) {
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  const id = me.data?.id;
+  useEffect(() => {
+    if (id !== undefined) identify(String(id));
+  }, [id]);
   // The theme kept on the server is the same on every device (decision 073 F).
   const theme = me.data?.theme;
   useEffect(() => {
@@ -468,7 +470,15 @@ export function App() {
   }, []);
   return (
     <>
-      <Pages />
+      <LoadErrorBoundary
+        fallback={
+          <p role="alert" className="p-4">
+            Quelque chose a planté. Recharge la page.
+          </p>
+        }
+      >
+        <Pages />
+      </LoadErrorBoundary>
       <Toaster />
     </>
   );
@@ -476,6 +486,15 @@ export function App() {
 
 function Pages() {
   const setup = useQuery({ queryKey: ["setup"], queryFn: fetchSetupStatus });
+  // Starts telemetry before any screen mounts, so that the first $pageview is not lost (decision 083 B).
+  const telemetry = useQuery({
+    queryKey: ["telemetry"],
+    queryFn: async () => {
+      const key = await fetchTelemetry();
+      init(key);
+      return key;
+    },
+  });
   // Here, above the pages that load, so that a key pressed while Cockpit starts is not lost.
   const [overlay, setOverlay] = useState<Overlay>();
   // Ctrl K works in a field too, unlike the single-key shortcuts.
@@ -492,7 +511,7 @@ function Pages() {
   }, []);
   useShortcut("?", () => setOverlay("shortcuts"));
 
-  if (setup.isPending)
+  if (setup.isPending || telemetry.isPending)
     return <p className="loading p-4 text-muted-foreground">Chargement…</p>;
   if (setup.isError) {
     return (
