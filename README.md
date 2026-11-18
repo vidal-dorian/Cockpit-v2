@@ -255,6 +255,14 @@ Cockpit tourne sur le Raspberry Pi avec Docker Compose (Cockpit, PostgreSQL, `cl
 
 Dans GitHub : Actions → CD → Run workflow. `scripts/deploy.sh` vérifie le fichier d'environnement (il ajoute `POSTGRES_PASSWORD` s'il manque), construit l'image, démarre les services, contrôle que `/api/health` renvoie la version de `version.txt`, puis supprime les anciennes images. Un autre fichier peut être indiqué avec `COCKPIT_ENV_FILE`.
 
+### Mesurer l'usage avec PostHog (facultatif)
+
+Sans réglage, rien ne quitte Cockpit. Pour envoyer des mesures d'usage à PostHog Cloud (région UE), ajouter la clé de projet (`phc_…`) au fichier d'environnement, puis redéployer : ouvrir le fichier avec `sudoedit /etc/cockpit/cockpit.env` et y ajouter la ligne `POSTHOG_KEY=phc_…` (une ligne à elle, sans guillemets ; ne pas l'ajouter avec `echo >>` : sans retour à la ligne final, elle se collerait à la précédente) (`compose.yaml` la transmet à l'application). En local : `POSTHOG_KEY=phc_… npm run dev:server` (ou `npm start`).
+
+**Ce qui part** : les écrans ouverts (le motif de l'adresse, `/projets/:id/conception`, jamais l'adresse de l'écran), l'identifiant numérique de l'utilisateur, le nom des actions faites dans Cockpit avec leur résultat (`ok`, `refused` ou `error`), qui l'a faite et d'où (un refus ou un échec envoie sa raison sous la forme d'un code fixe : `no_session`, `plan`, `error`…, jamais un texte libre), les erreurs de la page (route sans identifiants, code HTTP) et les plantages (leur message et leur pile, qui nomme les scripts de la page, donc l'adresse de l'instance, et peut citer une valeur affichée ou une adresse). **Ce qui ne part jamais** : le contenu des projets, les détails et arguments de l'historique, le message d'une erreur du serveur, le nom, le login ou l'e-mail, l'adresse d'un écran. Pas de cookie ni de stockage dans le navigateur. Avec une clé, « Réglages » le dit en bas de page.
+
+**À régler dans PostHog** : Cockpit ne peut pas couper l'adresse IP, que PostHog garde par défaut. Activer le réglage du projet **« Discard client IP data »**. Décision [083](docs/decisions/083-telemetrie-posthog.md).
+
 ### Premier lancement : l'assistant
 
 Le premier déploiement affiche dans son journal la ligne `Cockpit setup code: XXXX-XXXX-XXXX-XXXX — open …/installation` (on la retrouve avec `docker compose --env-file /etc/cockpit/cockpit.env logs app`). Ensuite :

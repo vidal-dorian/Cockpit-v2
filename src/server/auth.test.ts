@@ -411,6 +411,7 @@ describe("GET /api/me", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
+      id: expect.any(Number),
       login: "octocat",
       name: "The Octocat",
       avatarUrl: "https://avatars/1",

@@ -1,5 +1,6 @@
 import type { Db } from "./db/db.ts";
 import { history } from "./db/schema.ts";
+import { sendEvent } from "./telemetry.ts";
 
 /** The history entry of an action; `args` hold ids, closed values and numbers, never free text or personal data (decision 010 D). */
 export type Entry = Required<
@@ -33,8 +34,16 @@ export async function act<T>(
   entry: Entry,
   work: (tx: Tx) => Promise<T>,
 ): Promise<T> {
+  const send = (result: string, reason?: string) =>
+    sendEvent(entry.action, entry.userId, {
+      result,
+      actor: entry.actor,
+      origin: entry.origin,
+      ...(reason && { reason }),
+    });
+  let done: T;
   try {
-    return await db.transaction(async (tx) => {
+    done = await db.transaction(async (tx) => {
       const result = await work(tx);
       await tx.insert(history).values({ ...entry, result: "ok" });
       return result;
@@ -54,6 +63,13 @@ export async function act<T>(
       throw writeError;
     }
     if (error instanceof Refused) error.journaled = true;
+    send(
+      error instanceof Refused ? "refused" : "error",
+      error instanceof Refused ? error.message : "error",
+    );
     throw error;
   }
+  // Outside the try: the action is committed, nothing here may journal it as an error.
+  send("ok");
+  return done;
 }

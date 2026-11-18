@@ -14,6 +14,7 @@ import { Logo } from "./Logo.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { atLeast } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
+import { identify, init } from "./telemetry.ts";
 import { ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
 
@@ -29,12 +30,27 @@ export async function fetchHealth() {
   return res.json();
 }
 
+/** The PostHog key, or null: also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
+export async function fetchTelemetry() {
+  let key: string | null = null;
+  try {
+    const res = await client.api.telemetry.$get();
+    if (res.ok) key = (await res.json()).key;
+  } catch {}
+  // Starts telemetry before any screen mounts, so that the first $pageview is not lost; a no-op the next times. Not awaited: the page never waits for the posthog-js chunk.
+  void init(key).catch(() => {});
+  return key;
+}
+
 /** The logged-in account, or null when the server answers 401. */
 export async function fetchMe() {
   const res = await client.api.me.$get();
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const me = await res.json();
+  // Here, not in an effect: the first $pageview of a load must already carry the account (decision 083 C).
+  identify(String(me.id));
+  return me;
 }
 
 async function fetchHome() {
