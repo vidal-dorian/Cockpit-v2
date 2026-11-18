@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 import { decisionStory, stubDecisionApi } from "./test-decisions.tsx";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
+import { stubWidth } from "./test-width.ts";
 
 // Slice 4.5 (decision 019): the « Kanban » section of /projets/:id. The stub of test-tickets.tsx answers
 // GET /api/projects/5/stories like the real route: { stories: [{ id, ticketId, ticketTitle, position, iWant, status }] },
@@ -215,6 +216,7 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     fireEvent.click(await screen.findByRole("link", { name: "hello" }));
   };
   const decide = async (act: () => Promise<void> | void, done: string) => {
+    stubWidth(1280); // from lg a card opens the panel (decision 083 C3); below, it goes to the page
     renderWithClient();
     fireEvent.click(await screen.findByRole("link", { name: /vouloir-alpha/ }));
     // The card opens in the panel; the story page is one link away (decision 069 G).
