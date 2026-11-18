@@ -87,7 +87,23 @@ describe("review: /nuit on a planned night", () => {
         .find((li) =>
           li.textContent?.includes(`faire la chose ${n}`),
         ) as HTMLElement;
-    await waitFor(() => expect(rowOf(1)).toBeDefined());
+    const maybe = (
+      await screen.findByRole("heading", {
+        level: 2,
+        name: "Pourrait s'ajouter",
+      })
+    ).closest("section") as HTMLElement;
+    for (const n of [1, 2, 3]) {
+      const li = await waitFor(() => {
+        const found = within(maybe)
+          .getAllByRole("listitem")
+          .find((i) => i.textContent?.includes(`faire la chose ${n}`));
+        expect(found).toBeDefined();
+        return found as HTMLElement;
+      });
+      fireEvent.click(within(li).getByRole("button", { name: "Ajouter" }));
+      await waitFor(() => expect(rowOf(n)).toBeDefined());
+    }
     fireEvent.click(
       within(rowOf(1)).getByRole("button", { name: "Descendre" }),
     );
