@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { type KeyboardEvent, useRef } from "react";
+import { type KeyboardEvent, type MouseEvent, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { Dot } from "./Shell.tsx";
@@ -134,6 +134,25 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
       return;
     close();
   };
+  const countOf = (name: string) =>
+    name === "Idées"
+      ? ideas.length
+      : (board ?? []).filter(
+          (s) => s.status !== "abandoned" && COLUMN_OF[s.status] === name,
+        ).length;
+  // The column shown below sm (083 C2): the first filled one of what waits for the user, else of the board, else Idées.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const shown =
+    chosen ??
+    ["À valider", "Prêtes", "En revue"].find((n) => countOf(n) > 0) ??
+    COLUMNS.find(({ name }) => countOf(name) > 0)?.name ??
+    "Idées";
+  // Below lg the right panel is not fixed on the right: a card goes to its page (083 C3). The width is read at the touch.
+  const toPage = (path: string) => (event: MouseEvent) => {
+    if (window.matchMedia?.("(min-width: 1024px)").matches !== false) return;
+    event.preventDefault();
+    navigate(path);
+  };
   // Red only for the story the page sentence names, the first one waiting on an answer (decision 045 C).
   const asking = board?.find((s) => s.questionPending)?.id;
 
@@ -169,9 +188,27 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
         )}
         {board && (
           <>
-            <p className="mb-3 text-[12.5px] text-muted-foreground">
+            <p className="mb-3 text-[12.5px] text-muted-foreground max-lg:hidden">
               Pas de glisser-déposer : un clic ouvre la carte à droite.
             </p>
+            {/* biome-ignore lint/a11y/useSemanticElements: a fieldset would bring its border and legend */}
+            <div
+              role="group"
+              aria-label="Colonne affichée"
+              className="mb-3 flex flex-wrap gap-2 sm:hidden"
+            >
+              {COLUMNS.map(({ name }) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-pressed={shown === name}
+                  onClick={() => setChosen(name)}
+                  className={`${button} min-h-11 ${shown === name ? "border-border-strong bg-raised" : ""}`}
+                >
+                  {name} <span className={badge}>{countOf(name)}</span>
+                </button>
+              ))}
+            </div>
             {/* biome-ignore lint/a11y/useSemanticElements: a <section> with this role is flagged as redundant, and the role is wanted explicit */}
             <div
               role="region"
@@ -185,10 +222,13 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                   (s) =>
                     s.status !== "abandoned" && COLUMN_OF[s.status] === name,
                 );
-                const count = name === "Idées" ? ideas.length : cards.length;
+                const count = countOf(name);
                 const faded = name === "Terminées";
                 return (
-                  <section key={name} className="sm:min-w-36 sm:flex-1">
+                  <section
+                    key={name}
+                    className={`sm:min-w-36 sm:flex-1 ${shown === name ? "" : "max-sm:hidden"}`}
+                  >
                     <h3
                       aria-label={`${name} (${count})`}
                       className="flex items-center gap-2 px-0.5 text-[13px] font-semibold"
@@ -221,6 +261,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                     ? { search: "" }
                                     : `?ticket=${t.id}`
                                 }
+                                onClick={toPage(`/tickets/${t.id}`)}
                                 aria-current={
                                   openIdea?.id === t.id || undefined
                                 }
@@ -264,6 +305,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                     ? { search: "" }
                                     : `?us=${story.id}`
                                 }
+                                onClick={toPage(`/us/${story.id}`)}
                                 aria-current={
                                   openStory?.id === story.id || undefined
                                 }
