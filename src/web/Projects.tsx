@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { atLeast, QUOTA_REFUSAL, ROLE_LABELS } from "./roles.ts";
-import { Dot, StateSentence, useHome } from "./Shell.tsx";
+import { Dot, repoName, StateSentence, useHome } from "./Shell.tsx";
 import { STARTER_LEVELS, type StarterLevel } from "./starter-levels.ts";
 import {
   alertBox,
@@ -11,6 +11,7 @@ import {
   button,
   chipLink,
   dangerButton,
+  field,
   focusRing,
   ghostButton,
   listCard,
@@ -556,6 +557,8 @@ function ImportDialog({
   );
 }
 
+const IMPORT_PAGE = 10;
+
 function Importable() {
   const queryClient = useQueryClient();
   const repositories = useQuery({
@@ -567,6 +570,8 @@ function Importable() {
     githubRepoId: number;
     fullName: string;
   } | null>(null);
+  const [query, setQuery] = useState("");
+  const [shown, setShown] = useState(IMPORT_PAGE);
   const importRepo = useMutation({
     meta: { done: "Projet importé." },
     mutationFn: async (sent: {
@@ -608,6 +613,12 @@ function Importable() {
   // Not logged in: the project list already offers the login.
   if (repositories.data === null) return null;
   const { installUrl, installed, repositories: repos } = repositories.data;
+  const needle = query.toLowerCase();
+  // Not-yet-imported first; the sort is stable, so each group keeps the server order.
+  const matching = repos
+    .filter((repo) => repo.fullName.toLowerCase().includes(needle))
+    .sort((a, b) => Number(a.imported) - Number(b.imported));
+  const remaining = matching.length - shown;
   return (
     <>
       {!installed && (
@@ -630,18 +641,36 @@ function Importable() {
         </p>
       )}
       {repos.length > 0 && (
+        <input
+          type="search"
+          aria-label="Chercher un repo"
+          placeholder="Chercher un repo…"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setShown(IMPORT_PAGE);
+          }}
+          className={`mb-3 ${field}`}
+        />
+      )}
+      {repos.length > 0 && matching.length === 0 && (
+        <p className="text-muted-foreground">
+          Aucun repo ne correspond à « {query} ».
+        </p>
+      )}
+      {matching.length > 0 && (
         <ul className={listCard}>
-          {repos.map((repo) => (
+          {matching.slice(0, shown).map((repo) => (
             <li
               key={repo.githubRepoId}
               className="flex min-h-[50px] flex-wrap items-center gap-x-4 gap-y-2 px-[18px] py-2"
             >
               <span className="min-w-0 flex-1">
-                <span className="block font-mono text-[13px] font-semibold">
-                  {repo.fullName}
+                <span className="block break-all font-mono text-[13px] font-semibold">
+                  {repoName(repo.fullName)}
                 </span>
                 <span className="block text-[12.5px] text-muted-foreground">
-                  {repo.defaultBranch}
+                  {repo.fullName.split("/")[0]} · {repo.defaultBranch}
                 </span>
               </span>
               {repo.imported ? (
@@ -661,6 +690,15 @@ function Importable() {
             </li>
           ))}
         </ul>
+      )}
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={() => setShown(shown + IMPORT_PAGE)}
+          className={`mt-3 ${button}`}
+        >
+          Afficher plus ({remaining} restant{remaining > 1 ? "s" : ""})
+        </button>
       )}
       {choosing && (
         <ImportDialog
