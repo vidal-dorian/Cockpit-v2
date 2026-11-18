@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FakeEventSource, type HomeData, PROJECT } from "./test-home.tsx";
+import { FakeEventSource, PROJECT } from "./test-home.tsx";
+import { stubNight } from "./test-night.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
@@ -23,7 +24,7 @@ const review = (prNumber: number) => ({
 const url = (n: number) => `https://github.com/octocat/hello/pull/${n}`;
 
 describe("slice 14.7: review fixes", () => {
-  it("given a night where nothing ran, when the page shows, then it says 0 min de travail", async () => {
+  it("given a night where nothing ran, when /nuit shows, then the Travail box says 0 min", async () => {
     const night = {
       id: 1,
       startsAt: new Date(2026, 10, 8, 22).toISOString(),
@@ -35,10 +36,12 @@ describe("slice 14.7: review fixes", () => {
       failures: 0,
       items: [],
     };
-    stubShell({ night } as unknown as Partial<HomeData>);
-    renderAt("/");
+    stubNight({ home: { night } });
+    renderAt("/nuit");
 
-    expect(await screen.findByText(/0 min de travail/)).toBeTruthy();
+    expect(
+      (await screen.findByText("Travail")).parentElement?.textContent,
+    ).toContain("0 min");
   });
 
   it("given an unfinished series whose last PR leaves the list, when the series restarts, then it does not open the same PR twice in a row", async () => {
