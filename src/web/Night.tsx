@@ -63,7 +63,7 @@ export function Night() {
     queryFn: fetchNightHours,
   });
   const morning = useHome().data?.night;
-  // The order the user gave; until they touch it, the ready stories as the server gave them.
+  // The programme the user builds in the evening: nothing enters it without their gesture.
   const [order, setOrder] = useState<number[]>();
   const act = useMutation({
     mutationFn: async (call: () => Promise<Response>) => {
@@ -87,14 +87,20 @@ export function Night() {
   const data = night.data;
   const stories = [...(data?.ready ?? []), ...(data?.toValidate ?? [])];
   const open = data?.night ?? null;
+  // Whoever opened the night (this tab, another tab or device), the local order is spent.
+  if (open && order) setOrder(undefined);
   // The order typed in the evening gives way to the server's once the night is posted.
+  // Ids the server no longer returns have no row: they leave the programme too.
   const program = open
     ? open.items.map((s) => s.storyId)
-    : (order ?? (data?.ready ?? []).map((s) => s.storyId));
+    : (order ?? []).filter((id) => stories.some((s) => s.storyId === id));
   const inProgram = program.flatMap((id) => {
     const story = stories.find((s) => s.storyId === id);
     return story ? [story] : [];
   });
+  const addable = (data?.ready ?? []).filter(
+    (s) => !program.includes(s.storyId),
+  );
   const maybe = (data?.toValidate ?? []).filter(
     (s) => !program.includes(s.storyId),
   );
@@ -135,7 +141,13 @@ export function Night() {
         title={
           open?.status === "running"
             ? "Claude développe pendant que tu dors."
-            : `Claude peut développer ${count} user ${count > 1 ? "stories" : "story"} pendant que tu dors.`
+            : !data
+              ? "Cette nuit"
+              : open || count > 0
+                ? `Claude peut développer ${count} user ${count > 1 ? "stories" : "story"} pendant que tu dors.`
+                : night.isError || launcher.isError
+                  ? "Cette nuit"
+                  : "Choisis les user stories que Claude développera cette nuit."
         }
         rest={
           known.length > 0
@@ -214,7 +226,7 @@ export function Night() {
                   ))}
                   {count === 0 && (
                     <li className={`${row} text-muted-foreground`}>
-                      Aucune user story prête dans les projets du lanceur.
+                      Aucune user story au programme.
                     </li>
                   )}
                 </ul>
@@ -232,6 +244,21 @@ export function Night() {
                     Pourrait s'ajouter
                   </h2>
                   <ul className={`mt-2 ${listCard}`}>
+                    {addable.map((s) => (
+                      <li key={s.storyId} className={row}>
+                        <b>{s.iWant}</b>
+                        <span className="text-muted-foreground">
+                          {s.project.name}
+                        </span>
+                        <button
+                          type="button"
+                          className={`ml-auto ${button}`}
+                          onClick={() => setOrder([...program, s.storyId])}
+                        >
+                          Ajouter
+                        </button>
+                      </li>
+                    ))}
                     {maybe.map((s) => (
                       <li key={s.storyId} className={row}>
                         <b>{s.iWant}</b>
@@ -249,9 +276,9 @@ export function Night() {
                         </button>
                       </li>
                     ))}
-                    {maybe.length === 0 && (
+                    {addable.length + maybe.length === 0 && (
                       <li className={`${row} text-muted-foreground`}>
-                        Aucune US à valider.
+                        Aucune user story à ajouter.
                       </li>
                     )}
                   </ul>
