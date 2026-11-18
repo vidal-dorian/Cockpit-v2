@@ -127,6 +127,16 @@ describe("decision 083 A1: search", () => {
     expect(screen.queryByText("api")).toBeNull();
     expect(importButtons()).toHaveLength(2);
   });
+
+  it("given a trailing space after the text (iOS suggestion), when typed, then the matching repo still shows", async () => {
+    stubApi([repo(1, "alice/site"), repo(2, "bob/api")]);
+    renderProjects();
+
+    fireEvent.change(await search(), { target: { value: "alice " } });
+
+    expect(screen.getByText("site")).toBeDefined();
+    expect(screen.queryByText("api")).toBeNull();
+  });
 });
 
 describe("decision 083 A2: ten at a time", () => {

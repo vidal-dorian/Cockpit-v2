@@ -613,7 +613,9 @@ function Importable() {
   // Not logged in: the project list already offers the login.
   if (repositories.data === null) return null;
   const { installUrl, installed, repositories: repos } = repositories.data;
-  const needle = query.toLowerCase();
+  // iOS adds a space after a tapped suggestion: it is not part of the name.
+  const typed = query.trim();
+  const needle = typed.toLowerCase();
   // Not-yet-imported first; the sort is stable, so each group keeps the server order.
   const matching = repos
     .filter((repo) => repo.fullName.toLowerCase().includes(needle))
@@ -645,6 +647,9 @@ function Importable() {
           type="search"
           aria-label="Chercher un repo"
           placeholder="Chercher un repo…"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -655,7 +660,7 @@ function Importable() {
       )}
       {repos.length > 0 && matching.length === 0 && (
         <p className="text-muted-foreground">
-          Aucun repo ne correspond à « {query} ».
+          Aucun repo ne correspond à « {typed} ».
         </p>
       )}
       {matching.length > 0 && (
