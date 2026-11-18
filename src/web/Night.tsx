@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
+import { NightMorning } from "./NightMorning.tsx";
 import { refusedError } from "./roles.ts";
-import { fetchNight, StateSentence, useHome } from "./Shell.tsx";
+import { Dot, fetchNight, repoName, StateSentence, useHome } from "./Shell.tsx";
 import { toast } from "./toast.tsx";
 import {
   alertBox,
@@ -62,7 +63,11 @@ export function Night() {
     queryKey: ["night-hours"],
     queryFn: fetchNightHours,
   });
-  const morning = useHome().data?.night;
+  const home = useHome().data;
+  const morning = home?.night;
+  const questions = (home?.forYou ?? []).filter(
+    (item) => item.kind === "answer",
+  ).length;
   // The order the user gave; until they touch it, the ready stories as the server gave them.
   const [order, setOrder] = useState<number[]>();
   const act = useMutation({
@@ -119,6 +124,10 @@ export function Night() {
       : null;
   const count = shown.length;
   const planned = open?.status === "planned";
+  const running = open?.status === "running";
+  const finished = shown.filter((s) => s.outcome).length;
+  // One story at a time (044): the first without outcome is the one running.
+  const current = running ? shown.find((s) => !s.outcome) : undefined;
   // The end: the start (the night's, or the next start hour) and the total, when every story has an estimate.
   const total = known.reduce((a, b) => a + b, 0);
   const start = open
@@ -143,6 +152,7 @@ export function Night() {
             : undefined
         }
       />
+      {morning && <NightMorning night={morning} questions={questions} />}
       <div className="grid gap-6 px-[26px] py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {(night.isError || launcher.isError) && (
           <p role="alert" className={`lg:col-span-2 ${alertBox}`}>
@@ -158,105 +168,6 @@ export function Night() {
         {data && (
           <>
             <div className="grid content-start gap-6">
-              <section aria-labelledby="programme">
-                <h2 id="programme" className={sectionLabel}>
-                  Au programme
-                </h2>
-                <ul className={`mt-2 ${listCard}`}>
-                  {shown.map((s, at) => (
-                    <li key={s.storyId} className={row}>
-                      <b id={`night-${s.storyId}`}>{s.iWant}</b>
-                      <span className="text-muted-foreground">
-                        {s.project.name} · {duration(s.estimatedSeconds)}
-                      </span>
-                      {open && !planned ? (
-                        <span className="ml-auto text-muted-foreground">
-                          {s.outcome
-                            ? (OUTCOMES[s.outcome] ?? s.outcome)
-                            : "À venir"}
-                        </span>
-                      ) : (
-                        <span className="ml-auto flex gap-1.5">
-                          <button
-                            type="button"
-                            aria-label="Monter"
-                            aria-describedby={`night-${s.storyId}`}
-                            disabled={at === 0}
-                            className={iconButton}
-                            onClick={() => move(at, -1)}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Descendre"
-                            aria-describedby={`night-${s.storyId}`}
-                            disabled={at === shown.length - 1}
-                            className={iconButton}
-                            onClick={() => move(at, 1)}
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Retirer"
-                            aria-describedby={`night-${s.storyId}`}
-                            className={iconButton}
-                            onClick={() =>
-                              reorder(program.filter((id) => id !== s.storyId))
-                            }
-                          >
-                            ✕
-                          </button>
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                  {count === 0 && (
-                    <li className={`${row} text-muted-foreground`}>
-                      Aucune user story prête dans les projets du lanceur.
-                    </li>
-                  )}
-                </ul>
-              </section>
-              {morning && !open && (
-                <p>
-                  <Link to="/" className="font-semibold underline">
-                    Voir ce que Claude a fait cette nuit
-                  </Link>
-                </p>
-              )}
-              {!open && (
-                <section aria-labelledby="peut-etre">
-                  <h2 id="peut-etre" className={sectionLabel}>
-                    Pourrait s'ajouter
-                  </h2>
-                  <ul className={`mt-2 ${listCard}`}>
-                    {maybe.map((s) => (
-                      <li key={s.storyId} className={row}>
-                        <b>{s.iWant}</b>
-                        <span className="text-muted-foreground">
-                          {s.project.name}
-                        </span>
-                        <button
-                          type="button"
-                          className={`ml-auto ${button}`}
-                          disabled={validate.isPending}
-                          aria-busy={validate.isPending}
-                          onClick={() => validate.mutate(s.storyId)}
-                        >
-                          Valider et ajouter
-                        </button>
-                      </li>
-                    ))}
-                    {maybe.length === 0 && (
-                      <li className={`${row} text-muted-foreground`}>
-                        Aucune US à valider.
-                      </li>
-                    )}
-                  </ul>
-                </section>
-              )}
               <div className="flex flex-wrap items-center gap-3">
                 {!open && (
                   <>
@@ -281,7 +192,20 @@ export function Night() {
                       {count > 1 ? "user stories" : "user story"}
                     </button>
                     {reason && (
-                      <span className="text-muted-foreground">{reason}</span>
+                      <span className="text-muted-foreground">
+                        {reason}
+                        {!launcher.data?.connected && (
+                          <>
+                            {" "}
+                            <Link
+                              to="/reglages/taches-cloud"
+                              className="font-semibold underline"
+                            >
+                              Réglages
+                            </Link>
+                          </>
+                        )}
+                      </span>
                     )}
                   </>
                 )}
@@ -315,17 +239,151 @@ export function Night() {
                   </button>
                 )}
               </div>
+              <section aria-labelledby="programme">
+                <h2 id="programme" className={sectionLabel}>
+                  Au programme
+                </h2>
+                {running && (
+                  <div className="mt-2 grid gap-1.5">
+                    <p>
+                      {finished} sur {count} finies
+                    </p>
+                    <div
+                      role="progressbar"
+                      aria-label="Avancement de la nuit"
+                      aria-valuenow={finished}
+                      aria-valuemin={0}
+                      aria-valuemax={count}
+                      className="h-2 overflow-hidden rounded-full bg-raised"
+                    >
+                      <div
+                        className="h-full bg-claude"
+                        style={{ width: `${(finished / count) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <ul className={`mt-2 ${listCard}`}>
+                  {shown.map((s, at) => (
+                    <li key={s.storyId} className={row}>
+                      <span className="mr-3 grid size-6 flex-none place-items-center rounded-full bg-raised text-[12px] font-semibold">
+                        {at + 1}
+                      </span>
+                      <b id={`night-${s.storyId}`}>{s.iWant}</b>
+                      <span className="text-muted-foreground">
+                        {repoName(s.project.name)} ·{" "}
+                        {duration(s.estimatedSeconds)}
+                      </span>
+                      {open && !planned ? (
+                        <span className="ml-auto inline-flex items-center gap-2 text-muted-foreground">
+                          <Dot
+                            tone={
+                              s.outcome
+                                ? s.outcome === "pr"
+                                  ? "done"
+                                  : s.outcome === "paused"
+                                    ? "you"
+                                    : "none"
+                                : s === current
+                                  ? "claude"
+                                  : "none"
+                            }
+                            live={s === current}
+                          />
+                          {s.outcome
+                            ? (OUTCOMES[s.outcome] ?? s.outcome)
+                            : s === current
+                              ? "En cours"
+                              : "À venir"}
+                        </span>
+                      ) : (
+                        <span className="ml-auto flex gap-1.5">
+                          <button
+                            type="button"
+                            aria-label="Monter"
+                            aria-describedby={`night-${s.storyId}`}
+                            disabled={at === 0}
+                            className={`${iconButton} max-md:size-11`}
+                            onClick={() => move(at, -1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Descendre"
+                            aria-describedby={`night-${s.storyId}`}
+                            disabled={at === shown.length - 1}
+                            className={`${iconButton} max-md:size-11`}
+                            onClick={() => move(at, 1)}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Retirer"
+                            aria-describedby={`night-${s.storyId}`}
+                            className={`${iconButton} max-md:size-11`}
+                            onClick={() =>
+                              reorder(program.filter((id) => id !== s.storyId))
+                            }
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                  {count === 0 && (
+                    <li className={`${row} text-muted-foreground`}>
+                      Aucune user story prête dans les projets du lanceur.
+                    </li>
+                  )}
+                </ul>
+              </section>
+              {!open && (
+                <section aria-labelledby="peut-etre">
+                  <h2 id="peut-etre" className={sectionLabel}>
+                    Pourrait s'ajouter
+                  </h2>
+                  <ul className={`mt-2 ${listCard}`}>
+                    {maybe.map((s) => (
+                      <li key={s.storyId} className={row}>
+                        <b>{s.iWant}</b>
+                        <span className="text-muted-foreground">
+                          {s.project.name}
+                        </span>
+                        <button
+                          type="button"
+                          className={`ml-auto ${button}`}
+                          disabled={validate.isPending}
+                          aria-busy={validate.isPending}
+                          onClick={() => validate.mutate(s.storyId)}
+                        >
+                          Valider et ajouter
+                        </button>
+                      </li>
+                    ))}
+                    {maybe.length === 0 && (
+                      <li className={`${row} text-muted-foreground`}>
+                        Aucune US à valider.
+                      </li>
+                    )}
+                  </ul>
+                </section>
+              )}
             </div>
-            <section aria-labelledby="regles">
-              <h2 id="regles" className={sectionLabel}>
-                Les règles de la nuit
-              </h2>
+            <details>
+              <summary className="cursor-pointer">
+                <h2 className={`inline ${sectionLabel}`}>
+                  Les règles de la nuit
+                </h2>
+              </summary>
               <ul className={`mt-2 grid gap-2 ${listCard} px-[18px] py-3.5`}>
                 {RULES.map((rule) => (
                   <li key={rule}>{rule}</li>
                 ))}
               </ul>
-            </section>
+            </details>
           </>
         )}
         {night.isPending && (

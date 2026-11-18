@@ -5,7 +5,6 @@ import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { fetchInstallation } from "./InstallBanner.tsx";
 import { fetchHistory, JournalEntry } from "./Journal.tsx";
-import { NightMorning } from "./NightMorning.tsx";
 import { WhyAsked } from "./RunQuestions.tsx";
 import { REASONS } from "./RunVerdict.tsx";
 import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
@@ -681,9 +680,6 @@ export function HomePage({
           installed={installation.data?.installed === true}
           onIdea={onIdea}
         />
-      )}
-      {home.data.night && (
-        <NightMorning night={home.data.night} questions={blocked} />
       )}
       {first && (
         <Section
