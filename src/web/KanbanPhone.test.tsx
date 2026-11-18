@@ -187,6 +187,28 @@ describe("C2: the column shown by default", () => {
     await waitFor(async () => expect(await pressed()).toEqual(["Idées"]));
     expect(hiddenOnPhone("Idées")).toBe(false);
   });
+
+  it("given a chip pressed on a project, when the user moves to another project, then the default column is pressed again", async () => {
+    stubProjectShell({}, tickets, full);
+    // The fake serves project 5 only: project 6 answers with the same board.
+    const fake = fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      fake(
+        typeof input === "string"
+          ? input.replace("/api/projects/6/", "/api/projects/5/")
+          : input,
+        init,
+      ),
+    );
+    renderAt("/projets/5");
+
+    fireEvent.click(await chip("Terminées"));
+    await waitFor(async () => expect(await pressed()).toEqual(["Terminées"]));
+    window.history.pushState({}, "", "/projets/6");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    await waitFor(async () => expect(await pressed()).toEqual(["À valider"]));
+  });
 });
 
 describe("C3: touching a card below lg", () => {

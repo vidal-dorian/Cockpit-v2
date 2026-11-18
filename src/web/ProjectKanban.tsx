@@ -11,6 +11,7 @@ import {
   alertBox,
   badge,
   button,
+  chipLink,
   focusRing,
   primaryButton,
   urgentBadge,
@@ -141,15 +142,27 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
           (s) => s.status !== "abandoned" && COLUMN_OF[s.status] === name,
         ).length;
   // The column shown below sm (083 C2): the first filled one of what waits for the user, else of the board, else Idées.
-  const [chosen, setChosen] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<{
+    projectId: string;
+    name: string;
+  } | null>(null);
+  // The choice belongs to its project: the component stays mounted from one project to the next.
   const shown =
-    chosen ??
+    (chosen?.projectId === projectId ? chosen.name : null) ??
     ["À valider", "Prêtes", "En revue"].find((n) => countOf(n) > 0) ??
     COLUMNS.find(({ name }) => countOf(name) > 0)?.name ??
     "Idées";
   // Below lg the right panel is not fixed on the right: a card goes to its page (083 C3). The width is read at the touch.
   const toPage = (path: string) => (event: MouseEvent) => {
-    if (window.matchMedia?.("(min-width: 1024px)").matches !== false) return;
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      window.matchMedia?.("(min-width: 1024px)").matches !== false
+    )
+      return;
     event.preventDefault();
     navigate(path);
   };
@@ -202,8 +215,8 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                   key={name}
                   type="button"
                   aria-pressed={shown === name}
-                  onClick={() => setChosen(name)}
-                  className={`${button} min-h-11 ${shown === name ? "border-border-strong bg-raised" : ""}`}
+                  onClick={() => setChosen({ projectId, name })}
+                  className={`${chipLink({ isActive: shown === name })} min-h-11`}
                 >
                   {name} <span className={badge}>{countOf(name)}</span>
                 </button>
