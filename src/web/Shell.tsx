@@ -370,7 +370,7 @@ function SidebarContent({
               onClick={onNavigate}
             >
               <Dot tone={p.id === firstProject ? "you" : "none"} />
-              {repoName(p.name)}
+              <span className="min-w-0 truncate">{repoName(p.name)}</span>
               {count > 0 && <span className={`${badge} ml-auto`}>{count}</span>}
             </NavLink>
           );
@@ -568,7 +568,7 @@ function PhoneNav({
             onNavigate();
             setMenuOpen(true);
           }}
-          className={tab({ isActive: menuOpen || menuPage })}
+          className={tab({ isActive: menuOpen || (menuPage && !open) })}
         >
           <TabIcon>
             <path d="M4 6h16M4 12h16M4 18h16" />
@@ -578,7 +578,7 @@ function PhoneNav({
       </nav>
       {menuOpen && (
         <Modal label="Menu" onClose={closeMenu}>
-          <div className="flex min-h-full flex-col bg-card px-3 py-4">
+          <div className="flex min-h-full flex-col bg-card px-3 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={closeMenu}
@@ -831,7 +831,7 @@ export function IdeaBar({
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id} className="bg-card">
-                  {repoName(p.name)}
+                  <span className="min-w-0 truncate">{repoName(p.name)}</span>
                 </option>
               ))}
             </select>

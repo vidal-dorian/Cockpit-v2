@@ -128,6 +128,14 @@ describe("decision 083 B1: the size of the bar", () => {
     );
     expect(content?.className).toContain("safe-area-inset-bottom");
   });
+
+  it("given the idea panel full screen, when it opens, then it keeps the safe area clear below its content", async () => {
+    show();
+
+    fireEvent.click((await phoneNav()).getByRole("button", { name: /Idée/ }));
+    const panel = await screen.findByRole("dialog", { name: "Noter une idée" });
+    expect(panel.className).toContain("safe-area-inset-bottom");
+  });
 });
 
 describe("decision 083 B2: the Menu tab and its window", () => {
@@ -277,6 +285,16 @@ describe("decision 083 B4: the Menu tab in white", () => {
       expect(menu.className).toContain("text-foreground");
     },
   );
+
+  it("given a menu-only page, when the idea panel opens, then Menu is no longer white", async () => {
+    show("/reglages");
+
+    fireEvent.click((await phoneNav()).getByRole("button", { name: /Idée/ }));
+    await screen.findByRole("dialog", { name: "Noter une idée" });
+    const menu = await menuTab();
+    expect(menu.className).toContain("text-muted-foreground");
+    expect(menu.className).not.toContain("text-foreground");
+  });
 
   it.each(["/", "/nuit", "/projets"])(
     "given the page %s that has its own tab, when it renders, then Menu is not current",
