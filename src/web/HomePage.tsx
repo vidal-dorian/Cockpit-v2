@@ -118,14 +118,16 @@ const itemKey = (item: Item) =>
 function Section({
   label,
   hint,
+  className = "",
   children,
 }: {
   label: React.ReactNode;
   hint?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="px-[26px] pt-[22px]">
+    <section className={`px-[26px] pt-[22px] ${className}`}>
       <h2 className="mb-2 flex items-center gap-2">
         {label}
         {hint && (
@@ -359,7 +361,7 @@ function Row({ item, open }: { item: Item; open: () => void }) {
         ? item.updatedAt
         : undefined;
   return (
-    <div className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 px-[18px]">
+    <div className="grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 px-[18px] max-sm:grid-cols-[24px_minmax(0,1fr)] max-sm:py-3">
       <span
         aria-hidden="true"
         className="text-center text-[13px] font-bold text-dim"
@@ -369,7 +371,9 @@ function Row({ item, open }: { item: Item; open: () => void }) {
           : KINDS[item.kind].glyph}
       </span>
       <span className="min-w-0">
-        <b className="block truncate font-semibold">{rowTitle(item)}</b>
+        <b className="block font-semibold max-sm:line-clamp-2 sm:truncate">
+          {rowTitle(item)}
+        </b>
         <span className="block text-[12.5px] text-muted-foreground">
           {subLine(item, false)}
         </span>
@@ -379,7 +383,7 @@ function Row({ item, open }: { item: Item; open: () => void }) {
           </span>
         )}
       </span>
-      <span className="flex items-center gap-3.5">
+      <span className="flex items-center gap-3.5 max-sm:col-start-2">
         <RowActions
           item={item}
           open={open}
@@ -496,6 +500,8 @@ function OnboardingGuide({
     { done: installed, detail: null, projectId: null, storyId: null },
     ...guide.steps,
   ];
+  // Below md only the next step shows until the user unfolds the guide (decision 083 D1).
+  const [expanded, setExpanded] = useState(false);
   const count = rows.filter((r) => r.done).length;
   const next = rows.findIndex((r) => !r.done);
   const target = (i: number, r: (typeof rows)[number]) => {
@@ -537,7 +543,7 @@ function OnboardingGuide({
         {rows.map((r, i) => (
           <li
             key={GUIDE[i]?.key}
-            className={`grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px] ${r.done ? "text-muted-foreground" : ""}`}
+            className={`grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px] ${r.done ? "text-muted-foreground" : ""} ${i === next || expanded ? "" : "max-md:hidden"}`}
           >
             <span
               aria-hidden="true"
@@ -572,8 +578,22 @@ function OnboardingGuide({
           </li>
         ))}
       </ol>
-      <p className={`${sectionLabel} mt-[22px] mb-2`}>Pourquoi cet ordre</p>
-      <p className={`${listCard} px-[18px] py-3.5 text-muted-foreground`}>
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        className={`mt-2 min-h-11 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground md:hidden ${focusRing}`}
+      >
+        {expanded ? "Masquer les étapes" : "Voir les 7 étapes"}
+      </button>
+      <p
+        className={`${sectionLabel} mt-[22px] mb-2 ${expanded ? "" : "max-md:hidden"}`}
+      >
+        Pourquoi cet ordre
+      </p>
+      <p
+        className={`${listCard} px-[18px] py-3.5 text-muted-foreground ${expanded ? "" : "max-md:hidden"}`}
+      >
         Claude ne peut développer que dans un repo préparé, et seulement une
         user story que tu as validée. Chaque étape débloque la suivante.
       </p>
@@ -817,7 +837,10 @@ function Recent() {
   const entries = history.data?.entries.slice(0, 5);
   if (history.isPending) return null;
   return (
-    <Section label={<span className={sectionLabel}>Dernièrement</span>}>
+    <Section
+      label={<span className={sectionLabel}>Dernièrement</span>}
+      className="max-md:hidden"
+    >
       {history.isError ? (
         <p className="mt-2 text-muted-foreground">
           Impossible de lire le journal.
