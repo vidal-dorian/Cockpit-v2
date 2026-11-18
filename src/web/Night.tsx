@@ -266,13 +266,15 @@ export function Night() {
                 <ul className={`mt-2 ${listCard}`}>
                   {shown.map((s, at) => (
                     <li key={s.storyId} className={row}>
-                      <span className="mr-3 grid size-6 flex-none place-items-center rounded-full bg-raised text-[12px] font-semibold">
+                      <span className="grid size-6 flex-none place-items-center rounded-full bg-raised text-[12px] font-semibold">
                         {at + 1}
                       </span>
-                      <b id={`night-${s.storyId}`}>{s.iWant}</b>
-                      <span className="text-muted-foreground">
-                        {repoName(s.project.name)} ·{" "}
-                        {duration(s.estimatedSeconds)}
+                      <span className="grid min-w-0 flex-[1_1_10rem]">
+                        <b id={`night-${s.storyId}`}>{s.iWant}</b>
+                        <span className="text-muted-foreground">
+                          {repoName(s.project.name)} ·{" "}
+                          {duration(s.estimatedSeconds)}
+                        </span>
                       </span>
                       {open && !planned ? (
                         <span className="ml-auto inline-flex items-center gap-2 text-muted-foreground">
