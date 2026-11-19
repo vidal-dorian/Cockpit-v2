@@ -101,6 +101,16 @@ La nuit et la liste des projets (A, C, D, E ; cinquième morceau construit, S05)
 - **Importer un repo** (D) : la barre latérale pointe vers `/projets#importer` ; une fois les repos chargés, `Importable` amène la section dans la vue (`scrollIntoView`). Sans projet, l'état vide porte le lien « Importer un repo » vers `#importer`. Après un import réussi, « Ouvrir le projet » mène à `/projets/:id` et la liste reste affichée (pas de navigation automatique).
 - **« Claude t'attend » sur la liste des projets** (E) : l'état d'un projet qui attend l'utilisateur est un lien « Claude t'attend · n <chose> » vers la première chose de son espèce : question (`/runs/:runId`), US à valider ou PR à relire (`/us/:id`), relance épuisée (`/us/:id`), run à vérifier (`/runs/:runId`). Le compte est celui des éléments du même genre que le premier.
 
+Le journal et les objets cités (C ; sixième morceau construit, S06) :
+
+- **Accueil** : chaque ligne de « Dernièrement » est un lien entier (`JournalEntry`, prop `to`) vers `objectPath(entry)` (`Journal.tsx`) : `/runs/:runId`, sinon `/us/:storyId`, sinon `/tickets/:ticketId` ; une entrée sans objet (connexion) reste une ligne sans lien. La page Journal et l'onglet Historique gardent leurs lignes en boutons qui ouvrent le panneau (053 G).
+- **Panneau « Entrée du journal »** (`JournalView.tsx`, partagé par la page Journal et l'onglet Historique d'un projet) : le projet est un lien vers `/projets/:id` ; un champ « Lié à » porte « Run n » (`/runs/n`), « US n » (`/us/n`) et « Ticket n » (`/tickets/n`), absent quand l'entrée n'a aucun des trois (et dans la version partielle du panneau).
+- **Ligne de l'onglet Historique** : sous la phrase, « Run n · US n · Ticket n » en texte simple (`objectWords`), la ligne étant déjà un bouton.
+- **Page /claude** : le titre de chaque US de la file et celui de la question en attente (« Maintenant ») mènent à `/us/:id` ; « l'US n » de « Attend l'US n, sautée en attendant » est un lien.
+- **Page d'un run** : « PR #n ouverte » mène à la PR sur GitHub (`https://github.com/<repo>/pull/n`, le repo étant `project.name` du run).
+- **Branches à nettoyer** (« Ce qui a été livré », `ProjectDelivered.tsx`) : « PR #n » mène à GitHub et « US n » à `/us/n`, sur la ligne de la branche.
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -109,3 +119,4 @@ La nuit et la liste des projets (A, C, D, E ; cinquième morceau construit, S05)
 - **Une US ouverte dans un panneau de ticket** n'est pas dans l'adresse : seul `?ticket=` l'est dans l'onglet Tickets, et la page d'un ticket ne garde pas l'US ouverte.
 - **Un programme du soir** n'a aucun lien : pour lire une US déjà au programme, il faut valider ou annuler d'abord (« Lire » ne vaut que sous « Pourrait s'ajouter »).
 - **« Claude t'attend · n »** ne compte que les éléments du genre du premier ; un projet qui attend des choses de genres différents n'affiche que le premier genre.
+- **Le journal à l'accueil** n'ouvre pas le panneau : la ligne mène à la page de l'objet, les autres objets de l'entrée (US ou ticket d'une entrée qui a aussi un run) ne se lisent que dans le panneau du journal.

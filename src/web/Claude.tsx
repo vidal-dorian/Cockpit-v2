@@ -102,7 +102,9 @@ export function Claude() {
               <ul className={`mt-2 ${listCard}`}>
                 {claude.data.questions.map((q) => (
                   <li key={q.questionId} className={row}>
-                    <b>{q.iWant}</b>
+                    <b>
+                      <Link to={`/us/${q.storyId}`}>{q.iWant}</Link>
+                    </b>
                     <span className="text-muted-foreground">{q.question}</span>
                     <Link to={`/runs/${q.runId}`} className="ml-auto underline">
                       Répondre
@@ -207,15 +209,28 @@ export function Claude() {
               <ul className={`mt-2 ${listCard}`}>
                 {items.map((i, at) => (
                   <li key={i.storyId} className={row}>
-                    <b id={`queue-${i.storyId}`}>{i.iWant}</b>
+                    <b id={`queue-${i.storyId}`}>
+                      <Link to={`/us/${i.storyId}`}>{i.iWant}</Link>
+                    </b>
                     <span className="text-muted-foreground">
                       {i.projectName}
                     </span>
                     {i.waiting && (
                       <span className="text-muted-foreground">
-                        {i.waiting.reason === "dependency"
-                          ? `Attend l'US ${i.waiting.storyId}, sautée en attendant.`
-                          : "N'est plus prête, sautée en attendant."}
+                        {i.waiting.reason === "dependency" ? (
+                          <>
+                            Attend{" "}
+                            <Link
+                              to={`/us/${i.waiting.storyId}`}
+                              className="underline"
+                            >
+                              {`l'US ${i.waiting.storyId}`}
+                            </Link>
+                            , sautée en attendant.
+                          </>
+                        ) : (
+                          "N'est plus prête, sautée en attendant."
+                        )}
                       </span>
                     )}
                     <span className="ml-auto flex gap-1.5">

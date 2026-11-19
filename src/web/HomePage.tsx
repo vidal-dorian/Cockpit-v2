@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { fetchInstallation } from "./InstallBanner.tsx";
-import { fetchHistory, JournalEntry } from "./Journal.tsx";
+import { fetchHistory, JournalEntry, objectPath } from "./Journal.tsx";
 import { NightMorning } from "./NightMorning.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { WhyAsked } from "./RunQuestions.tsx";
@@ -1037,7 +1037,11 @@ function Recent() {
           <>
             <ul className="mt-2 grid gap-2">
               {entries.map((entry) => (
-                <JournalEntry key={entry.id} entry={entry} />
+                <JournalEntry
+                  key={entry.id}
+                  entry={entry}
+                  to={objectPath(entry)}
+                />
               ))}
             </ul>
             <p className="mt-2">

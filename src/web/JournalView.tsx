@@ -1,5 +1,6 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { type Entry, fetchHistory } from "./Journal.tsx";
 import { Panel } from "./Shell.tsx";
 import {
@@ -213,7 +214,46 @@ function EntryPanel({
           string,
           ReactNode,
         ][])),
-    ["Projet", entry.project ?? "—"],
+    [
+      "Projet",
+      entry.project && entry.projectId !== null ? (
+        <Link
+          key="project"
+          to={`/projets/${entry.projectId}`}
+          className="underline"
+        >
+          {entry.project}
+        </Link>
+      ) : (
+        (entry.project ?? "—")
+      ),
+    ],
+    ...(partial ||
+    (entry.runId === null && entry.storyId === null && entry.ticketId === null)
+      ? []
+      : ([
+          [
+            "Lié à",
+            <span key="links" className="flex flex-wrap gap-x-3">
+              {[
+                ["Run", "runs", entry.runId],
+                ["US", "us", entry.storyId],
+                ["Ticket", "tickets", entry.ticketId],
+              ].map(
+                ([word, path, id]) =>
+                  id !== null && (
+                    <Link
+                      key={word}
+                      to={`/${path}/${id}`}
+                      className="underline"
+                    >
+                      {`${word} ${id}`}
+                    </Link>
+                  ),
+              )}
+            </span>,
+          ],
+        ] as [string, ReactNode][])),
     [
       "Résultat",
       [
