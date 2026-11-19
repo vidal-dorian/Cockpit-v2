@@ -11,7 +11,7 @@ import { issue, stubImport } from "./test-issue-import.tsx";
 import { renderAt } from "./test-tickets.tsx";
 import { layer } from "./test-tickets-full.tsx";
 
-// Decision 084 C, D (slice S04): the import screen links what it names and says what comes next.
+// Decision 085 C, D (slice S04): the import screen links what it names and says what comes next.
 // Pinned: in « Déjà dans Cockpit » the whole subtitle « déjà dans Cockpit (US 43) » is the link (href /us/43; /tickets/12 for a ticket);
 // the title keeps its text and a link « Voir l'issue #57 sur GitHub » (new tab) follows it; after an import the message offers
 // « Écrire les US maintenant » (a routine is connected) and, when stories were imported, a link « N US prêtes au Kanban » to /projets/5.
@@ -31,7 +31,7 @@ const ISSUES = [
   issue(62, "Un ticket déjà là", { inCockpit: { ticketId: 12 } }),
 ];
 
-describe("084 C: the rows of the import screen are links", () => {
+describe("085 C: the rows of the import screen are links", () => {
   it("given issues already in Cockpit, when the chip Déjà dans Cockpit is clicked, then the subtitles lead to /us/43 and /tickets/12", async () => {
     stubImport(ISSUES);
     renderAt("/projets/5/tickets/importer");
@@ -65,7 +65,7 @@ describe("084 C: the rows of the import screen are links", () => {
   });
 });
 
-describe("084 D: after the import, the next steps", () => {
+describe("085 D: after the import, the next steps", () => {
   const importAll = async () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Importer 4 issues" }),

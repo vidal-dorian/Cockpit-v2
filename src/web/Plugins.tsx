@@ -62,7 +62,7 @@ export function Plugins() {
   const [adding, setAdding] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
-  // The project whose install is open or just committed: its row shows the diff and the result (decision 084).
+  // The project whose install is open or just committed: its row shows the diff and the result (decision 085).
   const [at, setAt] = useState<number | null>(null);
 
   const link = useMutation({

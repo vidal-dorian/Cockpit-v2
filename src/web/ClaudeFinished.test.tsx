@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { empty, stubHome } from "./test-home.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice S07 (decision 084 L, 058 F): « Finis aujourd'hui » on /claude. Pinned: each row of finishedToday also gives
+// Slice S07 (decision 085 L, 058 F): « Finis aujourd'hui » on /claude. Pinned: each row of finishedToday also gives
 //   verdict: { acceptable: boolean, reasons: string[] }, prNumber: number | null, storyStatus: string, summary: string | null.
 // The row says « verdict : acceptable » or « verdict : à vérifier », « PR #n » when there is one, the link « Relire la PR #n »
 // (GitHub) when the story is in_review, the first line of the summary of a failed run, and the section links to /journal.

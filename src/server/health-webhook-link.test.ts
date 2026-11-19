@@ -15,7 +15,7 @@ import {
   testAppOptions,
 } from "./test-instance.ts";
 
-// Decision 084 D, S08: a red webhook line carries `url`, the settings of the App on GitHub, where it is fixed
+// Decision 085 D, S08: a red webhook line carries `url`, the settings of the App on GitHub, where it is fixed
 // (the same page as `appSettingsUrl`); a green line carries none.
 
 afterEach(() => {
@@ -62,7 +62,7 @@ async function webhookLine(
   return lines.find((l) => l.key === "webhook") as Line;
 }
 
-describe("084 D: the red webhook line leads to the settings of the App", () => {
+describe("085 D: the red webhook line leads to the settings of the App", () => {
   it("given a webhook with another address, when the health is requested, then the red line carries the settings URL of the App", async () => {
     const line = await webhookLine({ url: "https://cockpit.example.com/hook" });
 

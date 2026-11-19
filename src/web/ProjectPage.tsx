@@ -160,14 +160,14 @@ export function ProjectPage({
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
     board.filter((s) => statuses.includes(s.status)).length;
-  // A story Claude rewrites does not wait for you (decision 084 E, as on the home page).
+  // A story Claude rewrites does not wait for you (decision 085 E, as on the home page).
   const waiting = count("to_validate", "in_review");
   const working = count("in_progress");
   const asking = board.find((s) => s.questionPending);
   const firstWaiting = board.find((s) =>
     ["to_validate", "in_review"].includes(s.status),
   );
-  // The sentence names what waits, and leads to the first thing to do (decision 084 E).
+  // The sentence names what waits, and leads to the first thing to do (decision 085 E).
   const toStory = (id: number | undefined, text: string) => (
     <Link to={`?us=${id}`} className={`underline ${focusRing}`}>
       {text}

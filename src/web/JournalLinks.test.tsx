@@ -14,7 +14,7 @@ import { empty, stubHome } from "./test-home.tsx";
 import { entry, stubJournal } from "./test-journal.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 084 C (S06): the objects a journal entry names are links.
+// Decision 085 C (S06): the objects a journal entry names are links.
 //
 // Pinned choices (the decision leaves them open):
 // - Home « Dernièrement »: a row with an object holds one link, to /runs/:runId, else /us/:storyId, else /tickets/:ticketId; a row with none holds no link.
@@ -43,7 +43,7 @@ const homeEntry = (id: number, over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe("084 C: Dernièrement links the object of each entry", () => {
+describe("085 C: Dernièrement links the object of each entry", () => {
   it("given entries with a run, a story, a ticket and nothing, when the home loads, then each row links its object in that order of preference and the last stays inert", async () => {
     const api = stubHome(empty());
     api.state.history = {
@@ -106,7 +106,7 @@ async function openRow(path: string, row: RegExp | string) {
   await waitFor(() => expect(panel()).toBeDefined());
 }
 
-describe("084 C: the panel of an entry links its objects", () => {
+describe("085 C: the panel of an entry links its objects", () => {
   it.each([
     ["the Journal page", "/journal", /Validée|validée/],
     [
@@ -160,7 +160,7 @@ describe("084 C: the panel of an entry links its objects", () => {
   });
 });
 
-describe("084 C: a row of the Historique tab names its objects", () => {
+describe("085 C: a row of the Historique tab names its objects", () => {
   it("given an entry of the run 17, the story 43 and the ticket 12, when the tab loads, then its row says Run 17, US 43 and Ticket 12", async () => {
     stubJournal(() => ({ entries: [FULL] }));
     window.history.replaceState({}, "", "/projets/6/historique");

@@ -5,7 +5,7 @@ import { PROJECT } from "./test-home.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Story S12 (decision 084 E): GET /api/home forYou also has { kind: "workflow_proposal", proposalId, path, reason, project }; its row is a link to /projets/:id/ci.
+// Story S12 (decision 085 E): GET /api/home forYou also has { kind: "workflow_proposal", proposalId, path, reason, project }; its row is a link to /projets/:id/ci.
 
 afterEach(() => {
   cleanup();

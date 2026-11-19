@@ -11,7 +11,7 @@ import { empty, PROJECT, stubHome } from "./test-home.tsx";
 import { patchProjects } from "./test-plans.tsx";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 
-// Slice S08 (decision 084 D): a refusal, a red line or an empty state that names the page where it is fixed links to it.
+// Slice S08 (decision 085 D): a refusal, a red line or an empty state that names the page where it is fixed links to it.
 //
 // Pinned (the map of the audit): launcher_* / project_not_in_launcher / routine_* -> /reglages/taches-cloud;
 // monthly_budget_reached -> /claude/cout; not_prepared -> /projets/<id>/sante; no_plugin_repo -> /equipes/commun;
@@ -55,7 +55,7 @@ function lay(handler: Handler) {
 const hrefOf = (scope: HTMLElement, name: RegExp | string) =>
   within(scope).getByRole("link", { name }).getAttribute("href");
 
-describe("084 D: « Développer avec Claude » refusals", () => {
+describe("085 D: « Développer avec Claude » refusals", () => {
   it.each([
     ["monthly_budget_reached", /Coût|coût/, "/claude/cout"],
     ["project_not_in_launcher", /Réglages/, "/reglages/taches-cloud"],
@@ -115,7 +115,7 @@ describe("084 D: « Développer avec Claude » refusals", () => {
   );
 });
 
-describe("084 D: a saved answer whose relaunch was refused", () => {
+describe("085 D: a saved answer whose relaunch was refused", () => {
   it.each([
     ["launcher_needs_reconnect", "/reglages/taches-cloud"],
     ["monthly_budget_reached", "/claude/cout"],
@@ -155,7 +155,7 @@ describe("084 D: a saved answer whose relaunch was refused", () => {
   );
 });
 
-describe("084 D: the page Tâches programmées", () => {
+describe("085 D: the page Tâches programmées", () => {
   it("given a run refused because the launcher is not connected, when « Lancer maintenant » is clicked, then the alert links to /reglages/taches-cloud", async () => {
     stubHome(empty());
     lay((path, method) => {
@@ -212,7 +212,7 @@ describe("084 D: the page Tâches programmées", () => {
   });
 });
 
-describe("084 D: the page Claude", () => {
+describe("085 D: the page Claude", () => {
   const queue = (pausedReason: string) =>
     lay((path) => {
       if (path === "/api/claude")
@@ -260,7 +260,7 @@ describe("084 D: the page Claude", () => {
   });
 });
 
-describe("084 D: the refusals of the project pages", () => {
+describe("085 D: the refusals of the project pages", () => {
   it.each([
     ["monthly_budget_reached", /Coût|coût/, "/claude/cout"],
     ["not_prepared", /Préparer|Santé|santé/, "/projets/5/sante"],
@@ -379,7 +379,7 @@ describe("084 D: the refusals of the project pages", () => {
   });
 });
 
-describe("084 D: the banner of a read-only project", () => {
+describe("085 D: the banner of a read-only project", () => {
   it("given a project locked by the plan of the user themself, when a page loads, then the banner links to /reglages/abonnement", async () => {
     stubTicketApi([ticket(7, "Une idée")]);
     patchProjects({ role: "read_only", lockedBy: "octocat" });
@@ -403,7 +403,7 @@ describe("084 D: the banner of a read-only project", () => {
   });
 });
 
-describe("084 D: the red lines of the health check lead to their fix", () => {
+describe("085 D: the red lines of the health check lead to their fix", () => {
   const health = (lines: object[]) =>
     lay((path) =>
       path === "/api/projects/5/health" ? Response.json({ lines }) : undefined,

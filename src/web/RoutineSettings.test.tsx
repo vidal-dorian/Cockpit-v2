@@ -357,7 +357,7 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
     expect(within(section).queryByText(/à reconnecter/)).toBeNull();
   });
 
-  it("given a connected routine, when Retirer is clicked, then, once confirmed (084), DELETE /api/me/routine is sent and the section offers the fields again", async () => {
+  it("given a connected routine, when Retirer is clicked, then, once confirmed (085), DELETE /api/me/routine is sent and the section offers the fields again", async () => {
     const calls = stubApi({ routine: CONNECTED });
     renderAt("/reglages/ecriture-us");
     const section = await loadedSection();
@@ -458,8 +458,8 @@ const PROJECTS = [
   { id: 7, fullName: "octocat/old", archived: true },
 ];
 
-// Decision 084 Q (S13): Réglages › Tâches cloud lists the frequency of each active project with a link to its settings.
-describe("Réglages page, the frequency of each project under Connectée (084 Q)", () => {
+// Decision 085 Q (S13): Réglages › Tâches cloud lists the frequency of each active project with a link to its settings.
+describe("Réglages page, the frequency of each project under Connectée (085 Q)", () => {
   it("given a connected routine and two active projects, when the section loads, then each project is a link to /projets/:id/reglages with its frequency, and an archived project is not listed", async () => {
     stubApi({
       routine: CONNECTED,
@@ -499,7 +499,7 @@ describe("Réglages page, the frequency of each project under Connectée (084 Q)
   });
 });
 
-// Decision 084 / audit: Retirer asks for a confirmation in place (003 rule 4), focus on Annuler.
+// Decision 085 / audit: Retirer asks for a confirmation in place (003 rule 4), focus on Annuler.
 describe("Réglages page, Retirer a connected task asks to confirm", () => {
   it("given a connected routine, when Retirer is clicked, then nothing is sent, the warning and the buttons Confirmer le retrait and Annuler show, and the focus is on Annuler", async () => {
     const calls = stubApi({ routine: CONNECTED });

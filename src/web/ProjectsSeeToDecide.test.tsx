@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { empty, type HomeData, PROJECT, stubHome } from "./test-home.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 084 D, E (slice S05): « Importer un repo » lands on the import section and, once imported, leads to the project;
+// Decision 085 D, E (slice S05): « Importer un repo » lands on the import section and, once imported, leads to the project;
 // « Claude t'attend » on the project list says what waits and links to the first thing.
 // Pinned: GET /api/home as in test-home.tsx (forYou items: answer { runId }, validate { storyId }, review { storyId }),
 // GET /api/projects, GET /api/github/repositories and POST /api/projects (answers { project }) as in Projects.test.tsx.
@@ -108,7 +108,7 @@ afterEach(() => {
 const main = async () => within(await screen.findByRole("main"));
 const href = (el: HTMLElement) => el.getAttribute("href");
 
-describe("decision 084 D: « Importer un repo » goes to the import section", () => {
+describe("decision 085 D: « Importer un repo » goes to the import section", () => {
   it("given any page, when the sidebar is shown, then « + Importer un repo » points to /projets#importer", async () => {
     load({});
     renderAt("/");
@@ -155,7 +155,7 @@ describe("decision 084 D: « Importer un repo » goes to the import section", ()
   });
 });
 
-describe("decision 084 D: after an import, the project is one click away", () => {
+describe("decision 085 D: after an import, the project is one click away", () => {
   it("given an available repo, when it is imported with Standard, then a link « Ouvrir le projet » leads to /projets/:id of the created project, and the list stays", async () => {
     load({
       repos: [
@@ -180,7 +180,7 @@ describe("decision 084 D: after an import, the project is one click away", () =>
   });
 });
 
-describe("decision 084 E: « Claude t'attend » says what waits and leads to it", () => {
+describe("decision 085 E: « Claude t'attend » says what waits and leads to it", () => {
   const forYou = (...items: Record<string, unknown>[]) => ({
     home: { forYou: items },
   });

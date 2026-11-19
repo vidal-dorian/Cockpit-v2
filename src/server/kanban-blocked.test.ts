@@ -5,12 +5,12 @@ import { describe, expect, it } from "vitest";
 import { userStories } from "./db/schema.ts";
 import { seedStory, seedTicket, withProject } from "./test-mcp.ts";
 
-// Decision 084 G (audit: « Carte Prête : la dépendance non terminée n'apparaît pas »): every card of
+// Decision 085 G (audit: « Carte Prête : la dépendance non terminée n'apparaît pas »): every card of
 // GET /api/projects/:id/stories has `blockedBy: number | null`, the id of the first dependency of the story that is not done.
 
 type Card = { id: number; blockedBy: number | null };
 
-describe("decision 084 G: blockedBy on the cards of the Kanban", () => {
+describe("decision 085 G: blockedBy on the cards of the Kanban", () => {
   it("given a ready story depending on an unfinished story and on a done one, when the Kanban is read, then blockedBy is the unfinished one, and null for a story with no dependency or only done ones", async () => {
     const { app, db, alice, projectId } = await withProject();
     const ticket = await seedTicket(db, projectId, "Le ticket");

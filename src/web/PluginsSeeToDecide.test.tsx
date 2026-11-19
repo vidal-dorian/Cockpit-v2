@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 084 (C, D), « Équipes d'agents › Commun » (/equipes/commun).
+// Decision 085 (C, D), « Équipes d'agents › Commun » (/equipes/commun).
 //
 // Pinned where the decision leaves it open:
 // - D: the sentence of the no-repo state carries the link « Ouvrir un repo à Cockpit ↗ » to `installUrl` of GET /api/github/repositories, always; an empty list (`installed: true`, no repository) says
@@ -102,7 +102,7 @@ const rowOf = async (name: string) => {
   return found as HTMLElement;
 };
 
-describe("decision 084 D: no repo linked", () => {
+describe("decision 085 D: no repo linked", () => {
   it("given repos the App reaches, when the page opens, then the sentence carries « Ouvrir un repo à Cockpit » to the install URL", async () => {
     stubPlugins({
       repo: null,
@@ -132,7 +132,7 @@ describe("decision 084 D: no repo linked", () => {
   });
 });
 
-describe("decision 084 C: the repo and the projects are links", () => {
+describe("decision 085 C: the repo and the projects are links", () => {
   it("given a linked repo, when the page opens, then « Ouvrir le repo » links to the repo on GitHub", async () => {
     stubPlugins();
     renderAt("/equipes/commun");
@@ -158,7 +158,7 @@ describe("decision 084 C: the repo and the projects are links", () => {
   });
 });
 
-describe("decision 084: the diff and the result of a plugin install stay on the project's row", () => {
+describe("decision 085: the diff and the result of a plugin install stay on the project's row", () => {
   it("given « Installer » on a project, when it is clicked, then « Ce qui change » shows inside that project's list item", async () => {
     stubPlugins();
     renderAt("/equipes/commun");

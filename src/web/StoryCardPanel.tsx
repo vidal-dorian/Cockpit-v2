@@ -11,7 +11,7 @@ import { StoryGitHub } from "./StoryGitHub.tsx";
 import { StoryVerdict } from "./StoryPage.tsx";
 import { button, focusRing } from "./ui.ts";
 
-/** The pending question of the story's running run (decision 084 G), answered where the card is opened. */
+/** The pending question of the story's running run (decision 085 G), answered where the card is opened. */
 function CardQuestion({ runId }: { runId: number }) {
   const queryClient = useQueryClient();
   const run = useQuery({
@@ -45,7 +45,7 @@ function CardQuestion({ runId }: { runId: number }) {
   );
 }
 
-/** The panel of an open US card (decisions 069 H and 084 G): the decisions of its page, with what is needed to take them (the story, the pull request, the question). */
+/** The panel of an open US card (decisions 069 H and 085 G): the decisions of its page, with what is needed to take them (the story, the pull request, the question). */
 export function StoryCardPanel({
   id,
   counter,
@@ -64,7 +64,7 @@ export function StoryCardPanel({
     queryFn: () => fetchStory(id),
   }).data;
   const loaded = found && found !== "not_found" ? found.story.id : null;
-  // Under lg the panel follows the board: opening a card brings the focus and the view to it (decision 084 H).
+  // Under lg the panel follows the board: opening a card brings the focus and the view to it (decision 085 H).
   useEffect(() => {
     if (loaded === null) return;
     statusRef.current?.focus();
@@ -144,7 +144,7 @@ export function StoryCardPanel({
   );
 }
 
-/** The story open in the panel of a ticket, on its page or in the Tickets tab (decision 084 J, A): the queue is the stories of the ticket to validate, and the next one opens after a decision; at the end `onOpen(null)` gives the ticket back. */
+/** The story open in the panel of a ticket, on its page or in the Tickets tab (decision 085 J, A): the queue is the stories of the ticket to validate, and the next one opens after a decision; at the end `onOpen(null)` gives the ticket back. */
 export function TicketStoryPanel({
   stories,
   openId,

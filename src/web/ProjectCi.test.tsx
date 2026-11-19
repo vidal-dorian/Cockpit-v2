@@ -577,7 +577,7 @@ describe("decision 067 H: the colour", () => {
   });
 });
 
-// Story S12 (decision 084 B, E): `workflows[].claude` is null or { sessionUrl, startedAt, finishedAt, outcome, summary } (the last « Demander à Claude » of the path);
+// Story S12 (decision 085 B, E): `workflows[].claude` is null or { sessionUrl, startedAt, finishedAt, outcome, summary } (the last « Demander à Claude » of the path);
 // the tab of the project says « CI / CD · N à relire » while a proposal waits.
 const minutesAgo = (m: number) =>
   new Date(Date.now() - m * 60_000).toISOString();

@@ -30,7 +30,7 @@ export type HealthLine = {
     | "updates";
   ok: boolean;
   detail: HealthDetail;
-  /** The `github_alerts` line (decision 052 B) and a red `webhook` line (decision 084 D): where to fix it. */
+  /** The `github_alerts` line (decision 052 B) and a red `webhook` line (decision 085 D): where to fix it. */
   url?: string;
   /** The catalog line only (decision 049 E): the state of each file of the catalogue. */
   files?: { path: string; state: CatalogState }[];
@@ -164,7 +164,7 @@ export function webhookLine(
   appSettingsUrl: string,
 ): HealthLine {
   if (!hook) return line("webhook", "unknown");
-  // A red line says where it is fixed (decision 084 D).
+  // A red line says where it is fixed (decision 085 D).
   if (hook.url !== `${publicUrl}${WEBHOOK_PATH}` || hook.active === false)
     return { ...line("webhook", "wrong_url"), url: appSettingsUrl };
   const { lastStatus } = hook;

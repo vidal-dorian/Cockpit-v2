@@ -442,7 +442,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
 const tab = ({ isActive }: { isActive: boolean }) =>
   `flex min-h-11 flex-1 flex-col items-center justify-center text-[11.5px] font-semibold ${focusRing} ${isActive ? "text-foreground" : "text-muted-foreground"}`;
 
-/** « Chercher » below md, where the sidebar and Ctrl K are out of reach (decision 084 M). */
+/** « Chercher » below md, where the sidebar and Ctrl K are out of reach (decision 085 M). */
 export function SearchButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -526,7 +526,7 @@ export function IdeaBar({
   const projects = (home.data?.projects ?? []).filter((p) =>
     atLeast(roles.data?.find((r) => r.id === p.id)?.role, "can_validate"),
   );
-  // The project of the page shown (decision 084 C): a project page, or the story, ticket or run of one; the queries are the pages' own.
+  // The project of the page shown (decision 085 C): a project page, or the story, ticket or run of one; the queries are the pages' own.
   const story = useMatch("/us/:id")?.params.id;
   const ticket = useMatch("/tickets/:id")?.params.id;
   const run = useMatch("/runs/:id")?.params.id;

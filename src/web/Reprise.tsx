@@ -489,9 +489,9 @@ export function Reprise({
   const [notice, setNotice] = useState<{
     text: string;
     undo?: number;
-    /** The ticket a bug was noted in (decision 084 C). */
+    /** The ticket a bug was noted in (decision 085 C). */
     ticket?: number;
-    /** The US whose rules are all decided: the way to validate it (decision 084 B). */
+    /** The US whose rules are all decided: the way to validate it (decision 085 B). */
     story?: number;
   } | null>(null);
   // The rule the URL asked for when the screen loaded: said once if it is no longer to decide.
@@ -544,7 +544,7 @@ export function Reprise({
   const keep = (target: Rule) =>
     decision.mutate(async () => {
       replace(await keepRule(target.id));
-      // The next rule still to read, after this one then from the start (decision 084 B).
+      // The next rule still to read, after this one then from the start (decision 085 B).
       const pending = rules.filter(
         (r) => r.state === "pending" && r.id !== target.id,
       );
@@ -565,7 +565,7 @@ export function Reprise({
       queryClient.setQueryData<Rule[]>(rulesKey(projectId), (old) =>
         old?.filter((r) => r.id !== target.id),
       );
-      // Same queue as keep(): the next rule still to read (decision 084 B).
+      // Same queue as keep(): the next rule still to read (decision 085 B).
       const pending = rules.filter(
         (r) => r.state === "pending" && r.id !== target.id,
       );

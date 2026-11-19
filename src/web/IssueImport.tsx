@@ -59,7 +59,7 @@ type View = "import" | "known" | "closed";
 const subtitle = (issue: Issue) => {
   const known = issue.inCockpit;
   if (known) {
-    // The whole line leads to what the issue already is in Cockpit (decision 084 C).
+    // The whole line leads to what the issue already is in Cockpit (decision 085 C).
     const [to, what] =
       "storyId" in known
         ? [`/us/${known.storyId}`, `US ${known.storyId}`]

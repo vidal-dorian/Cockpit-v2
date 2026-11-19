@@ -41,7 +41,7 @@ export function RunQuestions({
   questions,
   onAnswered,
 }: {
-  /** The pending question comes right after the status sentence, the answered list at the end of the page (decision 084 L). */
+  /** The pending question comes right after the status sentence, the answered list at the end of the page (decision 085 L). */
   part: "pending" | "answered";
   runId: string;
   running: boolean;

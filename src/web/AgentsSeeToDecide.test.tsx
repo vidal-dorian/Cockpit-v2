@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 import { DEFAULT_STEPS, writeTeam } from "./team-file.ts";
 
-// Decision 084 (A, C, D, N, O), screens « Équipes d'agents » (/equipes) and the tab « Agents » of a project (/projets/5/agents).
+// Decision 085 (A, C, D, N, O), screens « Équipes d'agents » (/equipes) and the tab « Agents » of a project (/projets/5/agents).
 //
 // Pinned where the decision leaves it open:
 // - N: the first click on « Ajouter » (/equipes), « Ajouter au projet » or « Mettre à jour dans le projet » (« Tes équipes ») sends nothing to /team/apply. Under the team's row (inside its li) it shows
@@ -257,7 +257,7 @@ const SAME = [
   repoAgent("reviewer"),
 ];
 
-describe("decision 084 N: see what changes before updating or adding a team (tab Agents, « Tes équipes »)", () => {
+describe("decision 085 N: see what changes before updating or adding a team (tab Agents, « Tes équipes »)", () => {
   it("given a repo copy of the team with another text, when « Mettre à jour dans le projet » is clicked, then the diff of the copy to the team shows in the row and nothing is posted until « Faire le commit »", async () => {
     const sent = stubApi({
       teams: [{ id: 1, name: "leger", text: TEAM }],
@@ -354,7 +354,7 @@ describe("decision 084 N: see what changes before updating or adding a team (tab
   });
 });
 
-describe("decision 084 N, C: adding a team on /equipes", () => {
+describe("decision 085 N, C: adding a team on /equipes", () => {
   async function pick(name: string) {
     const row = await li(name);
     click("Ajouter à un projet", row);
@@ -421,7 +421,7 @@ describe("decision 084 N, C: adding a team on /equipes", () => {
   });
 });
 
-describe("decision 084 C: after « Créer l'équipe »", () => {
+describe("decision 085 C: after « Créer l'équipe »", () => {
   async function openNew() {
     renderAt("/equipes");
     await screen.findByText("Aucune équipe pour l'instant.");
@@ -466,7 +466,7 @@ describe("decision 084 C: after « Créer l'équipe »", () => {
   });
 });
 
-describe("decision 084 O: « Agent absent du repo »", () => {
+describe("decision 085 O: « Agent absent du repo »", () => {
   async function openStep(agent: string) {
     renderAt("/projets/5/agents");
     await screen.findByRole("heading", { name: "Équipe" });
@@ -532,7 +532,7 @@ describe("decision 084 O: « Agent absent du repo »", () => {
   });
 });
 
-describe("decision 084 A: deleting an agent says which teams use it", () => {
+describe("decision 085 A: deleting an agent says which teams use it", () => {
   const stubUsed = () =>
     stubApi({
       repoAgents: [
@@ -594,7 +594,7 @@ describe("decision 084 A: deleting an agent says which teams use it", () => {
   });
 });
 
-describe("decision 084 D: « Ouvrir sur GitHub ↗ » where the text says « modifie-le sur GitHub »", () => {
+describe("decision 085 D: « Ouvrir sur GitHub ↗ » where the text says « modifie-le sur GitHub »", () => {
   const BLOB = "https://github.com/octocat/hello/blob/HEAD/";
   const BROKEN = "---\n# why\nsteps:\n  - agent: developer\n---\n";
 

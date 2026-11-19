@@ -12,7 +12,7 @@ import { type FakeFinding, finding, stubFindings } from "./test-findings.tsx";
 import { panel } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 084 B (finding 46 of the audit): after a decision on a finding, the panel opens the next finding to decide (counter « i sur n », J / K);
+// Decision 085 B (finding 46 of the audit): after a decision on a finding, the panel opens the next finding to decide (counter « i sur n », J / K);
 // at the end it closes. The order is the one of the screen: severity, then the most recent first.
 
 afterEach(() => {
@@ -42,7 +42,7 @@ const title = () => inPanel().getAllByRole("heading")[0]?.textContent;
 const closed = () =>
   waitFor(() => expect(document.querySelector("aside[data-panel]")).toBeNull());
 
-describe("decision 084 B: the next finding after a decision", () => {
+describe("decision 085 B: the next finding after a decision", () => {
   it("given the first of 3 findings open, when the panel is read, then its counter says « 1 sur 3 »", async () => {
     await open("Premier constat");
 

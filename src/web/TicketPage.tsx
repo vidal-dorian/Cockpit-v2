@@ -47,7 +47,7 @@ type Loaded = Exclude<
 
 const inlineLink = `underline ${focusRing}`;
 
-/** The second line of a story row: what Claude does, or its criteria and what it waits for; the run and the stories it depends on are links (decision 084 C). */
+/** The second line of a story row: what Claude does, or its criteria and what it waits for; the run and the stories it depends on are links (decision 085 C). */
 function StoryDetail({ story }: { story: Loaded["stories"][number] }) {
   const criteria = `${story.criteriaCount} ${story.criteriaCount === 1 ? "critère" : "critères"}`;
   return (
@@ -95,7 +95,7 @@ function TicketView({
   const projectName = fullName?.split("/").pop();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  // The story read in the right panel before it is validated (decision 084 A).
+  // The story read in the right panel before it is validated (decision 085 A).
   const [openStory, setOpenStory] = useState<number | null>(null);
   const schedule = useQuery({
     queryKey: ["routine-schedule", String(ticket.projectId)],
@@ -620,7 +620,7 @@ export function TicketPage() {
     retry: false,
   });
   const loaded = ticket.data;
-  // Decisions 076 G and 084 D: no gesture offered that the role or the archive would refuse.
+  // Decisions 076 G and 085 D: no gesture offered that the role or the archive would refuse.
   const mayWrite = (projectId: number) => {
     const project = projects.data?.find((p) => p.id === projectId);
     return !project?.archived && atLeast(project?.role, "can_validate");

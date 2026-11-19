@@ -162,7 +162,7 @@ const GLYPHS: Record<string, string> = {
 const rowGrid =
   "grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-[18px] py-2";
 
-/** The page of the object an entry names: its run, else its story, else its ticket (decision 084 C). */
+/** The page of the object an entry names: its run, else its story, else its ticket (decision 085 C). */
 export const objectPath = (e: Entry) =>
   e.runId !== null
     ? `/runs/${e.runId}`
@@ -191,7 +191,7 @@ export function JournalEntry({
   timeOnly?: boolean;
   /** Makes the whole row a button that opens the entry in the panel (decision 053 G). */
   onOpen?: () => void;
-  /** Makes the whole row a link to the object of the entry (decision 084 C). */
+  /** Makes the whole row a link to the object of the entry (decision 085 C). */
   to?: string | null;
 }) {
   const result = RESULTS[entry.result];

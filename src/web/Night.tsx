@@ -34,7 +34,7 @@ export const OUTCOMES: Record<string, string> = {
 
 const link = `underline ${focusRing}`;
 
-/** A story to validate, with « Lire » unfolding its narrative and criteria in place before « Valider et ajouter » (decision 084 A). */
+/** A story to validate, with « Lire » unfolding its narrative and criteria in place before « Valider et ajouter » (decision 085 A). */
 function ToValidate({
   story,
   pending,

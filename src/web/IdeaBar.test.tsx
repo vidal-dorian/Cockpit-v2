@@ -128,7 +128,7 @@ describe("slice 9.3: the idea bar", () => {
   });
 });
 
-// Decision 084 C (S10): the project of the page shown, then the last used; « Idée notée » links to the ticket.
+// Decision 085 C (S10): the project of the page shown, then the last used; « Idée notée » links to the ticket.
 // The first project of the home is the world (8), so a default of « the first one » is wrong on the pages of hello (5).
 const worldFirst = [...projects].reverse();
 const selected = async () =>
@@ -138,7 +138,7 @@ const selected = async () =>
     }) as HTMLSelectElement
   ).value;
 
-describe("084 C: the project the idea bar starts with", () => {
+describe("085 C: the project the idea bar starts with", () => {
   it("given I am on the page of a story of project 5, when the bar loads, then the Projet select is project 5", async () => {
     stubProjectShell(
       { projects: worldFirst },
@@ -212,7 +212,7 @@ describe("084 C: the project the idea bar starts with", () => {
   });
 });
 
-describe("084 C: « Idée notée » leads to the ticket", () => {
+describe("085 C: « Idée notée » leads to the ticket", () => {
   it("given an idea noted, when Idée notée shows, then « Ouvrir le ticket » links to the ticket created", async () => {
     stubShell({ projects });
     renderAt("/");

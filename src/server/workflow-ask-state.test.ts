@@ -4,7 +4,7 @@ import { stubGitHub } from "./test-github.ts";
 import { type Ctx, ready } from "./test-launcher.ts";
 import { callTool, dataOf } from "./test-mcp.ts";
 
-// Story S12 (decision 084 B, E; prolongs 067 B, F, G): a Claude proposal is signalled, « Demander à Claude » survives a reload.
+// Story S12 (decision 085 B, E; prolongs 067 B, F, G): a Claude proposal is signalled, « Demander à Claude » survives a reload.
 //
 // Contract assumed where the decision leaves it open:
 // - GET /api/projects/:id/workflows gives each workflow `claude`: null (never asked) or the LAST launch « Demander à Claude » of that path

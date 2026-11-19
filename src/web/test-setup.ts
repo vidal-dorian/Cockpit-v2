@@ -25,5 +25,5 @@ if (dialog) {
   };
 }
 
-// jsdom has no scrollIntoView (decision 084 H: a card opened on a phone scrolls its panel into view).
+// jsdom has no scrollIntoView (decision 085 H: a card opened on a phone scrolls its panel into view).
 if (globalThis.Element) Element.prototype.scrollIntoView ??= () => {};

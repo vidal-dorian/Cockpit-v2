@@ -44,7 +44,7 @@ function FrequencyRow({ id, fullName }: { id: number; fullName: string }) {
   );
 }
 
-/** Decision 084 Q: the frequency stays set project by project, but is listed here with a link to each project's settings. */
+/** Decision 085 Q: the frequency stays set project by project, but is listed here with a link to each project's settings. */
 function ProjectFrequencies() {
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
   const active = projects.data?.filter((p) => !p.archived) ?? [];

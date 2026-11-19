@@ -266,7 +266,7 @@ describe("Ticket page, deleting", () => {
 
     click("Confirmer la suppression");
 
-    // Decision 084 K: the deletion returns to the Tickets tab (055 F), not to the Kanban the project opens on.
+    // Decision 085 K: the deletion returns to the Tickets tab (055 F), not to the Kanban the project opens on.
     await waitFor(() =>
       expect(window.location.pathname).toBe("/projets/5/tickets"),
     );

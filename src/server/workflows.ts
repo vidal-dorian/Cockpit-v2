@@ -168,10 +168,10 @@ export async function proposeWorkflowChange(
   });
 }
 
-/** Decision 084 E: an ask without news after two hours no longer counts (as for routines, decision 056 B), so a dead session never locks a workflow. */
+/** Decision 085 E: an ask without news after two hours no longer counts (as for routines, decision 056 B), so a dead session never locks a workflow. */
 export const ASK_GIVE_UP_MS = 2 * 3_600_000;
 
-/** Decision 084 E: the last « Demander à Claude » of each workflow of the project, by path (a workflow never asked about has none). */
+/** Decision 085 E: the last « Demander à Claude » of each workflow of the project, by path (a workflow never asked about has none). */
 export async function claudeAsks(db: Db, projectId: number, at: Date) {
   const asks = new Map<
     string,

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { finishLaunched, NOW, pass, queued, ready } from "./test-launcher.ts";
 
-// Slice S07 (decision 084 L, 058 F): GET /api/claude gives each run finished today its verdict (the one of
+// Slice S07 (decision 085 L, 058 F): GET /api/claude gives each run finished today its verdict (the one of
 // GET /api/runs/:id), the PR number of its story, the status of its story and the summary of the run.
 //   finishedToday: [{ runId, storyId, iWant, project, outcome, verdict: { acceptable, reasons }, prNumber: number | null,
 //     storyStatus: string, summary: string | null }]

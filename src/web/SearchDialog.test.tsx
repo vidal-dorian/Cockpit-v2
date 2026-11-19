@@ -215,8 +215,8 @@ describe("slice 15.3 D: Ctrl+Enter", () => {
   });
 });
 
-// Decision 084 C, M (S10): the actions follow the sidebar, a search that finds nothing offers to note it, the phone has a Chercher button.
-describe("084 M: the search window leads somewhere", () => {
+// Decision 085 C, M (S10): the actions follow the sidebar, a search that finds nothing offers to note it, the phone has a Chercher button.
+describe("085 M: the search window leads somewhere", () => {
   it("given the actions, when « Équipes d'agents » is chosen, then the page goes to /equipes like the sidebar", async () => {
     start();
     await sidebarButton();

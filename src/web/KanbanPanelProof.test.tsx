@@ -12,7 +12,7 @@ import { decisionStory, stubDecisionApi } from "./test-decisions.tsx";
 import { panel, withHome } from "./test-shell.tsx";
 import { renderAt, story, ticket } from "./test-tickets.tsx";
 
-// Decision 084 A, C, E, G, H: the panel of a Kanban card shows what is needed to decide (the story, the PR and verdict, the question),
+// Decision 085 A, C, E, G, H: the panel of a Kanban card shows what is needed to decide (the story, the PR and verdict, the question),
 // links the ticket, the rules and the diverged issue, brings the focus on the phone, and the page sentence is a link.
 // Pinned: the board route may add `blockedBy: number | null` to a card (see server/kanban-blocked.test.ts); GET /api/stories/:id gives
 // story.runs, story.issue and story.prNumber as on the page of the story; GET /api/runs/:id and POST /api/questions/:id/answer as on the run page.
@@ -135,7 +135,7 @@ const open = async (name: RegExp) => {
   return within(await waitFor(() => panel()));
 };
 
-describe("decision 084 A, G: the panel shows the story to decide on it", () => {
+describe("decision 085 A, G: the panel shows the story to decide on it", () => {
   it("given a story to validate, when its card is opened, then the panel shows the narrative and the Given/When/Then criteria beside Valider", async () => {
     load([
       withStory(42, "vouloir-alpha", {
@@ -184,7 +184,7 @@ describe("decision 084 A, G: the panel shows the story to decide on it", () => {
   });
 });
 
-describe("decision 084 A, G: a story in review shows its PR, CI and verdict", () => {
+describe("decision 085 A, G: a story in review shows its PR, CI and verdict", () => {
   it("given a story in review with PR 12 and an unacceptable verdict, when its card is opened, then the panel shows the PR link, the CI row and À vérifier", async () => {
     load(
       [
@@ -219,7 +219,7 @@ describe("decision 084 A, G: a story in review shows its PR, CI and verdict", ()
   });
 });
 
-describe("decision 084 A, G: a question of Claude is answered in the panel", () => {
+describe("decision 085 A, G: a question of Claude is answered in the panel", () => {
   it("given an in-progress story with a pending question, when its card is opened and a suggested answer is clicked, then the question is shown and the answer is posted", async () => {
     const answers = load(
       [
@@ -268,7 +268,7 @@ describe("decision 084 A, G: a question of Claude is answered in the panel", () 
   });
 });
 
-describe("decision 084 G: the badge Issue modifiée, the ticket and the rules are links", () => {
+describe("decision 085 G: the badge Issue modifiée, the ticket and the rules are links", () => {
   it("given a story whose issue changed on GitHub, when its card is opened, then the panel says it and links the choice on the page of the story", async () => {
     load(
       [
@@ -334,7 +334,7 @@ describe("decision 084 G: the badge Issue modifiée, the ticket and the rules ar
   });
 });
 
-describe("decision 084 G: a ready card says what it waits for", () => {
+describe("decision 085 G: a ready card says what it waits for", () => {
   it("given a ready story blocked by the US 43, when the Kanban loads, then its card says « dépend de l'US 43 » and the others do not", async () => {
     load(
       [
@@ -351,7 +351,7 @@ describe("decision 084 G: a ready card says what it waits for", () => {
   });
 });
 
-describe("decision 084 H: on a phone, opening a card brings the panel into view", () => {
+describe("decision 085 H: on a phone, opening a card brings the panel into view", () => {
   it("given the Kanban, when a card is opened, then the panel's US line takes the focus and is scrolled into view", async () => {
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
@@ -369,7 +369,7 @@ describe("decision 084 H: on a phone, opening a card brings the panel into view"
   });
 });
 
-describe("decision 084 E: the sentence of the page is a link to the first thing to do", () => {
+describe("decision 085 E: the sentence of the page is a link to the first thing to do", () => {
   it("given a story waiting on an answer, when the Kanban loads, then « l'US 42 » of the title links ?us=42 and opens the panel", async () => {
     load([
       withStory(41, "vouloir-zero", { status: "ready" }),
@@ -404,7 +404,7 @@ describe("decision 084 E: the sentence of the page is a link to the first thing 
   });
 });
 
-describe("decision 084 E: a story Claude rewrites does not wait for you", () => {
+describe("decision 085 E: a story Claude rewrites does not wait for you", () => {
   it("given one story to validate and one to rewrite, when the Kanban loads, then the title counts only the first", async () => {
     load([
       withStory(42, "vouloir-alpha"),

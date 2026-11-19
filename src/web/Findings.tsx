@@ -350,7 +350,7 @@ export function Findings({
   const [openId, setOpenId] = useState<number | null>(null);
   const [openRuntime, setOpenRuntime] = useState<string | null>(null);
   const [analyse, setAnalyse] = useState<Step[] | null>(null);
-  // The ticket the last decision made, linked until the next decision (decision 084 C).
+  // The ticket the last decision made, linked until the next decision (decision 085 C).
   const [made, setMade] = useState<{ id: number; title: string } | null>(null);
   const versions = useVersions(projectId);
   const all = query.data ?? [];
@@ -398,7 +398,7 @@ export function Findings({
       decide(sent.id, sent.action, sent.reason),
     onSuccess: (done, { id, action }) => {
       setMade(done.ticket ?? null);
-      // The next finding of the list opens, or the panel closes at the end (decision 084 B).
+      // The next finding of the list opens, or the panel closes at the end (decision 085 B).
       const at = shown.findIndex((f) => f.id === id);
       show(at < 0 ? null : (shown[at + 1]?.id ?? null));
       if (action === "ticket")

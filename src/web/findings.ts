@@ -37,7 +37,7 @@ export async function decide(id: number, action: Decision, reason?: string) {
         })
       : await client.api.findings[":id"][action].$post(param);
   if (!res.ok) throw await refusedError(res, `HTTP ${res.status}`);
-  // Only « ticket » answers the ticket it made (decision 084 C).
+  // Only « ticket » answers the ticket it made (decision 085 C).
   return (await res.json()) as { ticket?: { id: number; title: string } };
 }
 

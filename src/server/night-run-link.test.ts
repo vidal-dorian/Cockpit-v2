@@ -7,7 +7,7 @@ import {
   started,
 } from "./test-launcher.ts";
 
-// Decision 084 C (slice S05): an item of the current night carries the id of its run, so /nuit links to it.
+// Decision 085 C (slice S05): an item of the current night carries the id of its run, so /nuit links to it.
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -19,7 +19,7 @@ type Current = {
 const current = async (ctx: Awaited<ReturnType<typeof ready>>) =>
   (await (await nightCall(ctx, "GET", "/current")).json()) as Current;
 
-describe("decision 084 C: the run of a night item", () => {
+describe("decision 085 C: the run of a night item", () => {
   it("given a night started with a first run, when the night is read, then the first item has its runId and the next one null", async () => {
     const ctx = await ready();
     const [first, second] = await started(ctx, 2);

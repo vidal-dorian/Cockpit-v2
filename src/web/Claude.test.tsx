@@ -287,8 +287,8 @@ describe("criterion 14.5: the link to the cost", () => {
   });
 });
 
-// Decision 084 C (S06): the stories the page names are links.
-describe("084 C: the objects of the page Claude are links", () => {
+// Decision 085 C (S06): the stories the page names are links.
+describe("085 C: the objects of the page Claude are links", () => {
   it("given a queue row and a story waiting for the story 12, when the page loads, then the row title links /us/:id and « l'US 12 » links /us/12", async () => {
     stub(
       {},

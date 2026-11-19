@@ -42,7 +42,7 @@ export function ConceptionObject({
       }),
     retry: false,
   });
-  // Decision 084 C: the rules that cite this object, linked like on the features screen.
+  // Decision 085 C: the rules that cite this object, linked like on the features screen.
   const touching = [
     ...new Map(
       (useFeatures(projectId).data?.features ?? [])

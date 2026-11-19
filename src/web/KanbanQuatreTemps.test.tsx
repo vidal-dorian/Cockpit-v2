@@ -129,7 +129,7 @@ describe("slice 9.3: the sentence of the Kanban tab", () => {
       ),
     );
 
-  it("given 2 stories waiting (the one to rewrite does not count, decision 084 E) for the user, when the Kanban loads, then the sentence says 2 user stories t'attendent and 6 user stories au Kanban", async () => {
+  it("given 2 stories waiting (the one to rewrite does not count, decision 085 E) for the user, when the Kanban loads, then the sentence says 2 user stories t'attendent and 6 user stories au Kanban", async () => {
     stubProjectShell({}, tickets, board);
     renderAt("/projets/5");
 

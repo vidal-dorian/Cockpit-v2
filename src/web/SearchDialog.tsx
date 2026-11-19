@@ -117,7 +117,7 @@ export function SearchDialog({
       detail: "Projet",
       to: `/projets/${p.id}`,
     })),
-    // What was typed can be noted whatever it finds (decision 084 C), once the results are in so that they stay first.
+    // What was typed can be noted whatever it finds (decision 085 C), once the results are in so that they stay first.
     ...(onIdea && typed.length >= 2 && !search.isFetching
       ? [
           {

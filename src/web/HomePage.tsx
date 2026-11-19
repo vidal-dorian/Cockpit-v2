@@ -398,7 +398,7 @@ function ItemPanel({
   );
 }
 
-/** The panel of a story to validate (decision 084 A, I): its narrative and criteria with the decisions of its page; the simple panel while the story is not read. */
+/** The panel of a story to validate (decision 085 A, I): its narrative and criteria with the decisions of its page; the simple panel while the story is not read. */
 function ValidatePanel(
   props: PanelProps & { item: Extract<Item, { kind: "validate" }> },
 ) {

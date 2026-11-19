@@ -94,9 +94,9 @@ export function StoryDecisions({
   statusRef: RefObject<HTMLElement | null>;
   /** The rules of a takeover story that are still to decide (decision 047 K): the story cannot be validated before. */
   toDecide?: { id: number; summary: string }[];
-  /** « i sur n » of the column the story is in, with Précédent and Suivant (decision 084 B). */
+  /** « i sur n » of the column the story is in, with Précédent and Suivant (decision 085 B). */
   counter?: ComponentProps<typeof Panel>["counter"];
-  /** Called once Valider, Renvoyer or Abandonner succeeded: the queue opens the next story (decision 084 B). */
+  /** Called once Valider, Renvoyer or Abandonner succeeded: the queue opens the next story (decision 085 B). */
   onDone?: (decidedId: number) => void;
   /** What the panel shows under its headline (the pull request of a story in review). */
   children?: React.ReactNode;
@@ -121,7 +121,7 @@ export function StoryDecisions({
     setFocusAfter(null);
   }, [mode, focusAfter, statusRef]);
 
-  // The panel stays mounted from one story of the queue to the next (decision 084 B): its state starts over with each story.
+  // The panel stays mounted from one story of the queue to the next (decision 085 B): its state starts over with each story.
   const [shownId, setShownId] = useState(story.id);
   if (shownId !== story.id) {
     setShownId(story.id);
@@ -186,7 +186,7 @@ export function StoryDecisions({
     ["ready", "in_review"].includes(status) &&
     !archived &&
     atLeast(project.role, "can_launch");
-  // « Relancer » of a run asks for the window with ?developper (decision 084 D); the parameter is spent once it opened.
+  // « Relancer » of a run asks for the window with ?developper (decision 085 D); the parameter is spent once it opened.
   const [params, setParams] = useSearchParams();
   // biome-ignore lint/correctness/useExhaustiveDependencies: only the parameter and the right to develop decide
   useEffect(() => {

@@ -349,7 +349,7 @@ export function homeRoutes(db: Db, now: () => number) {
           : [],
       ),
       ...checks,
-      // Decision 084 E: a proposal of Claude on a workflow waits for the human; last, it is no question and blocks nothing.
+      // Decision 085 E: a proposal of Claude on a workflow waits for the human; last, it is no question and blocks nothing.
       ...(
         await db
           .select({

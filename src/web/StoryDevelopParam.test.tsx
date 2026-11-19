@@ -3,7 +3,7 @@ import { cleanup, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt, story, stubTicketApi, ticket } from "./test-tickets.tsx";
 
-// Slice S07 (decision 084 D): /us/:id?developper opens the window « Développer avec Claude » at once, when the button would be
+// Slice S07 (decision 085 D): /us/:id?developper opens the window « Développer avec Claude » at once, when the button would be
 // there (status ready or in_review, project not archived, role can_launch or more). Same API as DevelopWindowRelaunch.test.tsx.
 
 afterEach(() => {

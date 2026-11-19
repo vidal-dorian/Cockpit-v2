@@ -13,7 +13,7 @@ import { PROJECT } from "./test-home.tsx";
 import { panel } from "./test-shell.tsx";
 import { fail, renderAt, story, ticket } from "./test-tickets.tsx";
 
-// Decision 084 A, B, C, D, E, I (slice S03): the home shows the story to validate in the right panel with its decisions, then the next one;
+// Decision 085 A, B, C, D, E, I (slice S03): the home shows the story to validate in the right panel with its decisions, then the next one;
 // every line title and the « Maintenant » card open the panel; a refused « Valider » says why and leads to the fix; the section links of the mockups.
 // Pinned: GET /api/home as in test-home.tsx (the validate item may carry criteriaCount); GET /api/stories/:id and POST /api/stories/:id/validate
 // as in test-decisions.tsx; GET /api/nights/current gives { night, ready, toValidate }; GET /api/projects may give a `role` per project.
@@ -162,7 +162,7 @@ const seen = (text: RegExp | string) =>
 const posts = (api: ReturnType<typeof load>["api"]) =>
   api.calls.filter((c) => c.method === "POST").map((c) => c.path);
 
-describe("decision 084 A, I: a story to validate opens in the panel with its evidence and decisions", () => {
+describe("decision 085 A, I: a story to validate opens in the panel with its evidence and decisions", () => {
   it("given a story to validate first of the list, when the home loads, then the panel shows the narrative, the Given/When/Then criteria and the decisions, with the counter", async () => {
     load({ forYou: [toValidate(22), toValidate(23)], stories: [22, 23] });
     renderAt("/");
@@ -243,7 +243,7 @@ describe("decision 084 A, I: a story to validate opens in the panel with its evi
   });
 });
 
-describe("decision 084 I, E: every line title and the Maintenant card open the panel", () => {
+describe("decision 085 I, E: every line title and the Maintenant card open the panel", () => {
   it("given three stories to validate, when the title of the third row is clicked, then the panel shows it, and the Maintenant card brings back the first", async () => {
     load({
       forYou: [toValidate(22), toValidate(23), toValidate(24)],
@@ -284,7 +284,7 @@ describe("decision 084 I, E: every line title and the Maintenant card open the p
   });
 });
 
-describe("decision 084 D: a refused Valider of a row says why and leads to the fix", () => {
+describe("decision 085 D: a refused Valider of a row says why and leads to the fix", () => {
   it("given a story whose rules are still to decide, when Valider of its row is clicked, then the alert says so and links the rules screen", async () => {
     const { api } = load({
       forYou: [toValidate(22), toValidate(23)],
@@ -344,7 +344,7 @@ describe("decision 084 D: a refused Valider of a row says why and leads to the f
   });
 });
 
-describe("decision 084 C: the exhausted relaunch links its PR", () => {
+describe("decision 085 C: the exhausted relaunch links its PR", () => {
   it("given a relaunch exhausted first of the list, when the home loads, then the panel links PR #15 on GitHub and still the story", async () => {
     load({ forYou: [relaunch(25, 15)] });
     renderAt("/");
@@ -371,7 +371,7 @@ describe("decision 084 C: the exhausted relaunch links its PR", () => {
   });
 });
 
-describe("decision 084 E: the section links of the mockups", () => {
+describe("decision 085 E: the section links of the mockups", () => {
   it("given a run working, when the home loads, then « Claude en ce moment » links « Tous les runs » to /claude", async () => {
     load({
       forYou: [],
@@ -427,7 +427,7 @@ describe("decision 084 E: the section links of the mockups", () => {
   });
 });
 
-describe("decision 084 D: the error and empty states of the home lead out", () => {
+describe("decision 085 D: the error and empty states of the home lead out", () => {
   it("given the home cannot be read, when Réessayer is clicked, then it is read again", async () => {
     const { fails } = load({ forYou: [], fail: { home: true } });
     renderAt("/");
@@ -470,7 +470,7 @@ describe("decision 084 D: the error and empty states of the home lead out", () =
   });
 });
 
-describe("decision 084 E: « Plus tard » of a question is a button", () => {
+describe("decision 085 E: « Plus tard » of a question is a button", () => {
   it("given two questions, when « Plus tard » is clicked, then the panel shows the second, and on the last one the button is disabled", async () => {
     load({ forYou: [answerItem(1), answerItem(2)] });
     renderAt("/");
@@ -492,7 +492,7 @@ describe("decision 084 E: « Plus tard » of a question is a button", () => {
   });
 });
 
-describe("decision 084 C, E: the morning block of the night links what it names", () => {
+describe("decision 085 C, E: the morning block of the night links what it names", () => {
   const night = {
     id: 1,
     startsAt: new Date(2026, 10, 8, 22).toISOString(),

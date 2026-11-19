@@ -54,7 +54,7 @@ export function AnalyseWindow({
   projectId: string;
   fullName: string;
   archived: boolean;
-  /** The steps checked when the window opens: the one that was asked for (decisions 048 J, 052 J and 084 D). */
+  /** The steps checked when the window opens: the one that was asked for (decisions 048 J, 052 J and 085 D). */
   steps?: Step[];
   onClose: () => void;
 }) {

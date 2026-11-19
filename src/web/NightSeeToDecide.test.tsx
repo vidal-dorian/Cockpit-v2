@@ -12,7 +12,7 @@ import { decisionStory, stubDecisionApi } from "./test-decisions.tsx";
 import { PROJECT } from "./test-home.tsx";
 import { story as fakeStory, renderAt, ticket } from "./test-tickets.tsx";
 
-// Decision 084 A, C, D (slice S05): /nuit shows the story before « Valider et ajouter » (« Lire », in place, the programme kept),
+// Decision 085 A, C, D (slice S05): /nuit shows the story before « Valider et ajouter » (« Lire », in place, the programme kept),
 // links the titles and the run during the night, and says where to act when the launch is disabled or the list empty.
 // Pinned: GET /api/nights/current as in Night.test.tsx, an item of a night may carry `runId: number | null`;
 // GET /api/stories/:id and POST /api/stories/:id/validate as in test-decisions.tsx; GET /api/me/launcher as in Night.test.tsx.
@@ -134,7 +134,7 @@ const rowOf = async (n: number) => {
 };
 const href = (el: HTMLElement) => el.getAttribute("href");
 
-describe("decision 084 A: « Lire » unfolds the story above « Valider et ajouter »", () => {
+describe("decision 085 A: « Lire » unfolds the story above « Valider et ajouter »", () => {
   it("given a story to validate, when /nuit opens, then its row has a « Lire » button and shows no narrative yet", async () => {
     load({ toValidate: [item(3)] });
     renderAt("/nuit");
@@ -213,7 +213,7 @@ describe("decision 084 A: « Lire » unfolds the story above « Valider et ajout
   });
 });
 
-describe("decision 084 C: titles and run links during the night", () => {
+describe("decision 085 C: titles and run links during the night", () => {
   it("given a running night, when /nuit opens, then each title links to /us/:id, the project name to /projets/:id, and the story with a run has a Run link to /runs/:id", async () => {
     load({
       night: {
@@ -259,7 +259,7 @@ describe("decision 084 C: titles and run links during the night", () => {
   });
 });
 
-describe("decision 084 D: the disabled launch and the empty list say where to act", () => {
+describe("decision 085 D: the disabled launch and the empty list say where to act", () => {
   it("given no connected launcher, when /nuit opens, then « Connecte le lanceur » is a link to /reglages/taches-cloud", async () => {
     load({ connected: false, ready: [item(1)] });
     renderAt("/nuit");

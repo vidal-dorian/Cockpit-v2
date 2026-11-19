@@ -12,7 +12,7 @@ import { type FakeRule, rule, stubReprise } from "./test-reprise.tsx";
 import { panel } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 084 B (findings 47 and 48 of the audit): the panel of a rule names its US and its ticket and links the US (/us/:storyId);
+// Decision 085 B (findings 47 and 48 of the audit): the panel of a rule names its US and its ticket and links the US (/us/:storyId);
 // « Valider la règle » skips the rules already decided; after the last rule of a US it offers the way to validate the US (a link, 047 K stays).
 // Pinned: GET /api/projects/5/rules already gives asA and ticketTitle with storyId (server/takeover.ts).
 
@@ -41,7 +41,7 @@ const search = () => new URLSearchParams(window.location.search).get("regle");
 const validate = () =>
   fireEvent.click(inPanel().getByRole("button", { name: /Valider la règle/ }));
 
-describe("decision 084 B: the panel of a rule names its US", () => {
+describe("decision 085 B: the panel of a rule names its US", () => {
   it("given a rule of the US 31 of the ticket « Reprise : factures », when it is open, then the panel says « En tant que responsable paie » and the ticket, and links /us/31", async () => {
     await open([mine(1, { storyId: 31 })]);
 
@@ -51,7 +51,7 @@ describe("decision 084 B: the panel of a rule names its US", () => {
   });
 });
 
-describe("decision 084 B: « Valider la règle » skips the rules already decided", () => {
+describe("decision 085 B: « Valider la règle » skips the rules already decided", () => {
   it("given the rule 2 already validated between two pending ones, when the rule 1 is validated, then the rule 3 is open (?regle=3)", async () => {
     await open([mine(1), mine(2, { state: "kept" }), mine(3)]);
 
@@ -73,7 +73,7 @@ describe("decision 084 B: « Valider la règle » skips the rules already decide
   });
 });
 
-describe("decision 084 B: after the last rule of a US, the way to validate the US", () => {
+describe("decision 085 B: after the last rule of a US, the way to validate the US", () => {
   it("given the last pending rule of the US 31, when it is validated, then the notice says « Toutes les règles de cette US sont validées » with a link « Valider l'US » to /us/31", async () => {
     await open(
       [mine(1, { state: "kept" }), mine(2)],

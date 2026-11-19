@@ -13,7 +13,7 @@ import { panel, withHome } from "./test-shell.tsx";
 import { type FakeStory, renderAt, story, ticket } from "./test-tickets.tsx";
 import { layer, type RichTicket, rich } from "./test-tickets-full.tsx";
 
-// Decision 084 A, C, D, F, J, K (slice S04): the tickets.
+// Decision 085 A, C, D, F, J, K (slice S04): the tickets.
 // Pinned: the fakes of test-decisions.tsx (GET /api/stories/:id, POST /api/stories/:id/validate) and of test-tickets-full.tsx (routine, search);
 // GET /api/projects may give a `role` and `archived` per project.
 // Pinned names: « ← Ticket » is a button of the story panel; the title of a story row stays a link (href /us/:id) whose plain click opens the panel;
@@ -106,7 +106,7 @@ const TWO = [
 const openRow = async (title: string) =>
   fireEvent.click(await screen.findByRole("button", { name: title }));
 
-describe("084 J, A: a story of the panel of a ticket opens in the panel", () => {
+describe("085 J, A: a story of the panel of a ticket opens in the panel", () => {
   it("given the panel of a ticket with stories to validate, when a story is clicked, then the panel shows its narrative, its criteria and Valider, with « ← Ticket », and the page does not change", async () => {
     stubTab([{ ...WITH_STORIES, step: "to_validate" }], TWO);
     renderAt("/projets/5/tickets");
@@ -154,7 +154,7 @@ describe("084 J, A: a story of the panel of a ticket opens in the panel", () => 
   });
 });
 
-describe("084 A: the page of a ticket lets you read a story before Valider", () => {
+describe("085 A: the page of a ticket lets you read a story before Valider", () => {
   it("given a story to validate on /tickets/:id, when its title is clicked, then the right panel shows the narrative, the criteria and the decisions, and the page stays", async () => {
     stubDecisionApi({
       tickets: [{ ...WITH_STORIES, step: "to_validate" }],
@@ -181,7 +181,7 @@ describe("084 A: the page of a ticket lets you read a story before Valider", () 
   });
 });
 
-describe("084 F: the Tickets tab keeps what is open in the address", () => {
+describe("085 F: the Tickets tab keeps what is open in the address", () => {
   const T1 = rich(11, "Exporter en CSV", { tags: ["export"] });
   const T2 = rich(12, "Connexion sans mot de passe", { step: "in_progress" });
   const T3 = rich(13, "Thème sombre");
@@ -274,7 +274,7 @@ describe("084 F: the Tickets tab keeps what is open in the address", () => {
   });
 });
 
-describe("084 A: a new ticket can get its stories written", () => {
+describe("085 A: a new ticket can get its stories written", () => {
   const routine = {
     routineConnected: true,
     schedule: { frequency: "daily", hour: 7 },
@@ -323,7 +323,7 @@ describe("084 A: a new ticket can get its stories written", () => {
   });
 });
 
-describe("084 C: Run and US are links on the page of a ticket", () => {
+describe("085 C: Run and US are links on the page of a ticket", () => {
   it("given a story in progress with a run and a dependency, when /tickets/:id loads, then « Run 17 » leads to /runs/17 and « US 20 » to /us/20", async () => {
     const inProgress = story(21, 7, "exporter le journal", {
       status: "in_progress",
@@ -365,7 +365,7 @@ describe("084 C: Run and US are links on the page of a ticket", () => {
   });
 });
 
-describe("084 K: deleting a ticket returns to the Tickets tab", () => {
+describe("085 K: deleting a ticket returns to the Tickets tab", () => {
   it("given a ticket without stories, when its deletion is confirmed, then the page is /projets/5/tickets", async () => {
     stubDecisionApi({
       tickets: [ticket(7, "Disparaît"), ticket(6, "Survit")],
@@ -385,7 +385,7 @@ describe("084 K: deleting a ticket returns to the Tickets tab", () => {
   });
 });
 
-describe("084 D: the page of a ticket offers only what the role and the archive allow", () => {
+describe("085 D: the page of a ticket offers only what the role and the archive allow", () => {
   const withStory = () =>
     stubDecisionApi({
       tickets: [{ ...WITH_STORIES, step: "to_validate" }],
@@ -448,7 +448,7 @@ describe("084 D: the page of a ticket offers only what the role and the archive 
   });
 });
 
-describe("084 tags: the form Modifier of a ticket suggests the tags already used", () => {
+describe("085 tags: the form Modifier of a ticket suggests the tags already used", () => {
   it("given other tickets of the project tagged auth and export, when Modifier is clicked, then the tag field suggests both", async () => {
     stubDecisionApi({
       tickets: [

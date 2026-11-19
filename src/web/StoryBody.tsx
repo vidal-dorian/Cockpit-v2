@@ -11,7 +11,7 @@ type Found = Exclude<
 const label = "font-semibold text-foreground";
 const value = "text-muted-foreground";
 
-/** What the user reads to decide on a story (decision 084 A): the narrative, the comment of a send back, the criteria; on the page of the story and in the panel of a card. */
+/** What the user reads to decide on a story (decision 085 A): the narrative, the comment of a send back, the criteria; on the page of the story and in the panel of a card. */
 export function StoryBody({ found }: { found: Found }) {
   return (
     <>

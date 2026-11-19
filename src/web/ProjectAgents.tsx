@@ -67,9 +67,9 @@ export function AgentForm({
   editing: Editing;
   /** The file the form writes, shown beside the diff. */
   path: string;
-  /** Where the file reads on GitHub, offered when its header cannot be read here (decision 084 D). */
+  /** Where the file reads on GitHub, offered when its header cannot be read here (decision 085 D). */
   blob?: string;
-  /** The teams that name this agent, said next to the path and before a deletion (decision 084 A). */
+  /** The teams that name this agent, said next to the path and before a deletion (decision 085 A). */
   usedBy?: string[];
   archived: boolean;
   pending: boolean;
@@ -400,7 +400,7 @@ export function ProjectAgents({
   const agentRow = (agent: { name: string; text: string | null }) => {
     const { text } = agent;
     const rowStyle = `flex min-h-[50px] w-full flex-col justify-center px-[18px] py-2 text-left hover:bg-raised ${focusRing}`;
-    // A file too large to be read is not rewritten here: the row leads to it on GitHub (decision 084 D).
+    // A file too large to be read is not rewritten here: the row leads to it on GitHub (decision 085 D).
     if (text === null)
       return (
         <li key={agent.name} className="min-h-[50px]">

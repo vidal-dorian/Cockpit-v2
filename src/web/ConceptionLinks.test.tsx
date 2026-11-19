@@ -15,7 +15,7 @@ import { rule, stubReprise } from "./test-reprise.tsx";
 import { panel } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 084 C and D (slice S09, audit findings 45 and 49 to 52): the ticket made from a finding or a rule is linked, the panel of an object lists the rules that touch it,
+// Decision 085 C and D (slice S09, audit findings 45 and 49 to 52): the ticket made from a finding or a rule is linked, the panel of an object lists the rules that touch it,
 // `?objet=` opens the panel of the object whatever the view it comes from, the analysis can be launched from Constats and the window ticks the step that was asked for.
 
 afterEach(() => {
@@ -39,7 +39,7 @@ const openFinding = async (title: string) => {
   );
 };
 
-describe("decision 084 C: the ticket made from a finding or a rule is linked", () => {
+describe("decision 085 C: the ticket made from a finding or a rule is linked", () => {
   it("given a finding open, when « En faire un ticket » succeeds, then the screen says « Ticket créé » with « Ouvrir le ticket » to /tickets/:id", async () => {
     stubFindings([finding(1, { title: "Hash faible" })]);
     await openFinding("Hash faible");
@@ -92,7 +92,7 @@ describe("decision 084 C: the ticket made from a finding or a rule is linked", (
   });
 });
 
-describe("decision 084 C: the panel of an object and ?objet=", () => {
+describe("decision 085 C: the panel of an object and ?objet=", () => {
   const modules = { modules: [API_MODULE] };
 
   it("given an object touched by 2 rules, when its panel opens, then « Les règles qui le touchent · 2 » lists them linked like the features screen", async () => {
@@ -150,7 +150,7 @@ describe("decision 084 C: the panel of an object and ?objet=", () => {
   });
 });
 
-describe("decision 084 D: the analysis from Constats and the step ticked", () => {
+describe("decision 085 D: the analysis from Constats and the step ticked", () => {
   it("given Constats, when « Analyser avec Claude » is clicked, then the window opens with Bugs, Sécurité and Architecture ticked and Carte not", async () => {
     stubFindings([finding(1)], { modules: [API_MODULE] });
     renderAt("/projets/5/conception/constats");

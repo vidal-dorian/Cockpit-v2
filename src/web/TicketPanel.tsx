@@ -62,13 +62,13 @@ export function TicketPanel({
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
   const project = projects.data?.find((p) => p.id === ticket.projectId);
   const mayWrite = atLeast(project?.role, "can_validate");
-  // The routine route asks for the owner (decision 084 D: nothing offered that would be refused).
+  // The routine route asks for the owner (decision 085 D: nothing offered that would be refused).
   const mayRun =
     atLeast(project?.role, "owner") &&
     !project?.archived &&
     ticket.step !== "abandoned";
   const [confirming, setConfirming] = useState(false);
-  // A story of the ticket opens in this panel, with a way back (decision 084 J).
+  // A story of the ticket opens in this panel, with a way back (decision 085 J).
   const [openStory, setOpenStory] = useState<number | null>(null);
   // The count of the row says there are files before their names are read.
   const hasFiles = (ticket.attachmentsCount ?? 0) > 0;

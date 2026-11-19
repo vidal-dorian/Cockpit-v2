@@ -60,7 +60,7 @@ type Plan = {
 };
 type Planned = { plan: Plan } | { upToDate: true } | { failure: Failure };
 
-/** Reads the project: what the commit of a team would change (decision 074 B, shown first by decision 084 N). */
+/** Reads the project: what the commit of a team would change (decision 074 B, shown first by decision 085 N). */
 async function planAdd(
   queryClient: QueryClient,
   project: { id: number },
@@ -136,7 +136,7 @@ export function useAddTeam() {
   });
 }
 
-/** Decision 084 N: the add in two steps, what it changes first (`preview`), then the commit (`commit`). */
+/** Decision 085 N: the add in two steps, what it changes first (`preview`), then the commit (`commit`). */
 function useAddPreview() {
   const queryClient = useQueryClient();
   const preview = useMutation({
@@ -257,7 +257,7 @@ export function AddResult({
 }: {
   added?: Added;
   failed: boolean;
-  /** Where the team now lives: offered after a success (decision 084 C). */
+  /** Where the team now lives: offered after a success (decision 085 C). */
   project?: { id: number; fullName: string };
 }) {
   if (failed) return <ProblemAlert problem={{ code: "", status: 0 }} />;
@@ -304,7 +304,7 @@ function TeamRow({
   onEdit: () => void;
   deleting: boolean;
   onDelete: () => void;
-  /** The team was just created: its row opens on the project to add it to (decision 084 C). */
+  /** The team was just created: its row opens on the project to add it to (decision 085 C). */
   startAdding: boolean;
 }) {
   const [mode, setMode] = useState<"delete" | "add" | null>(
@@ -481,7 +481,7 @@ function GlobalTeamRow({
   );
 }
 
-/** Decision 074 B: « Tes équipes » on the tab « Agents » of a project, each added (or updated) after the diff and the agents added are shown (decision 084 N). */
+/** Decision 074 B: « Tes équipes » on the tab « Agents » of a project, each added (or updated) after the diff and the agents added are shown (decision 085 N). */
 export function ProjectGlobalTeams({
   projectId,
   fullName,
@@ -528,7 +528,7 @@ export function AgentTeams() {
     null,
   );
   const [problem, setProblem] = useState<Failure | null>(null);
-  // The team just created: its row opens on « Ajouter à un projet » (decision 084 C).
+  // The team just created: its row opens on « Ajouter à un projet » (decision 085 C).
   const [created, setCreated] = useState<string | null>(null);
   const reload = () => queryClient.invalidateQueries({ queryKey: TEAMS_KEY });
   const save = useMutation({

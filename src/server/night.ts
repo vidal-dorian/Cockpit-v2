@@ -634,7 +634,7 @@ export function nightRoutes(db: Db, now: () => number) {
             .select({
               storyId: nightItems.storyId,
               outcome: nightItems.outcome,
-              // The run of the item: set when its turn is over, else the one running now (decision 084 C).
+              // The run of the item: set when its turn is over, else the one running now (decision 085 C).
               runId: sql<
                 number | null
               >`coalesce(${nightItems.runId}, (select max(${cloudLaunches.runId}) from ${cloudLaunches} where ${cloudLaunches.nightItemId} = night_items.id))`,

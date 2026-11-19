@@ -438,7 +438,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
           new Date(now()),
           [project.id],
           async (tx) => {
-            // Decision 084 E: one cloud session at a time per workflow; the project row is the lock for two simultaneous asks.
+            // Decision 085 E: one cloud session at a time per workflow; the project row is the lock for two simultaneous asks.
             await tx
               .select({ id: projects.id })
               .from(projects)

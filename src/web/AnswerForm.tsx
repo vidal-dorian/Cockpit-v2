@@ -62,7 +62,7 @@ export function AnswerForm({
   });
   // Also after a success, until the refetch shows the answer: a second click would only get a 409.
   const busy = send.isPending || send.isSuccess;
-  // Keys 1 and 2 answer the suggested answers (decision 084 D); useShortcut keeps quiet in a field.
+  // Keys 1 and 2 answer the suggested answers (decision 085 D); useShortcut keeps quiet in a field.
   const press = (n: number) => {
     const answer = busy ? undefined : suggestedAnswers?.[n - 1];
     return answer === undefined ? undefined : () => send.mutate(answer);

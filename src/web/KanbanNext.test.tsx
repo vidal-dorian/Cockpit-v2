@@ -6,7 +6,7 @@ import { decisionStory, stubDecisionApi } from "./test-decisions.tsx";
 import { panel, withHome } from "./test-shell.tsx";
 import { renderAt, story, ticket } from "./test-tickets.tsx";
 
-// Decision 084 B, G (« Pas encore fait »): Valider, Renvoyer or Abandonner on a card of the Kanban opens the next story of the same column
+// Decision 085 B, G (« Pas encore fait »): Valider, Renvoyer or Abandonner on a card of the Kanban opens the next story of the same column
 // (counter « i sur n » and J / K of Panel). At the end the panel closes and ?us= leaves the address, also after Abandonner.
 
 afterEach(() => {
@@ -30,7 +30,7 @@ const opened = () => waitFor(() => panel());
 const closed = () =>
   waitFor(() => expect(document.querySelector("aside[data-panel]")).toBeNull());
 
-describe("decision 084 B, G: the next story of the column after a decision", () => {
+describe("decision 085 B, G: the next story of the column after a decision", () => {
   it("given the US 42 of 2 to validate open, when the panel is read, then its counter says « 1 sur 2 » (a ready US of another column is not counted)", async () => {
     load([
       ...queue(42, 43),

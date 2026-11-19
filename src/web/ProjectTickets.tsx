@@ -108,7 +108,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
     queryKey: ["stories", projectId],
     queryFn: () => fetchStories(projectId),
   });
-  // What is open lives in the address, so that Back from a ticket page restores it (decision 084 F).
+  // What is open lives in the address, so that Back from a ticket page restores it (decision 085 F).
   const [params, setParams] = useSearchParams();
   const setParam = (key: string, value: string | null) =>
     setParams(

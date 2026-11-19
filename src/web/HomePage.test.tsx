@@ -249,7 +249,7 @@ describe("criterion 5: the items of forYou", () => {
     });
 
     const s = section("Claude en ce moment");
-    // The first link is « Tous les runs » (decision 084 E).
+    // The first link is « Tous les runs » (decision 085 E).
     expect(hrefs(s)).toEqual(["/claude", "/runs/12", "/runs/13"]);
     const [, first, second] = within(s).getAllByRole("link");
     expect(first?.textContent).toContain("hello");

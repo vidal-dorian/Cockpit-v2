@@ -554,8 +554,8 @@ describe("review: more cases of the changelog page", () => {
   });
 });
 
-// Decision 084 C (S06): the PR and the story of a branch to clean are links, to check before deleting.
-describe("084 C: the branch to clean names its PR and its story as links", () => {
+// Decision 085 C (S06): the PR and the story of a branch to clean are links, to check before deleting.
+describe("085 C: the branch to clean names its PR and its story as links", () => {
   it("given a branch of the PR 51 and the story 40, when it loads, then « PR #51 » links to GitHub and « US 40 » to /us/40", async () => {
     stubDelivered();
     await delivered();

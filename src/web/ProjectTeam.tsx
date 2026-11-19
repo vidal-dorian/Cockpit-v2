@@ -112,7 +112,7 @@ function StepPanel({
   onRemove: () => void;
   canEditAgent: boolean;
   onEditAgent?: () => void;
-  /** The agent is missing from the repo but in the catalog (decision 084 O). */
+  /** The agent is missing from the repo but in the catalog (decision 085 O). */
   onAddAgent?: () => void;
 }) {
   return (
@@ -236,7 +236,7 @@ function StepEditor({
   view: "graph" | "list" | "both";
   /** Absent in the dialog: the agent form would open behind it. */
   onEditAgent?: (name: string) => void;
-  /** The catalog agents the repo lacks, and the way to add one (decision 084 O); absent in the dialog. */
+  /** The catalog agents the repo lacks, and the way to add one (decision 085 O); absent in the dialog. */
   addable?: string[];
   onAddAgent?: (name: string) => void;
 }) {

@@ -658,9 +658,9 @@ describe("Project page, the section Écriture automatique des US", () => {
   });
 });
 
-// Decision 084 P (S13): the project settings also carry the box « lancer ce projet dans le cloud » (same value as the
+// Decision 085 P (S13): the project settings also carry the box « lancer ce projet dans le cloud » (same value as the
 // step 4 of Réglages › Tâches cloud), and the invitation link of the audit.
-describe("Project settings, the card Dans le cloud (084 P)", () => {
+describe("Project settings, the card Dans le cloud (085 P)", () => {
   const cloudCard = async () => {
     const heading = await screen.findByRole("heading", {
       name: "Dans le cloud",

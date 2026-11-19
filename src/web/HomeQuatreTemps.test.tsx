@@ -146,7 +146,7 @@ describe("slice 9.3: Maintenant, Ensuite and Claude en ce moment", () => {
     renderAt("/");
 
     const s = await section(/Claude en ce moment/);
-    // The first link is « Tous les runs » (decision 084 E).
+    // The first link is « Tous les runs » (decision 085 E).
     const links = within(s).getAllByRole("link");
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
       "/claude",

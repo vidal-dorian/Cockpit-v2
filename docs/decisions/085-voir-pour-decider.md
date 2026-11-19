@@ -1,4 +1,4 @@
-# 084 — Voir pour décider : la preuve à côté du geste, la suite après l'action
+# 085 — Voir pour décider : la preuve à côté du geste, la suite après l'action
 
 - **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit
 - **Date** : 2026-11-19

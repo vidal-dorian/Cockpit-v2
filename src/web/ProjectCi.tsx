@@ -97,7 +97,7 @@ function WorkflowLine({
     },
   });
   const red = w.failingSince > 0;
-  // Decision 084 E: the last launch survives a reload; only an unfinished one blocks a new one.
+  // Decision 085 E: the last launch survives a reload; only an unfinished one blocks a new one.
   const running = w.claude?.finishedAt === null;
   const problem =
     ask.data?.failure ?? (ask.isError ? { code: "", status: 0 } : undefined);

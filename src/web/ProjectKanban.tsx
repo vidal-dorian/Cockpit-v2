@@ -90,7 +90,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
     (document.getElementById(restore) ?? region.current)?.focus();
     setRestore(null);
   }, [restore, openStory, openIdea]);
-  // The column of the open story is the queue of decision 084 B: Valider, Renvoyer and Abandonner open the next one.
+  // The column of the open story is the queue of decision 085 B: Valider, Renvoyer and Abandonner open the next one.
   const openColumn =
     openStory && openStory.status !== "abandoned"
       ? COLUMN_OF[openStory.status]

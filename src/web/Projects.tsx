@@ -53,7 +53,7 @@ type Waiting = NonNullable<
   ReturnType<typeof useHome>["data"]
 >["forYou"][number];
 
-/** « Claude t'attend · 2 PR à relire » and where the first of them is (decision 084 E). */
+/** « Claude t'attend · 2 PR à relire » and where the first of them is (decision 085 E). */
 function waitingLink(items: Waiting[]) {
   const [first] = items;
   if (!first) return null;
@@ -639,7 +639,7 @@ function Importable() {
       ]),
   });
 
-  // Once the repos are drawn, « + Importer un repo » (from any page) lands on this section (decision 084 D).
+  // Once the repos are drawn, « + Importer un repo » (from any page) lands on this section (decision 085 D).
   const { hash } = useLocation();
   const loaded = repositories.isSuccess;
   useEffect(() => {

@@ -10,7 +10,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice S07 (decision 084 A, D, L): the page of a run. Same API as RunVerdict.test.tsx and RunQuestions.test.tsx.
+// Slice S07 (decision 085 A, D, L): the page of a run. Same API as RunVerdict.test.tsx and RunQuestions.test.tsx.
 // Pinned: the answered « Questions » list and the end of the page stay as they are; « Résumé » is no longer a section of
 // the page, the summary is in the card of the verdict; a reason of the verdict is a link named by its text.
 

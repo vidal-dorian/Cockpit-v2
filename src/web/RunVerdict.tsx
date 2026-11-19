@@ -27,7 +27,7 @@ export function RunVerdict({
   verdict: { acceptable: boolean; reasons: string[] };
   criteria: { result: string | null }[];
   story: { prAppFiles: string[] | null; prAppFilesCount: number | null };
-  /** What Claude wrote at the end of the run: the reason of a failure is read next to the verdict (decision 084 D). */
+  /** What Claude wrote at the end of the run: the reason of a failure is read next to the verdict (decision 085 D). */
   summary: string | null;
   prUrl: string | null;
   projectId: number;
@@ -47,7 +47,7 @@ export function RunVerdict({
       "critères non signalés dans ce run",
     ),
   };
-  // Each reason leads to its cause (decision 084 D).
+  // Each reason leads to its cause (decision 085 D).
   const links: Record<string, string | null> = {
     ci_failing: prUrl && `${prUrl}/checks`,
     ci_pending: prUrl && `${prUrl}/checks`,

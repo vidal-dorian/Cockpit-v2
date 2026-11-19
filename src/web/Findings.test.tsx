@@ -250,7 +250,7 @@ describe("decision 051 D: the state sentence and the filters", () => {
     expect(shown("Constat numéro 4")).toBe(false);
   });
 
-  // Changed by decision 052 H (slice R6): « Versions » is a filter between « Failles » and « Architecture » (screen S44); by decision 084 C « En ticket » is the one before « Rejetés ».
+  // Changed by decision 052 H (slice R6): « Versions » is a filter between « Failles » and « Architecture » (screen S44); by decision 085 C « En ticket » is the one before « Rejetés ».
   it("given the screen, when it opens, then the eight filters are there, « Tous » is selected and the others are not", async () => {
     await open(nine());
 

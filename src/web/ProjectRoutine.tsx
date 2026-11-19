@@ -494,7 +494,7 @@ function ArchiveCard({
   );
 }
 
-/** Decision 084 P: « Lancer ce projet dans le cloud », the same value as the step 4 of Réglages › Tâches cloud. */
+/** Decision 085 P: « Lancer ce projet dans le cloud », the same value as the step 4 of Réglages › Tâches cloud. */
 function CloudCard({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });
