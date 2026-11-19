@@ -407,6 +407,12 @@ function RulePanel({
           {rule.summary}
         </h2>
       )}
+      <p className="text-[12.5px]">
+        <Link to={`/us/${rule.storyId}`} className={`underline ${focusRing}`}>
+          En tant que {rule.asA}
+        </Link>{" "}
+        · {rule.ticketTitle}
+      </p>
       <p className="text-[13.5px] leading-normal text-muted-foreground">
         {rule.reasoning}
       </p>
@@ -480,9 +486,12 @@ export function Reprise({
         );
   const rule = rules[index];
   const [analyse, setAnalyse] = useState(false);
-  const [notice, setNotice] = useState<{ text: string; undo?: number } | null>(
-    null,
-  );
+  const [notice, setNotice] = useState<{
+    text: string;
+    undo?: number;
+    /** The US whose rules are all decided: the way to validate it (decision 084 B). */
+    story?: number;
+  } | null>(null);
   // The rule the URL asked for when the screen loaded: said once if it is no longer to decide.
   const asked = useRef(params.get("regle"));
   useEffect(() => {
@@ -533,8 +542,20 @@ export function Reprise({
   const keep = (target: Rule) =>
     decision.mutate(async () => {
       replace(await keepRule(target.id));
-      setNotice({ text: "Règle validée.", undo: target.id });
-      open(rules[index + 1]?.id);
+      // The next rule still to read, after this one then from the start (decision 084 B).
+      const pending = rules.filter(
+        (r) => r.state === "pending" && r.id !== target.id,
+      );
+      const next = pending.find((r) => rules.indexOf(r) > index) ?? pending[0];
+      const done = !pending.some((r) => r.storyId === target.storyId);
+      setNotice({
+        text: done
+          ? "Règle validée. Toutes les règles de cette US sont validées."
+          : "Règle validée.",
+        undo: target.id,
+        story: done ? target.storyId : undefined,
+      });
+      open(next?.id);
     });
   const bug = (target: Rule) =>
     decision.mutate(async () => {
@@ -542,8 +563,22 @@ export function Reprise({
       queryClient.setQueryData<Rule[]>(rulesKey(projectId), (old) =>
         old?.filter((r) => r.id !== target.id),
       );
-      setNotice({ text: "Bug noté dans un nouveau ticket." });
-      open((rules[index + 1] ?? rules[index - 1])?.id);
+      // Same queue as keep(): the next rule still to read (decision 084 B).
+      const pending = rules.filter(
+        (r) => r.state === "pending" && r.id !== target.id,
+      );
+      const next = pending.find((r) => rules.indexOf(r) > index) ?? pending[0];
+      // The only rule of its story: the server abandons the story, there is nothing to validate.
+      const done =
+        !pending.some((r) => r.storyId === target.storyId) &&
+        rules.some((r) => r.id !== target.id && r.storyId === target.storyId);
+      setNotice({
+        text: done
+          ? "Bug noté dans un nouveau ticket. Toutes les règles de cette US sont validées."
+          : "Bug noté dans un nouveau ticket.",
+        story: done ? target.storyId : undefined,
+      });
+      open(next?.id);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tickets", projectId] }),
         queryClient.invalidateQueries({ queryKey: ["home"] }),
@@ -611,7 +646,20 @@ export function Reprise({
           role="status"
           className={`${card} mb-2 flex items-center justify-between gap-3 py-2 pr-2 pl-4`}
         >
-          {notice.text}
+          <span>
+            {notice.text}
+            {notice.story !== undefined && (
+              <>
+                {" "}
+                <Link
+                  to={`/us/${notice.story}`}
+                  className={`underline ${focusRing}`}
+                >
+                  Valider l'US
+                </Link>
+              </>
+            )}
+          </span>
           {notice.undo !== undefined && (
             <button
               type="button"

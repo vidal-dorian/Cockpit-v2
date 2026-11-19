@@ -56,7 +56,15 @@ Panneau d'une carte du Kanban (G, H, A, C, E ; premier morceau construit) :
 - **Liens** : le titre du ticket mène à `/tickets/:id` ; « Issue modifiée sur GitHub » porte « Choisir la version » vers `/us/:id` ; chaque règle à trancher mène à `/projets/:id/conception/regles?regle=<id>` ; dans la phrase d'état, « l'US n » et « n user stories t'attendent » mènent à `?us=` de la première US concernée.
 - **Compte de la phrase d'état** : une US à réécrire n'est plus comptée comme attendant l'utilisateur (comme à l'accueil) ; seules « à valider » et « en revue » le sont.
 - **Focus** : à l'ouverture d'une carte, le focus va sur la ligne « US n » du panneau, qui est amenée dans la vue (`scrollIntoView`), à toute largeur.
-- **Pas encore fait** : « Valider, Renvoyer ou Abandonner ouvre l'US suivante » (B, ligne G) n'est pas dans ce morceau.
+- **La suite** : voir la section suivante (S02).
+La suite après l'action (B, G ; deuxième morceau construit, S02) :
+
+- **Kanban** : la file est la colonne de l'US ouverte (« À valider » seule, les autres colonnes ne comptent pas). Le panneau reçoit son `counter` (« i sur n », `J` / `K`) et `StoryDecisions` appelle `onDone` après Valider, Renvoyer ou Abandonner réussis (pas après Modifier, qui reste sur l'US). `onDone` ouvre l'US suivante (`?us=`), ou ferme le panneau et retire `?us=` de l'adresse à la dernière. L'US suivante est lue (`prefetchQuery`) avant que l'adresse change : le panneau ne passe jamais par un état vide. Si l'utilisateur est passé à une autre US entre-temps, celle-ci n'est pas sautée.
+- **Panneau gardé monté** : `StoryDecisions` n'est plus remonté d'une US à l'autre (plus de `key`) ; son état (mode, commentaire, brouillon, erreur) repart de zéro quand `story.id` change.
+- **Focus** : à la fermeture, le focus retourne sur la carte une fois le tableau redessiné ; si la carte a changé de colonne ou a disparu, il va sur la région défilante du tableau.
+- **Constats** : la file est la liste affichée. « En faire un ticket », « Rejeter » et « Plus tard » ouvrent le constat suivant, ou ferment le panneau au dernier (« Plus tard » ne laisse donc plus le panneau sur le même constat). Le compteur et `J` / `K` sont absents dans le filtre « Rejetés » : ces constats sont lus, pas à trancher.
+- **Règles** : le panneau dit « En tant que … » (lien vers `/us/:id`) et le titre du ticket. Valider ou noter un bug ouvre la prochaine règle encore à relire après la courante, sinon la première restante : une règle déjà validée est sautée. Quand plus aucune règle de l'US n'est à trancher, la notice ajoute « Toutes les règles de cette US sont validées » et un lien « Valider l'US » vers `/us/:id`. Après « Noter un bug » ce message n'apparaît que si l'US a d'autres règles (sinon le serveur abandonne l'US, il n'y a rien à valider).
+- **Pas de changement serveur** : ni route ni migration.
 
 ## Limites connues
 

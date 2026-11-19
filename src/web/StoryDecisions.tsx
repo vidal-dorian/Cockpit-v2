@@ -1,6 +1,13 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the Then field of a Given/When/Then criterion (decision 017)
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, type RefObject, useEffect, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  Fragment,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
@@ -71,6 +78,8 @@ export function StoryDecisions({
   archived,
   statusRef,
   toDecide = [],
+  counter,
+  onDone,
   children,
 }: {
   story: DecidedStory;
@@ -85,6 +94,10 @@ export function StoryDecisions({
   statusRef: RefObject<HTMLElement | null>;
   /** The rules of a takeover story that are still to decide (decision 047 K): the story cannot be validated before. */
   toDecide?: { id: number; summary: string }[];
+  /** « i sur n » of the column the story is in, with Précédent and Suivant (decision 084 B). */
+  counter?: ComponentProps<typeof Panel>["counter"];
+  /** Called once Valider, Renvoyer or Abandonner succeeded: the queue opens the next story (decision 084 B). */
+  onDone?: (decidedId: number) => void;
   /** What the panel shows under its headline (the pull request of a story in review). */
   children?: React.ReactNode;
 }) {
@@ -108,12 +121,23 @@ export function StoryDecisions({
     setFocusAfter(null);
   }, [mode, focusAfter, statusRef]);
 
+  // The panel stays mounted from one story of the queue to the next (decision 084 B): its state starts over with each story.
+  const [shownId, setShownId] = useState(story.id);
+  if (shownId !== story.id) {
+    setShownId(story.id);
+    setMode(null);
+    setComment("");
+    setForm(draftOf(story));
+  }
+
   const run = useMutation({
     mutationFn: async (send: () => Promise<Response>) => {
       const res = await send();
       if (!res.ok) throw await decisionError(res);
+      // The story decided: the panel may show another one when the answer comes back.
+      return story.id;
     },
-    onSuccess: async () => {
+    onSuccess: async (decidedId) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["story"] }),
         queryClient.invalidateQueries({
@@ -130,10 +154,14 @@ export function StoryDecisions({
       // Saving keeps the status, so Modifier stays; any other decision changes it and removes the button that was used.
       setFocusAfter(mode === "edit" ? "edit" : "status");
       setMode(null);
+      // Saving stays on the story; the three decisions move on.
+      if (mode !== "edit") onDone?.(decidedId);
     },
     // Refused because the story changed meanwhile (wrong_status): show its real state.
     onError: () => queryClient.invalidateQueries({ queryKey: ["story"] }),
   });
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new story clears the error of the last decision
+  useEffect(() => run.reset(), [story.id]);
   const close = () => {
     setFocusAfter(mode);
     setMode(null);
@@ -189,6 +217,7 @@ export function StoryDecisions({
   return (
     <Panel
       label="Décision sur la user story"
+      counter={counter}
       badge={
         <span className={badge}>
           {GLYPHS[status]}{" "}

@@ -1,11 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type KeyboardEvent, useEffect, useRef } from "react";
+import {
+  type ComponentProps,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { fetchRun } from "./RunPage.tsx";
 import { WhyAsked } from "./RunQuestions.tsx";
-import { Dot } from "./Shell.tsx";
+import { Dot, type Panel } from "./Shell.tsx";
 import { StoryBody } from "./StoryBody.tsx";
 import { fetchStory, StoryDecisions } from "./StoryDecisions.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
@@ -95,7 +101,15 @@ function CardQuestion({ runId }: { runId: number }) {
 }
 
 /** The panel of an open US card (decisions 069 H and 084 G): the decisions of its page, with what is needed to take them (the story, the pull request, the question). */
-function StoryCardPanel({ id }: { id: string }) {
+function StoryCardPanel({
+  id,
+  counter,
+  onDone,
+}: {
+  id: string;
+  counter?: ComponentProps<typeof Panel>["counter"];
+  onDone: (decidedId: number) => void;
+}) {
   const statusRef = useRef<HTMLParagraphElement>(null);
   const found = useQuery({
     queryKey: ["story", id],
@@ -119,11 +133,12 @@ function StoryCardPanel({ id }: { id: string }) {
     story.prNumber != null ? { ...story, prNumber: story.prNumber } : null;
   return (
     <StoryDecisions
-      key={story.id}
       story={story}
       project={project}
       archived={project.archived}
       statusRef={statusRef}
+      counter={counter}
+      onDone={onDone}
       toDecide={story.criteria.flatMap((c) =>
         c.takeoverState === "pending"
           ? [{ id: c.id, summary: c.summary ?? "" }]
@@ -192,15 +207,42 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
   const board = stories.data; // a const, so the narrowing holds inside the callbacks below
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   // An id that is not a card of the board opens nothing.
   const openStory = board?.find(
     (s) => s.status !== "abandoned" && String(s.id) === params.get("us"),
   );
   const openIdea = ideas.find((t) => String(t.id) === params.get("ticket"));
   const cardId = openStory ? `us-${openStory.id}` : `ticket-${openIdea?.id}`;
+  // The focus goes back once the board has re-rendered: the card may have changed column, or be gone.
+  const [restore, setRestore] = useState<string | null>(null);
+  const region = useRef<HTMLDivElement>(null);
   const close = () => {
     navigate({ search: "" });
-    document.getElementById(cardId)?.focus();
+    setRestore(cardId);
+  };
+  useEffect(() => {
+    if (restore === null || openStory || openIdea) return;
+    (document.getElementById(restore) ?? region.current)?.focus();
+    setRestore(null);
+  }, [restore, openStory, openIdea]);
+  // The column of the open story is the queue of decision 084 B: Valider, Renvoyer and Abandonner open the next one.
+  const openColumn =
+    openStory && openStory.status !== "abandoned"
+      ? COLUMN_OF[openStory.status]
+      : null;
+  const column = (board ?? []).filter(
+    (s) => s.status !== "abandoned" && COLUMN_OF[s.status] === openColumn,
+  );
+  const position = column.findIndex((s) => s.id === openStory?.id);
+  // The story is read before the address changes: the panel never blinks empty between two stories.
+  const openAt = async (index: number) => {
+    const next = String(column[index]?.id);
+    await queryClient.prefetchQuery({
+      queryKey: ["story", next],
+      queryFn: () => fetchStory(next),
+    });
+    navigate({ search: `?us=${next}` });
   };
   const onKeyDown = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
@@ -254,6 +296,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
             </p>
             {/* biome-ignore lint/a11y/useSemanticElements: a <section> with this role is flagged as redundant, and the role is wanted explicit */}
             <div
+              ref={region}
               role="region"
               // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1)
               tabIndex={0}
@@ -405,7 +448,23 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
           </>
         )}
       </div>
-      {openStory && <StoryCardPanel id={String(openStory.id)} />}
+      {openStory && (
+        <StoryCardPanel
+          id={String(openStory.id)}
+          counter={{
+            index: position,
+            total: column.length,
+            onPrevious: () => openAt(position - 1),
+            onNext: () => openAt(position + 1),
+          }}
+          onDone={(decidedId) => {
+            // Moved on to another story meanwhile: that one is not skipped.
+            if (decidedId !== openStory.id) return;
+            if (column[position + 1]) openAt(position + 1);
+            else close();
+          }}
+        />
+      )}
       {openIdea && (
         <TicketPanel
           key={openIdea.id}

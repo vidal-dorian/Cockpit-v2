@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import Markdown from "react-markdown";
 import { AnalyseWindow } from "./AnalyseWindow.tsx";
 import {
@@ -74,6 +74,7 @@ function FindingPanel({
   fullName,
   archived,
   busy,
+  counter,
   onDecide,
   onClose,
 }: {
@@ -82,6 +83,7 @@ function FindingPanel({
   fullName: string;
   archived: boolean;
   busy: boolean;
+  counter?: ComponentProps<typeof Panel>["counter"];
   onDecide: (action: Decision, reason?: string) => void;
   onClose: () => void;
 }) {
@@ -94,6 +96,7 @@ function FindingPanel({
   return (
     <Panel
       label="Constat"
+      counter={counter}
       badge={
         <span className={badge}>
           {kindWord(finding)} · {SEVERITY_WORD[finding.severity]}
@@ -342,6 +345,9 @@ export function Findings({
   const [first, ...others] = filter === "dismissed" ? [] : shown;
   const rest = filter === "dismissed" ? shown : others;
   const open = all.find((f) => f.id === openId);
+  // « i sur n » only for a finding still to decide: the dismissed ones are read, not queued.
+  const position =
+    filter === "dismissed" ? -1 : shown.findIndex((f) => f.id === openId);
   const show = (id: number | null, runtime: string | null = null) => {
     setOpenId(id);
     setOpenRuntime(runtime);
@@ -366,8 +372,10 @@ export function Findings({
   const decision = useMutation({
     mutationFn: (sent: { id: number; action: Decision; reason?: string }) =>
       decide(sent.id, sent.action, sent.reason),
-    onSuccess: (_, { action }) => {
-      if (action !== "later") show(null);
+    onSuccess: (_, { id, action }) => {
+      // The next finding of the list opens, or the panel closes at the end (decision 084 B).
+      const at = shown.findIndex((f) => f.id === id);
+      show(at < 0 ? null : (shown[at + 1]?.id ?? null));
       if (action === "ticket")
         return Promise.all([
           queryClient.invalidateQueries({ queryKey: ["tickets", projectId] }),
@@ -571,6 +579,16 @@ export function Findings({
           fullName={fullName}
           archived={archived}
           busy={busy}
+          counter={
+            position < 0
+              ? undefined
+              : {
+                  index: position,
+                  total: shown.length,
+                  onPrevious: () => show(shown[position - 1]?.id ?? null),
+                  onNext: () => show(shown[position + 1]?.id ?? null),
+                }
+          }
           onDecide={(action, reason) => run(open.id, action, reason)}
           onClose={() => show(null)}
         />
