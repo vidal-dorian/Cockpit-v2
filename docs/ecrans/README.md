@@ -40,7 +40,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
 | [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3, 15.3 (favoris, existent) | 011, 073 | les favoris sont construits ([073](../decisions/073-ergonomie.md) H) ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
-| [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063, 074 | le choix du niveau n'est plus sur l'écran : « Importer » ouvre une fenêtre à carrousel ([074](../decisions/074-equipes-a-la-demande.md) A) |
+| [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063, 074, 084 | la liste a un champ « Chercher un repo » et montre 10 repos, « Afficher plus » en ajoute 10 ([084](../decisions/084-le-telephone-deuxieme-passe.md) A) ; le choix du niveau n'est plus sur l'écran : « Importer » ouvre une fenêtre à carrousel ([074](../decisions/074-equipes-a-la-demande.md) A) |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |
 | [S14](S14_Tickets.png) | Onglet Tickets, le ticket ouvert à droite | 3.1, 11.2, 11.3, 11.4 (existent) | 014, 055, 057, 061 | rien n'est retiré : les filtres restent ([069](../decisions/069-finitions.md) J) |
@@ -50,7 +50,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S18](S18_ConfigClaude.png) | Modifier `CLAUDE.md` avec son diff | 12.1 (existe) | 026, 065 | |
 | [S19](S19_ReglagesProjet.png) | Réglages du projet : écriture des US, la nuit, dossier du clone, archiver | 4.8 (existe), 14.6 | 022, 044, 005 | tranché (044 N', [064](../decisions/064-tranches-restantes.md)) : la section « la nuit » est retirée |
 | [S20](S20_NouveauDepuisModele.png) | Nouveau projet depuis un repo modèle | 12.5 (existe) | 068 | |
-| [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3, 9.5 | 019, 069 | la carte s'ouvre dans le panneau de droite (069 G) |
+| [S00b](S00b_Kanban.png) | Onglet Kanban | 4.5 (existe), 9.3, 9.5 | 019, 069, 084 | la carte s'ouvre dans le panneau de droite (069 G) ; sous `lg`, elle ouvre la page de l'US ou du ticket, et sous `sm` une seule colonne s'affiche, choisie par des puces ([084](../decisions/084-le-telephone-deuxieme-passe.md) C) |
 
 ## 4 · Tickets et user stories
 
@@ -75,8 +75,8 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 | [S32](S32_TachesProgrammees.png) | Les tâches programmées de Claude | 14.2 (existe) | 022, 056 | la tâche d'écriture des US n'est pas dans « Prochains lancements » |
 | [S33](S33_CoutBudget.png) | Coût et plafonds | 14.5 (existe) | 060 | le coût des runs locaux est repoussé (060) |
 | [S34](S34_Nuit_EnCours.png) | La nuit de Claude, pendant la nuit | 14.6 (existe) | 044 | |
-| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044 | « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; pas de frise à l'échelle des heures sur le soir ([070](../decisions/070-le-matin-de-la-nuit.md) G) ; la maquette montre un programme déjà rempli : il part vide, voir 044 amendement du 2026-11-18 |
-| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6, 14.7 (existe) | 044, 070 | « Ce matin · 8 h 12 » et « Compte 20 minutes pour tout traiter » non construits ([070](../decisions/070-le-matin-de-la-nuit.md)) |
+| [N1](N1_Nuit_Soir.png) | La nuit de Claude : le soir | 14.6 (existe) | 044, 084 | le bouton « Lancer la nuit » est sous la phrase d'état, les règles sont repliées, chaque ligne du programme a son rang et son état ([084](../decisions/084-le-telephone-deuxieme-passe.md) E) ; « Il s'arrête jusqu'à ta réponse » et « Te prévenir » non construits ; pas de frise à l'échelle des heures sur le soir ([070](../decisions/070-le-matin-de-la-nuit.md) G) ; la maquette montre un programme déjà rempli : il part vide, voir 044 amendement du 2026-11-18 |
+| [N2](N2_Nuit_Matin.png) | La nuit de Claude : le matin | 14.6, 14.7 (existe) | 044, 070, 084 | le bloc « Cette nuit » (quatre cases, barre empilée, US rangées par issue) est en tête de `/nuit`, plus sur l'accueil ; la frise n'est qu'un dessin à partir de `md` ([084](../decisions/084-le-telephone-deuxieme-passe.md) E) ; « Ce matin · 8 h 12 » et « Compte 20 minutes pour tout traiter » non construits ([070](../decisions/070-le-matin-de-la-nuit.md)) |
 | [N3](N3_Nuit_Telephone.png) | La nuit de Claude : le téléphone à 8 h | 15.2 (existe) | 044, 072 | la notification de 044 M' est construite ([072](../decisions/072-pwa-et-notifications.md)) |
 
 ## 6 · Équipes d'agents et journal
@@ -117,7 +117,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S52](S52_Tel_Accueil.png) | Accueil sur le téléphone | 15.1 (existe) | 003, 071 | « à relire sur ordinateur » d'une PR non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) |
+| [S52](S52_Tel_Accueil.png) | Accueil sur le téléphone | 15.1 (existe) | 003, 071, 084 | « à relire sur ordinateur » d'une PR non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) ; barre du bas de 65 px avec un cinquième onglet « Menu », guide réduit à l'étape suivante, « Cette nuit » et « Dernièrement » absents ([084](../decisions/084-le-telephone-deuxieme-passe.md) B, D) |
 | [S53](S53_Tel_Repondre.png) | Répondre à Claude | 15.1 (existe) | 036, 071 | le panneau de l'accueil vient sous « 1 · Maintenant » ([071](../decisions/071-trois-gestes-au-telephone.md) E) |
 | [S54](S54_Tel_ValiderUS.png) | Valider une US | 15.1 (existe) | 018, 071 | « Plus tard » non construit ([071](../decisions/071-trois-gestes-au-telephone.md)) |
 | [S55](S55_Tel_NoterIdee.png) | Noter une idée | 15.1 (existe) | 014, 071 | « Photo » construit, « Dicter » retiré ([064](../decisions/064-tranches-restantes.md) 15.1) ; le titre de l'idée en gros n'est pas construit, et le panneau montre aussi la priorité et les étiquettes, absentes de S55 ([071](../decisions/071-trois-gestes-au-telephone.md)) |

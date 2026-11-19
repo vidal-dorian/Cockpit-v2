@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { repoName } from "./Shell.tsx";
 import { decisionStory, stubDecisionApi } from "./test-decisions.tsx";
 import { PROJECT } from "./test-home.tsx";
 import { story as fakeStory, renderAt, ticket } from "./test-tickets.tsx";
@@ -228,9 +229,12 @@ describe("decision 085 C: titles and run links during the night", () => {
     expect(
       href(within(first).getByRole("link", { name: "faire la chose 1" })),
     ).toBe("/us/1");
-    expect(href(within(first).getByRole("link", { name: PROJECT.name }))).toBe(
-      "/projets/5",
-    );
+    expect(
+      href(
+        // Decision 084 shows the repo name without its owner.
+        within(first).getByRole("link", { name: repoName(PROJECT.name) }),
+      ),
+    ).toBe("/projets/5");
     expect(href(within(first).getByRole("link", { name: /Run/ }))).toBe(
       "/runs/31",
     );
@@ -260,15 +264,16 @@ describe("decision 085 C: titles and run links during the night", () => {
 });
 
 describe("decision 085 D: the disabled launch and the empty list say where to act", () => {
-  it("given no connected launcher, when /nuit opens, then « Connecte le lanceur » is a link to /reglages/taches-cloud", async () => {
+  it("given no connected launcher, when /nuit opens, then the reason beside the disabled launch carries a « Réglages » link to /reglages/taches-cloud", async () => {
     load({ connected: false, ready: [item(1)] });
     renderAt("/nuit");
 
-    const link = await screen.findByRole("link", {
-      name: /Connecte le lanceur/,
-    });
-
-    expect(href(link)).toBe("/reglages/taches-cloud");
+    // Decision 084 (merged alongside) already puts this link beside the reason; the sidebar has its own « Réglages ».
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("link", { name: "Réglages" }).map(href),
+      ).toContain("/reglages/taches-cloud"),
+    );
   });
 
   it("given no project ticked for the night, when /nuit opens, then the empty list says so with a link to /reglages/taches-cloud", async () => {

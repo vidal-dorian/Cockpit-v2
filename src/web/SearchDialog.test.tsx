@@ -215,7 +215,7 @@ describe("slice 15.3 D: Ctrl+Enter", () => {
   });
 });
 
-// Decision 085 C, M (S10): the actions follow the sidebar, a search that finds nothing offers to note it, the phone has a Chercher button.
+// Decision 085 C, M (S10): the actions follow the sidebar, a search that finds nothing offers to note it (the phone reaches the search through the Menu tab of decision 084 B).
 describe("085 M: the search window leads somewhere", () => {
   it("given the actions, when « Équipes d'agents » is chosen, then the page goes to /equipes like the sidebar", async () => {
     start();
@@ -250,20 +250,5 @@ describe("085 M: the search window leads somewhere", () => {
       (panel.getByRole("textbox", { name: "Titre" }) as HTMLInputElement).value,
     ).toBe("export csv");
     expect(screen.queryByRole("dialog", { name: "Chercher" })).toBeNull();
-  });
-
-  it("given the page on a phone, when the Chercher button outside the sidebar is pressed, then the search window opens", async () => {
-    start();
-    const aside = await screen.findByRole("complementary", {
-      name: "Barre latérale",
-    });
-
-    const button = screen
-      .getAllByRole("button", { name: /^Chercher/ })
-      .find((b) => !aside.contains(b));
-    expect(button, "a Chercher button outside the sidebar").toBeDefined();
-    fireEvent.click(button as HTMLElement);
-
-    expect(await dialog()).toBeDefined();
   });
 });

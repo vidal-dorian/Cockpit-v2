@@ -10,6 +10,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decisionStory, stubDecisionApi } from "./test-decisions.tsx";
 import { PROJECT } from "./test-home.tsx";
+import { local, morning, morningItem, stubNight } from "./test-night.tsx";
 import { panel } from "./test-shell.tsx";
 import { fail, renderAt, story, ticket } from "./test-tickets.tsx";
 
@@ -492,64 +493,29 @@ describe("decision 085 E: « Plus tard » of a question is a button", () => {
   });
 });
 
-describe("decision 085 C, E: the morning block of the night links what it names", () => {
-  const night = {
-    id: 1,
-    startsAt: new Date(2026, 10, 8, 22).toISOString(),
-    endsAt: new Date(2026, 10, 9, 7).toISOString(),
-    delivered: 1,
-    total: 2,
-    workSeconds: 600,
-    criteriaProven: 1,
-    failures: 1,
-    items: [
-      {
-        storyId: 7,
-        iWant: "faire la chose 7",
-        outcome: "delivered",
-        startedAt: new Date(2026, 10, 8, 23).toISOString(),
-        finishedAt: new Date(2026, 10, 8, 23, 30).toISOString(),
+// Decision 084 E (merged alongside this one) moved the morning block from the home to the top of /nuit; its story links are pinned by NightMorningSummary.test.tsx.
+describe("decision 085 E: the morning block's waiting questions link where they are answered", () => {
+  it("given a question waiting after the night, when /nuit opens, then « 1 question t'attend » links the home, whose right panel answers it", async () => {
+    stubNight({
+      home: {
+        forYou: [answerItem(1)],
+        night: morning([
+          morningItem(7, "pr", [local(8, 23), local(8, 23, 30)]),
+        ]),
       },
-      {
-        storyId: 8,
-        iWant: "faire la chose 8",
-        outcome: "failed",
-        startedAt: new Date(2026, 10, 9, 1).toISOString(),
-        finishedAt: new Date(2026, 10, 9, 1, 30).toISOString(),
-      },
-    ],
-  };
-  const block = async () =>
-    within(
-      (await screen.findByRole("heading", { name: /Cette nuit/ })).closest(
-        "section",
-      ) as HTMLElement,
+    });
+    renderAt("/nuit");
+
+    const block = within(
+      (
+        await screen.findByRole("heading", { name: /Cette nuit, Claude/ })
+      ).closest("section") as HTMLElement,
     );
-
-  it("given a night with two stories, when the home loads, then each line of the timeline links its story and « Voir la nuit » links /nuit", async () => {
-    load({ forYou: [], night });
-    renderAt("/");
-
-    const b = await block();
     expect(
-      b.getByRole("link", { name: /faire la chose 8/ }).getAttribute("href"),
-    ).toBe("/us/8");
-    expect(
-      b.getByRole("link", { name: /faire la chose 7/ }).getAttribute("href"),
-    ).toBe("/us/7");
-    expect(
-      b.getByRole("link", { name: /Voir la nuit/ }).getAttribute("href"),
-    ).toBe("/nuit");
-  });
-
-  it("given a question waiting after the night, when « 1 question t'attend » is clicked, then the focus goes into the panel", async () => {
-    load({ forYou: [answerItem(1)], night });
-    renderAt("/");
-
-    fireEvent.click(
-      (await block()).getByRole("button", { name: /1 question t'attend/ }),
-    );
-
-    expect(panel().contains(document.activeElement)).toBe(true);
+      block
+        .getByRole("link", { name: /1 question t'attend/ })
+        .getAttribute("href"),
+    ).toBe("/");
+    expect(block.queryByRole("link", { name: /Voir la nuit/ })).toBeNull();
   });
 });

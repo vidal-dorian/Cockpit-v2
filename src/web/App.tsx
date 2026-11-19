@@ -39,7 +39,6 @@ import {
   fetchTelemetry,
   IdeaBar,
   ScrollToTop,
-  SearchButton,
   Sidebar,
   useHome,
 } from "./Shell.tsx";
@@ -386,12 +385,11 @@ function Shell({
         <ShortcutsDialog onClose={() => onOverlay(undefined)} />
       )}
       {/* A page renders its own <main>. */}
-      <div className="flex min-h-screen min-w-0 flex-col pb-16 md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
+      <div className="flex min-h-screen min-w-0 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
         <OfflineBanner />
         <InstallBanner />
-        <SearchButton onClick={() => onOverlay("search")} />
         <div className="flex-1">{routes}</div>
-        <IdeaBar ref={idea} />
+        <IdeaBar ref={idea} onSearch={() => onOverlay("search")} />
       </div>
     </div>
   );
