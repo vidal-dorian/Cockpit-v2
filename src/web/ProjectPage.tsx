@@ -16,7 +16,11 @@ import { FeaturesExport } from "./ProjectFeatures.tsx";
 import { ProjectHistory } from "./ProjectHistory.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
-import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
+import {
+  fetchSchedule,
+  ProjectRoutine,
+  writingSentence,
+} from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
 import { atLeast } from "./roles.ts";
@@ -122,17 +126,6 @@ const TAB_REST: Record<ProjectTab, string> = {
   historique: "",
   reglages: "",
 };
-
-// The second line of the Tickets tab, from the schedule of the automatic writing (decisions 022 D and 055 F): nothing when it is not scheduled.
-function writingSentence(
-  schedule: { frequency: string; hour: number | null } | undefined,
-) {
-  const hour = schedule?.hour ?? 7;
-  if (schedule?.frequency === "daily")
-    return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
-  if (schedule?.frequency === "weekly")
-    return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
-}
 
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({

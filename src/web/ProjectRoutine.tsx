@@ -63,6 +63,17 @@ export async function fetchSchedule(id: string) {
   return res.json();
 }
 
+/** When Claude writes the stories, from the schedule of the automatic writing (decisions 022 D and 055 F): nothing when it is not scheduled; the second line of the Tickets tab and of a ticket without stories. */
+export function writingSentence(
+  schedule: { frequency: string; hour: number | null } | undefined,
+) {
+  const hour = schedule?.hour ?? 7;
+  if (schedule?.frequency === "daily")
+    return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
+  if (schedule?.frequency === "weekly")
+    return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
+}
+
 const when = (iso: string) =>
   new Date(iso).toLocaleString("fr-FR", {
     dateStyle: "long",

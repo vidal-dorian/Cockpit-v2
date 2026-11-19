@@ -140,3 +140,7 @@ export function age(iso: string) {
     ? `${Math.floor(days / 7)} sem.`
     : `${Math.floor(days / 30)} mois`;
 }
+
+/** A click that stays in the page: not a new tab or window (modifier key, middle button). */
+export const isPlainClick = (event: React.MouseEvent) =>
+  event.button === 0 && !(event.metaKey || event.ctrlKey || event.shiftKey);

@@ -3,13 +3,22 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { ImportedFrom } from "./IssueImport.tsx";
+import {
+  fetchSchedule,
+  RunNowButton,
+  writingSentence,
+} from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
+import { atLeast } from "./roles.ts";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Breadcrumb, StateSentence, useHome } from "./Shell.tsx";
+import { TicketStoryPanel } from "./StoryCardPanel.tsx";
 import { TagField } from "./TagField.tsx";
 import { TicketAttachments } from "./TicketAttachments.tsx";
 import {
   decisionError,
+  fetchTickets,
+  isPlainClick,
   PRIORITIES,
   STEPS,
   STORY_STATUSES,
@@ -44,14 +53,34 @@ type Loaded = Exclude<
   null | "not_found"
 >;
 
-/** The second line of a story row: what Claude does, or its criteria and what it waits for. */
-function storyDetail(story: Loaded["stories"][number]) {
-  if (story.status === "in_progress" && story.runId != null)
-    return `Claude développe · Run ${story.runId}`;
+const inlineLink = `underline ${focusRing}`;
+
+/** The second line of a story row: what Claude does, or its criteria and what it waits for; the run and the stories it depends on are links (decision 084 C). */
+function StoryDetail({ story }: { story: Loaded["stories"][number] }) {
   const criteria = `${story.criteriaCount} ${story.criteriaCount === 1 ? "critère" : "critères"}`;
-  return story.dependsOn.length > 0
-    ? `${criteria} · dépend de l'${story.dependsOn.map((d) => `US ${d}`).join(", ")}`
-    : criteria;
+  return (
+    <>
+      {story.status === "in_progress" && story.runId != null ? (
+        <>
+          Claude développe ·{" "}
+          <Link to={`/runs/${story.runId}`} className={inlineLink}>
+            Run {story.runId}
+          </Link>
+        </>
+      ) : (
+        criteria
+      )}
+      {story.dependsOn.length > 0 && " · dépend de l'"}
+      {story.dependsOn.map((d, i) => (
+        <span key={d}>
+          {i > 0 && ", "}
+          <Link to={`/us/${d}`} className={inlineLink}>
+            US {d}
+          </Link>
+        </span>
+      ))}
+    </>
+  );
 }
 
 /** The rest of the state sentence: what Claude wrote, and what waits for the user. */
@@ -65,19 +94,37 @@ function storiesSentence(ticket: Loaded["ticket"], stories: Loaded["stories"]) {
 function TicketView({
   ticket,
   stories,
-  archived,
-}: Loaded & { archived: boolean }) {
+  mayWrite,
+  mayRun,
+}: Loaded & { mayWrite: boolean; mayRun: boolean }) {
   const fullName = useHome().data?.projects.find(
     (p) => p.id === ticket.projectId,
   )?.name;
   const projectName = fullName?.split("/").pop();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  // The story read in the right panel before it is validated (decision 084 A).
+  const [openStory, setOpenStory] = useState<number | null>(null);
+  const schedule = useQuery({
+    queryKey: ["routine-schedule", String(ticket.projectId)],
+    queryFn: () => fetchSchedule(String(ticket.projectId)),
+    enabled: mayWrite && stories.length === 0,
+  });
+  // The tags already used in the project, offered when the ticket is modified.
+  const used = useQuery({
+    queryKey: ["tickets", String(ticket.projectId)],
+    queryFn: () => fetchTickets(String(ticket.projectId)),
+  });
+  const suggestions = [
+    ...new Set((used.data ?? []).flatMap((t) => t.tags ?? [])),
+  ];
   // One thing at a time: reading, editing or confirming a deletion or an abandon (decision 003, rule 4).
   // « Modifier » of the panel of the Tickets tab leads here with ?modifier=1 (decision 055 G).
   const [params, setParams] = useSearchParams();
   const [mode, setMode] = useState<"view" | "edit" | "delete" | "abandon">(
-    params.get("modifier") === "1" && !ticket.abandonedAt ? "edit" : "view",
+    params.get("modifier") === "1" && mayWrite && !ticket.abandonedAt
+      ? "edit"
+      : "view",
   );
   const [title, setTitle] = useState(ticket.title);
   const [descriptionMd, setDescriptionMd] = useState(ticket.descriptionMd);
@@ -176,7 +223,7 @@ function TicketView({
       await queryClient.invalidateQueries({
         queryKey: ["tickets", String(ticket.projectId)],
       });
-      navigate(`/projets/${ticket.projectId}`);
+      navigate(`/projets/${ticket.projectId}/tickets`);
     },
     // Refused because Claude wrote stories meanwhile: show them, and hide « Supprimer ».
     onError: () => queryClient.invalidateQueries({ queryKey: ["ticket", id] }),
@@ -286,6 +333,7 @@ function TicketView({
               onChange={setTags}
               text={tagText}
               onText={setTagText}
+              suggestions={suggestions}
             />
           </div>
           <div className="mt-3 flex gap-2">
@@ -327,6 +375,7 @@ function TicketView({
               actions={
                 // An abandoned ticket is not modified any more (decision 018 D).
                 mode === "view" &&
+                mayWrite &&
                 !ticket.abandonedAt && (
                   <button
                     ref={modifier}
@@ -390,7 +439,7 @@ function TicketView({
               <TicketAttachments
                 ticketId={ticket.id}
                 projectId={ticket.projectId}
-                readOnly={archived}
+                readOnly={!mayWrite}
               />
             </div>
           </div>
@@ -423,15 +472,20 @@ function TicketView({
                     <span className="min-w-0">
                       <Link
                         to={`/us/${story.id}`}
+                        onClick={(event) => {
+                          if (!isPlainClick(event)) return;
+                          event.preventDefault();
+                          setOpenStory(story.id);
+                        }}
                         className={`block font-semibold ${focusRing}`}
                       >
                         US {story.id} · {story.iWant}
                       </Link>
                       <span className="block text-[12.5px] text-muted-foreground">
-                        {storyDetail(story)}
+                        <StoryDetail story={story} />
                       </span>
                     </span>
-                    {story.status === "to_validate" ? (
+                    {story.status === "to_validate" && mayWrite ? (
                       <button
                         type="button"
                         disabled={validate.isPending}
@@ -456,6 +510,27 @@ function TicketView({
               )}
             </section>
           )}
+          {mayRun && stories.length === 0 && !ticket.abandonedAt && (
+            <div className="px-[26px] pt-3">
+              {writingSentence(schedule.data) && (
+                <p className="mb-2 text-muted-foreground">
+                  {writingSentence(schedule.data)}
+                </p>
+              )}
+              <RunNowButton
+                projectId={String(ticket.projectId)}
+                onlyConnected
+              />
+            </div>
+          )}
+          {openStory !== null && (
+            <TicketStoryPanel
+              stories={stories}
+              openId={openStory}
+              onOpen={setOpenStory}
+              back={{ label: "Fermer", onClick: () => setOpenStory(null) }}
+            />
+          )}
           {mode === "abandon" && (
             <p id="abandon-ticket-warning" className="px-[26px] pt-6">
               Abandonner ce ticket ?{" "}
@@ -468,7 +543,7 @@ function TicketView({
             {mode === "view" && (
               <>
                 {/* A ticket with stories is never deleted (decision 017 J). */}
-                {stories.length === 0 && (
+                {mayWrite && stories.length === 0 && (
                   <button
                     ref={supprimer}
                     type="button"
@@ -478,7 +553,7 @@ function TicketView({
                     Supprimer
                   </button>
                 )}
-                {!ticket.abandonedAt && (
+                {mayWrite && !ticket.abandonedAt && (
                   <button
                     ref={abandonner}
                     type="button"
@@ -553,6 +628,15 @@ export function TicketPage() {
     retry: false,
   });
   const loaded = ticket.data;
+  // Decisions 076 G and 084 D: no gesture offered that the role or the archive would refuse.
+  const mayWrite = (projectId: number) => {
+    const project = projects.data?.find((p) => p.id === projectId);
+    return !project?.archived && atLeast(project?.role, "can_validate");
+  };
+  // Running the routine now is for the owner (the route asks for it).
+  const mayRun = (projectId: number) =>
+    mayWrite(projectId) &&
+    atLeast(projects.data?.find((p) => p.id === projectId)?.role, "owner");
 
   return (
     <main className="pb-6">
@@ -595,10 +679,8 @@ export function TicketPage() {
           <TicketView
             key={loaded.ticket.id}
             {...loaded}
-            archived={
-              projects.data?.find((p) => p.id === loaded.ticket.projectId)
-                ?.archived ?? false
-            }
+            mayWrite={mayWrite(loaded.ticket.projectId)}
+            mayRun={mayRun(loaded.ticket.projectId)}
           />
         )}
       </div>

@@ -79,8 +79,22 @@ L'accueil (A, B, C, D, E, I ; troisième morceau construit, S03) :
 - **Bloc du matin** (`NightMorning.tsx`) : chaque ligne de la frise mène à `/us/:id` ; « n question(s) t'attend(ent) » est un bouton qui ouvre la première question et amène le focus dans le panneau.
 - **Pas de changement serveur** : ni route ni migration.
 
+Les tickets (A, C, D, F, J, K ; quatrième morceau construit, S04) :
+
+- **Onglet Tickets dans l'adresse** (F) : `?ticket=<id>` (le ticket ouvert), `?vue=new` (puce Nouveaux) ou `?vue=tous` (aucune puce ; « Ouverts » est la vue sans paramètre), `?etiquette=<nom>` et `?q=<texte>` (la recherche). Les changements remplacent l'entrée d'historique (`replace`) : Précédent revient de la page d'un ticket à l'onglet tel qu'il était, sans défaire chaque frappe.
+- **`TicketStoryPanel`** (`StoryCardPanel.tsx`, J) : le panneau d'une US de ticket réutilise `StoryCardPanel`. La file est celle des US « à valider » du ticket, avec compteur et `J` / `K` ; Valider, Renvoyer ou Abandonner ouvre la suivante, ou revient au ticket à la dernière. Dans le panneau de l'onglet, le bouton de retour est « ← Ticket » ; un clic avec touche modificatrice ou bouton du milieu garde le lien normal vers `/us/:id` (`isPlainClick`, `tickets.ts`).
+- **Page `/tickets/:id`** (A) : le titre d'une US ouvre le même panneau à droite (bouton « Fermer »), la page reste, le Valider de la ligne reste.
+- **Écrire les US maintenant** (D) : sans US, la page et le panneau montrent `RunNowButton` (`onlyConnected`, donc seulement avec une routine connectée) ; la page ajoute la phrase `writingSentence`, sortie de `ProjectPage.tsx` vers `ProjectRoutine.tsx`. Le bouton n'est proposé qu'au rôle `owner` (la route le demande, 076 G), sur un projet non archivé et un ticket non abandonné. Même règle sur l'écran d'import.
+- **Liens** (C) : dans la ligne d'une US de la page, « Run n » mène à `/runs/n` et « US n » (dépendance) à `/us/n` ; sur l'écran d'import, « déjà dans Cockpit (US n) » et « (ticket n) » sont des liens entiers, et « GitHub ↗ » (lecteur d'écran : « Voir l'issue #n sur GitHub ») s'ouvre dans un nouvel onglet.
+- **Après l'import** (D) : le message ajoute « n US prêtes au Kanban » (lien vers `/projets/:id`, absent s'il n'y en a aucune) et « Écrire les US maintenant » seulement s'il y a plus de tickets que d'US importées.
+- **Rôle et archive** (D) : sur la page d'un ticket, Modifier, Valider, Abandonner le ticket, « + Ajouter » (pièces jointes) et Supprimer ne sont proposés qu'à `can_validate` ou plus, sur un projet non archivé (`?modifier=1` n'ouvre plus l'édition sans cela).
+- **Étiquettes suggérées** : le champ d'étiquette de la modification propose les étiquettes déjà portées par les autres tickets du projet (`fetchTickets`, clé `["tickets", projet]`).
+- **Suppression** (K) : revient à `/projets/:id/tickets`.
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
 - **Un refus de règles à l'accueil** : le lien `rules_pending` d'une ligne mène à l'écran de reprise du projet (`/regles`), sans `?regle=` : la ligne ne connaît pas la règle.
 - **`V` sur l'accueil** valide l'US affichée dans le panneau : le risque de valider par réflexe est celui que la 073 acceptait déjà au Kanban.
+- **Une US ouverte dans un panneau de ticket** n'est pas dans l'adresse : seul `?ticket=` l'est dans l'onglet Tickets, et la page d'un ticket ne garde pas l'US ouverte.
