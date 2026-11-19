@@ -1,9 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { type KeyboardEvent, type MouseEvent, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { Dot } from "./Shell.tsx";
-import { fetchStory, StoryDecisions } from "./StoryDecisions.tsx";
+import { StoryCardPanel } from "./StoryCardPanel.tsx";
+import { fetchStory } from "./StoryDecisions.tsx";
 import { TicketTags } from "./TagField.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { fetchTickets, plural, STORY_STATUSES } from "./tickets.ts";
@@ -55,48 +62,6 @@ const COLUMN_OF = {
   (typeof COLUMNS)[number]["name"]
 >;
 
-/** The panel of an open US card (decision 069 H): the decisions of its page, headed by the way to the page and to its running run. */
-function StoryCardPanel({ id }: { id: string }) {
-  const statusRef = useRef<HTMLParagraphElement>(null);
-  const found = useQuery({
-    queryKey: ["story", id],
-    queryFn: () => fetchStory(id),
-  }).data;
-  if (!found || found === "not_found") return null;
-  const { story, project } = found;
-  const running = story.runs?.find((run) => run.status === "running");
-  return (
-    <StoryDecisions
-      key={story.id}
-      story={story}
-      project={project}
-      archived={project.archived}
-      statusRef={statusRef}
-      toDecide={story.criteria.flatMap((c) =>
-        c.takeoverState === "pending" ? [c.summary ?? ""] : [],
-      )}
-    >
-      <p ref={statusRef} tabIndex={-1} className="text-[12.5px]">
-        US {story.id} ·{" "}
-        <Link to={`/us/${story.id}`} className={`underline ${focusRing}`}>
-          Ouvrir l'US
-        </Link>
-        {running && (
-          <>
-            {" · "}
-            <Link
-              to={`/runs/${running.id}`}
-              className={`underline ${focusRing}`}
-            >
-              Run {running.id} ↗
-            </Link>
-          </>
-        )}
-      </p>
-    </StoryDecisions>
-  );
-}
-
 /** The « Kanban » section of the project page: a card opens in the right panel, at ?us=<id> or ?ticket=<id> (decision 069 G; no drag and drop, brief §6.3). */
 export function ProjectKanban({ projectId }: { projectId: string }) {
   const stories = useQuery({
@@ -113,15 +78,42 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
   const board = stories.data; // a const, so the narrowing holds inside the callbacks below
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   // An id that is not a card of the board opens nothing.
   const openStory = board?.find(
     (s) => s.status !== "abandoned" && String(s.id) === params.get("us"),
   );
   const openIdea = ideas.find((t) => String(t.id) === params.get("ticket"));
   const cardId = openStory ? `us-${openStory.id}` : `ticket-${openIdea?.id}`;
+  // The focus goes back once the board has re-rendered: the card may have changed column, or be gone.
+  const [restore, setRestore] = useState<string | null>(null);
+  const region = useRef<HTMLDivElement>(null);
   const close = () => {
     navigate({ search: "" });
-    document.getElementById(cardId)?.focus();
+    setRestore(cardId);
+  };
+  useEffect(() => {
+    if (restore === null || openStory || openIdea) return;
+    (document.getElementById(restore) ?? region.current)?.focus();
+    setRestore(null);
+  }, [restore, openStory, openIdea]);
+  // The column of the open story is the queue of decision 085 B: Valider, Renvoyer and Abandonner open the next one.
+  const openColumn =
+    openStory && openStory.status !== "abandoned"
+      ? COLUMN_OF[openStory.status]
+      : null;
+  const column = (board ?? []).filter(
+    (s) => s.status !== "abandoned" && COLUMN_OF[s.status] === openColumn,
+  );
+  const position = column.findIndex((s) => s.id === openStory?.id);
+  // The story is read before the address changes: the panel never blinks empty between two stories.
+  const openAt = async (index: number) => {
+    const next = String(column[index]?.id);
+    await queryClient.prefetchQuery({
+      queryKey: ["story", next],
+      queryFn: () => fetchStory(next),
+    });
+    navigate({ search: `?us=${next}` });
   };
   const onKeyDown = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
@@ -224,6 +216,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
             </div>
             {/* biome-ignore lint/a11y/useSemanticElements: a <section> with this role is flagged as redundant, and the role is wanted explicit */}
             <div
+              ref={region}
               role="region"
               // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1)
               tabIndex={0}
@@ -306,6 +299,9 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 )
                               : null,
                             story.prNumber ? `PR #${story.prNumber}` : null,
+                            story.status === "ready" && story.blockedBy
+                              ? `dépend de l'US ${story.blockedBy}`
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(" · ");
@@ -377,7 +373,23 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
           </>
         )}
       </div>
-      {openStory && <StoryCardPanel id={String(openStory.id)} />}
+      {openStory && (
+        <StoryCardPanel
+          id={String(openStory.id)}
+          counter={{
+            index: position,
+            total: column.length,
+            onPrevious: () => openAt(position - 1),
+            onNext: () => openAt(position + 1),
+          }}
+          onDone={(decidedId) => {
+            // Moved on to another story meanwhile: that one is not skipped.
+            if (decidedId !== openStory.id) return;
+            if (column[position + 1]) openAt(position + 1);
+            else close();
+          }}
+        />
+      )}
       {openIdea && (
         <TicketPanel
           key={openIdea.id}

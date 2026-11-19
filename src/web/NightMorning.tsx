@@ -162,20 +162,25 @@ export function NightMorning({
         <h2 id="cette-nuit" className="font-semibold">
           ☾ Cette nuit, Claude a livré {night.delivered} PR sur {night.total}
         </h2>
-        <button
-          type="button"
-          className={button}
-          disabled={hide.isPending}
-          aria-busy={hide.isPending}
-          onClick={() => hide.mutate()}
-        >
-          Masquer
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className={button}
+            disabled={hide.isPending}
+            aria-busy={hide.isPending}
+            onClick={() => hide.mutate()}
+          >
+            Masquer
+          </button>
+        </div>
       </div>
       {questions > 0 && (
         <p>
-          {questions}{" "}
-          {questions > 1 ? "questions t'attendent" : "question t'attend"}
+          {/* The questions are answered in the right panel of the home (decision 085 E). */}
+          <Link to="/" className={`font-semibold underline ${focusRing}`}>
+            {questions}{" "}
+            {questions > 1 ? "questions t'attendent" : "question t'attend"}
+          </Link>
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

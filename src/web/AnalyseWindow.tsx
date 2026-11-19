@@ -35,22 +35,27 @@ const ANALYSER_FILES = [
 
 const storageKey = (projectId: string) => `cockpit.clone.${projectId}`;
 
+export type Step =
+  | "map"
+  | "bugs"
+  | "security"
+  | "architecture"
+  | "versions"
+  | "rules";
+
 /** Decisions 043 L and M and 047 L and M, in the right panel: the link that opens Claude on the clone with /analyser (the map, the rules of some features, or both), and for a repo that lacks the seven files, their addition with the write of decision 026. */
 export function AnalyseWindow({
   projectId,
   fullName,
   archived,
-  initialRules = false,
-  initialVersions = false,
+  steps = ["map"],
   onClose,
 }: {
   projectId: string;
   fullName: string;
   archived: boolean;
-  /** « Règles » checked when the window opens (decision 048 J). */
-  initialRules?: boolean;
-  /** « Versions » checked when the window opens (decision 052 J). */
-  initialVersions?: boolean;
+  /** The steps checked when the window opens: the one that was asked for (decisions 048 J, 052 J and 085 D). */
+  steps?: Step[];
   onClose: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -62,12 +67,14 @@ export function AnalyseWindow({
       return "";
     }
   });
-  const [map, setMap] = useState(true);
-  const [bugs, setBugs] = useState(false);
-  const [security, setSecurity] = useState(false);
-  const [architecture, setArchitecture] = useState(false);
-  const [versions, setVersions] = useState(initialVersions);
-  const [rules, setRules] = useState(initialRules);
+  const [map, setMap] = useState(steps.includes("map"));
+  const [bugs, setBugs] = useState(steps.includes("bugs"));
+  const [security, setSecurity] = useState(steps.includes("security"));
+  const [architecture, setArchitecture] = useState(
+    steps.includes("architecture"),
+  );
+  const [versions, setVersions] = useState(steps.includes("versions"));
+  const [rules, setRules] = useState(steps.includes("rules"));
   const [features, setFeatures] = useState("");
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const [problem, setProblem] = useState<Failure | null>(null);

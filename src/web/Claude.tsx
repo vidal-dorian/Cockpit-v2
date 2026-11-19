@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { refusedError } from "./roles.ts";
 import { StateSentence } from "./Shell.tsx";
 import {
@@ -62,6 +63,13 @@ export function Claude() {
     );
   const running = claude.data?.running ?? [];
   const pausedFor = queue.data?.pausedReason;
+  // shortcut: the latest failed run of the day may not come from the queue; upgrade when the pause stores its run id.
+  const failedRun = claude.data?.finishedToday
+    .filter((r) => r.outcome === "failed")
+    .reduce<{ runId: number } | undefined>(
+      (a, r) => (a && a.runId > r.runId ? a : r),
+      undefined,
+    );
 
   return (
     <main>
@@ -102,7 +110,9 @@ export function Claude() {
               <ul className={`mt-2 ${listCard}`}>
                 {claude.data.questions.map((q) => (
                   <li key={q.questionId} className={row}>
-                    <b>{q.iWant}</b>
+                    <b>
+                      <Link to={`/us/${q.storyId}`}>{q.iWant}</Link>
+                    </b>
                     <span className="text-muted-foreground">{q.question}</span>
                     <Link to={`/runs/${q.runId}`} className="ml-auto underline">
                       Répondre
@@ -172,7 +182,16 @@ export function Claude() {
               </div>
               {queue.data.paused && (
                 <p role="status" className="mt-2 text-muted-foreground">
-                  La file est en pause. {pausedFor && (PAUSES[pausedFor] ?? "")}
+                  La file est en pause. {pausedFor && (PAUSES[pausedFor] ?? "")}{" "}
+                  {pausedFor === "run_failed" && failedRun && (
+                    <Link
+                      to={`/runs/${failedRun.runId}`}
+                      className={`underline ${focusRing}`}
+                    >
+                      Voir le run
+                    </Link>
+                  )}
+                  <FixLink code={pausedFor} />
                 </p>
               )}
               {adding && (
@@ -207,15 +226,28 @@ export function Claude() {
               <ul className={`mt-2 ${listCard}`}>
                 {items.map((i, at) => (
                   <li key={i.storyId} className={row}>
-                    <b id={`queue-${i.storyId}`}>{i.iWant}</b>
+                    <b id={`queue-${i.storyId}`}>
+                      <Link to={`/us/${i.storyId}`}>{i.iWant}</Link>
+                    </b>
                     <span className="text-muted-foreground">
                       {i.projectName}
                     </span>
                     {i.waiting && (
                       <span className="text-muted-foreground">
-                        {i.waiting.reason === "dependency"
-                          ? `Attend l'US ${i.waiting.storyId}, sautée en attendant.`
-                          : "N'est plus prête, sautée en attendant."}
+                        {i.waiting.reason === "dependency" ? (
+                          <>
+                            Attend{" "}
+                            <Link
+                              to={`/us/${i.waiting.storyId}`}
+                              className="underline"
+                            >
+                              {`l'US ${i.waiting.storyId}`}
+                            </Link>
+                            , sautée en attendant.
+                          </>
+                        ) : (
+                          "N'est plus prête, sautée en attendant."
+                        )}
                       </span>
                     )}
                     <span className="ml-auto flex gap-1.5">
@@ -265,9 +297,17 @@ export function Claude() {
               </ul>
             </section>
             <section aria-labelledby="finis">
-              <h2 id="finis" className={sectionLabel}>
-                Finis aujourd'hui
-              </h2>
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 id="finis" className={sectionLabel}>
+                  Finis aujourd'hui
+                </h2>
+                <Link
+                  to="/journal"
+                  className={`text-[13px] underline ${focusRing}`}
+                >
+                  Tout l'historique ›
+                </Link>
+              </div>
               <ul className={`mt-2 ${listCard}`}>
                 {claude.data.finishedToday.map((r) => (
                   <li key={r.runId} className={row}>
@@ -279,7 +319,22 @@ export function Claude() {
                     </span>
                     <span className="ml-auto text-muted-foreground">
                       {r.outcome === "succeeded" ? "réussi" : "échoué"}
+                      {r.prNumber !== null && ` · PR #${r.prNumber}`}
+                      {` · verdict : ${r.verdict.acceptable ? "acceptable" : "à vérifier"}`}
                     </span>
+                    {r.outcome === "failed" && r.summary && (
+                      <span className="basis-full text-[13px] text-muted-foreground">
+                        {r.summary.split("\n")[0]}
+                      </span>
+                    )}
+                    {r.storyStatus === "in_review" && r.prNumber !== null && (
+                      <a
+                        href={`https://github.com/${r.project.name}/pull/${r.prNumber}`}
+                        className={`basis-full text-[13px] underline ${focusRing}`}
+                      >
+                        {`Relire la PR #${r.prNumber}`}
+                      </a>
+                    )}
                   </li>
                 ))}
                 {claude.data.finishedToday.length === 0 && (

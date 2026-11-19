@@ -35,11 +35,14 @@ export function WhyAsked({
  * (S29); the answered ones, and those a finished run never got an answer to, in a list.
  */
 export function RunQuestions({
+  part,
   runId,
   running,
   questions,
   onAnswered,
 }: {
+  /** The pending question comes right after the status sentence, the answered list at the end of the page (decision 085 L). */
+  part: "pending" | "answered";
   runId: string;
   running: boolean;
   questions: Question[];
@@ -53,7 +56,7 @@ export function RunQuestions({
   const others = questions.filter((q) => !pending.includes(q));
   return (
     <>
-      {others.length > 0 && (
+      {part === "answered" && others.length > 0 && (
         <section>
           <h2 className={sectionLabel}>Questions</h2>
           <ul className={`${listCard} mt-2`}>
@@ -74,7 +77,7 @@ export function RunQuestions({
           </ul>
         </section>
       )}
-      {current && (
+      {part === "pending" && current && (
         <Panel
           label="Question de Claude"
           badge={

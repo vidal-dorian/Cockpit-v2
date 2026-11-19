@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchLauncher } from "./LauncherSettings.tsx";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { fetchRoutine } from "./RoutineSettings.tsx";
 import { Panel, StateSentence } from "./Shell.tsx";
@@ -205,15 +206,22 @@ function RoutinePanel({
   const [hour, setHour] = useState(routine?.hour ?? 9);
   const [weekday, setWeekday] = useState(routine?.weekday ?? 1);
   const [projectIds, setProjectIds] = useState(routine?.projectIds ?? []);
-  const act = useMutation({
-    mutationFn: async (call: () => Promise<Response>) => {
+  const act = useMutation<
+    void,
+    Error & { code?: string },
+    () => Promise<Response>
+  >({
+    mutationFn: async (call) => {
       const res = await call();
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "" }));
-        throw new Error(
-          (res.status === 400
-            ? "Un champ n'est pas valide : vérifie le nom, la consigne, les agents et les projets."
-            : REFUSALS[error as string]) ?? "L'opération a échoué, réessaie.",
+        throw Object.assign(
+          new Error(
+            (res.status === 400
+              ? "Un champ n'est pas valide : vérifie le nom, la consigne, les agents et les projets."
+              : REFUSALS[error as string]) ?? "L'opération a échoué, réessaie.",
+          ),
+          { code: error as string },
         );
       }
     },
@@ -466,7 +474,7 @@ function RoutinePanel({
       )}
       {act.error && (
         <p role="alert" className={alertBox}>
-          {act.error.message}
+          {act.error.message} <FixLink code={act.error.code} />
         </p>
       )}
     </Panel>

@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { client } from "./api.ts";
+import { fetchSchedule } from "./ProjectRoutine.tsx";
+import { fetchProjects } from "./Projects.tsx";
 import { ConnectStep, PromptStep, useTask } from "./TaskCard.tsx";
 import {
   alertBox,
@@ -14,6 +17,48 @@ export async function fetchRoutine() {
   const res = await client.api.me.routine.$get();
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
+}
+
+const FREQUENCY_SENTENCES: Record<string, string> = {
+  off: "désactivée",
+  on_demand: "à la demande",
+};
+
+function FrequencyRow({ id, fullName }: { id: number; fullName: string }) {
+  const schedule = useQuery({
+    queryKey: ["routine-schedule", String(id)],
+    queryFn: () => fetchSchedule(String(id)),
+  });
+  const { frequency, hour } = schedule.data ?? {};
+  return (
+    <li className="flex flex-wrap gap-x-2">
+      <Link to={`/projets/${id}/reglages`} className={`underline ${focusRing}`}>
+        {fullName}
+      </Link>
+      <span className="text-muted-foreground">
+        {frequency === "daily" && `chaque jour à ${hour ?? 7} h`}
+        {frequency === "weekly" && `chaque semaine à ${hour ?? 7} h`}
+        {frequency && FREQUENCY_SENTENCES[frequency]}
+      </span>
+    </li>
+  );
+}
+
+/** Decision 085 Q: the frequency stays set project by project, but is listed here with a link to each project's settings. */
+function ProjectFrequencies() {
+  const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const active = projects.data?.filter((p) => !p.archived) ?? [];
+  if (active.length === 0) return null;
+  return (
+    <li className="px-[18px] py-3.5">
+      <p className="font-semibold">Fréquence de chaque projet</p>
+      <ul className="mt-2 grid gap-1.5">
+        {active.map((p) => (
+          <FrequencyRow key={p.id} id={p.id} fullName={p.fullName} />
+        ))}
+      </ul>
+    </li>
+  );
 }
 
 /** Decision 022 A: the user creates the scheduled task of claude.ai once, then pastes its address and its token here. */
@@ -83,6 +128,7 @@ export function RoutineSettings() {
               connected={data.connected}
               needsReconnect={data.needsReconnect}
             />
+            {data.connected && <ProjectFrequencies />}
           </ol>
         )}
         {task.error && (

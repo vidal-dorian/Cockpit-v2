@@ -357,6 +357,10 @@ export function ticketRoutes(
           prNumber: userStories.prNumber,
           prCiState: userStories.prCiState,
           criteriaCount: sql<number>`(select count(*)::int from ${acceptanceCriteria} where ${acceptanceCriteria.storyId} = ${userStories.id})`,
+          // The first dependency that is not done (decision 085 G).
+          blockedBy: sql<
+            number | null
+          >`(select ${storyDependencies.dependsOnId} from ${storyDependencies} inner join ${userStories} as dependency on dependency.id = ${storyDependencies.dependsOnId} where ${storyDependencies.storyId} = ${userStories.id} and dependency.status <> 'done' order by ${storyDependencies.dependsOnId} limit 1)`,
           // A running run of the story waits for an answer (decision 036).
           questionPending: sql<boolean>`exists (select 1 from ${questions} inner join ${runs} on ${runs.id} = ${questions.runId} where ${runs.storyId} = ${userStories.id} and ${runs.status} = 'running' and ${questions.answer} is null)`,
         })

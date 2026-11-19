@@ -92,6 +92,7 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           prNumber: null,
           prCiState: null,
           criteriaCount: 1,
+          blockedBy: null,
           questionPending: false,
         },
         {
@@ -105,6 +106,7 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           prNumber: null,
           prCiState: null,
           criteriaCount: 1,
+          blockedBy: null,
           questionPending: false,
         },
         {
@@ -118,6 +120,7 @@ describe("criterion 1: GET /api/projects/:id/stories", () => {
           prNumber: null,
           prCiState: null,
           criteriaCount: 1,
+          blockedBy: null,
           questionPending: false,
         },
       ],

@@ -52,6 +52,7 @@ import {
 import { levelFiles, STARTER_LEVELS, STARTER_TEAMS } from "./starter-teams.ts";
 import { AGENT_NAME, MAX_TEAM_NAME, parseTeam } from "./team.ts";
 import {
+  claudeAsks,
   LANGUAGES,
   pendingProposal,
   STARTER_PATH,
@@ -874,7 +875,11 @@ export function projectRoutes(
         return [hook, access];
       };
       const webhook = async () =>
-        webhookLine(await readWebhook(c.get("github")), publicUrl);
+        webhookLine(
+          await readWebhook(c.get("github")),
+          publicUrl,
+          c.get("appSettingsUrl"),
+        );
       try {
         const read = await c
           .get("github")
@@ -1214,6 +1219,7 @@ export function projectRoutes(
       );
       if (!project) return c.json({ error: "Not found" }, 404);
       const proposal = await pendingProposal(db, project.id);
+      const asks = await claudeAsks(db, project.id, new Date(now()));
       try {
         // A read is not an action: no history entry (decision 013 G).
         const github = c.get("github");
@@ -1234,7 +1240,10 @@ export function projectRoutes(
           c.get("appSettingsUrl"),
         );
         return c.json({
-          workflows: summarize(runs),
+          workflows: summarize(runs).map((w) => ({
+            ...w,
+            claude: asks.get(w.path) ?? null,
+          })),
           // Decision 067 C: offered only when `.github/workflows` holds no file at all.
           starter: workflowFiles.length
             ? null

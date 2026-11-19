@@ -7,6 +7,7 @@ import {
   type Done,
   DoneBox,
   type Failure,
+  FixLink,
   failure,
   message,
 } from "./ProjectPrepare.tsx";
@@ -22,7 +23,7 @@ import {
   row,
   sectionLabel,
 } from "./ui.ts";
-import { ago } from "./when.ts";
+import { ago, elapsed } from "./when.ts";
 
 const LANGUAGES = {
   node: "Node",
@@ -96,6 +97,8 @@ function WorkflowLine({
     },
   });
   const red = w.failingSince > 0;
+  // Decision 085 E: the last launch survives a reload; only an unfinished one blocks a new one.
+  const running = w.claude?.finishedAt === null;
   const problem =
     ask.data?.failure ?? (ask.isError ? { code: "", status: 0 } : undefined);
   return (
@@ -121,7 +124,7 @@ function WorkflowLine({
       {red && WORKFLOW_FILE.test(w.path) && (
         <button
           type="button"
-          disabled={archived || ask.isPending || ask.isSuccess}
+          disabled={archived || ask.isPending || ask.isSuccess || running}
           aria-busy={ask.isPending}
           onClick={() => ask.mutate()}
           className={button}
@@ -139,12 +142,20 @@ function WorkflowLine({
           {ago(w.lastRun.at)}
         </a>
       )}
-      {ask.data?.launched && (
+      {(running || ask.data?.launched || w.claude?.summary) && (
         <p role="status" className="mt-2 basis-full text-[12.5px]">
-          Lancé dans le cloud.{" "}
-          {ask.data.launched.sessionUrl && (
+          {running && w.claude
+            ? `Claude regarde depuis ${elapsed(w.claude.startedAt)}.`
+            : // A launch just made hides the summary of the previous one.
+              (!ask.data?.launched && w.claude?.summary) ||
+              "Lancé dans le cloud."}{" "}
+          {(ask.data?.launched?.sessionUrl ?? w.claude?.sessionUrl) && (
             <a
-              href={ask.data.launched.sessionUrl}
+              href={
+                ask.data?.launched?.sessionUrl ??
+                w.claude?.sessionUrl ??
+                undefined
+              }
               target="_blank"
               rel="noreferrer noopener"
               className={`underline ${focusRing}`}
@@ -157,6 +168,7 @@ function WorkflowLine({
       {problem && (
         <div role="alert" className={`mt-2 basis-full ${alertBox}`}>
           <p>{message(problem)}</p>
+          <FixLink code={problem.code} projectId={projectId} />
         </div>
       )}
     </li>

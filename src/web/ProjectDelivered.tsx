@@ -62,10 +62,12 @@ function groupTitle(group: Group) {
 
 function BranchLine({
   branch,
+  repo,
   projectId,
   archived,
 }: {
   branch: Branch;
+  repo: string;
   projectId: string;
   archived: boolean;
 }) {
@@ -94,7 +96,14 @@ function BranchLine({
         {branch.branch}
       </span>
       <span className="text-[12.5px] text-muted-foreground">
-        {`PR #${branch.prNumber} mergée · plus utilisée`}
+        <a
+          href={`https://github.com/${repo}/pull/${branch.prNumber}`}
+          className="underline"
+        >{`PR #${branch.prNumber}`}</a>
+        {" mergée · plus utilisée · "}
+        <Link to={`/us/${branch.storyId}`} className="underline">
+          {`US ${branch.storyId}`}
+        </Link>
       </span>
       <span className="ml-auto flex flex-wrap items-center gap-2">
         {archived ? null : asking ? (
@@ -212,6 +221,7 @@ export function ProjectDelivered({
                 <BranchLine
                   key={branch.storyId}
                   branch={branch}
+                  repo={repo ?? ""}
                   projectId={projectId}
                   archived={archived === true}
                 />

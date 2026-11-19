@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { Link } from "react-router";
 import { CodeView } from "./CodeView.tsx";
 import {
   type CodeModule,
@@ -7,6 +8,7 @@ import {
   fetchCode,
   permalink,
 } from "./conception.ts";
+import { ruleHref, useFeatures } from "./features.ts";
 import { Panel } from "./Shell.tsx";
 import { badge, focusRing, ghostButton, sectionLabel } from "./ui.ts";
 
@@ -40,6 +42,15 @@ export function ConceptionObject({
       }),
     retry: false,
   });
+  // Decision 085 C: the rules that cite this object, linked like on the features screen.
+  const touching = [
+    ...new Map(
+      (useFeatures(projectId).data?.features ?? [])
+        .flatMap((f) => f.rules)
+        .filter((r) => r.objects.some((o) => o.name === object.name))
+        .map((r) => [r.id, r]),
+    ).values(),
+  ];
   const lines = start === end ? `ligne ${start}` : `lignes ${start} à ${end}`;
   return (
     <Panel
@@ -59,6 +70,25 @@ export function ConceptionObject({
           </li>
         ))}
       </ul>
+      {touching.length > 0 && (
+        <>
+          <p className={sectionLabel}>
+            Les règles qui le touchent · {touching.length}
+          </p>
+          <ul className="grid gap-1">
+            {touching.map((r) => (
+              <li key={r.id}>
+                <Link
+                  to={ruleHref(projectId, r)}
+                  className={`underline ${focusRing}`}
+                >
+                  {r.summary}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <p className={sectionLabel}>Le code</p>
       {code.data && (
         <CodeView

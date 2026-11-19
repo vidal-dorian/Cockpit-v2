@@ -200,7 +200,8 @@ describe("decision 084 D3: a « 2 · Ensuite » row on the phone", () => {
       await screen.findByRole("heading", { name: /2 · Ensuite/ })
     ).closest("section") as HTMLElement;
     const title = (await screen.findAllByText(/trier les exports/))
-      .map((el) => next.contains(el) && el.closest("b"))
+      // Decision 085 E made the title a button that opens the panel.
+      .map((el) => next.contains(el) && el.closest("b, button"))
       .find(Boolean) as HTMLElement;
     expect(title.className).toContain("max-sm:line-clamp-2");
     expect(title.className).toContain("sm:truncate");

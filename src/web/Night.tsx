@@ -6,6 +6,8 @@ import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
 import { NightMorning } from "./NightMorning.tsx";
 import { refusedError } from "./roles.ts";
 import { Dot, fetchNight, repoName, StateSentence, useHome } from "./Shell.tsx";
+import { StoryBody } from "./StoryBody.tsx";
+import { fetchStory } from "./StoryDecisions.tsx";
 import { toast } from "./toast.tsx";
 import {
   alertBox,
@@ -30,6 +32,61 @@ export const OUTCOMES: Record<string, string> = {
   skipped: "Sautée : plus prête",
   not_started: "Non lancée",
 };
+
+const link = `underline ${focusRing}`;
+
+/** A story to validate, with « Lire » unfolding its narrative and criteria in place before « Valider et ajouter » (decision 085 A). */
+function ToValidate({
+  story,
+  pending,
+  onValidate,
+}: {
+  story: { storyId: number; iWant: string; project: { name: string } };
+  pending: boolean;
+  onValidate: () => void;
+}) {
+  const [read, setRead] = useState(false);
+  const found = useQuery({
+    queryKey: ["story", String(story.storyId)],
+    queryFn: () => fetchStory(String(story.storyId)),
+    enabled: read,
+  });
+  return (
+    <li className={`${row} flex-wrap`}>
+      <b>{story.iWant}</b>
+      <span className="text-muted-foreground">{story.project.name}</span>
+      <span className="ml-auto flex gap-1.5">
+        <button
+          type="button"
+          className={button}
+          aria-expanded={read}
+          onClick={() => setRead(!read)}
+        >
+          {read ? "Replier" : "Lire"}
+        </button>
+        <button
+          type="button"
+          className={button}
+          disabled={pending}
+          aria-busy={pending}
+          onClick={onValidate}
+        >
+          Valider et ajouter
+        </button>
+      </span>
+      {read && found.data && found.data !== "not_found" && (
+        <div className="basis-full">
+          <StoryBody found={found.data} />
+        </div>
+      )}
+      {read && found.isError && (
+        <p role="alert" className={`basis-full ${alertBox}`}>
+          Impossible de lire la user story.
+        </p>
+      )}
+    </li>
+  );
+}
 
 /** The next instant, in the browser's time zone, when the clock reads `hour` o'clock. */
 const nextHour = (hour: number) => {
@@ -287,12 +344,34 @@ export function Night() {
                         {at + 1}
                       </span>
                       <span className="grid min-w-0 flex-[1_1_10rem]">
-                        <b id={`night-${s.storyId}`}>{s.iWant}</b>
+                        <b id={`night-${s.storyId}`}>
+                          {open ? (
+                            <Link to={`/us/${s.storyId}`} className={link}>
+                              {s.iWant}
+                            </Link>
+                          ) : (
+                            s.iWant
+                          )}
+                        </b>
                         <span className="text-muted-foreground">
-                          {repoName(s.project.name)} ·{" "}
-                          {duration(s.estimatedSeconds)}
+                          {open ? (
+                            <Link
+                              to={`/projets/${s.project.id}`}
+                              className={link}
+                            >
+                              {repoName(s.project.name)}
+                            </Link>
+                          ) : (
+                            repoName(s.project.name)
+                          )}{" "}
+                          · {duration(s.estimatedSeconds)}
                         </span>
                       </span>
+                      {"runId" in s && s.runId != null && (
+                        <Link to={`/runs/${s.runId}`} className={link}>
+                          Run {s.runId}
+                        </Link>
+                      )}
                       {open && !planned ? (
                         <span className="ml-auto inline-flex items-center gap-2 text-muted-foreground">
                           <Dot
@@ -381,25 +460,25 @@ export function Night() {
                       </li>
                     ))}
                     {maybe.map((s) => (
-                      <li key={s.storyId} className={row}>
-                        <b>{s.iWant}</b>
-                        <span className="text-muted-foreground">
-                          {s.project.name}
-                        </span>
-                        <button
-                          type="button"
-                          className={`ml-auto ${button}`}
-                          disabled={validate.isPending}
-                          aria-busy={validate.isPending}
-                          onClick={() => validate.mutate(s.storyId)}
-                        >
-                          Valider et ajouter
-                        </button>
-                      </li>
+                      <ToValidate
+                        key={s.storyId}
+                        story={s}
+                        pending={validate.isPending}
+                        onValidate={() => validate.mutate(s.storyId)}
+                      />
                     ))}
                     {addable.length + maybe.length === 0 && (
                       <li className={`${row} text-muted-foreground`}>
-                        Aucune user story à ajouter.
+                        {launcher.data?.projectIds.length === 0 ? (
+                          <>
+                            Aucun projet n'est coché pour la nuit.{" "}
+                            <Link to="/reglages/taches-cloud" className={link}>
+                              Cocher des projets
+                            </Link>
+                          </>
+                        ) : (
+                          "Aucune user story à ajouter."
+                        )}
                       </li>
                     )}
                   </ul>

@@ -150,6 +150,8 @@ describe("criterion 8: the run page", () => {
           finishedAt: "2026-11-05T10:30:00.000Z",
         }),
         steps: [],
+        // The summary is read in the card of the verdict (decision 085 D).
+        verdict: { acceptable: false, reasons: [] },
       });
 
       renderAt("/runs/12");
@@ -219,5 +221,40 @@ describe("criterion 14.5: the cost on the run page", () => {
 
     await loaded();
     expect(text()).toContain("Plafond atteint : arrêt demandé");
+  });
+});
+
+// Decision 085 C (S06): the PR the steps say is open is a link to GitHub.
+describe("085 C: the objects of the run page are links", () => {
+  it("given a running run whose story is in review with PR 51, when /runs/12 loads, then « PR #51 ouverte » is a link to the PR on GitHub", async () => {
+    stubApi({ run: run(), steps: [stepOf(1, "developer")] });
+    const base = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const res = await base(input, init);
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (new URL(raw, "http://localhost").pathname !== "/api/runs/12")
+          return res;
+        const body = (await res.json()) as { story: object };
+        return Response.json({
+          ...body,
+          story: { ...body.story, status: "in_review", prNumber: 51 },
+        });
+      }),
+    );
+
+    renderAt("/runs/12");
+    await loaded();
+
+    const link = within(main()).getByRole("link", { name: /PR #51 ouverte/ });
+    expect(link.getAttribute("href")).toBe(
+      "https://github.com/octocat/hello/pull/51",
+    );
   });
 });

@@ -2,8 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { fetchLauncher } from "./LauncherSettings.tsx";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { fetchRoutine } from "./RoutineSettings.tsx";
 import { ROLE_REFUSAL } from "./roles.ts";
+import { failure as taskFailure } from "./TaskCard.tsx";
 import {
   alertBox,
   badge,
@@ -50,10 +53,13 @@ const RUN_REFUSALS: Record<string, string> = {
 
 async function failure(res: Response, refusals: Record<string, string>) {
   const body: { error?: string } | null = await res.json().catch(() => null);
-  return new Error(
-    (body?.error &&
-      (body.error === "role" ? ROLE_REFUSAL : refusals[body.error])) ||
-      "L'opération a échoué, réessaie.",
+  return Object.assign(
+    new Error(
+      (body?.error &&
+        (body.error === "role" ? ROLE_REFUSAL : refusals[body.error])) ||
+        "L'opération a échoué, réessaie.",
+    ),
+    { code: body?.error },
   );
 }
 
@@ -61,6 +67,17 @@ export async function fetchSchedule(id: string) {
   const res = await client.api.projects[":id"].routine.$get({ param: { id } });
   if (!res.ok) throw new Error("Réponse inattendue du serveur.");
   return res.json();
+}
+
+/** When Claude writes the stories, from the schedule of the automatic writing (decisions 022 D and 055 F): nothing when it is not scheduled; the second line of the Tickets tab and of a ticket without stories. */
+export function writingSentence(
+  schedule: { frequency: string; hour: number | null } | undefined,
+) {
+  const hour = schedule?.hour ?? 7;
+  if (schedule?.frequency === "daily")
+    return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
+  if (schedule?.frequency === "weekly")
+    return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
 }
 
 const when = (iso: string) =>
@@ -79,22 +96,24 @@ export function RunNowButton({
 }) {
   const queryClient = useQueryClient();
   const routine = useQuery({ queryKey: ["routine"], queryFn: fetchRoutine });
-  const run = useMutation({
-    mutationFn: async () => {
-      const res = await client.api.projects[":id"].routine.run.$post({
-        param: { id: projectId },
-      });
-      if (!res.ok) throw await failure(res, RUN_REFUSALS);
-      return (await res.json()).sessionUrl;
+  const run = useMutation<string | null | undefined, Error & { code?: string }>(
+    {
+      mutationFn: async () => {
+        const res = await client.api.projects[":id"].routine.run.$post({
+          param: { id: projectId },
+        });
+        if (!res.ok) throw await failure(res, RUN_REFUSALS);
+        return (await res.json()).sessionUrl;
+      },
+      onSettled: () =>
+        Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["routine-schedule", projectId],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["routine"] }),
+        ]),
     },
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["routine-schedule", projectId],
-        }),
-        queryClient.invalidateQueries({ queryKey: ["routine"] }),
-      ]),
-  });
+  );
   if (onlyConnected && !routine.data?.connected) return null;
   return (
     <>
@@ -123,7 +142,7 @@ export function RunNowButton({
       )}
       {run.error && (
         <p role="alert" className={`mt-3 ${alertBox}`}>
-          {run.error.message}
+          {run.error.message} <FixLink code={run.error.code} />
         </p>
       )}
     </>
@@ -379,6 +398,7 @@ export function ProjectRoutine({
         </div>
       </section>
       <div className="grid gap-3.5">
+        <CloudCard projectId={projectId} />
         <CloneFolderCard projectId={projectId} />
         <ArchiveCard projectId={projectId} archived={archived} />
       </div>
@@ -453,6 +473,14 @@ function ArchiveCard({
           Archiver le projet
         </button>
       )}
+      {!archived && (
+        <Link
+          to={`/reglages/membres?projet=${projectId}`}
+          className={`mt-2.5 block underline ${focusRing}`}
+        >
+          Inviter sur ce projet
+        </Link>
+      )}
       <p className="mt-2.5 text-[12.5px] text-muted-foreground">
         Archivé, il disparaît de la barre latérale ; rien n'est supprimé, ni ici
         ni sur GitHub.
@@ -460,6 +488,79 @@ function ArchiveCard({
       {archive.error && (
         <p role="alert" className={`mt-3 ${alertBox}`}>
           {archive.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Decision 085 P: « Lancer ce projet dans le cloud », the same value as the step 4 of Réglages › Tâches cloud. */
+function CloudCard({ projectId }: { projectId: string }) {
+  const queryClient = useQueryClient();
+  const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });
+  const tick = useMutation({
+    mutationFn: async (inLauncher: boolean) => {
+      const res = await client.api.projects[":id"].launcher.$put({
+        param: { id: projectId },
+        json: { inLauncher },
+      });
+      if (!res.ok) throw taskFailure(res);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
+  });
+  const data = launcher.data;
+  const id = Number(projectId);
+  return (
+    <section
+      aria-labelledby="dans-le-cloud"
+      className={`px-[18px] py-4 ${card}`}
+    >
+      <h2 id="dans-le-cloud" className={`mb-3 ${sectionLabel}`}>
+        Dans le cloud
+      </h2>
+      {launcher.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
+      {launcher.isError && (
+        <p role="alert" className={alertBox}>
+          Impossible de lire le lanceur. Recharge la page.
+        </p>
+      )}
+      {data &&
+        (data.connected ? (
+          <>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={data.projectIds.includes(id)}
+                disabled={tick.isPending}
+                aria-busy={tick.isPending}
+                onChange={(e) => tick.mutate(e.target.checked)}
+              />
+              Lancer ce projet dans le cloud
+            </label>
+            {data.missingProjectIds.includes(id) && (
+              <p className="mt-2 text-destructive">
+                Le repo n'est pas dans la tâche : ajoute-le sur claude.ai, puis
+                coche à nouveau.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-muted-foreground">
+            Le lanceur n'est pas relié : relie-le dans{" "}
+            <Link
+              to="/reglages/taches-cloud"
+              className={`underline ${focusRing}`}
+            >
+              Réglages
+            </Link>
+            .
+          </p>
+        ))}
+      {tick.error && (
+        <p role="alert" className={`mt-3 ${alertBox}`}>
+          {tick.error.message}
         </p>
       )}
     </section>

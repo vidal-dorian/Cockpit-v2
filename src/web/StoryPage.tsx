@@ -7,6 +7,7 @@ import { fetchRun } from "./RunPage.tsx";
 import { RunVerdict } from "./RunVerdict.tsx";
 import { atLeast } from "./roles.ts";
 import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
+import { StoryBody } from "./StoryBody.tsx";
 import { fetchStory, StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
@@ -14,9 +15,7 @@ import { StoryIssue } from "./StoryIssue.tsx";
 import { RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
 import {
   alertBox,
-  badge,
   button,
-  card,
   focusRing,
   listCard,
   markdownStyle,
@@ -26,7 +25,7 @@ import {
 import { useChanges } from "./useChanges.ts";
 
 /** The verdict of the latest run of a story in review (decision 039 E), the same as on the page of the run. */
-function StoryVerdict({ runId }: { runId: number }) {
+export function StoryVerdict({ runId }: { runId: number }) {
   const run = useQuery({
     queryKey: ["run", String(runId)],
     queryFn: () => fetchRun(String(runId)),
@@ -37,12 +36,17 @@ function StoryVerdict({ runId }: { runId: number }) {
       verdict={data.verdict}
       criteria={data.criteria}
       story={data.story}
+      summary={data.run.summary}
+      prUrl={
+        data.story.prNumber == null
+          ? null
+          : `https://github.com/${data.project.name}/pull/${data.story.prNumber}`
+      }
+      projectId={data.project.id}
+      criteriaTo={`/runs/${runId}#criteres`}
     />
   ) : null;
 }
-
-const label = "font-semibold text-foreground";
-const value = "text-muted-foreground";
 
 /** What the state of a story says, the status word included (the title of the page is the story, this is the rest of the sentence). */
 function stateSentence(status: string, prNumber: number | null) {
@@ -192,101 +196,9 @@ export function StoryPage() {
                 statusRef={statusRef}
               />
             )}
-            <div className="grid gap-3 px-[26px] pt-[22px]">
-              <p className={`${card} px-[18px] py-4 text-[15px] leading-[1.6]`}>
-                <span className={label}>En tant que</span>{" "}
-                <span className={value}>{found.story.asA}</span>,{" "}
-                <span className={label}>je veux</span>{" "}
-                <span className={value}>{found.story.iWant}</span>{" "}
-                <span className={label}>afin de</span>{" "}
-                <span className={value}>{found.story.soThat}</span>
-              </p>
-              {found.story.status === "to_rewrite" &&
-                found.story.rewriteComment && (
-                  <section className={`${card} p-4`}>
-                    <h2 className={sectionLabel}>
-                      Ton commentaire pour Claude
-                    </h2>
-                    <p className="mt-1 whitespace-pre-wrap">
-                      {found.story.rewriteComment}
-                    </p>
-                  </section>
-                )}
+            <div className="px-[26px] pt-[22px]">
+              <StoryBody found={found} />
             </div>
-            <section className="px-[26px] pt-3">
-              <h2
-                className={`mb-2 flex items-baseline gap-2 ${found.story.criteria.some((k) => k.result) ? "" : "sr-only"}`}
-              >
-                <span className={sectionLabel}>Les critères</span>
-                {found.story.criteria.some((k) => k.result) && (
-                  <span className="text-[12.5px] text-muted-foreground">
-                    · résultat de Claude, avec la preuve
-                  </span>
-                )}
-              </h2>
-              <ol className="grid gap-3">
-                {found.story.criteria.map((criterion, index) => (
-                  <li
-                    key={criterion.id}
-                    className={`${card} min-w-0 px-3.5 py-3 text-[13.5px] leading-normal break-words`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className={sectionLabel}>Critère {index + 1}</p>
-                      {criterion.result && (
-                        <span className="ml-auto max-w-[70%] truncate rounded-[5px] bg-raised px-2 py-1 text-xs font-semibold text-muted-foreground">
-                          {criterion.result === "passed"
-                            ? "✓ passe"
-                            : "✕ échoue"}
-                          {criterion.evidence &&
-                            ` · ${criterion.evidence.split("\n")[0]}`}
-                        </span>
-                      )}
-                    </div>
-                    {criterion.summary && (
-                      <p className="mt-1.5 font-semibold">
-                        {criterion.summary}
-                      </p>
-                    )}
-                    <p className="mt-1.5 leading-relaxed">
-                      <span className={label}>Étant donné</span>{" "}
-                      <span className={value}>{criterion.given}</span>
-                    </p>
-                    <p className="mt-1">
-                      <span className={label}>Quand</span>{" "}
-                      <span className={value}>{criterion.when}</span>
-                    </p>
-                    <p className="mt-1">
-                      <span className={label}>Alors</span>{" "}
-                      <span className={value}>{criterion.then}</span>
-                    </p>
-                    {criterion.takeoverState && (
-                      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-2">
-                        <span className={badge}>
-                          {criterion.takeoverState === "kept"
-                            ? found.story.kind === "takeover" &&
-                              found.story.status === "done" &&
-                              criterion.result === "passed"
-                              ? "figée"
-                              : "validée"
-                            : "à relire"}
-                        </span>
-                        <Link
-                          to={`/projets/${found.project.id}/conception/regles?regle=${criterion.id}`}
-                          className={`font-semibold underline ${focusRing}`}
-                        >
-                          Juger dans l'écran de reprise
-                        </Link>
-                      </p>
-                    )}
-                    {criterion.result && criterion.evidence && (
-                      <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-muted-foreground">
-                        {criterion.evidence}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </section>
             {found.story.issue && (
               <StoryIssue
                 id={found.story.id}
@@ -367,7 +279,9 @@ export function StoryPage() {
               archived={found.project.archived}
               statusRef={statusRef}
               toDecide={found.story.criteria.flatMap((c) =>
-                c.takeoverState === "pending" ? [c.summary ?? ""] : [],
+                c.takeoverState === "pending"
+                  ? [{ id: c.id, summary: c.summary ?? "" }]
+                  : [],
               )}
             >
               {found.story.status === "in_review" && (

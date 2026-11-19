@@ -66,12 +66,14 @@ function Steps({
   askedAt = null,
   upcoming = [],
   pr,
+  repo,
 }: {
   steps: Run["steps"];
   /** When the pending question was asked: the open step waits for the answer since then. */
   askedAt?: string | null;
   upcoming?: string[];
   pr?: Run["story"];
+  repo?: string;
 }) {
   const grey = "text-dim";
   // A relaunched story keeps its PR number while in progress: only in_review means the PR is open for this run.
@@ -143,9 +145,14 @@ function Steps({
           />
           <span className="font-semibold">PR</span>
           <span className="text-[13px]">
-            {opened
-              ? `PR #${pr.prNumber} ouverte`
-              : "Claude pousse la branche et ouvre la PR"}
+            {opened ? (
+              <a
+                href={`https://github.com/${repo}/pull/${pr.prNumber}`}
+                className="underline"
+              >{`PR #${pr.prNumber} ouverte`}</a>
+            ) : (
+              "Claude pousse la branche et ouvre la PR"
+            )}
           </span>
         </li>
       )}
@@ -156,7 +163,7 @@ function Steps({
 function Criteria({ criteria }: { criteria: NonNullable<Run["criteria"]> }) {
   const passed = criteria.filter((k) => k.result === "passed").length;
   return (
-    <section>
+    <section id="criteres">
       <h2 className={sectionLabel}>
         Les critères{" "}
         <span className="font-normal tracking-normal normal-case">
@@ -306,6 +313,13 @@ export function RunPage() {
               }
             />
             <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-6 px-[26px]">
+              <RunQuestions
+                part="pending"
+                runId={id}
+                running={found.run.status === "running"}
+                questions={found.questions ?? []}
+                onAnswered={() => titleRef.current?.focus()}
+              />
               <div className="-mb-3 grid gap-1 text-[12.5px] text-muted-foreground">
                 <p>
                   <span className={badge}>
@@ -353,6 +367,14 @@ export function RunPage() {
                   verdict={found.verdict}
                   criteria={found.criteria ?? []}
                   story={found.story}
+                  summary={found.run.summary}
+                  prUrl={
+                    found.story.prNumber == null
+                      ? null
+                      : `https://github.com/${found.project.name}/pull/${found.story.prNumber}`
+                  }
+                  projectId={found.project.id}
+                  criteriaTo="#criteres"
                 />
               )}
               {running && (
@@ -369,6 +391,7 @@ export function RunPage() {
                       askedAt={asked?.askedAt ?? null}
                       upcoming={found.upcomingSteps}
                       pr={found.story}
+                      repo={found.project.name}
                     />
                   </div>
                 </section>
@@ -395,19 +418,12 @@ export function RunPage() {
                 </details>
               )}
               <RunQuestions
+                part="answered"
                 runId={id}
                 running={found.run.status === "running"}
                 questions={found.questions ?? []}
                 onAnswered={() => titleRef.current?.focus()}
               />
-              {found.run.summary && (
-                <section>
-                  <h2 className={sectionLabel}>Résumé</h2>
-                  <p className="mt-2 whitespace-pre-wrap">
-                    {found.run.summary}
-                  </p>
-                </section>
-              )}
             </div>
           </>
         )}

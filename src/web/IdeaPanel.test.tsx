@@ -626,7 +626,7 @@ describe("review 6: the draft survives Annuler and Escape", () => {
     expect(
       (panel.getByRole("combobox", { name: "Projet" }) as HTMLSelectElement)
         .value,
-    ).toBe("5");
+    ).toBe("8");
     expect(
       panel.queryByRole("button", { name: /^Retirer l'étiquette / }),
     ).toBeNull();

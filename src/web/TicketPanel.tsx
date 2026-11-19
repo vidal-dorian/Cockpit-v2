@@ -4,12 +4,14 @@ import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchAttachments } from "./attachments.ts";
 import { ImportedFrom } from "./IssueImport.tsx";
+import { RunNowButton } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { atLeast } from "./roles.ts";
 import { SafeMarkdown } from "./SafeMarkdown.tsx";
 import { Panel, useHome } from "./Shell.tsx";
+import { TicketStoryPanel } from "./StoryCardPanel.tsx";
 import { TicketTags } from "./TagField.tsx";
-import { STORY_STATUSES, ticketError } from "./tickets.ts";
+import { isPlainClick, STORY_STATUSES, ticketError } from "./tickets.ts";
 import {
   alertBox,
   badge,
@@ -30,6 +32,7 @@ type Ticket = {
   attachmentsCount?: number;
   tags?: string[];
   priority?: string;
+  step?: string;
 };
 type Story = { id: number; iWant: string; status: string };
 
@@ -57,11 +60,16 @@ export function TicketPanel({
   )?.name;
   // Writing on a ticket is for those who may validate (decision 076 G); the role comes with the project list.
   const projects = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
-  const mayWrite = atLeast(
-    projects.data?.find((p) => p.id === ticket.projectId)?.role,
-    "can_validate",
-  );
+  const project = projects.data?.find((p) => p.id === ticket.projectId);
+  const mayWrite = atLeast(project?.role, "can_validate");
+  // The routine route asks for the owner (decision 085 D: nothing offered that would be refused).
+  const mayRun =
+    atLeast(project?.role, "owner") &&
+    !project?.archived &&
+    ticket.step !== "abandoned";
   const [confirming, setConfirming] = useState(false);
+  // A story of the ticket opens in this panel, with a way back (decision 085 J).
+  const [openStory, setOpenStory] = useState<number | null>(null);
   // The count of the row says there are files before their names are read.
   const hasFiles = (ticket.attachmentsCount ?? 0) > 0;
   const files = useQuery({
@@ -93,6 +101,16 @@ export function TicketPanel({
         queryKey: ["stories", String(ticket.projectId)],
       }),
   });
+
+  if (openStory !== null)
+    return (
+      <TicketStoryPanel
+        stories={stories}
+        openId={openStory}
+        onOpen={setOpenStory}
+        back={{ label: "← Ticket", onClick: () => setOpenStory(null) }}
+      />
+    );
 
   return (
     <Panel
@@ -164,6 +182,11 @@ export function TicketPanel({
         <ImportedFrom fullName={fullName} number={ticket.githubIssueNumber} />
       )}
       <SafeMarkdown>{ticket.descriptionMd}</SafeMarkdown>
+      {mayRun && stories.length === 0 && (
+        <div>
+          <RunNowButton projectId={String(ticket.projectId)} onlyConnected />
+        </div>
+      )}
       {stories.length > 0 && (
         <>
           <h3 className={sectionLabel}>Les user stories de ce ticket</h3>
@@ -175,6 +198,11 @@ export function TicketPanel({
               >
                 <Link
                   to={`/us/${story.id}`}
+                  onClick={(event) => {
+                    if (!isPlainClick(event)) return;
+                    event.preventDefault();
+                    setOpenStory(story.id);
+                  }}
                   className={`font-semibold ${focusRing}`}
                 >
                   US {story.id} · {story.iWant}

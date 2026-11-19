@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { fetchStories } from "./ProjectKanban.tsx";
 import { RunNowButton } from "./ProjectRoutine.tsx";
@@ -108,16 +108,30 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
     queryKey: ["stories", projectId],
     queryFn: () => fetchStories(projectId),
   });
-  const [view, setView] = useState<"open" | "new" | null>("open");
-  const [tag, setTag] = useState("");
-  const [search, setSearch] = useState("");
-  // The box keeps what is typed; the request follows 300 ms after the last keystroke, trimmed.
-  const [q, setQ] = useState("");
+  // What is open lives in the address, so that Back from a ticket page restores it (decision 085 F).
+  const [params, setParams] = useSearchParams();
+  const setParam = (key: string, value: string | null) =>
+    setParams(
+      (current) => {
+        if (value) current.set(key, value);
+        else current.delete(key);
+        return current;
+      },
+      { replace: true },
+    );
+  const vue = params.get("vue");
+  const view = vue === "tous" ? null : vue === "new" ? "new" : "open";
+  const tag = params.get("etiquette") ?? "";
+  const selected = Number(params.get("ticket")) || undefined;
+  const setSelected = (id?: number) =>
+    setParam("ticket", id ? String(id) : null);
+  const [search, setSearch] = useState(params.get("q") ?? "");
+  // The box keeps what is typed, and so does the address; the request follows 300 ms after the last keystroke, trimmed.
+  const [q, setQ] = useState(search.trim());
   useEffect(() => {
     const timer = setTimeout(() => setQ(search.trim()), 300);
     return () => clearTimeout(timer);
   }, [search]);
-  const [selected, setSelected] = useState<number>();
   const found = useQuery({
     queryKey: ["search", projectId, q],
     queryFn: async () => {
@@ -153,7 +167,8 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
   const open = shown[index];
   const storiesOf = (id: number) =>
     (stories.data ?? []).filter((s) => s.ticketId === id);
-  const toggle = (next: "open" | "new") => setView(view === next ? null : next);
+  const toggle = (next: "open" | "new") =>
+    setParam("vue", view === next ? "tous" : next === "open" ? null : next);
   const chip = (name: "open" | "new", label: string, n: number) => (
     <button
       type="button"
@@ -212,7 +227,10 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
                 placeholder="🔍 Chercher dans les tickets et les US"
                 value={search}
                 maxLength={100}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setParam("q", event.target.value);
+                }}
                 className={`h-[34px] min-w-56 flex-1 rounded-[10px] border border-border-strong bg-sunken px-3 text-[13px] ${focusRing}`}
               />
               {chip("open", "Ouverts", all.filter(isOpen).length)}
@@ -224,7 +242,7 @@ export function ProjectTickets({ projectId }: { projectId: string }) {
               <select
                 aria-label="Étiquette"
                 value={tag}
-                onChange={(event) => setTag(event.target.value)}
+                onChange={(event) => setParam("etiquette", event.target.value)}
                 className={`h-7 rounded-full border border-border bg-transparent px-2 text-[12.5px] font-semibold text-muted-foreground ${focusRing}`}
               >
                 <option value="">Étiquette</option>

@@ -4,6 +4,7 @@ import {
   lazy,
   Suspense,
   useCallback,
+  useEffect,
   useState,
 } from "react";
 import { NavLink, useSearchParams } from "react-router";
@@ -59,6 +60,12 @@ export function ProjectConception({
   const [side, setSide] = useState<{ object: string } | "analyse" | null>(
     wanted ? { object: wanted } : null,
   );
+  // The URL can change while the tab stays mounted (a chip of the features or takeover screen): it opens the panel too.
+  useEffect(() => {
+    if (!wanted) return;
+    setSelected(null); // so the module is found from `wanted`, not from a tab chosen earlier
+    setSide({ object: wanted });
+  }, [wanted]);
   const openObject = useCallback((object: string) => setSide({ object }), []);
   const closeObject = (name: string) => {
     setSide(null);

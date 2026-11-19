@@ -16,12 +16,16 @@ import { FeaturesExport } from "./ProjectFeatures.tsx";
 import { ProjectHistory } from "./ProjectHistory.tsx";
 import { fetchStories, ProjectKanban } from "./ProjectKanban.tsx";
 import { ProjectPrepare } from "./ProjectPrepare.tsx";
-import { fetchSchedule, ProjectRoutine } from "./ProjectRoutine.tsx";
+import {
+  fetchSchedule,
+  ProjectRoutine,
+  writingSentence,
+} from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
 import { atLeast } from "./roles.ts";
 import { rulesSentence, useRules } from "./rules.ts";
-import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import { fetchTickets } from "./tickets.ts";
 import { UpdatesLine } from "./UpdatesLine.tsx";
 import {
@@ -123,17 +127,6 @@ const TAB_REST: Record<ProjectTab, string> = {
   reglages: "",
 };
 
-// The second line of the Tickets tab, from the schedule of the automatic writing (decisions 022 D and 055 F): nothing when it is not scheduled.
-function writingSentence(
-  schedule: { frequency: string; hour: number | null } | undefined,
-) {
-  const hour = schedule?.hour ?? 7;
-  if (schedule?.frequency === "daily")
-    return `Claude les écrira à ${hour} h, ou maintenant si tu veux.`;
-  if (schedule?.frequency === "weekly")
-    return `Claude les écrira chaque semaine à ${hour} h, ou maintenant si tu veux.`;
-}
-
 /** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({
   tab,
@@ -153,6 +146,7 @@ export function ProjectPage({
     refetchOnWindowFocus: false,
   });
   const project = projects.data?.find((p) => String(p.id) === id);
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   // What writes in the repo is the owner's (decision 076 G): the other roles read the bilan.
   const owner = atLeast(project?.role, "owner");
   const stories = useQuery({
@@ -166,24 +160,42 @@ export function ProjectPage({
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
     board.filter((s) => statuses.includes(s.status)).length;
-  const waiting = count("to_validate", "to_rewrite", "in_review");
+  // A story Claude rewrites does not wait for you (decision 085 E, as on the home page).
+  const waiting = count("to_validate", "in_review");
   const working = count("in_progress");
   const asking = board.find((s) => s.questionPending);
+  const firstWaiting = board.find((s) =>
+    ["to_validate", "in_review"].includes(s.status),
+  );
+  // The sentence names what waits, and leads to the first thing to do (decision 085 E).
+  const toStory = (id: number | undefined, text: string) => (
+    <Link to={`?us=${id}`} className={`underline ${focusRing}`}>
+      {text}
+    </Link>
+  );
   const kanbanSentence = {
     inline: true,
-    title: stories.isPending
-      ? "Chargement…"
-      : stories.isError
-        ? (project?.fullName.split("/").pop() ?? "Projet")
-        : asking
-          ? `Claude t'attend sur l'US ${asking.id}.`
-          : waiting > 0
-            ? waiting === 1
-              ? "1 user story t'attend."
-              : `${waiting} user stories t'attendent.`
-            : working > 0
-              ? `Claude développe ${plural(working, "user story", "user stories")}.`
-              : "Rien ne t'attend sur ce projet.",
+    title: stories.isPending ? (
+      "Chargement…"
+    ) : stories.isError ? (
+      (project?.fullName.split("/").pop() ?? "Projet")
+    ) : asking ? (
+      <>Claude t'attend sur {toStory(asking.id, `l'US ${asking.id}`)}.</>
+    ) : waiting > 0 ? (
+      <>
+        {toStory(
+          firstWaiting?.id,
+          waiting === 1
+            ? "1 user story t'attend"
+            : `${waiting} user stories t'attendent`,
+        )}
+        .
+      </>
+    ) : working > 0 ? (
+      `Claude développe ${plural(working, "user story", "user stories")}.`
+    ) : (
+      "Rien ne t'attend sur ce projet."
+    ),
     rest: !stories.data
       ? undefined
       : board.length === 0
@@ -208,7 +220,6 @@ export function ProjectPage({
   const workflows = useQuery({
     queryKey: ["workflows", id],
     queryFn: () => fetchWorkflows(id),
-    enabled: tab === "ci",
     retry: false,
   });
   const schedule = useQuery({
@@ -226,7 +237,7 @@ export function ProjectPage({
     tab === "agents" && FILES.some((f) => f === search.get("fichier"));
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
-  const sentence: { title: string; rest?: string; inline?: boolean } =
+  const sentence: { title: React.ReactNode; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
       : tab === "sante" && planned !== null
@@ -391,6 +402,17 @@ export function ProjectPage({
         >
           Ce projet est en lecture seule : l'abonnement Gratuit de @
           {project.lockedBy} couvre 3 projets.
+          {project.lockedBy === me.data?.login && (
+            <>
+              {" "}
+              <Link
+                to="/reglages/abonnement"
+                className={`underline ${focusRing}`}
+              >
+                Voir l'abonnement
+              </Link>
+            </>
+          )}
         </p>
       )}
       {!notFound && (
@@ -407,7 +429,9 @@ export function ProjectPage({
             >
               {t.tab === "sante" && red > 0
                 ? `Santé · ${red} à corriger`
-                : t.label}
+                : t.tab === "ci" && workflows.data?.data?.proposal
+                  ? `${t.label} · 1 à relire`
+                  : t.label}
             </NavLink>
           ))}
         </nav>
@@ -510,6 +534,22 @@ export function ProjectPage({
                           {!line.ok && (
                             <span className="block text-[12.5px] text-muted-foreground">
                               {EXPLANATIONS[`${line.key}.${line.detail}`]}{" "}
+                              {line.key === "ci" && (
+                                <Link
+                                  to={`/projets/${id}/ci`}
+                                  className={`underline ${focusRing}`}
+                                >
+                                  Voir l'onglet CI / CD
+                                </Link>
+                              )}
+                              {line.key === "webhook" &&
+                                "url" in line &&
+                                line.url && (
+                                  <AccessLink
+                                    detail={line.detail}
+                                    url={line.url}
+                                  />
+                                )}
                               {line.key === "github_alerts" && (
                                 <AccessLink
                                   detail={line.detail}

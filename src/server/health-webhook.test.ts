@@ -180,6 +180,7 @@ describe("the webhook line of the health check (decision 024 F)", () => {
         key: "webhook",
         ok: false,
         detail: "wrong_url",
+        url: "https://github.com/settings/apps/cockpit-test",
       });
     },
   );
@@ -195,6 +196,7 @@ describe("the webhook line of the health check (decision 024 F)", () => {
         key: "webhook",
         ok: false,
         detail: "last_delivery_failed",
+        url: "https://github.com/settings/apps/cockpit-test",
       });
     },
   );
@@ -267,6 +269,7 @@ describe("the two webhook reads are kept one minute (decision 024 F)", () => {
       key: "webhook",
       ok: false,
       detail: "last_delivery_failed",
+      url: "https://github.com/settings/apps/cockpit-test",
     });
   });
 
@@ -283,6 +286,7 @@ describe("the two webhook reads are kept one minute (decision 024 F)", () => {
       key: "webhook",
       ok: false,
       detail: "wrong_url",
+      url: "https://github.com/settings/apps/cockpit-test",
     });
     // The repo itself was not read again: one root 200, the second root read answered 304.
     expect(fetchMock.served).toHaveLength(1);

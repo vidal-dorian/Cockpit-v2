@@ -35,6 +35,10 @@ type State = {
   getAnswer?: Response;
   /** What PUT answers instead of saving. */
   putAnswer?: Response;
+  /** The projects of GET /api/projects (none by default). */
+  projects?: { id: number; fullName: string; archived: boolean }[];
+  /** The schedule of each project, by id (off by default). */
+  schedules?: Record<number, { frequency: string; hour: number | null }>;
 };
 type Call = { method: string; path: string; body: string };
 
@@ -121,6 +125,24 @@ function stubApi(state: State) {
           connected: false,
           connectedAt: null,
           client: null,
+        });
+      if (path === "/api/projects" && method === "GET")
+        return Response.json({
+          projects: (state.projects ?? []).map((p) => ({
+            ...p,
+            defaultBranch: "main",
+          })),
+        });
+      const schedule = /^\/api\/projects\/(\d+)\/routine$/.exec(path);
+      if (schedule && method === "GET")
+        return Response.json({
+          frequency: "off",
+          hour: null,
+          weekday: null,
+          timeZone: "Europe/Paris",
+          nextRunAt: null,
+          lastRun: null,
+          ...state.schedules?.[Number(schedule[1])],
         });
       if (path === "/api/me/routine") {
         if (method === "GET")
@@ -335,13 +357,16 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
     expect(within(section).queryByText(/à reconnecter/)).toBeNull();
   });
 
-  it("given a connected routine, when Retirer is clicked, then DELETE /api/me/routine is sent at once and the section offers the fields again", async () => {
+  it("given a connected routine, when Retirer is clicked, then, once confirmed (085), DELETE /api/me/routine is sent and the section offers the fields again", async () => {
     const calls = stubApi({ routine: CONNECTED });
     renderAt("/reglages/ecriture-us");
     const section = await loadedSection();
 
     fireEvent.click(
       await within(section).findByRole("button", { name: "Retirer" }),
+    );
+    fireEvent.click(
+      within(section).getByRole("button", { name: "Confirmer le retrait" }),
     );
 
     await waitFor(() =>
@@ -424,6 +449,115 @@ describe("Réglages page, the section Écrire les US automatiquement", () => {
     const alert = await within(section).findByRole("alert");
     expect(alert.textContent?.trim()).not.toBe("");
     expect(alert.textContent).not.toMatch(/HTTP|500|boom/);
+  });
+});
+
+const PROJECTS = [
+  { id: 5, fullName: "octocat/hello", archived: false },
+  { id: 6, fullName: "octocat/world", archived: false },
+  { id: 7, fullName: "octocat/old", archived: true },
+];
+
+// Decision 085 Q (S13): Réglages › Tâches cloud lists the frequency of each active project with a link to its settings.
+describe("Réglages page, the frequency of each project under Connectée (085 Q)", () => {
+  it("given a connected routine and two active projects, when the section loads, then each project is a link to /projets/:id/reglages with its frequency, and an archived project is not listed", async () => {
+    stubApi({
+      routine: CONNECTED,
+      projects: PROJECTS,
+      schedules: { 5: { frequency: "daily", hour: 7 } },
+    });
+
+    renderAt("/reglages/taches-cloud");
+
+    const section = await loadedSection();
+    const hello = await within(section).findByRole("link", {
+      name: "octocat/hello",
+    });
+    expect(hello.getAttribute("href")).toBe("/projets/5/reglages");
+    await waitFor(() =>
+      expect(hello.closest("li")?.textContent).toContain("chaque jour à 7 h"),
+    );
+    const world = within(section).getByRole("link", { name: "octocat/world" });
+    expect(world.getAttribute("href")).toBe("/projets/6/reglages");
+    await waitFor(() =>
+      expect(world.closest("li")?.textContent).toContain("désactivée"),
+    );
+    expect(
+      within(section).queryByRole("link", { name: "octocat/old" }),
+    ).toBeNull();
+  });
+
+  it("given a routine that is not connected, when the section loads, then no project is listed", async () => {
+    stubApi({ routine: NOT_CONNECTED, projects: PROJECTS });
+
+    renderAt("/reglages/taches-cloud");
+
+    const section = await loadedSection();
+    expect(
+      within(section).queryByRole("link", { name: "octocat/hello" }),
+    ).toBeNull();
+  });
+});
+
+// Decision 085 / audit: Retirer asks for a confirmation in place (003 rule 4), focus on Annuler.
+describe("Réglages page, Retirer a connected task asks to confirm", () => {
+  it("given a connected routine, when Retirer is clicked, then nothing is sent, the warning and the buttons Confirmer le retrait and Annuler show, and the focus is on Annuler", async () => {
+    const calls = stubApi({ routine: CONNECTED });
+    renderAt("/reglages/taches-cloud");
+    const section = await loadedSection();
+
+    fireEvent.click(
+      await within(section).findByRole("button", { name: "Retirer" }),
+    );
+
+    expect(section.textContent).toContain("Retirer la tâche ?");
+    expect(section.textContent).toContain("régénérer son jeton sur claude.ai");
+    expect(
+      within(section).getByRole("button", { name: "Confirmer le retrait" }),
+    ).toBeDefined();
+    expect(document.activeElement).toBe(
+      within(section).getByRole("button", { name: "Annuler" }),
+    );
+    expect(writes(calls)).toHaveLength(0);
+  });
+
+  it("given the confirmation is shown, when Annuler is clicked, then Retirer is back, Connectée stays and nothing was sent", async () => {
+    const calls = stubApi({ routine: CONNECTED });
+    renderAt("/reglages/taches-cloud");
+    const section = await loadedSection();
+    fireEvent.click(
+      await within(section).findByRole("button", { name: "Retirer" }),
+    );
+
+    fireEvent.click(within(section).getByRole("button", { name: "Annuler" }));
+
+    expect(
+      within(section).getByRole("button", { name: "Retirer" }),
+    ).toBeDefined();
+    expect(within(section).getByText("Connectée")).toBeDefined();
+    expect(writes(calls)).toHaveLength(0);
+  });
+
+  it("given the confirmation is shown, when Confirmer le retrait is clicked, then DELETE /api/me/routine is sent and the fields are offered again", async () => {
+    const calls = stubApi({ routine: CONNECTED });
+    renderAt("/reglages/taches-cloud");
+    const section = await loadedSection();
+    fireEvent.click(
+      await within(section).findByRole("button", { name: "Retirer" }),
+    );
+
+    fireEvent.click(
+      within(section).getByRole("button", { name: "Confirmer le retrait" }),
+    );
+
+    await waitFor(() =>
+      expect(within(section).getByLabelText("Jeton")).toBeDefined(),
+    );
+    expect(writes(calls)).toHaveLength(1);
+    expect(writes(calls)[0]).toMatchObject({
+      method: "DELETE",
+      path: "/api/me/routine",
+    });
   });
 });
 

@@ -390,3 +390,34 @@ describe("criterion 14.5: the telemetry variables", () => {
       expect(writeText.mock.calls[0]?.[0]).toContain(line);
   });
 });
+
+// Audit finding (003 rule 4): Retirer a connected launcher asks to confirm, focus on Annuler.
+describe("Retirer the launcher asks to confirm", () => {
+  it("given a connected launcher, when Retirer is clicked, then nothing is deleted until Confirmer le retrait, and Annuler (focused) keeps the task", async () => {
+    const calls = stubApi({ connected: true });
+    renderAt("/reglages/taches-cloud");
+    const section = await launcherCard();
+
+    fireEvent.click(within(section).getByRole("button", { name: "Retirer" }));
+
+    expect(section.textContent).toContain("Retirer la tâche ?");
+    const cancel = within(section).getByRole("button", { name: "Annuler" });
+    expect(document.activeElement).toBe(cancel);
+    expect(calls.filter((c) => c.method === "DELETE")).toHaveLength(0);
+    fireEvent.click(cancel);
+    expect(
+      within(section).getByRole("button", { name: "Retirer" }),
+    ).toBeDefined();
+    fireEvent.click(within(section).getByRole("button", { name: "Retirer" }));
+    fireEvent.click(
+      within(section).getByRole("button", { name: "Confirmer le retrait" }),
+    );
+    await waitFor(() =>
+      expect(
+        calls.filter(
+          (c) => c.method === "DELETE" && c.path === "/api/me/launcher",
+        ),
+      ).toHaveLength(1),
+    );
+  });
+});

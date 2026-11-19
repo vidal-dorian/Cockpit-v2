@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
+import { RunNowButton } from "./ProjectRoutine.tsx";
 import { fetchProjects } from "./Projects.tsx";
-import { refusedError } from "./roles.ts";
+import { atLeast, refusedError } from "./roles.ts";
 import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
 import {
   alertBox,
@@ -55,16 +56,26 @@ async function fetchIssues(id: string) {
 type Issue = Awaited<ReturnType<typeof fetchIssues>>[number];
 type View = "import" | "known" | "closed";
 
-const subtitle = (issue: Issue) =>
-  issue.inCockpit
-    ? "storyId" in issue.inCockpit
-      ? `déjà dans Cockpit (US ${issue.inCockpit.storyId})`
-      : `déjà dans Cockpit (ticket ${issue.inCockpit.ticketId})`
-    : issue.state === "closed"
-      ? "fermée"
-      : issue.kind === "story"
-        ? "écrite comme une US · deviendra une US validée"
-        : "deviendra un ticket « Nouveau »";
+const subtitle = (issue: Issue) => {
+  const known = issue.inCockpit;
+  if (known) {
+    // The whole line leads to what the issue already is in Cockpit (decision 085 C).
+    const [to, what] =
+      "storyId" in known
+        ? [`/us/${known.storyId}`, `US ${known.storyId}`]
+        : [`/tickets/${known.ticketId}`, `ticket ${known.ticketId}`];
+    return (
+      <Link to={to} className={`hover:underline ${focusRing}`}>
+        déjà dans Cockpit ({what})
+      </Link>
+    );
+  }
+  return issue.state === "closed"
+    ? "fermée"
+    : issue.kind === "story"
+      ? "écrite comme une US · deviendra une US validée"
+      : "deviendra un ticket « Nouveau »";
+};
 
 /** The import screen (decision 057 F, S27): the open issues of the repo, those to import checked by default. */
 export function IssueImport() {
@@ -157,15 +168,35 @@ export function IssueImport() {
           </p>
         )}
         {run.isSuccess && (
-          <p className="mb-3">
-            {plural(run.data.tickets, "issue importée", "issues importées")}.{" "}
-            <Link
-              to={`/projets/${id}/tickets`}
-              className={`font-semibold hover:underline ${focusRing}`}
-            >
-              Voir les tickets
-            </Link>
-          </p>
+          <>
+            <p className="mb-3">
+              {plural(run.data.tickets, "issue importée", "issues importées")}.{" "}
+              <Link
+                to={`/projets/${id}/tickets`}
+                className={`font-semibold hover:underline ${focusRing}`}
+              >
+                Voir les tickets
+              </Link>
+            </p>
+            <p className="mb-3 -mt-2 flex flex-wrap items-center gap-3">
+              {run.data.stories > 0 && (
+                <Link
+                  to={`/projets/${id}`}
+                  className={`font-semibold hover:underline ${focusRing}`}
+                >
+                  {run.data.stories}{" "}
+                  {run.data.stories === 1 ? "US prête" : "US prêtes"} au Kanban
+                </Link>
+              )}
+              {/* The imported stories are already written: only the tickets wait for Claude. */}
+              {/* The run route asks `owner` (decision 076 G): offer nothing that would be refused. */}
+              {run.data.tickets > run.data.stories &&
+                atLeast(
+                  projects.data?.find((p) => String(p.id) === id)?.role,
+                  "owner",
+                ) && <RunNowButton projectId={id} onlyConnected />}
+            </p>
+          </>
         )}
         {issues.data && (
           <>
@@ -216,6 +247,17 @@ export function IssueImport() {
                       <span className="block font-semibold">
                         #{issue.number} · {issue.title}
                       </span>
+                      {fullName && (
+                        <a
+                          href={`https://github.com/${fullName}/issues/${issue.number}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Voir l'issue #${issue.number} sur GitHub`}
+                          className={`text-[12.5px] hover:text-foreground hover:underline ${focusRing}`}
+                        >
+                          GitHub ↗
+                        </a>
+                      )}
                       <span className="block text-[12.5px] text-muted-foreground">
                         {subtitle(issue)}
                       </span>

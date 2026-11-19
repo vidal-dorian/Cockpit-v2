@@ -94,6 +94,15 @@ export async function decisionError(res: Response) {
 export const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
+/** The ticket with its stories, "not_found" when the user cannot reach it, or null when the server answers 401. */
+export async function fetchTicket(id: string) {
+  const res = await client.api.tickets[":id"].$get({ param: { id } });
+  if (res.status === 401) return null;
+  if (res.status === 404) return "not_found" as const;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 /** The tickets of a project, in the order of the list (priority, then newest first), or null when the server answers 401. */
 export async function fetchTickets(id: string) {
   const res = await client.api.projects[":id"].tickets.$get({ param: { id } });
@@ -140,3 +149,7 @@ export function age(iso: string) {
     ? `${Math.floor(days / 7)} sem.`
     : `${Math.floor(days / 30)} mois`;
 }
+
+/** A click that stays in the page: not a new tab or window (modifier key, middle button). */
+export const isPlainClick = (event: React.MouseEvent) =>
+  event.button === 0 && !(event.metaKey || event.ctrlKey || event.shiftKey);

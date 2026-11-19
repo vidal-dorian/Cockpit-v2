@@ -211,7 +211,7 @@ describe("criterion 7: a finished run", () => {
       const link = await within(main()).findByRole("link", {
         name: "Relancer",
       });
-      expect(link.getAttribute("href")).toBe("/us/21");
+      expect(link.getAttribute("href")).toBe("/us/21?developper");
     },
   );
 

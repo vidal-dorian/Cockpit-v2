@@ -553,3 +553,20 @@ describe("review: more cases of the changelog page", () => {
     error.mockRestore();
   });
 });
+
+// Decision 085 C (S06): the PR and the story of a branch to clean are links, to check before deleting.
+describe("085 C: the branch to clean names its PR and its story as links", () => {
+  it("given a branch of the PR 51 and the story 40, when it loads, then « PR #51 » links to GitHub and « US 40 » to /us/40", async () => {
+    stubDelivered();
+    await delivered();
+
+    const row = await branchLine();
+    expect(row.textContent).toContain("mergée · plus utilisée");
+    expect(
+      within(row).getByRole("link", { name: "PR #51" }).getAttribute("href"),
+    ).toBe("https://github.com/octocat/hello/pull/51");
+    expect(
+      within(row).getByRole("link", { name: "US 40" }).getAttribute("href"),
+    ).toBe("/us/40");
+  });
+});

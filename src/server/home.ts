@@ -16,6 +16,7 @@ import {
   runs,
   tickets,
   userStories,
+  workflowProposals,
 } from "./db/schema.ts";
 import { morningOf } from "./night.ts";
 import { MAX_RELAUNCHES } from "./pr-follow.ts";
@@ -348,6 +349,28 @@ export function homeRoutes(db: Db, now: () => number) {
           : [],
       ),
       ...checks,
+      // Decision 085 E: a proposal of Claude on a workflow waits for the human; last, it is no question and blocks nothing.
+      ...(
+        await db
+          .select({
+            proposalId: workflowProposals.id,
+            path: workflowProposals.path,
+            reason: workflowProposals.reason,
+            projectId: projects.id,
+            projectName: projects.fullName,
+          })
+          .from(workflowProposals)
+          .innerJoin(projects, eq(projects.id, workflowProposals.projectId))
+          .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
+          .where(and(mine, isNull(workflowProposals.decision)))
+          .orderBy(asc(workflowProposals.id))
+      ).map((p) => ({
+        kind: "workflow_proposal" as const,
+        proposalId: p.proposalId,
+        path: p.path,
+        reason: p.reason,
+        project: project(p),
+      })),
     ];
     const forYouIn = new Set(forYou.map((i) => i.project.id));
     const claudeIn = new Set(running.map((r) => r.projectId));
@@ -400,6 +423,13 @@ export function claudeRoutes(db: Db) {
         ...storyColumns,
         runId: runs.id,
         status: runs.status,
+        summary: runs.summary,
+        storyStatus: userStories.status,
+        prNumber: userStories.prNumber,
+        prCiState: userStories.prCiState,
+        prReviewState: userStories.prReviewState,
+        kind: userStories.kind,
+        prAppFiles: userStories.prAppFiles,
       })
       .from(runs)
       .innerJoin(userStories, eq(userStories.id, runs.storyId))
@@ -414,6 +444,21 @@ export function claudeRoutes(db: Db) {
         ),
       )
       .orderBy(desc(runs.id));
+    const finishedCriteria = finished.length
+      ? await db
+          .select({
+            storyId: acceptanceCriteria.storyId,
+            result: acceptanceCriteria.result,
+            resultRunId: acceptanceCriteria.resultRunId,
+          })
+          .from(acceptanceCriteria)
+          .where(
+            inArray(
+              acceptanceCriteria.storyId,
+              finished.map((r) => r.storyId),
+            ),
+          )
+      : [];
     const ready = await db
       .select(storyColumns)
       .from(userStories)
@@ -460,6 +505,14 @@ export function claudeRoutes(db: Db) {
         iWant: r.iWant,
         project: project(r),
         outcome: r.status === "succeeded" ? "succeeded" : "failed",
+        verdict: runVerdict(
+          { id: r.runId, status: r.status },
+          r,
+          finishedCriteria.filter((k) => k.storyId === r.storyId),
+        ),
+        prNumber: r.prNumber,
+        storyStatus: r.storyStatus,
+        summary: r.summary,
       })),
       readyStories: ready.map((r) => ({
         storyId: r.storyId,

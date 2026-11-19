@@ -143,6 +143,10 @@ describe("criterion 5: the page Claude", () => {
           iWant: "Fini hier soir",
           project,
           outcome: "succeeded",
+          verdict: { acceptable: true, reasons: [] },
+          prNumber: null,
+          storyStatus: "done",
+          summary: null,
         },
       ],
     });
@@ -280,5 +284,55 @@ describe("criterion 14.5: the link to the cost", () => {
     );
 
     expect(link.getAttribute("href")).toBe("/claude/cout");
+  });
+});
+
+// Decision 085 C (S06): the stories the page names are links.
+describe("085 C: the objects of the page Claude are links", () => {
+  it("given a queue row and a story waiting for the story 12, when the page loads, then the row title links /us/:id and « l'US 12 » links /us/12", async () => {
+    stub(
+      {},
+      {
+        items: [
+          item(40, "Exporter en CSV"),
+          item(41, "Filtrer", { reason: "dependency", storyId: 12 }),
+        ],
+      },
+    );
+    renderAt("/claude");
+
+    const queue = await section("File d'attente");
+    expect(
+      within(queue)
+        .getByRole("link", { name: "Exporter en CSV" })
+        .getAttribute("href"),
+    ).toBe("/us/40");
+    expect(
+      within(queue).getByRole("link", { name: "Filtrer" }).getAttribute("href"),
+    ).toBe("/us/41");
+    expect(
+      within(queue).getByRole("link", { name: /US 12/ }).getAttribute("href"),
+    ).toBe("/us/12");
+  });
+
+  it("given a question in Maintenant, when the page loads, then the title of the story links /us/:storyId", async () => {
+    stub({
+      questions: [
+        {
+          questionId: 7,
+          question: "Quelle couleur ?",
+          runId: 31,
+          storyId: 42,
+          iWant: "Choisir",
+          project,
+        },
+      ],
+    });
+    renderAt("/claude");
+
+    const now = await section("Maintenant");
+    expect(
+      within(now).getByRole("link", { name: "Choisir" }).getAttribute("href"),
+    ).toBe("/us/42");
   });
 });

@@ -13,10 +13,12 @@ import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
 import { Logo } from "./Logo.tsx";
 import { Modal } from "./Modal.tsx";
 import { fetchProjects } from "./Projects.tsx";
+import { fetchRun } from "./RunPage.tsx";
 import { atLeast } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
+import { fetchStory } from "./StoryDecisions.tsx";
 import { identify, init } from "./telemetry.ts";
-import { ticketError } from "./tickets.ts";
+import { fetchTicket, ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
 
 // The shell of decision 045 F (sidebar, idea bar) and the pieces every page builds on (state sentence, breadcrumb, right panel, dot).
@@ -398,7 +400,7 @@ function SidebarContent({
           </span>
         </NavLink>
         <Link
-          to="/projets"
+          to="/projets#importer"
           className={sub({ isActive: false })}
           onClick={onNavigate}
         >
@@ -622,8 +624,8 @@ export function IdeaBar({
   ref,
   onSearch,
 }: {
-  /** Opens the panel of the idea from elsewhere (the search window); the argument is what gets the focus back, if any. */
-  ref?: React.Ref<(opener: HTMLElement | null) => void>;
+  /** Opens the panel of the idea from elsewhere (the search window); the first argument is what gets the focus back, if any, the second the title to start with. */
+  ref?: React.Ref<(opener: HTMLElement | null, title?: string) => void>;
   /** Opens the search window (the « Chercher » row of the phone's menu). */
   onSearch: () => void;
 }) {
@@ -634,10 +636,39 @@ export function IdeaBar({
   const projects = (home.data?.projects ?? []).filter((p) =>
     atLeast(roles.data?.find((r) => r.id === p.id)?.role, "can_validate"),
   );
-  const routeId = useMatch("/projets/:id/*")?.params.id;
+  // The project of the page shown (decision 085 C): a project page, or the story, ticket or run of one; the queries are the pages' own.
+  const story = useMatch("/us/:id")?.params.id;
+  const ticket = useMatch("/tickets/:id")?.params.id;
+  const run = useMatch("/runs/:id")?.params.id;
+  const shownStory = useQuery({
+    queryKey: ["story", story],
+    queryFn: () => fetchStory(story as string),
+    enabled: story !== undefined,
+  }).data;
+  const shownTicket = useQuery({
+    queryKey: ["ticket", ticket],
+    queryFn: () => fetchTicket(ticket as string),
+    enabled: ticket !== undefined,
+  }).data;
+  const shownRun = useQuery({
+    queryKey: ["run", run],
+    queryFn: () => fetchRun(run as string),
+    enabled: run !== undefined,
+  }).data;
+  const shownId = [
+    shownStory && shownStory !== "not_found" && shownStory.project.id,
+    shownTicket && shownTicket !== "not_found" && shownTicket.ticket.projectId,
+    shownRun && shownRun !== "not_found" && shownRun.project.id,
+  ].find(Boolean);
+  const routeId =
+    useMatch("/projets/:id/*")?.params.id ??
+    (shownId ? String(shownId) : undefined);
+  // The project of the last idea noted, for the pages that show no project.
+  const [last, setLast] = useState<string>();
   const [title, setTitle] = useState("");
   const [chosen, setChosen] = useState<{ routeId?: string; id: string }>();
   const [done, setDone] = useState<string>();
+  const [created, setCreated] = useState<number>();
   // The files a refused upload left out: the ticket exists, its page is where to try again (decision 061 F).
   const [unattached, setUnattached] = useState<{
     id: number;
@@ -666,8 +697,9 @@ export function IdeaBar({
     }
   }, [open]);
 
-  const openPanel = (el: HTMLElement | null) => {
+  const openPanel = (el: HTMLElement | null, text?: string) => {
     opener.current = el;
+    if (text) setTitle(text);
     setOpen(true);
   };
   useImperativeHandle(ref, () => openPanel);
@@ -697,7 +729,9 @@ export function IdeaBar({
     ? (picked as string)
     : exists(routeId)
       ? (routeId as string)
-      : String(projects[0]?.id);
+      : exists(last)
+        ? (last as string)
+        : String(projects[0]?.id);
   const send = useMutation({
     mutationFn: async ({
       projectId: id,
@@ -723,6 +757,8 @@ export function IdeaBar({
     },
     onSuccess: ({ id, names }, sent) => {
       setUnattached(names.length > 0 ? { id, names } : undefined);
+      setLast(sent.projectId);
+      setCreated(id);
       setTitle("");
       setDraft({});
       setOpen(false);
@@ -774,7 +810,10 @@ export function IdeaBar({
           )}
           {done && !send.isError && (
             <p role="status" className="mb-2 text-muted-foreground">
-              {done}
+              {done}{" "}
+              <Link to={`/tickets/${created}`} className="underline">
+                Ouvrir le ticket
+              </Link>
             </p>
           )}
           {open && (

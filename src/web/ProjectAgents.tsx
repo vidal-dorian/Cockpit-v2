@@ -14,6 +14,7 @@ import {
 } from "./ProjectClaudeConfig.tsx";
 import { type Failure, failure, message } from "./ProjectPrepare.tsx";
 import { ProjectTeam } from "./ProjectTeam.tsx";
+import { readTeam } from "./team-file.ts";
 import {
   alertBox,
   button,
@@ -60,10 +61,16 @@ export function AgentForm({
   pending,
   onCommit,
   onClose,
+  blob,
+  usedBy = [],
 }: {
   editing: Editing;
   /** The file the form writes, shown beside the diff. */
   path: string;
+  /** Where the file reads on GitHub, offered when its header cannot be read here (decision 085 D). */
+  blob?: string;
+  /** The teams that name this agent, said next to the path and before a deletion (decision 085 A). */
+  usedBy?: string[];
   archived: boolean;
   pending: boolean;
   onCommit: (after: string | null) => void;
@@ -82,6 +89,7 @@ export function AgentForm({
     setFields((current) => current && { ...current, [key]: value });
 
   const label = "block text-[13px] font-semibold";
+  const used = usedBy.length > 0 ? ` · utilisé par ${usedBy.join(", ")}` : "";
   return (
     <div className="mt-2">
       <h3 className="font-mono font-semibold">{name}</h3>
@@ -158,13 +166,21 @@ export function AgentForm({
                 {after}
               </pre>
             )}
-            <span className="text-[12.5px] text-muted-foreground">{path}</span>
+            <span className="text-[12.5px] text-muted-foreground">
+              {path}
+              {used}
+            </span>
           </div>
         </div>
       ) : (
         <p className="mt-2">
           L'en-tête de ce fichier n'est pas lisible par Cockpit : modifie-le sur
-          GitHub
+          GitHub{" "}
+          {blob && (
+            <a href={blob} className={`underline ${focusRing}`}>
+              Ouvrir sur GitHub ↗
+            </a>
+          )}
         </p>
       )}
       <div className="mt-3.5 flex flex-wrap items-center gap-2">
@@ -192,7 +208,7 @@ export function AgentForm({
             {confirming ? (
               <>
                 <p id="delete-agent-warning">
-                  Le fichier sera retiré du repo par un commit
+                  Le fichier sera retiré du repo par un commit{used}
                 </p>
                 <button
                   type="button"
@@ -371,36 +387,53 @@ export function ProjectAgents({
     agents.data?.failure ??
     (agents.isError ? { code: "", status: 0 } : undefined);
   const list = agents.data?.data;
+  const blobOf = (name: string) =>
+    `https://github.com/${fullName}/blob/HEAD/.claude/agents/${name}.md`;
+  // « Par défaut » is team.md; the others are the named teams.
+  const usedBy = (name: string) =>
+    [
+      ...(list?.team ? [{ name: "Par défaut", text: list.team }] : []),
+      ...(list?.teams ?? []),
+    ]
+      .filter((t) => readTeam(t.text)?.steps.some((s) => s.agent === name))
+      .map((t) => t.name);
   const agentRow = (agent: { name: string; text: string | null }) => {
-    const fields = agent.text === null ? null : parseAgent(agent.text);
+    const { text } = agent;
+    const rowStyle = `flex min-h-[50px] w-full flex-col justify-center px-[18px] py-2 text-left hover:bg-raised ${focusRing}`;
+    // A file too large to be read is not rewritten here: the row leads to it on GitHub (decision 085 D).
+    if (text === null)
+      return (
+        <li key={agent.name} className="min-h-[50px]">
+          <a href={blobOf(agent.name)} className={rowStyle}>
+            <span className="font-semibold">{agent.name}</span>
+            <span className="text-[12.5px] text-muted-foreground">
+              Fichier trop gros · Ouvrir sur GitHub ↗
+            </span>
+          </a>
+        </li>
+      );
+    const fields = parseAgent(text);
     return (
       <li key={agent.name} className="min-h-[50px]">
         <button
           type="button"
           aria-label={`Ouvrir ${agent.name}`}
-          disabled={agent.text === null}
           onClick={() => {
             setProblem(null);
             setDone(null);
             setAdding(false);
-            setEditing(
-              agent.text === null
-                ? null
-                : {
-                    name: agent.name,
-                    before: agent.text,
-                    base: agent.text,
-                  },
-            );
+            setEditing({
+              name: agent.name,
+              before: text,
+              base: text,
+            });
           }}
-          className={`flex min-h-[50px] w-full flex-col justify-center px-[18px] py-2 text-left hover:bg-raised disabled:opacity-50 ${focusRing}`}
+          className={rowStyle}
         >
           <span className="font-semibold">{agent.name}</span>
           <span className="text-[12.5px] text-muted-foreground">
             <span className="capitalize">
-              {agent.text === null
-                ? "Fichier trop gros"
-                : (fields?.model ?? "En-tête illisible") || SESSION_MODEL}
+              {(fields?.model ?? "En-tête illisible") || SESSION_MODEL}
             </span>
             {fields && ` · ${fields.tools.trim() || "tous les outils"}`}
           </span>
@@ -462,6 +495,17 @@ export function ProjectAgents({
               setDone(null);
               setAdding(false);
               setEditing({ name, before: text, base: text });
+            }}
+            addable={list.catalog
+              .filter((c) => !list.agents.some((a) => a.name === c.name))
+              .map((c) => c.name)}
+            onAddAgent={(name) => {
+              const base = list.catalog.find((c) => c.name === name)?.text;
+              if (base === undefined) return;
+              setProblem(null);
+              setDone(null);
+              setAdding(false);
+              setEditing({ name, before: null, base });
             }}
           />
         )}
@@ -539,6 +583,8 @@ export function ProjectAgents({
               key={`${editing.name}\n${editing.before}`}
               editing={editing}
               path={`.claude/agents/${editing.name}.md`}
+              blob={blobOf(editing.name)}
+              usedBy={usedBy(editing.name)}
               archived={archived}
               pending={commit.isPending}
               onClose={() => setEditing(null)}

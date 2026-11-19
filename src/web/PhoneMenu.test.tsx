@@ -176,7 +176,8 @@ describe("decision 084 B2: the Menu tab and its window", () => {
     expect(href(/Cette nuit/)).toBe("/nuit");
     expect(href(/hello/)).toBe("/projets/5");
     expect(href(/^Tous les projets/)).toBe("/projets");
-    expect(href(/Importer un repo/)).toBe("/projets");
+    // Decision 085 (S05): « Importer un repo » scrolls to the import section.
+    expect(href(/Importer un repo/)).toBe("/projets#importer");
     expect(href(/^Équipes d'agents/)).toBe("/equipes");
     expect(href(/^Journal/)).toBe("/journal");
     expect(href(/^Réglages/)).toBe("/reglages");

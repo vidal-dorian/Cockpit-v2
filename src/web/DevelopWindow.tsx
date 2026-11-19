@@ -7,6 +7,7 @@ import { AddResult, fetchAgentTeams, useAddTeam } from "./AgentTeams.tsx";
 import { client } from "./api.ts";
 import { fetchBudgets } from "./Cost.tsx";
 import { fetchLauncher } from "./LauncherSettings.tsx";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { ROLE_REFUSAL } from "./roles.ts";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
@@ -132,7 +133,10 @@ export function DevelopWindow({
   const [chosen, setChosen] = useState<"cloud" | "pc">();
   const cloud = cloudPossible && chosen !== "pc";
   const queryClient = useQueryClient();
-  const launch = useMutation({
+  const launch = useMutation<
+    { sessionUrl?: string | null },
+    Error & { code?: string }
+  >({
     // A refusal may mean the launcher changed (a token refused): the next read decides if the cloud is still possible.
     onError: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
     mutationFn: async () => {
@@ -147,9 +151,12 @@ export function DevelopWindow({
       });
       if (!res.ok) {
         const answer: { error?: string } = await res.json().catch(() => ({}));
-        throw new Error(
-          LAUNCH_ERRORS[answer.error ?? ""] ??
-            "Le lancement a été refusé : vérifie le lanceur dans Réglages.",
+        throw Object.assign(
+          new Error(
+            LAUNCH_ERRORS[answer.error ?? ""] ??
+              "Le lancement a été refusé : vérifie le lanceur dans Réglages.",
+          ),
+          { code: answer.error },
         );
       }
       return res.json();
@@ -607,6 +614,7 @@ export function DevelopWindow({
           {launch.isError && (
             <div role="alert" className={alertBox}>
               <p>{launch.error.message}</p>
+              <FixLink code={launch.error.code} />
               <button
                 type="button"
                 onClick={() => launch.mutate()}

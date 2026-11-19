@@ -106,7 +106,7 @@ export function RunControls({
   });
   if (!running)
     return relaunchStoryId === null || archived ? null : (
-      <Link to={`/us/${relaunchStoryId}`} className={button}>
+      <Link to={`/us/${relaunchStoryId}?developper`} className={button}>
         Relancer
       </Link>
     );

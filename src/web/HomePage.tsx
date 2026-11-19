@@ -4,15 +4,28 @@ import { Link } from "react-router";
 import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
 import { fetchInstallation } from "./InstallBanner.tsx";
-import { fetchHistory, JournalEntry } from "./Journal.tsx";
+import { fetchHistory, JournalEntry, objectPath } from "./Journal.tsx";
+import { fetchProjects } from "./Projects.tsx";
 import { WhyAsked } from "./RunQuestions.tsx";
 import { REASONS } from "./RunVerdict.tsx";
-import { Dot, Panel, repoName, StateSentence, useHome } from "./Shell.tsx";
+import { atLeast } from "./roles.ts";
+import {
+  Dot,
+  fetchNight,
+  Panel,
+  repoName,
+  StateSentence,
+  useHome,
+} from "./Shell.tsx";
 import { useShortcut } from "./Shortcuts.tsx";
+import { StoryBody } from "./StoryBody.tsx";
+import { fetchStory, StoryDecisions } from "./StoryDecisions.tsx";
+import { decisionError } from "./tickets.ts";
 import {
   alertBox,
   badge,
   button,
+  card,
   focusRing,
   kbd,
   listCard,
@@ -67,6 +80,12 @@ const KINDS = {
     group: "Relances épuisées",
     hint: "la CI échoue encore",
   },
+  workflow_proposal: {
+    glyph: "⇄",
+    badge: "À relire",
+    group: "Propositions de Claude",
+    hint: "un changement de workflow",
+  },
   check: {
     glyph: "!",
     badge: "À vérifier",
@@ -75,11 +94,16 @@ const KINDS = {
   },
 };
 
-const prUrl = (item: Extract<Item, { kind: "review" }>) =>
-  `https://github.com/${item.project.name}/pull/${item.prNumber}`;
+const prUrl = (
+  item: Extract<Item, { kind: "review" | "relaunch_exhausted" }>,
+) => `https://github.com/${item.project.name}/pull/${item.prNumber}`;
 
 const title = (item: Item) =>
-  item.kind === "answer" ? item.question : item.iWant;
+  item.kind === "answer"
+    ? item.question
+    : item.kind === "workflow_proposal"
+      ? `Claude propose un changement de ${item.path.split("/").pop()}`
+      : item.iWant;
 
 /** « Question de Claude · Run 3 · hello »: what the item is, then where. The row of « 2 · Ensuite » drops the kind, its group says it. */
 function subLine(item: Item, withKind = true) {
@@ -99,6 +123,8 @@ function subLine(item: Item, withKind = true) {
     }
     case "relaunch_exhausted":
       return `Relances épuisées : la CI échoue encore après 3 essais · PR #${item.prNumber} · ${project}`;
+    case "workflow_proposal":
+      return `${item.reason} · ${project}`;
     case "check":
       return `Run ${item.runId} · ${project}`;
   }
@@ -112,29 +138,41 @@ function rowTitle(item: Item) {
 }
 
 const itemKey = (item: Item) =>
-  `${item.kind}-${item.kind === "answer" ? item.questionId : item.storyId}`;
+  `${item.kind}-${
+    item.kind === "answer"
+      ? item.questionId
+      : item.kind === "workflow_proposal"
+        ? item.proposalId
+        : item.storyId
+  }`;
 
 function Section({
   label,
   hint,
+  action,
   className = "",
   children,
 }: {
   label: React.ReactNode;
   hint?: string;
+  /** A link on the right of the heading (« Tous les runs »). */
+  action?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className={`px-[26px] pt-[22px] ${className}`}>
-      <h2 className="mb-2 flex items-center gap-2">
-        {label}
-        {hint && (
-          <span className="text-[12.5px] font-normal text-muted-foreground">
-            · {hint}
-          </span>
-        )}
-      </h2>
+      <div className="mb-2 flex items-center gap-2">
+        <h2 className="flex items-center gap-2">
+          {label}
+          {hint && (
+            <span className="text-[12.5px] font-normal text-muted-foreground">
+              · {hint}
+            </span>
+          )}
+        </h2>
+        {action}
+      </div>
       {children}
     </section>
   );
@@ -146,11 +184,13 @@ function RowActions({
   open,
   validate,
   validating,
+  mayValidate,
 }: {
   item: Item;
   open: () => void;
   validate: () => void;
   validating: boolean;
+  mayValidate: boolean;
 }) {
   switch (item.kind) {
     case "answer":
@@ -162,15 +202,17 @@ function RowActions({
     case "validate":
       return (
         <>
-          <button
-            type="button"
-            onClick={validate}
-            disabled={validating}
-            aria-busy={validating}
-            className={rowAction}
-          >
-            Valider
-          </button>
+          {mayValidate && (
+            <button
+              type="button"
+              onClick={validate}
+              disabled={validating}
+              aria-busy={validating}
+              className={rowAction}
+            >
+              Valider
+            </button>
+          )}
           <Link to={`/us/${item.storyId}`} className={rowLink}>
             Ouvrir
           </Link>
@@ -189,8 +231,19 @@ function RowActions({
       );
     case "relaunch_exhausted":
       return (
-        <Link to={`/us/${item.storyId}`} className={rowAction}>
-          Ouvrir l'US
+        <>
+          <a href={prUrl(item)} className={rowAction}>
+            Voir la PR #{item.prNumber}
+          </a>
+          <Link to={`/us/${item.storyId}`} className={rowLink}>
+            Ouvrir l'US
+          </Link>
+        </>
+      );
+    case "workflow_proposal":
+      return (
+        <Link to={`/projets/${item.project.id}/ci`} className={rowAction}>
+          Relire
         </Link>
       );
     case "check":
@@ -203,6 +256,16 @@ function RowActions({
 }
 
 /** The panel of the item at `index`: what it is, and the way to deal with it. */
+type PanelProps = {
+  item: Item;
+  index: number;
+  total: number;
+  onMove: (index: number) => void;
+  onSent: () => void;
+  focusHeading: boolean;
+  onFocused: (focusHeading: boolean) => void;
+};
+
 function ItemPanel({
   item,
   index,
@@ -211,15 +274,7 @@ function ItemPanel({
   onSent,
   focusHeading,
   onFocused,
-}: {
-  item: Item;
-  index: number;
-  total: number;
-  onMove: (index: number) => void;
-  onSent: () => void;
-  focusHeading: boolean;
-  onFocused: (focusHeading: boolean) => void;
-}) {
+}: PanelProps) {
   const kind = KINDS[item.kind];
   const heading = useRef<HTMLHeadingElement>(null);
   // « Répondre » of « 2 · Ensuite » opens the item here: the keyboard follows it.
@@ -232,10 +287,19 @@ function ItemPanel({
   let footer: React.ReactNode;
   if (item.kind === "answer")
     footer = (
-      <p className="text-center text-[13px] text-muted-foreground">
-        <span className="font-semibold text-foreground">Plus tard</span> ·
-        Claude reste en pause
-      </p>
+      <>
+        <button
+          type="button"
+          disabled={index >= total - 1}
+          onClick={() => onMove(index + 1)}
+          className={panelButton}
+        >
+          Plus tard
+        </button>
+        <p className="text-center text-[13px] text-muted-foreground">
+          Claude reste en pause
+        </p>
+      </>
     );
   else if (item.kind === "validate")
     footer = (
@@ -256,8 +320,22 @@ function ItemPanel({
     );
   else if (item.kind === "relaunch_exhausted")
     footer = (
-      <Link to={`/us/${item.storyId}`} className={panelPrimaryButton}>
-        Ouvrir l'US
+      <>
+        <a href={prUrl(item)} className={panelPrimaryButton}>
+          Voir la PR #{item.prNumber}
+        </a>
+        <Link to={`/us/${item.storyId}`} className={panelButton}>
+          Ouvrir l'US
+        </Link>
+      </>
+    );
+  else if (item.kind === "workflow_proposal")
+    footer = (
+      <Link
+        to={`/projets/${item.project.id}/ci`}
+        className={panelPrimaryButton}
+      >
+        Relire la proposition
       </Link>
     );
   else
@@ -321,6 +399,69 @@ function ItemPanel({
   );
 }
 
+/** The panel of a story to validate (decision 085 A, I): its narrative and criteria with the decisions of its page; the simple panel while the story is not read. */
+function ValidatePanel(
+  props: PanelProps & { item: Extract<Item, { kind: "validate" }> },
+) {
+  const { item, index, total, onMove, onSent, focusHeading, onFocused } = props;
+  const queryClient = useQueryClient();
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const found = useQuery({
+    queryKey: ["story", String(item.storyId)],
+    queryFn: () => fetchStory(String(item.storyId)),
+  });
+  const read = found.data && found.data !== "not_found" ? found.data : null;
+  useEffect(() => {
+    if (!focusHeading || !read) return;
+    statusRef.current?.focus();
+    onFocused(false);
+  }, [focusHeading, read, onFocused]);
+  if (found.isPending) return null;
+  if (!read) return <ItemPanel {...props} />;
+  const { story, project } = read;
+  return (
+    <StoryDecisions
+      story={story}
+      project={project}
+      archived={project.archived}
+      statusRef={statusRef}
+      counter={{
+        index,
+        total,
+        onPrevious: () => onMove(index - 1),
+        onNext: () => onMove(index + 1),
+      }}
+      // The home drops the story: the same place now holds the next one.
+      // The focused status unmounts with it: the focus goes to the next panel, or to the h1.
+      onDone={async () => {
+        await queryClient.invalidateQueries({ queryKey: ["home"] });
+        if (total > 1) onFocused(true);
+        else onSent();
+      }}
+      toDecide={story.criteria.flatMap((c) =>
+        c.takeoverState === "pending"
+          ? [{ id: c.id, summary: c.summary ?? "" }]
+          : [],
+      )}
+    >
+      <p ref={statusRef} tabIndex={-1} className="text-[12.5px]">
+        US {story.id} ·{" "}
+        <Link to={`/us/${story.id}`} className={link}>
+          Ouvrir l'US
+        </Link>
+      </p>
+      <StoryBody found={read} />
+    </StoryDecisions>
+  );
+}
+
+const PanelOf = (props: PanelProps) =>
+  props.item.kind === "validate" ? (
+    <ValidatePanel {...props} item={props.item} />
+  ) : (
+    <ItemPanel {...props} />
+  );
+
 /** « US 42 · étape developer · Run 17 ↗ »: where a question comes from (decision 069 E). */
 const where = (item: Extract<Item, { kind: "answer" }>) => (
   <p className="text-[12.5px] text-muted-foreground">
@@ -338,18 +479,26 @@ const where = (item: Extract<Item, { kind: "answer" }>) => (
 /** A row of « 2 · Ensuite »; « Valider » of a story to validate acts in place (POST /api/stories/:id/validate), a refusal shows next to the row. */
 function Row({ item, open }: { item: Item; open: () => void }) {
   const queryClient = useQueryClient();
+  const roles = useQuery({ queryKey: ["projects"], queryFn: fetchProjects });
+  const mayValidate = atLeast(
+    roles.data?.find((r) => r.id === item.project.id)?.role,
+    "can_validate",
+  );
+  const [rulesPending, setRulesPending] = useState(false);
   const validate = useMutation({
     meta: { done: "User story validée." },
     mutationFn: async (id: number) => {
       const res = await client.api.stories[":id"].validate.$post({
         param: { id: String(id) },
       });
-      if (!res.ok)
-        throw new Error(
-          res.status === 409
-            ? "Le statut de cette user story a changé entre-temps."
-            : "La validation a échoué, réessaie.",
-        );
+      if (!res.ok) {
+        const body = (await res
+          .clone()
+          .json()
+          .catch(() => null)) as { error?: string } | null;
+        setRulesPending(body?.error === "rules_pending");
+        throw await decisionError(res);
+      }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
   });
@@ -370,15 +519,30 @@ function Row({ item, open }: { item: Item; open: () => void }) {
           : KINDS[item.kind].glyph}
       </span>
       <span className="min-w-0">
-        <b className="block font-semibold max-sm:line-clamp-2 sm:truncate">
+        <button
+          type="button"
+          onClick={open}
+          className={`block max-w-full text-left font-semibold max-sm:line-clamp-2 sm:truncate ${focusRing}`}
+        >
           {rowTitle(item)}
-        </b>
+        </button>
         <span className="block text-[12.5px] text-muted-foreground">
           {subLine(item, false)}
         </span>
         {validate.isError && (
           <span role="alert" className="block text-[12.5px] text-destructive">
             {validate.error.message}
+            {rulesPending && (
+              <>
+                {" "}
+                <Link
+                  to={`/projets/${item.project.id}/conception/regles`}
+                  className={link}
+                >
+                  Trancher dans l'écran de reprise
+                </Link>
+              </>
+            )}
           </span>
         )}
       </span>
@@ -390,6 +554,7 @@ function Row({ item, open }: { item: Item; open: () => void }) {
             item.kind === "validate" && validate.mutate(item.storyId)
           }
           validating={validate.isPending}
+          mayValidate={mayValidate}
         />
       </span>
       <span className="hidden min-w-10 sm:block text-right text-[12.5px] text-muted-foreground">
@@ -614,6 +779,8 @@ export function HomePage({
     queryKey: ["installation"],
     queryFn: fetchInstallation,
   });
+  // The same key as the sidebar's: one request for both.
+  const night = useQuery({ queryKey: ["home", "night"], queryFn: fetchNight });
   // The answered card goes away, and its section with the last one: the h1 stays, so the keyboard focus lands there.
   const headingRef = useRef<HTMLHeadingElement>(null);
   // The open item is the one the user chose, found again by its key when the list changes under them; `at` is where to land when it is gone.
@@ -629,6 +796,13 @@ export function HomePage({
     return (
       <div role="alert" className={`mx-[26px] mt-[26px] ${alertBox}`}>
         <p>Impossible de lire l'accueil.</p>
+        <button
+          type="button"
+          onClick={() => home.refetch()}
+          className={`mt-3 ${button}`}
+        >
+          Réessayer
+        </button>
       </div>
     );
   const { forYou, claudeWorks } = home.data;
@@ -694,6 +868,13 @@ export function HomePage({
   return (
     <>
       <StateSentence {...sentence} headingRef={headingRef} />
+      {!guide && forYou.length === 0 && home.data.projects.length === 0 && (
+        <p className="px-[26px] pt-3">
+          <Link to="/projets" className={rowAction}>
+            Importer un repo
+          </Link>
+        </p>
+      )}
       {guide && (
         <OnboardingGuide
           guide={guide}
@@ -701,6 +882,27 @@ export function HomePage({
           onIdea={onIdea}
         />
       )}
+      {forYou.length === 0 &&
+        night.data &&
+        !night.data.night &&
+        night.data.ready.length > 0 && (
+          <div
+            className={`mx-[26px] mt-[22px] flex flex-wrap items-center justify-between gap-3 px-[18px] py-4 ${card}`}
+          >
+            <p>
+              ☾ Cette nuit · {night.data.ready.length}{" "}
+              {plural(
+                night.data.ready.length,
+                "user story prête",
+                "user stories prêtes",
+              )}{" "}
+              à programmer
+            </p>
+            <Link to="/nuit" className={rowAction}>
+              Préparer la nuit
+            </Link>
+          </div>
+        )}
       {first && (
         <Section
           label={
@@ -720,16 +922,34 @@ export function HomePage({
               ✦
             </span>
             <span className="min-w-0">
-              <b className="block text-[15px] font-semibold">
-                {rowTitle(first)}
-              </b>
+              {first.kind === "workflow_proposal" ? (
+                <Link
+                  to={`/projets/${first.project.id}/ci`}
+                  className={`block max-w-full text-left text-[15px] font-semibold ${focusRing}`}
+                >
+                  {rowTitle(first)}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => open(0, true)}
+                  className={`block max-w-full text-left text-[15px] font-semibold ${focusRing}`}
+                >
+                  {rowTitle(first)}
+                </button>
+              )}
               <span className="text-[12.5px] text-muted-foreground">
                 {subLine(first)}
               </span>
               {first.kind === "relaunch_exhausted" && (
-                <Link to={`/us/${first.storyId}`} className={`block ${link}`}>
-                  Ouvrir l'US
-                </Link>
+                <>
+                  <a href={prUrl(first)} className={`block ${link}`}>
+                    Voir la PR #{first.prNumber}
+                  </a>
+                  <Link to={`/us/${first.storyId}`} className={`block ${link}`}>
+                    Ouvrir l'US
+                  </Link>
+                </>
               )}
             </span>
             <span className="hidden text-[12.5px] text-muted-foreground lg:block">
@@ -739,7 +959,7 @@ export function HomePage({
         </Section>
       )}
       {first && (
-        <ItemPanel
+        <PanelOf
           key={itemKey(forYou[shown] ?? first)}
           item={forYou[shown] ?? first}
           index={shown}
@@ -785,6 +1005,14 @@ export function HomePage({
       )}
       {w > 0 && (
         <Section
+          action={
+            <Link
+              to="/claude"
+              className={`ml-auto text-[12.5px] text-muted-foreground hover:text-foreground ${focusRing}`}
+            >
+              Tous les runs
+            </Link>
+          }
           label={
             <>
               <Dot tone="claude" live />
@@ -838,9 +1066,18 @@ function Recent() {
       className="max-md:hidden"
     >
       {history.isError ? (
-        <p className="mt-2 text-muted-foreground">
-          Impossible de lire le journal.
-        </p>
+        <>
+          <p className="mt-2 text-muted-foreground">
+            Impossible de lire le journal.
+          </p>
+          <button
+            type="button"
+            onClick={() => history.refetch()}
+            className={`mt-2 ${button}`}
+          >
+            Réessayer
+          </button>
+        </>
       ) : entries?.length === 0 ? (
         <p className="mt-2 text-muted-foreground">
           Rien de fait pour l'instant.
@@ -850,7 +1087,11 @@ function Recent() {
           <>
             <ul className="mt-2 grid gap-2">
               {entries.map((entry) => (
-                <JournalEntry key={entry.id} entry={entry} />
+                <JournalEntry
+                  key={entry.id}
+                  entry={entry}
+                  to={objectPath(entry)}
+                />
               ))}
             </ul>
             <p className="mt-2">

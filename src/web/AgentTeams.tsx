@@ -5,9 +5,11 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { DiffList } from "./DiffList.tsx";
+import { diffLines } from "./diff.ts";
 import { fetchAgents } from "./ProjectAgents.tsx";
 import {
   type Done,
@@ -49,13 +51,21 @@ const stepsOf = (text: string) =>
     .join(" → ") ?? "Texte illisible par Cockpit";
 
 type Added = { done: Done } | { upToDate: true } | { failure: Failure };
+/** What one commit adds: the team text and the catalog files of the agents the repo lacks. */
+type Plan = {
+  name: string;
+  before: string | null;
+  after: string;
+  agents: { name: string; before: null; after: string }[];
+};
+type Planned = { plan: Plan } | { upToDate: true } | { failure: Failure };
 
-/** Adds a team to a project with one commit: its text, and the catalog files of the agents the repo does not have (decision 074 B). */
-async function addTeam(
+/** Reads the project: what the commit of a team would change (decision 074 B, shown first by decision 085 N). */
+async function planAdd(
   queryClient: QueryClient,
-  project: { id: number; fullName: string },
+  project: { id: number },
   team: { name: string; text: string },
-): Promise<Added> {
+): Promise<Planned> {
   const param = { id: String(project.id) };
   const read = await client.api.projects[":id"].agents.$get({ param });
   if (!read.ok) return { failure: await failure(read) };
@@ -71,16 +81,20 @@ async function addTeam(
       return after === undefined ? [] : [{ name, before: null, after }];
     });
   if (before === team.text && missing.length === 0) return { upToDate: true };
+  return {
+    plan: { name: team.name, before, after: team.text, agents: missing },
+  };
+}
+
+async function applyPlan(
+  project: { id: number; fullName: string },
+  plan: Plan,
+): Promise<Added> {
   const res = await client.api.projects[":id"].team.apply.$post(
-    { param },
+    { param: { id: String(project.id) } },
     {
       init: {
-        body: JSON.stringify({
-          name: team.name,
-          before,
-          after: team.text,
-          agents: missing,
-        }),
+        body: JSON.stringify(plan),
         headers: { "content-type": "application/json" },
       },
     },
@@ -95,6 +109,16 @@ async function addTeam(
       pullRequest: pullRequest !== undefined,
     },
   };
+}
+
+/** Adds a team to a project with one click, no preview (the window « Développer »). */
+async function addTeam(
+  queryClient: QueryClient,
+  project: { id: number; fullName: string },
+  team: { name: string; text: string },
+): Promise<Added> {
+  const planned = await planAdd(queryClient, project, team);
+  return "plan" in planned ? applyPlan(project, planned.plan) : planned;
 }
 
 /** The add of a team to a project; the tab « Agents » of that project is read again after it. */
@@ -112,13 +136,129 @@ export function useAddTeam() {
   });
 }
 
+/** Decision 085 N: the add in two steps, what it changes first (`preview`), then the commit (`commit`). */
+function useAddPreview() {
+  const queryClient = useQueryClient();
+  const preview = useMutation({
+    mutationFn: (sent: {
+      project: { id: number; fullName: string };
+      team: { name: string; text: string };
+    }) => planAdd(queryClient, sent.project, sent.team),
+  });
+  const commit = useMutation({
+    mutationFn: (sent: {
+      project: { id: number; fullName: string };
+      plan: Plan;
+    }) => applyPlan(sent.project, sent.plan),
+    onSettled: (_added, _error, { project }) =>
+      queryClient.invalidateQueries({
+        queryKey: ["agents", String(project.id)],
+      }),
+  });
+  return {
+    preview,
+    commit,
+    start: (project: { id: number; fullName: string }, team: Team) => {
+      commit.reset();
+      preview.mutate({ project, team });
+    },
+    reset: () => {
+      preview.reset();
+      commit.reset();
+    },
+  };
+}
+
+/** What an add will change (the diff, the agents added), then its result, under the row of the team. */
+function AddPanel({
+  add,
+  project,
+  link = false,
+  onCommitted,
+}: {
+  add: ReturnType<typeof useAddPreview>;
+  project?: { id: number; fullName: string };
+  /** Offers the way to the project once added (/equipes). */
+  link?: boolean;
+  onCommitted?: () => void;
+}) {
+  const listId = useId();
+  const { preview, commit } = add;
+  if (commit.data || commit.isError)
+    return (
+      <AddResult
+        added={commit.data}
+        failed={commit.isError}
+        project={link ? commit.variables?.project : undefined}
+      />
+    );
+  if (preview.isPending)
+    return (
+      <p role="status" className="mt-3">
+        Lecture du projet…
+      </p>
+    );
+  if (preview.isError) return <AddResult failed />;
+  const planned = preview.data;
+  if (!planned) return null;
+  if (!("plan" in planned)) return <AddResult added={planned} failed={false} />;
+  const { plan } = planned;
+  const lines = diffLines(plan.before ?? "", plan.after);
+  return (
+    <div className="mt-3 grid basis-full gap-2">
+      <h3 className={sectionLabel}>Ce qui change</h3>
+      {lines ? (
+        <DiffList lines={lines} />
+      ) : (
+        <pre className="overflow-x-auto whitespace-pre-wrap text-sm">
+          {plan.after}
+        </pre>
+      )}
+      {plan.agents.length > 0 && (
+        <>
+          <h3 id={listId} className={sectionLabel}>
+            Agents ajoutés
+          </h3>
+          <ul aria-labelledby={listId} className="font-mono text-[12.5px]">
+            {plan.agents.map((a) => (
+              <li key={a.name}>{a.name}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      <div>
+        <button
+          type="button"
+          disabled={!project || commit.isPending}
+          aria-busy={commit.isPending}
+          onClick={() =>
+            project &&
+            commit.mutate({ project, plan }, { onSuccess: onCommitted })
+          }
+          className={button}
+        >
+          Faire le commit
+        </button>
+      </div>
+      {commit.isPending && (
+        <p role="status" className="mt-1">
+          Ajout en cours…
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** What an add answered: the commit, « Déjà à jour » or the refusal. */
 export function AddResult({
   added,
   failed,
+  project,
 }: {
   added?: Added;
   failed: boolean;
+  /** Where the team now lives: offered after a success (decision 085 C). */
+  project?: { id: number; fullName: string };
 }) {
   if (failed) return <ProblemAlert problem={{ code: "", status: 0 }} />;
   if (!added) return null;
@@ -126,17 +266,29 @@ export function AddResult({
   if ("upToDate" in added)
     return <p className="mt-3">Déjà à jour dans ce projet</p>;
   // The link is the only text naming the pull request: one element says it.
-  if (added.done.pullRequest)
-    return (
-      <p className="mt-3">
-        La branche par défaut est protégée :{" "}
-        <a href={added.done.url} className={`underline ${focusRing}`}>
-          une pull request
-        </a>{" "}
-        est ouverte
-      </p>
-    );
-  return <DoneBox done={added.done} />;
+  const result = added.done.pullRequest ? (
+    <p className="mt-3">
+      La branche par défaut est protégée :{" "}
+      <a href={added.done.url} className={`underline ${focusRing}`}>
+        une pull request
+      </a>{" "}
+      est ouverte
+    </p>
+  ) : (
+    <DoneBox done={added.done} />
+  );
+  if (!project) return result;
+  return (
+    <>
+      {result}
+      <Link
+        to={`/projets/${project.id}/agents`}
+        className={`mt-2 inline-block underline ${focusRing}`}
+      >
+        Ouvrir dans {project.fullName} › Agents
+      </Link>
+    </>
+  );
 }
 
 function TeamRow({
@@ -145,16 +297,21 @@ function TeamRow({
   onEdit,
   deleting,
   onDelete,
+  startAdding,
 }: {
   team: Team;
   projects: { id: number; fullName: string }[];
   onEdit: () => void;
   deleting: boolean;
   onDelete: () => void;
+  /** The team was just created: its row opens on the project to add it to (decision 085 C). */
+  startAdding: boolean;
 }) {
-  const [mode, setMode] = useState<"delete" | "add" | null>(null);
+  const [mode, setMode] = useState<"delete" | "add" | null>(
+    startAdding ? "add" : null,
+  );
   const [projectId, setProjectId] = useState("");
-  const add = useAddTeam();
+  const add = useAddPreview();
   const project = projects.find((p) => String(p.id) === projectId);
   // The agents of each project, read once the panel is open: what it already has of this team.
   const repos = useQueries({
@@ -237,6 +394,9 @@ function TeamRow({
               <select
                 className={field}
                 value={projectId}
+                // Changing project mid-commit would hide the commit's result while it still lands.
+                disabled={add.commit.isPending}
+                aria-busy={add.commit.isPending}
                 onChange={(e) => {
                   add.reset();
                   setProjectId(e.target.value);
@@ -260,33 +420,69 @@ function TeamRow({
             </label>
             <button
               type="button"
-              disabled={!project || add.isPending}
-              aria-busy={add.isPending}
-              onClick={() =>
-                project &&
-                add.mutate(
-                  { project, team },
-                  { onSuccess: () => setProjectId("") },
-                )
+              disabled={
+                !project || add.preview.isPending || add.commit.isPending
               }
+              aria-busy={add.preview.isPending || add.commit.isPending}
+              onClick={() => project && add.start(project, team)}
               className={button}
             >
               Ajouter
             </button>
           </div>
-          {add.isPending && (
-            <p role="status" className="mt-3">
-              Ajout en cours…
-            </p>
-          )}
-          <AddResult added={add.data} failed={add.isError} />
+          <AddPanel
+            add={add}
+            project={project}
+            link
+            onCommitted={() => setProjectId("")}
+          />
         </>
       )}
     </li>
   );
 }
 
-/** Decision 074 B: « Tes équipes » on the tab « Agents » of a project, each added (or updated) with one click. */
+function GlobalTeamRow({
+  team,
+  project,
+  archived,
+  there,
+}: {
+  team: Team;
+  project: { id: number; fullName: string };
+  archived: boolean;
+  there?: { text: string };
+}) {
+  const add = useAddPreview();
+  return (
+    <li className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2">
+      <span className="min-w-0 flex-1 basis-48">
+        <span className="block font-mono font-semibold">{team.name}</span>
+        <span className="block text-[12.5px] text-muted-foreground">
+          {stepsOf(team.text)}
+        </span>
+      </span>
+      {there?.text === team.text ? (
+        <span className="text-muted-foreground">Déjà dans le projet</span>
+      ) : (
+        <button
+          type="button"
+          disabled={archived || add.preview.isPending || add.commit.isPending}
+          aria-busy={add.preview.isPending || add.commit.isPending}
+          onClick={() => add.start(project, team)}
+          className={button}
+        >
+          {there ? "Mettre à jour dans le projet" : "Ajouter au projet"}
+        </button>
+      )}
+      <div className="basis-full empty:hidden">
+        <AddPanel add={add} project={project} />
+      </div>
+    </li>
+  );
+}
+
+/** Decision 074 B: « Tes équipes » on the tab « Agents » of a project, each added (or updated) after the diff and the agents added are shown (decision 085 N). */
 export function ProjectGlobalTeams({
   projectId,
   fullName,
@@ -299,7 +495,6 @@ export function ProjectGlobalTeams({
   repoTeams: { name: string; text: string }[];
 }) {
   const teams = useQuery({ queryKey: TEAMS_KEY, queryFn: fetchAgentTeams });
-  const add = useAddTeam();
   if (!teams.data?.length) return null;
   const project = { id: Number(projectId), fullName };
   return (
@@ -308,41 +503,16 @@ export function ProjectGlobalTeams({
         Tes équipes
       </h2>
       <ul className={`mt-2 ${listCard}`}>
-        {teams.data.map((team) => {
-          const there = repoTeams.find((t) => t.name === team.name);
-          return (
-            <li
-              key={team.id}
-              className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
-            >
-              <span className="min-w-0 flex-1 basis-48">
-                <span className="block font-mono font-semibold">
-                  {team.name}
-                </span>
-                <span className="block text-[12.5px] text-muted-foreground">
-                  {stepsOf(team.text)}
-                </span>
-              </span>
-              {there?.text === team.text ? (
-                <span className="text-muted-foreground">
-                  Déjà dans le projet
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  disabled={archived || add.isPending}
-                  aria-busy={add.isPending}
-                  onClick={() => add.mutate({ project, team })}
-                  className={button}
-                >
-                  {there ? "Mettre à jour dans le projet" : "Ajouter au projet"}
-                </button>
-              )}
-            </li>
-          );
-        })}
+        {teams.data.map((team) => (
+          <GlobalTeamRow
+            key={team.id}
+            team={team}
+            project={project}
+            archived={archived}
+            there={repoTeams.find((t) => t.name === team.name)}
+          />
+        ))}
       </ul>
-      <AddResult added={add.data} failed={add.isError} />
     </section>
   );
 }
@@ -359,6 +529,8 @@ export function AgentTeams() {
     null,
   );
   const [problem, setProblem] = useState<Failure | null>(null);
+  // The team just created: its row opens on « Ajouter à un projet » (decision 085 C).
+  const [created, setCreated] = useState<string | null>(null);
   const reload = () => queryClient.invalidateQueries({ queryKey: TEAMS_KEY });
   const save = useMutation({
     mutationFn: async (sent: { name: string; text: string }) => {
@@ -372,9 +544,10 @@ export function AgentTeams() {
         ? { ...refused, code: "team_quota" }
         : refused;
     },
-    onSuccess: (refused) => {
+    onSuccess: (refused, sent) => {
       setProblem(refused);
       if (refused) return;
+      if (!dialog?.name) setCreated(sent.name);
       setDialog(null);
       toast("Équipe enregistrée.");
       return reload();
@@ -463,6 +636,7 @@ export function AgentTeams() {
                 }}
                 deleting={remove.isPending}
                 onDelete={() => remove.mutate(team.name)}
+                startAdding={team.name === created}
               />
             ))}
           </ul>

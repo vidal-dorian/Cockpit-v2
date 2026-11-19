@@ -33,6 +33,7 @@ const SHORTCUTS = [
   ["Noter une idée", ["N"]],
   ["Élément suivant, précédent", ["J", "K"]],
   ["Valider", ["V"]],
+  ["Répondre à Claude (réponses proposées)", ["1", "2"]],
 ] as const;
 
 /** The list of the shortcuts, in the card of Préférences and in the window of `?`. */

@@ -166,6 +166,7 @@ describe("decision 067 B: GET /api/projects/:id/workflows", () => {
         },
         failingSince: 0,
         averageSeconds: 240,
+        claude: null,
       },
       {
         path: `${WORKFLOWS_DIR}/nightly.yml`,
@@ -179,6 +180,7 @@ describe("decision 067 B: GET /api/projects/:id/workflows", () => {
         failingSince: 3,
         // (60 + 120 + 180 + 7 * 300) / 10
         averageSeconds: 246,
+        claude: null,
       },
       {
         path: `${WORKFLOWS_DIR}/cd.yml`,
@@ -187,6 +189,7 @@ describe("decision 067 B: GET /api/projects/:id/workflows", () => {
         lastRun: null,
         failingSince: 0,
         averageSeconds: null,
+        claude: null,
       },
     ]);
     expect(await rows(ctx.db, sql`action <> 'create_token'`)).toEqual([]);

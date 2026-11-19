@@ -12,6 +12,9 @@ export const ACCESS_TEXT: Record<string, string> = {
 const ACCESS_LINK: Record<string, string> = {
   app_missing_permissions: "Modifier l'App sur GitHub ↗",
   installation_not_approved: "Approuver sur GitHub ↗",
+  // The red webhook line (decision 085 D).
+  wrong_url: "Ouvrir les réglages de l'App ↗",
+  last_delivery_failed: "Ouvrir les réglages de l'App ↗",
 };
 
 export function AccessLink({ detail, url }: { detail: string; url?: string }) {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router";
-import { ACTIONS, type Entry, RESULTS } from "./Journal.tsx";
+import { ACTIONS, type Entry, objectWords, RESULTS } from "./Journal.tsx";
 import {
   exportLink,
   JournalList,
@@ -94,8 +94,15 @@ export function ProjectHistory({ projectId }: { projectId: string }) {
                 onClick={open}
                 className={`grid min-h-[50px] w-full grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-3 px-[18px] py-2 text-left hover:bg-raised ${focusRing}`}
               >
-                <span className="truncate font-semibold">
-                  {sentence(entry)}
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">
+                    {sentence(entry)}
+                  </span>
+                  {objectWords(entry).length > 0 && (
+                    <span className="block truncate text-[12.5px] text-muted-foreground">
+                      {objectWords(entry).join(" · ")}
+                    </span>
+                  )}
                 </span>
                 {entry.result !== "ok" && result ? (
                   <span className={result.style}>{result.label}</span>

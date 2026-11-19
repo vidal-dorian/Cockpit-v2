@@ -30,7 +30,7 @@ export type HealthLine = {
     | "updates";
   ok: boolean;
   detail: HealthDetail;
-  /** The `github_alerts` line only (decision 052 B): where to give the permissions. */
+  /** The `github_alerts` line (decision 052 B) and a red `webhook` line (decision 085 D): where to fix it. */
   url?: string;
   /** The catalog line only (decision 049 E): the state of each file of the catalogue. */
   files?: { path: string; state: CatalogState }[];
@@ -161,17 +161,16 @@ export const catalogLine = (
 export function webhookLine(
   hook: { url: string; active?: boolean; lastStatus: number | null } | null,
   publicUrl: string,
+  appSettingsUrl: string,
 ): HealthLine {
   if (!hook) return line("webhook", "unknown");
+  // A red line says where it is fixed (decision 085 D).
   if (hook.url !== `${publicUrl}${WEBHOOK_PATH}` || hook.active === false)
-    return line("webhook", "wrong_url");
+    return { ...line("webhook", "wrong_url"), url: appSettingsUrl };
   const { lastStatus } = hook;
-  return line(
-    "webhook",
-    lastStatus === null || (lastStatus >= 200 && lastStatus < 300)
-      ? "ok"
-      : "last_delivery_failed",
-  );
+  return lastStatus === null || (lastStatus >= 200 && lastStatus < 300)
+    ? line("webhook", "ok")
+    : { ...line("webhook", "last_delivery_failed"), url: appSettingsUrl };
 }
 
 /** The permissions of decision 052 A, by tool of the alerts. */

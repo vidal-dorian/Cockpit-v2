@@ -248,7 +248,8 @@ function Shell({
 }) {
   // The one stream of the tab, opened after the page's own: the home, the sidebar and the idea bar read the same query.
   useAnyChange("home");
-  const idea = useRef<(opener: HTMLElement | null) => void>(null);
+  const idea =
+    useRef<(opener: HTMLElement | null, title?: string) => void>(null);
   // The idea panel only exists with a project.
   const hasProject = (useHome().data?.projects.length ?? 0) > 0;
   const routes = (
@@ -375,7 +376,9 @@ function Shell({
       {overlay === "search" && (
         <SearchDialog
           onClose={() => onOverlay(undefined)}
-          onIdea={hasProject ? () => idea.current?.(null) : undefined}
+          onIdea={
+            hasProject ? (title) => idea.current?.(null, title) : undefined
+          }
         />
       )}
       {overlay === "shortcuts" && (

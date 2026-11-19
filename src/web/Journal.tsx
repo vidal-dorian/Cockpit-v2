@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { client } from "./api.ts";
 import { focusRing } from "./ui.ts";
 
@@ -161,16 +162,37 @@ const GLYPHS: Record<string, string> = {
 const rowGrid =
   "grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-[18px] py-2";
 
+/** The page of the object an entry names: its run, else its story, else its ticket (decision 085 C). */
+export const objectPath = (e: Entry) =>
+  e.runId !== null
+    ? `/runs/${e.runId}`
+    : e.storyId !== null
+      ? `/us/${e.storyId}`
+      : e.ticketId !== null
+        ? `/tickets/${e.ticketId}`
+        : null;
+
+/** « Run 17 · US 43 · Ticket 12 »: the objects an entry names, in plain text. */
+export const objectWords = (e: Entry) =>
+  [
+    e.runId !== null && `Run ${e.runId}`,
+    e.storyId !== null && `US ${e.storyId}`,
+    e.ticketId !== null && `Ticket ${e.ticketId}`,
+  ].filter(Boolean);
+
 /** A row of the journal: in a `listCard` on the journal page, laid down as its own card in a `grid` list (the home). The page shows the time only: its day group has the date. */
 export function JournalEntry({
   entry,
   timeOnly = false,
   onOpen,
+  to,
 }: {
   entry: Entry;
   timeOnly?: boolean;
   /** Makes the whole row a button that opens the entry in the panel (decision 053 G). */
   onOpen?: () => void;
+  /** Makes the whole row a link to the object of the entry (decision 085 C). */
+  to?: string | null;
 }) {
   const result = RESULTS[entry.result];
   const at = new Date(entry.at);
@@ -217,7 +239,16 @@ export function JournalEntry({
       </time>
     </>
   );
-  return onOpen ? (
+  return to ? (
+    <li className="[.grid>&]:rounded-[14px] [.grid>&]:border [.grid>&]:border-border [.grid>&]:bg-card">
+      <Link
+        to={to}
+        className={`${rowGrid} w-full rounded-[inherit] text-left hover:bg-raised ${focusRing}`}
+      >
+        {cells}
+      </Link>
+    </li>
+  ) : onOpen ? (
     <li>
       <button
         type="button"
