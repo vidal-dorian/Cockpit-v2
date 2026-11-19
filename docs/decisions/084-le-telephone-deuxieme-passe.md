@@ -1,4 +1,4 @@
-# 083 — Le téléphone, deuxième passe
+# 084 — Le téléphone, deuxième passe
 
 - **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit
 - **Date** : 2026-11-18
@@ -81,6 +81,7 @@ La 071 a rendu les trois gestes possibles au téléphone, sans vérifier le rest
 - **D1** : le bouton « Voir les 7 étapes » fait 44 px de haut.
 - **D3** : sous `sm`, les lignes de « 2 · Ensuite » sont une grille à deux colonnes.
 - **E1, E5 (F2)** : sur `/nuit`, l'ordre est la phrase d'état, le bouton d'action, le bloc du matin, puis le programme ; le conflit entre E1 et E5 est tranché ainsi.
+- **Numéro et fusion** : écrite sous le numéro 083, renumérotée 084 parce que la 083 (la télémétrie PostHog) est arrivée sur `main` pendant ce travail. Depuis l'amendement de [044](044-la-nuit-de-claude.md) du 2026-11-18, le programme part vide : E6 (rang, repo, boutons de 44 px) s'applique aux US que tu y ajoutes.
 - **E3** : le point du groupe « Sautées ou non lancées » a la couleur de sa part dans la barre empilée.
 - Les autres choix de détail sont fixés par les en-têtes des tests `ImportSearch`, `PhoneMenu`, `KanbanPhone`, `HomePhoneLight` et `NightVisual` (`.test.tsx`).
 

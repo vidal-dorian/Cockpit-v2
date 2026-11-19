@@ -12,7 +12,7 @@ import type { HomeData } from "./test-home.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 083 B (B1 to B6): the bottom bar of the phone gets 64 px tabs with 24 px icons, a fifth tab « Menu » that opens the content of the sidebar full screen,
+// Decision 084 B (B1 to B6): the bottom bar of the phone gets 64 px tabs with 24 px icons, a fifth tab « Menu » that opens the content of the sidebar full screen,
 // the iPhone safe area, and a green dot on « Nuit » while the morning block waits. jsdom has no layout: sizes and visibility are read on the classes.
 // Pinned where the decision leaves room:
 // - the tab is the button named « Menu »; the window is a role="dialog" named « Menu » with a button « Fermer »;
@@ -82,7 +82,7 @@ const openMenu = async () => {
 };
 const tall = /(^|\s)(min-h|h)-(11|12|14|16)(\s|$)/;
 
-describe("decision 083 B1: the size of the bar", () => {
+describe("decision 084 B1: the size of the bar", () => {
   it("given the phone nav, when it renders, then every tab is at least 64 px tall and carries a 24 px SVG icon above its 12 px word", async () => {
     show();
 
@@ -138,7 +138,7 @@ describe("decision 083 B1: the size of the bar", () => {
   });
 });
 
-describe("decision 083 B2: the Menu tab and its window", () => {
+describe("decision 084 B2: the Menu tab and its window", () => {
   it("given the phone nav, when it renders, then Menu is the fifth tab, after Projets, a closed button with aria-haspopup dialog", async () => {
     show();
 
@@ -224,7 +224,7 @@ describe("decision 083 B2: the Menu tab and its window", () => {
   });
 });
 
-describe("decision 083 B3: touching a row of the menu", () => {
+describe("decision 084 B3: touching a row of the menu", () => {
   it("given the open menu, when I touch Réglages, then the menu closes and the page of Réglages opens", async () => {
     show();
 
@@ -262,7 +262,7 @@ describe("decision 083 B3: touching a row of the menu", () => {
   });
 });
 
-describe("decision 083 B4: the Menu tab in white", () => {
+describe("decision 084 B4: the Menu tab in white", () => {
   it("given the open menu, when I look at the bar, then Menu is the white tab and the page's own tab is not", async () => {
     show();
 
@@ -335,7 +335,7 @@ describe("decision 083 B4: the Menu tab in white", () => {
   });
 });
 
-describe("decision 083 B5: the morning to read", () => {
+describe("decision 084 B5: the morning to read", () => {
   it("given a night block waiting in GET /api/home, when the shell renders, then the Nuit tab has a green dot and is named « Nuit, bilan à lire »", async () => {
     show("/", { night });
 
@@ -354,7 +354,7 @@ describe("decision 083 B5: the morning to read", () => {
   });
 });
 
-describe("decision 083 B6: above md nothing changes", () => {
+describe("decision 084 B6: above md nothing changes", () => {
   it("given the shell, when it renders, then the bar is hidden from md, the sidebar shows from md and the menu is closed", async () => {
     show();
 

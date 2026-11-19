@@ -37,7 +37,7 @@ Sur un téléphone, Cockpit montre aujourd'hui la barre latérale entière en ha
 
 ## Limites connues
 
-- **Ce que la barre du bas n'atteint pas** : Claude, Équipes d'agents, Journal, Réglages et « Se déconnecter » n'ont pas d'onglet ; sur le téléphone, on y arrive par leur adresse. *Depuis la [083](083-le-telephone-deuxieme-passe.md) B, l'onglet « Menu » les atteint.* La 15.1 couvre les trois gestes (064), pas tout Cockpit en largeur téléphone.
+- **Ce que la barre du bas n'atteint pas** : Claude, Équipes d'agents, Journal, Réglages et « Se déconnecter » n'ont pas d'onglet ; sur le téléphone, on y arrive par leur adresse. *Depuis la [084](084-le-telephone-deuxieme-passe.md) B, l'onglet « Menu » les atteint.* La 15.1 couvre les trois gestes (064), pas tout Cockpit en largeur téléphone.
 - **Les autres pages** (Kanban, Conception, équipes, réglages…) ne sont pas vérifiées à 360 px, mais les jetons de 44 px et de 16 px (voir plus haut) les atteignent : leurs champs et leurs boutons y sont plus grands qu'avant.
 - **« Sans défilement latéral » n'est pas testé par la CI** : les tests (jsdom) ne calculent pas la mise en page ; la vérification à 360 px se fait dans un vrai navigateur au développement.
 - **Pas construits, de S52 à S55** : « à relire sur ordinateur » d'une PR, « Plus tard » de S54 et le titre de l'idée en gros de S55 ; le panneau « Noter une idée » montre aussi la priorité et les étiquettes, absentes de S55.

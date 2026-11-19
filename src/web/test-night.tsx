@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { empty, type HomeData, PROJECT, stubHome } from "./test-home.tsx";
 
-// Shared by the acceptance tests of the night page (decisions 044, 070 and 083 E). Pinned:
+// Shared by the acceptance tests of the night page (decisions 044, 070 and 084 E). Pinned:
 // - GET /api/nights/current -> { night: null | { id, status, startsAt, endsAt, items }, ready, toValidate };
 // - GET /api/home -> { ..., night: null | { id, startsAt, endsAt, delivered, total, workSeconds, criteriaProven, failures, items } }.
 

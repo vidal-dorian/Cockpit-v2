@@ -37,7 +37,7 @@ describe("slice 15.1: the phone navigation", () => {
     expect(
       nav.getByRole("link", { name: /Accueil/ }).getAttribute("aria-current"),
     ).toBeNull();
-    // Decision 083 B2: the fifth tab, a button, opens the full-screen menu.
+    // Decision 084 B2: the fifth tab, a button, opens the full-screen menu.
     expect(nav.getByRole("button", { name: /Menu/ })).toBeDefined();
     expect(
       nav.getAllByRole("link").length + nav.getAllByRole("button").length,

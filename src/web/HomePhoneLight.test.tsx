@@ -5,7 +5,7 @@ import { PROJECT } from "./test-home.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 083 D1 to D3: the lighter home on the phone. jsdom has no layout, so the responsive rules are asserted on the classes.
+// Decision 084 D1 to D3: the lighter home on the phone. jsdom has no layout, so the responsive rules are asserted on the classes.
 // Pinned: below md the guide's rows other than the next one, « Pourquoi cet ordre » and « Dernièrement » carry `max-md:hidden`;
 // the « Voir les 7 étapes » button carries `md:hidden` and `aria-expanded`, and unfolding removes `max-md:hidden`;
 // in a « 2 · Ensuite » row the title is not `truncate` below sm (`max-sm:line-clamp-2`) and the actions sit under it (`max-sm:col-start-2`).
@@ -70,7 +70,7 @@ const why = (s: HTMLElement) =>
     /Claude ne peut développer|Pourquoi cet ordre/.test(p.textContent ?? ""),
   );
 
-describe("decision 083 D1: the guide on the phone", () => {
+describe("decision 084 D1: the guide on the phone", () => {
   it("given the guide with four steps left, when the home loads, then only the next step stays visible below md and the other six carry max-md:hidden", async () => {
     stub();
     renderAt("/");
@@ -162,7 +162,7 @@ describe("decision 083 D1: the guide on the phone", () => {
   });
 });
 
-describe("decision 083 D2: Dernièrement on the phone", () => {
+describe("decision 084 D2: Dernièrement on the phone", () => {
   it("given a journal entry, when the home loads, then the Dernièrement section carries max-md:hidden", async () => {
     stub({
       onboarding: null,
@@ -188,7 +188,7 @@ describe("decision 083 D2: Dernièrement on the phone", () => {
   });
 });
 
-describe("decision 083 D3: a « 2 · Ensuite » row on the phone", () => {
+describe("decision 084 D3: a « 2 · Ensuite » row on the phone", () => {
   it("given a story to validate, when « 2 · Ensuite » shows it, then its title may take two lines below sm instead of truncating", async () => {
     stub({
       onboarding: null,

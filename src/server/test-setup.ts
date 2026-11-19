@@ -5,3 +5,6 @@ import { afterEach, vi } from "vitest";
 afterEach(() => {
   vi.useRealTimers();
 });
+
+// Whatever the developer's shell exports, the suite never calls PostHog (the telemetry tests stub it themselves).
+delete process.env.POSTHOG_KEY;

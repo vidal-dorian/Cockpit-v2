@@ -17,7 +17,7 @@ import {
 } from "./test-night.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Decision 083 E (and D4): the night, simpler and more visual. Pinned where the decision leaves room:
+// Decision 084 E (and D4): the night, simpler and more visual. Pinned where the decision leaves room:
 // - the morning block is the section named « Cette nuit… » at the top of /nuit, before « Au programme »; the home no longer has it;
 // - the four boxes are elements whose text is the number then the word (« PR livrées », « Travail », « Critères prouvés », « Échecs »);
 // - the stacked bar is a role="img" whose children carry the bg-* classes, one per issue that has stories;
@@ -32,15 +32,33 @@ afterEach(() => {
   window.history.replaceState({}, "", "/");
 });
 
+// The programme starts empty (decision 044, amended on 2026-11-18): a story joins it by « Ajouter » only.
+const add = async (...ids: number[]) => {
+  for (const n of ids) {
+    const row = (await screen.findByText(`faire la chose ${n}`)).closest(
+      "li",
+    ) as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Ajouter" }));
+    await waitFor(() =>
+      expect(
+        within(
+          screen.getByRole("heading", { name: "Au programme" })
+            .parentElement as HTMLElement,
+        ).queryByText(`faire la chose ${n}`),
+      ).not.toBeNull(),
+    );
+  }
+};
+
 const block = async () => {
   const found = (
-    await screen.findByRole("heading", { name: /Cette nuit/ })
+    await screen.findByRole("heading", { name: /Cette nuit, Claude/ })
   ).closest("section");
   if (!found) throw new Error("no <section> around « Cette nuit »");
   return within(found);
 };
 const blockElement = async () =>
-  (await screen.findByRole("heading", { name: /Cette nuit/ })).closest(
+  (await screen.findByRole("heading", { name: /Cette nuit, Claude/ })).closest(
     "section",
   ) as HTMLElement;
 /** The element holding both a number and its word, found by the word. */
@@ -312,7 +330,9 @@ describe("E5 follow-up: the button comes before the morning block", () => {
     const launch = await screen.findByRole("button", {
       name: /☾ Lancer la nuit/,
     });
-    const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
+    const heading = await screen.findByRole("heading", {
+      name: /Cette nuit, Claude/,
+    });
     const programme = await screen.findByRole("heading", {
       name: "Au programme",
     });
@@ -334,7 +354,7 @@ describe("E5 follow-up: the button comes before the morning block", () => {
 
       const button = await screen.findByRole("button", { name });
       const heading = await screen.findByRole("heading", {
-        name: /Cette nuit/,
+        name: /Cette nuit, Claude/,
       });
       expect(precedes(button, heading)).toBe(true);
     },
@@ -345,7 +365,9 @@ describe("E5 follow-up: the button comes before the morning block", () => {
     renderAt("/nuit");
 
     const reason = await screen.findByText(/Connecte le lanceur dans les/);
-    const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
+    const heading = await screen.findByRole("heading", {
+      name: /Cette nuit, Claude/,
+    });
     expect(precedes(reason, heading)).toBe(true);
   });
 
@@ -369,12 +391,15 @@ describe("E5 follow-up: the button comes before the morning block", () => {
       ),
     );
     renderAt("/nuit");
+    await add(2);
 
     fireEvent.click(
       await screen.findByRole("button", { name: /☾ Lancer la nuit/ }),
     );
     const alert = await screen.findByRole("alert");
-    const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
+    const heading = await screen.findByRole("heading", {
+      name: /Cette nuit, Claude/,
+    });
     expect(precedes(alert, heading)).toBe(true);
   });
 });
@@ -401,6 +426,7 @@ describe("E5: the evening, the button first", () => {
   it("given the evening, when /nuit is shown, then « ☾ Lancer la nuit » comes before the lists", async () => {
     stubNight({ ready: [story(1)], toValidate: [story(2)] });
     renderAt("/nuit");
+    await add(1);
 
     const launch = await screen.findByRole("button", {
       name: /☾ Lancer la nuit · 1 user story/,
@@ -465,6 +491,7 @@ describe("E6: the programme", () => {
   it("given the evening, when /nuit is shown, then each row starts with its rank and shows the repo without its owner", async () => {
     stubNight({ ready: [story(1), story(2)] });
     renderAt("/nuit");
+    await add(1, 2);
 
     const first = await rowOf(1);
     const second = await rowOf(2);
@@ -477,6 +504,7 @@ describe("E6: the programme", () => {
   it("given the evening, when /nuit is shown, then the buttons ↑ ↓ ✕ are 44 px under md", async () => {
     stubNight({ ready: [story(1), story(2)] });
     renderAt("/nuit");
+    await add(1, 2);
 
     const row = await rowOf(1);
     for (const name of ["Monter", "Descendre", "Retirer"])

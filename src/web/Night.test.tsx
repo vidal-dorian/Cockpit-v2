@@ -25,7 +25,7 @@ import { renderAt } from "./test-tickets.tsx";
 //   « Monter », « Descendre », « Retirer » in each row of the programme, « Valider et ajouter », « ☾ Lancer la nuit · N user stories »,
 //   « Annuler la nuit », « Arrêter la nuit »; reasons « Connecte le lanceur » and « Aucune user story » beside the disabled launch;
 //   outcomes written « En pause : attend ta réponse » and « CI en échec »;
-// - /nuit (decision 083 E1): « Cette nuit, Claude a livré N PR sur M », « 1 question t'attend », « Masquer » (the frise and the outcome groups: NightVisual.test.tsx).
+// - /nuit (decision 084 E1): « Cette nuit, Claude a livré N PR sur M », « 1 question t'attend », « Masquer » (the frise and the outcome groups: NightVisual.test.tsx).
 
 type Call = { method: string; path: string; body: unknown };
 const story = (storyId: number, outcome: string | null = null) => ({
@@ -128,6 +128,26 @@ const row = (programme: HTMLElement, n: number) =>
     .find((li) =>
       li.textContent?.includes(`faire la chose ${n}`),
     ) as HTMLElement;
+const has = (part: HTMLElement, n: number) =>
+  within(part)
+    .queryAllByRole("listitem")
+    .some((li) => li.textContent?.includes(`faire la chose ${n}`));
+/** Clicks « Ajouter » on each story, in this order, waiting for it to reach the programme. */
+const addAll = async (ids: number[]) => {
+  const programme = await section("Au programme");
+  const maybe = await section("Pourrait s'ajouter");
+  for (const n of ids) {
+    const li = await waitFor(() => {
+      const found = within(maybe)
+        .getAllByRole("listitem")
+        .find((i) => i.textContent?.includes(`faire la chose ${n}`));
+      expect(found).toBeDefined();
+      return found as HTMLElement;
+    });
+    fireEvent.click(within(li).getByRole("button", { name: "Ajouter" }));
+    await waitFor(() => expect(has(programme, n)).toBe(true));
+  }
+};
 
 describe("criterion 1: the night hours on the launcher card (C')", () => {
   it("given the launcher card, when it is shown and the start is changed and saved, then it shows Début 22, Fin 7 and the cap per night, and PUTs the hours", async () => {
@@ -178,7 +198,7 @@ describe("criterion 11: the pages (M')", () => {
     renderAt("/nuit");
     const programme = await section("Au programme");
     const maybe = await section("Pourrait s'ajouter");
-    await waitFor(() => expect(row(programme, 1)).toBeDefined());
+    await addAll([1, 2]);
 
     fireEvent.click(
       within(row(programme, 1)).getByRole("button", { name: "Descendre" }),
@@ -210,7 +230,7 @@ describe("criterion 11: the pages (M')", () => {
     stub({ ready: [story(1), story(2), story(3)] });
     renderAt("/nuit");
     const programme = await section("Au programme");
-    await waitFor(() => expect(row(programme, 1)).toBeDefined());
+    await addAll([1, 2, 3]);
 
     fireEvent.click(
       within(row(programme, 2)).getByRole("button", { name: "Retirer" }),
@@ -221,6 +241,501 @@ describe("criterion 11: the pages (M')", () => {
         name: "☾ Lancer la nuit · 2 user stories",
       }),
     ).toBeDefined();
+  });
+
+  it("given ready stories and no open night, when /nuit opens, then the programme is empty, the stories are under « Pourrait s'ajouter » with « Ajouter », and the launch is disabled with its reason", async () => {
+    const calls = stub({
+      ready: [story(1), story(2)],
+      toValidate: [story(3)],
+    });
+    renderAt("/nuit");
+    const programme = await section("Au programme");
+    const maybe = await section("Pourrait s'ajouter");
+
+    await waitFor(() => expect(has(maybe, 1)).toBe(true));
+    expect(has(programme, 1)).toBe(false);
+    expect(has(programme, 2)).toBe(false);
+    expect(within(programme).queryAllByRole("button")).toHaveLength(0);
+    expect(programme.textContent).toContain("Aucune user story au programme.");
+    expect(
+      within(maybe).getAllByRole("button", { name: "Ajouter" }),
+    ).toHaveLength(2);
+    expect(
+      within(maybe).getAllByRole("button", { name: "Valider et ajouter" }),
+    ).toHaveLength(1);
+    expect(has(maybe, 3)).toBe(true);
+    const launch = screen.getByRole("button", {
+      name: "☾ Lancer la nuit · 0 user story",
+    }) as HTMLButtonElement;
+    expect(launch.disabled).toBe(true);
+    expect(main()).toContain("Aucune user story à lancer.");
+    expect(calls).toEqual([]);
+  });
+
+  it("given ready stories, when some are added in a chosen order and the night is launched, then only those storyIds are posted in click order", async () => {
+    const calls = stub({ ready: [story(1), story(2), story(3)] });
+    renderAt("/nuit");
+    const programme = await section("Au programme");
+    const maybe = await section("Pourrait s'ajouter");
+
+    await addAll([3, 1]);
+
+    expect(calls).toEqual([]);
+    expect(has(maybe, 3)).toBe(false);
+    expect(has(maybe, 1)).toBe(false);
+    expect(has(maybe, 2)).toBe(true);
+    const items = within(programme).getAllByRole("listitem");
+    expect(items[0]?.textContent).toContain("faire la chose 3");
+    expect(items[1]?.textContent).toContain("faire la chose 1");
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "☾ Lancer la nuit · 2 user stories",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === "/api/nights")?.body).toEqual({
+        storyIds: [3, 1],
+      }),
+    );
+  });
+
+  it("given stories 1 and 2 added, when a refetch no longer returns story 1, then only story 2 is shown and launching posts only [2]", async () => {
+    const options: Options = { ready: [story(1), story(2)] };
+    const calls = stub(options);
+    renderAt("/nuit");
+    const programme = await section("Au programme");
+    await addAll([1, 2]);
+
+    options.ready = [story(2)];
+    window.dispatchEvent(new Event("visibilitychange"));
+
+    await waitFor(() => expect(has(programme, 1)).toBe(false));
+    expect(has(programme, 2)).toBe(true);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "☾ Lancer la nuit · 1 user story",
+      }),
+    );
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === "/api/nights")?.body).toEqual({
+        storyIds: [2],
+      }),
+    );
+  });
+
+  it("given stories 1, 2 and 3 added, when a refetch no longer returns story 1 and story 2 goes down, then 3 is before 2 and launching posts [3, 2]", async () => {
+    const options: Options = { ready: [story(1), story(2), story(3)] };
+    const calls = stub(options);
+    renderAt("/nuit");
+    const programme = await section("Au programme");
+    await addAll([1, 2, 3]);
+
+    options.ready = [story(2), story(3)];
+    window.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(has(programme, 1)).toBe(false));
+    fireEvent.click(
+      within(row(programme, 2)).getByRole("button", { name: "Descendre" }),
+    );
+
+    await waitFor(() => {
+      const items = within(programme).getAllByRole("listitem");
+      expect(items[0]?.textContent).toContain("faire la chose 3");
+      expect(items[1]?.textContent).toContain("faire la chose 2");
+    });
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "☾ Lancer la nuit · 2 user stories",
+      }),
+    );
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === "/api/nights")?.body).toEqual({
+        storyIds: [3, 2],
+      }),
+    );
+  });
+
+  it("given a story added to the programme, when « Retirer » is clicked, then it is listed again under « Pourrait s'ajouter » with « Ajouter »", async () => {
+    stub({ ready: [story(1), story(2)] });
+    renderAt("/nuit");
+    const programme = await section("Au programme");
+    const maybe = await section("Pourrait s'ajouter");
+    await addAll([1]);
+
+    fireEvent.click(
+      within(row(programme, 1)).getByRole("button", { name: "Retirer" }),
+    );
+
+    await waitFor(() => expect(has(programme, 1)).toBe(false));
+    expect(has(maybe, 1)).toBe(true);
+    expect(
+      within(
+        within(maybe)
+          .getAllByRole("listitem")
+          .find((li) =>
+            li.textContent?.includes("faire la chose 1"),
+          ) as HTMLElement,
+      ).getByRole("button", { name: "Ajouter" }),
+    ).toBeDefined();
+  });
+
+  it("given no ready and no toValidate story, when /nuit opens, then « Pourrait s'ajouter » says « Aucune user story à ajouter. »", async () => {
+    stub();
+    renderAt("/nuit");
+    const maybe = await section("Pourrait s'ajouter");
+
+    expect(maybe.textContent).toContain("Aucune user story à ajouter.");
+  });
+
+  it("given an empty programme, when /nuit opens, then the state sentence asks to choose, and once a story is added it says Claude can develop it", async () => {
+    stub({ ready: [story(1), story(2)] });
+    renderAt("/nuit");
+    await section("Au programme");
+
+    await waitFor(() =>
+      expect(main()).toContain(
+        "Choisis les user stories que Claude développera cette nuit.",
+      ),
+    );
+    await addAll([1, 2]);
+
+    expect((await section("Pourrait s'ajouter")).textContent).toContain(
+      "Aucune user story à ajouter.",
+    );
+    expect(main()).toContain(
+      "Claude peut développer 2 user stories pendant que tu dors.",
+    );
+    expect(main()).not.toContain("Choisis les user stories");
+  });
+
+  it("given ready stories not yet added, when /nuit opens, then « Aucune user story à ajouter. » is not shown before they are added", async () => {
+    stub({ ready: [story(1), story(2)] });
+    renderAt("/nuit");
+    const maybe = await section("Pourrait s'ajouter");
+
+    await waitFor(() => expect(has(maybe, 1)).toBe(true));
+
+    expect(maybe.textContent).not.toContain("Aucune user story à ajouter.");
+  });
+
+  it("given stories 1 and 2 added and the night launched, when the night is cancelled, then the programme is empty again and nothing comes back without a new gesture", async () => {
+    const options: Options = { ready: [story(1), story(2)] };
+    stub(options);
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const res = await inner(input, init);
+        const path = new URL(
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url,
+          "http://localhost",
+        ).pathname;
+        if (init?.method === "POST" && path === "/api/nights")
+          options.night = {
+            id: 1,
+            status: "planned",
+            items: [story(1), story(2)],
+          };
+        if (init?.method === "POST" && path === "/api/nights/current/cancel")
+          options.night = undefined;
+        return res;
+      }),
+    );
+    renderAt("/nuit");
+    await section("Au programme");
+    await addAll([1, 2]);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "☾ Lancer la nuit · 2 user stories",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Annuler la nuit" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "☾ Lancer la nuit · 0 user story" }),
+      ).toBeDefined(),
+    );
+    const after = await section("Au programme");
+    expect(has(after, 1)).toBe(false);
+    expect(has(after, 2)).toBe(false);
+    expect(after.textContent).toContain("Aucune user story au programme.");
+  });
+
+  it("given a running night whose response is delayed, when /nuit is loading, then the choose sentence is never shown, and once loaded it says Claude develops while you sleep", async () => {
+    stub({ night: { id: 1, status: "running", items: [story(1)] } });
+    const inner = globalThis.fetch;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (
+          new URL(raw, "http://localhost").pathname === "/api/nights/current" &&
+          (init?.method ?? "GET") === "GET"
+        )
+          await gate;
+        return inner(input, init);
+      }),
+    );
+    renderAt("/nuit");
+    await screen.findByRole("main");
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(main()).not.toContain("Choisis les user stories");
+    release();
+
+    await waitFor(() =>
+      expect(main()).toContain("Claude développe pendant que tu dors."),
+    );
+    expect(main()).not.toContain("Choisis les user stories");
+  });
+
+  it("given GET /api/nights/current failing, when /nuit opens, then the alert is shown and the choose sentence is not", async () => {
+    stub();
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (
+          new URL(raw, "http://localhost").pathname === "/api/nights/current" &&
+          (init?.method ?? "GET") === "GET"
+        )
+          return Response.json({ error: "boom" }, { status: 500 });
+        return inner(input, init);
+      }),
+    );
+    renderAt("/nuit");
+
+    await screen.findByRole("alert");
+
+    expect(main()).not.toContain("Choisis les user stories");
+  });
+
+  it("given the page loaded with an empty programme, when a refetch of the night then fails with a 500, then the alert « Impossible de lire la page » is shown and the choose sentence is not", async () => {
+    const options: Options = {};
+    stub(options);
+    const inner = globalThis.fetch;
+    let failing = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (
+          failing &&
+          new URL(raw, "http://localhost").pathname === "/api/nights/current" &&
+          (init?.method ?? "GET") === "GET"
+        )
+          return Response.json({ error: "boom" }, { status: 500 });
+        return inner(input, init);
+      }),
+    );
+    renderAt("/nuit");
+    await section("Au programme");
+    await waitFor(() =>
+      expect(main()).toContain(
+        "Choisis les user stories que Claude développera cette nuit.",
+      ),
+    );
+
+    failing = true;
+    window.dispatchEvent(new Event("visibilitychange"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Impossible de lire la page");
+    expect(main()).not.toContain(
+      "Choisis les user stories que Claude développera cette nuit.",
+    );
+  });
+
+  it("given GET /api/me/launcher failing with a 500 and the night read succeeding with an empty programme, when /nuit opens, then the alert is shown and the choose sentence is not", async () => {
+    stub();
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (
+          new URL(raw, "http://localhost").pathname === "/api/me/launcher" &&
+          (init?.method ?? "GET") === "GET"
+        )
+          return Response.json({ error: "boom" }, { status: 500 });
+        return inner(input, init);
+      }),
+    );
+    renderAt("/nuit");
+
+    await screen.findByRole("alert");
+
+    expect(main()).not.toContain(
+      "Choisis les user stories que Claude développera cette nuit.",
+    );
+  });
+
+  it("given a planned night of 2 stories and GET /api/me/launcher failing with a 500, when /nuit opens, then the alert is shown and the title still reads Claude can develop 2 user stories", async () => {
+    stub({
+      night: { id: 1, status: "planned", items: [story(1), story(2)] },
+    });
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (
+          new URL(raw, "http://localhost").pathname === "/api/me/launcher" &&
+          (init?.method ?? "GET") === "GET"
+        )
+          return Response.json({ error: "boom" }, { status: 500 });
+        return inner(input, init);
+      }),
+    );
+    renderAt("/nuit");
+
+    await screen.findByRole("alert");
+
+    expect(main()).toContain(
+      "Claude peut développer 2 user stories pendant que tu dors.",
+    );
+  });
+
+  it("given no open night and 2 stories added, when a refetch of the night then fails with a 500, then the alert is shown and the title still reads Claude can develop 2 user stories", async () => {
+    stub({ ready: [story(1), story(2)] });
+    const inner = globalThis.fetch;
+    let failing = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const raw =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (
+          failing &&
+          new URL(raw, "http://localhost").pathname === "/api/nights/current" &&
+          (init?.method ?? "GET") === "GET"
+        )
+          return Response.json({ error: "boom" }, { status: 500 });
+        return inner(input, init);
+      }),
+    );
+    renderAt("/nuit");
+    await addAll([1, 2]);
+
+    failing = true;
+    window.dispatchEvent(new Event("visibilitychange"));
+
+    await screen.findByRole("alert");
+    expect(main()).toContain(
+      "Claude peut développer 2 user stories pendant que tu dors.",
+    );
+  });
+
+  it("given only stories to validate, when /nuit opens, then « Pourrait s'ajouter » shows « Valider et ajouter » and not « Aucune user story à ajouter. »", async () => {
+    stub({ ready: [], toValidate: [story(3)] });
+    renderAt("/nuit");
+    const maybe = await section("Pourrait s'ajouter");
+
+    await waitFor(() =>
+      expect(within(maybe).getByText("Valider et ajouter")).toBeDefined(),
+    );
+    expect(maybe.textContent).not.toContain("Aucune user story à ajouter.");
+  });
+
+  it("given stories 1 and 2 added locally, when a refetch shows a planned night launched elsewhere and it is cancelled here, then the programme is empty and the button reads 0 user story", async () => {
+    const options: Options = { ready: [story(1), story(2)] };
+    stub(options);
+    const inner = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const res = await inner(input, init);
+        const path = new URL(
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url,
+          "http://localhost",
+        ).pathname;
+        if (init?.method === "POST" && path === "/api/nights/current/cancel")
+          options.night = undefined;
+        return res;
+      }),
+    );
+    renderAt("/nuit");
+    await section("Au programme");
+    await addAll([1, 2]);
+
+    options.night = {
+      id: 7,
+      status: "planned",
+      items: [story(1), story(2)],
+    };
+    window.dispatchEvent(new Event("visibilitychange"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Annuler la nuit" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "☾ Lancer la nuit · 0 user story" }),
+      ).toBeDefined(),
+    );
+    const after = await section("Au programme");
+    expect(has(after, 1)).toBe(false);
+    expect(has(after, 2)).toBe(false);
+    expect(after.textContent).toContain("Aucune user story au programme.");
+  });
+
+  it("given a planned night, when /nuit opens, then its items are shown and « Pourrait s'ajouter » is hidden", async () => {
+    stub({
+      night: { id: 1, status: "planned", items: [story(1)] },
+      ready: [story(2)],
+    });
+    renderAt("/nuit");
+    const programme = await section("Au programme");
+
+    await waitFor(() => expect(has(programme, 1)).toBe(true));
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Pourrait s'ajouter" }),
+    ).toBeNull();
   });
 
   it.each([
@@ -259,6 +774,7 @@ describe("criterion 11: the pages (M')", () => {
       ),
     );
     renderAt("/nuit");
+    await addAll([1]);
 
     fireEvent.click(
       await screen.findByRole("button", {
@@ -303,6 +819,9 @@ describe("criterion 11: the pages (M')", () => {
     await screen.findByRole("button", { name: "Arrêter la nuit" });
     expect(main()).toContain("En pause : attend ta réponse");
     expect(main()).toContain("CI en échec");
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Pourrait s'ajouter" }),
+    ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Arrêter la nuit" }));
 
     await waitFor(() =>
@@ -315,7 +834,7 @@ describe("criterion 11: the pages (M')", () => {
   });
 });
 
-describe("criterion 10: the morning at the top of /nuit (J, decision 083 E1)", () => {
+describe("criterion 10: the morning at the top of /nuit (J, decision 084 E1)", () => {
   const night = {
     id: 7,
     delivered: 1,

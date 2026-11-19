@@ -21,6 +21,8 @@ services:
     build: .
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set (see the env file)}@db:5432/cockpit
+      # Turns the PostHog telemetry on when set (decision 083 B); empty, nothing leaves.
+      POSTHOG_KEY: ${POSTHOG_KEY:-}
     # The key that encrypts the GitHub secrets of the database, in its own volume so a database backup never holds it (decision 012 F).
     volumes:
       - secrets:/app/secrets

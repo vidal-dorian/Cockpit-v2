@@ -141,7 +141,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
       : (board ?? []).filter(
           (s) => s.status !== "abandoned" && COLUMN_OF[s.status] === name,
         ).length;
-  // The column shown below sm (083 C2): the first filled one of what waits for the user, else of the board, else Idées.
+  // The column shown below sm (084 C2): the first filled one of what waits for the user, else of the board, else Idées.
   const [chosen, setChosen] = useState<{
     projectId: string;
     name: string;
@@ -152,7 +152,7 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
     ["À valider", "Prêtes", "En revue"].find((n) => countOf(n) > 0) ??
     COLUMNS.find(({ name }) => countOf(name) > 0)?.name ??
     "Idées";
-  // Below lg the right panel is not fixed on the right: a card goes to its page (083 C3). The width is read at the touch.
+  // Below lg the right panel is not fixed on the right: a card goes to its page (084 C3). The width is read at the touch.
   const toPage = (path: string) => (event: MouseEvent) => {
     if (
       event.button !== 0 ||

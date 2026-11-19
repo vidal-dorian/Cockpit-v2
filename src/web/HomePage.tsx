@@ -499,7 +499,7 @@ function OnboardingGuide({
     { done: installed, detail: null, projectId: null, storyId: null },
     ...guide.steps,
   ];
-  // Below md only the next step shows until the user unfolds the guide (decision 083 D1).
+  // Below md only the next step shows until the user unfolds the guide (decision 084 D1).
   const [expanded, setExpanded] = useState(false);
   const count = rows.filter((r) => r.done).length;
   const next = rows.findIndex((r) => !r.done);

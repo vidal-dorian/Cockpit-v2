@@ -358,7 +358,7 @@ export function authRoutes(
     .get("/api/me", async (c) => {
       const user = await currentUser(db, c);
       if (!user) return c.json({ error: "Unauthorized" }, 401);
-      const { login, name, avatarUrl, isAdmin, theme } = user;
-      return c.json({ login, name, avatarUrl, isAdmin, theme });
+      const { userId, login, name, avatarUrl, isAdmin, theme } = user;
+      return c.json({ id: userId, login, name, avatarUrl, isAdmin, theme });
     });
 }

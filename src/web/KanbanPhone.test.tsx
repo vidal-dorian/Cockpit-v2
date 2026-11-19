@@ -11,7 +11,7 @@ import { panel, stubProjectShell } from "./test-shell.tsx";
 import { renderAt, story, ticket } from "./test-tickets.tsx";
 import { stubWidth } from "./test-width.ts";
 
-// Decision 083 C (C1 to C4): the Kanban of a project on a phone. jsdom has no layout, so the visibility is read on the
+// Decision 084 C (C1 to C4): the Kanban of a project on a phone. jsdom has no layout, so the visibility is read on the
 // responsive classes (max-sm:hidden, max-lg:hidden) and the width read at the touch is simulated with matchMedia (test-width.ts).
 //
 // Choices the decision leaves open, fixed here:

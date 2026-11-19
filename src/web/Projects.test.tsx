@@ -341,7 +341,7 @@ describe("Projets page, import", () => {
 
     renderAt("/projets");
 
-    // Decision 083 A4: the row shows the repo name without its owner, then « owner · branch ».
+    // Decision 084 A4: the row shows the repo name without its owner, then « owner · branch ».
     await screen.findByText("available");
     const available = rowOf("available");
     expect(

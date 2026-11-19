@@ -10,7 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.tsx";
 
-// Decision 083 A (A1 to A4): the « Importer depuis GitHub » list of /projets is searchable, paged by 10 and readable on a phone.
+// Decision 084 A (A1 to A4): the « Importer depuis GitHub » list of /projets is searchable, paged by 10 and readable on a phone.
 //
 // Pinned where the story leaves it open:
 // - The search field is the textbox named « Chercher un repo » (type="search", placeholder « Chercher un repo… »), only there when the server gives at least one repo.
@@ -94,7 +94,7 @@ const many = (count: number) =>
 const search = async () =>
   (await screen.findByRole("searchbox", { name: SEARCH })) as HTMLInputElement;
 
-describe("decision 083 A1: search", () => {
+describe("decision 084 A1: search", () => {
   it("given repos, when /projets loads, then a search field named « Chercher un repo » sits above the list", async () => {
     stubApi(many(3));
     renderProjects();
@@ -139,7 +139,7 @@ describe("decision 083 A1: search", () => {
   });
 });
 
-describe("decision 083 A2: ten at a time", () => {
+describe("decision 084 A2: ten at a time", () => {
   it("given 33 repos, when /projets loads, then 10 rows show and the button says « Afficher plus (23 restants) »", async () => {
     stubApi(many(33));
     renderProjects();
@@ -247,7 +247,7 @@ describe("decision 083 A2: ten at a time", () => {
   });
 });
 
-describe("decision 083 A3: no result", () => {
+describe("decision 084 A3: no result", () => {
   it("given repos, when the search matches none, then the sentence names the search and no row is left", async () => {
     stubApi(many(3));
     renderProjects();
@@ -262,7 +262,7 @@ describe("decision 083 A3: no result", () => {
   });
 });
 
-describe("decision 083 A4: one row", () => {
+describe("decision 084 A4: one row", () => {
   it("given a repo, when /projets loads, then its name without owner is bold mono and breaks anywhere, with « owner · branch » muted under it", async () => {
     stubApi([repo(1, "acme/a-very-long-repository-name", false, "develop")]);
     renderProjects();

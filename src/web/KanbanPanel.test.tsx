@@ -13,7 +13,7 @@ import { renderAt, story, ticket } from "./test-tickets.tsx";
 import { stubWidth } from "./test-width.ts";
 
 // Slice 9.5 (decision 069 G, H): a card of the Kanban opens in the right panel, at ?us=<id> or ?ticket=<id>.
-// Decision 083 C3: from lg (1024 px) only; below, a card goes to its page (KanbanPhone.test.tsx). The clicks below are those of a desktop.
+// Decision 084 C3: from lg (1024 px) only; below, a card goes to its page (KanbanPhone.test.tsx). The clicks below are those of a desktop.
 
 afterEach(() => {
   cleanup();

@@ -20,7 +20,7 @@ const BOXES: Record<string, string> = {
 };
 const HOUR = 3_600_000;
 
-/** The outcome groups of decision 083 E3, in order; the bar of E2 has one part per group, in the colour of its `bar`. */
+/** The outcome groups of decision 084 E3, in order; the bar of E2 has one part per group, in the colour of its `bar`. */
 const GROUPS = [
   {
     name: "PR ouvertes",
@@ -59,7 +59,7 @@ const clock = (iso: string) => {
   return `${at.getHours()} h ${String(at.getMinutes()).padStart(2, "0")}`;
 };
 
-/** Decision 083 E: the morning block at the top of /nuit, the night at a glance (boxes, bar, stories by outcome, frise), until « Masquer ». */
+/** Decision 084 E: the morning block at the top of /nuit, the night at a glance (boxes, bar, stories by outcome, frise), until « Masquer ». */
 export function NightMorning({
   night,
   questions,

@@ -10,7 +10,12 @@ import { Preferences } from "./Preferences.tsx";
 import { ProCodes } from "./ProCodes.tsx";
 import { fetchRoutine, RoutineSettings } from "./RoutineSettings.tsx";
 import { day, Tokens } from "./SettingsTokens.tsx";
-import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
+import {
+  Breadcrumb,
+  fetchMe,
+  fetchTelemetry,
+  StateSentence,
+} from "./Shell.tsx";
 import { fetchPlan, planSentence, Subscription } from "./Subscription.tsx";
 import { plural } from "./tickets.ts";
 import { toast } from "./toast.tsx";
@@ -285,6 +290,10 @@ export function Settings({ tab }: { tab: SettingsTab }) {
   // Utilisateurs is the administrator's: wait to know who asks before asking the server for the list.
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const sentence = useSentence(tab, me.data?.isAdmin === true);
+  const telemetry = useQuery({
+    queryKey: ["telemetry"],
+    queryFn: fetchTelemetry,
+  });
   if (me.isPending)
     return <p className="loading p-4 text-muted-foreground">Chargement…</p>;
   if (me.isError)
@@ -372,6 +381,13 @@ export function Settings({ tab }: { tab: SettingsTab }) {
           )}
         </div>
       </div>
+      {telemetry.data && (
+        <p className="px-[26px] pb-6 text-[12.5px] text-muted-foreground">
+          Cockpit envoie à PostHog (serveurs dans l'Union européenne) les écrans
+          ouverts, les actions faites et les erreurs rencontrées, sans le
+          contenu de vos projets.
+        </p>
+      )}
     </main>
   );
 }

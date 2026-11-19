@@ -15,6 +15,7 @@ import { Modal } from "./Modal.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { atLeast } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
+import { identify, init } from "./telemetry.ts";
 import { ticketError } from "./tickets.ts";
 import { badge, focusRing, kbd } from "./ui.ts";
 
@@ -30,12 +31,27 @@ export async function fetchHealth() {
   return res.json();
 }
 
+/** The PostHog key, or null: also when the server does not answer, telemetry is never worth an error screen (decision 083 B). */
+export async function fetchTelemetry() {
+  let key: string | null = null;
+  try {
+    const res = await client.api.telemetry.$get();
+    if (res.ok) key = (await res.json()).key;
+  } catch {}
+  // Starts telemetry before any screen mounts, so that the first $pageview is not lost; a no-op the next times. Not awaited: the page never waits for the posthog-js chunk.
+  void init(key).catch(() => {});
+  return key;
+}
+
 /** The logged-in account, or null when the server answers 401. */
 export async function fetchMe() {
   const res = await client.api.me.$get();
   if (res.status === 401) return null;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const me = await res.json();
+  // Here, not in an effect: the first $pageview of a load must already carry the account (decision 083 C).
+  identify(String(me.id));
+  return me;
 }
 
 async function fetchHome() {
@@ -245,7 +261,7 @@ export function Panel({
   );
 }
 
-// `tall`: the rows of the phone's menu are at least 44 px (decision 083 B2).
+// `tall`: the rows of the phone's menu are at least 44 px (decision 084 B2).
 const navItem =
   (tall: boolean) =>
   ({ isActive }: { isActive: boolean }) =>
@@ -257,7 +273,7 @@ const subItem =
 const sidebarLabel =
   "mx-2.5 mt-3.5 mb-1 text-[11px] font-bold uppercase tracking-[.08em] text-dim";
 
-/** What the left column and the phone's menu hold (045 F, 083 B2): search, navigation with counters, the favourite projects and the ones that are not idle, Réglages, the account and the version. `menu` makes the rows 44 px tall; `onNavigate` runs when a row is touched. */
+/** What the left column and the phone's menu hold (045 F, 084 B2): search, navigation with counters, the favourite projects and the ones that are not idle, Réglages, the account and the version. `menu` makes the rows 44 px tall; `onNavigate` runs when a row is touched. */
 function SidebarContent({
   onSearch,
   menu = false,
@@ -475,10 +491,10 @@ function TabIcon({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Pages only the menu reaches: its tab is the current one there (decision 083 B4).
+// Pages only the menu reaches: its tab is the current one there (decision 084 B4).
 const MENU_ONLY = /^\/(claude|equipes|journal|reglages)(\/|$)/;
 
-/** The bar of the phone (decision 071 B, 083 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project; « Menu » opens the content of the sidebar full screen. */
+/** The bar of the phone (decision 071 B, 084 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project; « Menu » opens the content of the sidebar full screen. */
 function PhoneNav({
   onIdea,
   open,
@@ -487,7 +503,7 @@ function PhoneNav({
   morning,
 }: {
   onIdea?: (opener: HTMLElement) => void;
-  /** The morning block of the home still waits: the Nuit tab says « bilan à lire » (083 B5). */
+  /** The morning block of the home still waits: the Nuit tab says « bilan à lire » (084 B5). */
   morning: boolean;
   open: boolean;
   onNavigate: () => void;

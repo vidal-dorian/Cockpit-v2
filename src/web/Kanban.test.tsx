@@ -176,7 +176,7 @@ describe("criterion 4: the cards", () => {
     renderAt("/projets/5");
 
     await screen.findByRole("link", { name: /vouloir-alpha/ });
-    // The column chips of decision 083 C1 sit above the board: they are the only buttons of the section.
+    // The column chips of decision 084 C1 sit above the board: they are the only buttons of the section.
     expect(
       within(
         screen.getByRole("region", { name: "Colonnes du Kanban" }),
@@ -221,7 +221,7 @@ describe("criterion 5: the board is fresh when the user comes back to the projec
     fireEvent.click(await screen.findByRole("link", { name: "hello" }));
   };
   const decide = async (act: () => Promise<void> | void, done: string) => {
-    stubWidth(1280); // from lg a card opens the panel (decision 083 C3); below, it goes to the page
+    stubWidth(1280); // from lg a card opens the panel (decision 084 C3); below, it goes to the page
     renderWithClient();
     fireEvent.click(await screen.findByRole("link", { name: /vouloir-alpha/ }));
     // The card opens in the panel; the story page is one link away (decision 069 G).

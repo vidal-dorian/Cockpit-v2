@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubNight } from "./test-night.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 14.7 (decision 070), moved to /nuit by decision 083 E: the morning block. Pinned where the decision leaves room:
+// Slice 14.7 (decision 070), moved to /nuit by decision 084 E: the morning block. Pinned where the decision leaves room:
 // - night = { id, startsAt, endsAt, delivered, total, workSeconds, criteriaProven, failures, items: [{ storyId, iWant, outcome, startedAt, finishedAt }] };
 // - « US n » is the story id; the box is the element whose own text is « ✓ US 45 » (or ✦ / ✕) and it carries style.left and style.width in %;
 // - a graduation is an element whose text is exactly « 22 h »; the row of a story is its <li>.
@@ -47,12 +47,12 @@ const show = (items: ReturnType<typeof item>[], summary = {}) => {
 };
 const block = async () => {
   const found = (
-    await screen.findByRole("heading", { name: /Cette nuit/ })
+    await screen.findByRole("heading", { name: /Cette nuit, Claude/ })
   ).closest("section");
   if (!found) throw new Error("no <section> around « Cette nuit »");
   return within(found);
 };
-// The line of a story in the outcome groups (decision 083 E3): the <li> of its link « US n · … ».
+// The line of a story in the outcome groups (decision 084 E3): the <li> of its link « US n · … ».
 const row = async (storyId: number) => {
   const found = (await block())
     .getByRole("link", { name: new RegExp(`^US ${storyId} ·`) })
