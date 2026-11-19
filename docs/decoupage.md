@@ -87,6 +87,7 @@
 - **Fait** : tranche 13.2 (offres et quotas : Gratuit à 3 repos, Pro, codes Pro donnés par l'administrateur, lecture seule au-delà de 3, Réglages › Abonnement, [décision 077](decisions/077-offres-et-quotas.md)).
 - **Fait** : tranche 13.5 (ses données : Réglages › Données, export JSON, suppression du compte, empreinte du compteur Gratuit, [décision 078](decisions/078-ses-donnees.md)).
 - **Fait** : tranche E6 (l'équipe en canevas : plein écran, glisser des agents, tracer des liens, intercaler sur un lien, branches en parallèle, boucles avec limite, [décision 079](decisions/079-equipe-en-canevas.md)).
+- **Fait** : hors tranche, les retours de Dorian du 2026-11-18 sur l'iPhone (import avec recherche, barre du bas agrandie avec un onglet « Menu », Kanban une colonne à la fois, accueil allégé, la nuit en cases et en barre, [décision 083](decisions/083-le-telephone-deuxieme-passe.md)).
 - **Prêt à développer** : chaque tranche restante a ses points ouverts tranchés avec Dorian le 2026-11-08, dans la [064](decisions/064-tranches-restantes.md). L'ordre : phase 12, puis 9.5 et 14.7 (faites), puis phase 15 (faite), puis phase 13 (13.1, 13.2 et 13.5 faites ; 13.3 et 13.4 attendent Dorian), et la tranche E6 (faite). Il ne reste que 13.3 et 13.4, qui attendent Dorian.
 
 L'architecture d'ensemble est résumée dans [`architecture.md`](architecture.md).

@@ -1,6 +1,6 @@
 # 083 — Le téléphone, deuxième passe
 
-- **Statut** : proposée (à valider à la relecture de la PR)
+- **Statut** : proposée (à valider à la relecture de la PR) ; le code est construit
 - **Date** : 2026-11-18
 - **Décidé par** : Dorian (le constat, avec cinq captures d'écran de l'app sur iPhone : la liste d'import sans fin, la barre du bas trop petite, l'US qui ne s'ouvre pas depuis le projet, les Réglages introuvables, l'accueil trop chargé, la nuit en double et difficile à lire), avec Claude (les réponses de A à E)
 - **Dépend de** : [011 — Import des projets](011-import-projets.md), [040 — L'accueil](040-accueil.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md), [045 — L'interface « Quatre temps »](045-interface-quatre-temps.md) (C, J), [069 — Les finitions](069-finitions.md) (G), [070 — Le matin de la nuit](070-le-matin-de-la-nuit.md), [071 — Les trois gestes au téléphone](071-trois-gestes-au-telephone.md), [075 — La mise en route](075-mise-en-route.md)
@@ -70,6 +70,20 @@ La 071 a rendu les trois gestes possibles au téléphone, sans vérifier le rest
 | E6 | Le programme | Chaque ligne commence par son rang (un rond « 1 », « 2 »…), puis l'US et le nom du repo sans son propriétaire. Les boutons ↑ ↓ ✕ font 44 px sous `md`. Pendant la nuit, au-dessus de la liste, « 2 sur 5 finies » et une barre de progression (`role="progressbar"`) ; chaque ligne porte son état avec son point : « En cours » (point Claude qui pulse) pour la première US sans issue d'une nuit qui tourne (une US à la fois, 044), « À venir » pour les suivantes, sinon son issue |
 | E7 | Les règles | « Les règles de la nuit » se replient (`<details>`, fermé par défaut) |
 
+## Ce que le code a précisé
+
+- **A** : « Afficher plus (1 restant) » s'écrit au singulier. La recherche enlève les espaces autour du texte et coupe la correction automatique et la majuscule automatique du clavier (`autoCorrect`, `autoCapitalize`).
+- **B5** : le point « bilan à lire » de l'onglet Nuit se lit dans le champ `night` que `IdeaBar` tient déjà ; il est passé à la barre du bas, sans second `useHome`.
+- **B1** : la barre fait **65 px** de haut plus la zone de sécurité (et non 64), et le contenu lui laisse la place.
+- **B6** : petit écart, les noms de projet de la barre latérale sont maintenant coupés par une ellipse (`truncate`) **aussi à partir de `md`**, pas seulement au téléphone.
+- **C1** : les puces du Kanban sont des `chipLink` d'au moins 44 px (`min-h-11`). La colonne choisie est **retenue par projet** ; en changeant de projet, on retrouve la colonne par défaut de C2.
+- **C3** : sous `lg`, un simple toucher sur une carte va à `/us/:id` ou `/tickets/:id` ; Ctrl, Cmd, Maj, Alt ou un clic qui n'est pas le gauche gardent le comportement du lien (`?us=`, `?ticket=`).
+- **D1** : le bouton « Voir les 7 étapes » fait 44 px de haut.
+- **D3** : sous `sm`, les lignes de « 2 · Ensuite » sont une grille à deux colonnes.
+- **E1, E5 (F2)** : sur `/nuit`, l'ordre est la phrase d'état, le bouton d'action, le bloc du matin, puis le programme ; le conflit entre E1 et E5 est tranché ainsi.
+- **E3** : le point du groupe « Sautées ou non lancées » a la couleur de sa part dans la barre empilée.
+- Les autres choix de détail sont fixés par les en-têtes des tests `ImportSearch`, `PhoneMenu`, `KanbanPhone`, `HomePhoneLight` et `NightVisual` (`.test.tsx`).
+
 ## Ce qui ne change pas
 
 - Au-dessus de `md` : la barre latérale, l'accueil (sauf le bloc « Cette nuit », E1), le Kanban à partir de `lg`.
@@ -79,4 +93,5 @@ La 071 a rendu les trois gestes possibles au téléphone, sans vérifier le rest
 ## Limites connues
 
 - **La mise en page n'est pas testée par la CI** (jsdom ne la calcule pas, 071) : les tests lisent les classes responsives et `matchMedia` est simulé ; la vérification à 360 px se fait dans un vrai navigateur.
+- **`viewport-fit=cover` ne remplit pas les marges gauche et droite** en paysage : seule la zone de sécurité du bas est prise en compte (B1). Sur un iPhone couché, le contenu peut passer sous l'encoche.
 - **La largeur de C3 est lue au toucher** : une carte garde son lien `?us=` (un appui long ou un clic du milieu ouvre le panneau, en bas de page).
