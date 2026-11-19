@@ -90,7 +90,7 @@ export function IdeaPanel({
           send();
         }
       }}
-      className="mb-2 flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-30 max-md:mb-0 max-md:overflow-y-auto max-md:rounded-none max-md:pb-20"
+      className="mb-2 flex flex-col gap-3 rounded-[14px] border border-border bg-card p-4 max-md:fixed max-md:inset-0 max-md:z-30 max-md:mb-0 max-md:overflow-y-auto max-md:rounded-none max-md:pb-[calc(5rem+env(safe-area-inset-bottom))]"
     >
       <div>
         <h2 id={heading} className="font-semibold">

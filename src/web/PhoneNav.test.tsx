@@ -19,7 +19,7 @@ const phoneNav = async () =>
   );
 
 describe("slice 15.1: the phone navigation", () => {
-  it("given a logged-in user on /nuit, when the shell renders, then the phone nav holds Accueil, Idée, Nuit and Projets with the current page marked, the sidebar hidden below md and the nav hidden from md", async () => {
+  it("given a logged-in user on /nuit, when the shell renders, then the phone nav holds Accueil, Idée, Nuit, Projets and Menu with the current page marked, the sidebar hidden below md and the nav hidden from md", async () => {
     stubShell({ projects });
     renderAt("/nuit");
 
@@ -37,6 +37,11 @@ describe("slice 15.1: the phone navigation", () => {
     expect(
       nav.getByRole("link", { name: /Accueil/ }).getAttribute("aria-current"),
     ).toBeNull();
+    // Decision 083 B2: the fifth tab, a button, opens the full-screen menu.
+    expect(nav.getByRole("button", { name: /Menu/ })).toBeDefined();
+    expect(
+      nav.getAllByRole("link").length + nav.getAllByRole("button").length,
+    ).toBe(5);
 
     const side = screen.getByRole("complementary", { name: "Barre latérale" });
     expect(side.className).toMatch(/(^|\s)hidden(\s|$)/);

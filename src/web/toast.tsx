@@ -55,7 +55,7 @@ export function Toaster() {
     <div
       // Not role="status": the screens' own status lines keep that role to themselves. Above the idea bar, centred on the page column (224 px sidebar).
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-20 z-50 flex flex-col items-center gap-2 md:bottom-24 md:left-[calc(224px+1rem)]"
+      className="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 md:bottom-24 md:left-[calc(224px+1rem)]"
     >
       {shown.map((item) => (
         <p
