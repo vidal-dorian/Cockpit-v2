@@ -62,6 +62,7 @@ const teamOf = (...agents: string[]) =>
 const TEAM = writeTeam(DEFAULT_STEPS, "");
 const DOCS = teamOf("developer", "doc-writer");
 const WIDE = teamOf("developer", "doc-writer", "security-reviewer");
+const NARROW = teamOf("developer", "reviewer");
 const agentText = (name: string, level: string) =>
   `---\nname: ${name}\ndescription: ${name} from ${level}\n---\nYou are ${name}.\n`;
 const STARTERS = [
@@ -368,7 +369,7 @@ describe("decision 084 N, C: adding a team on /equipes", () => {
     const sent = stubApi({
       teams: [{ id: 1, name: "wide", text: WIDE }],
       repoAgents: [repoAgent("developer")],
-      repoTeams: [{ name: "wide", text: DOCS }],
+      repoTeams: [{ name: "wide", text: NARROW }],
     });
     renderAt("/equipes");
     const row = await pick("wide");
@@ -382,6 +383,9 @@ describe("decision 084 N, C: adding a team on /equipes", () => {
       ),
     ).toBe(true);
     expect(
+      diffOf(row).some((t) => /Retirée/.test(t) && t.includes("reviewer")),
+    ).toBe(true);
+    expect(
       within(within(row).getByRole("list", { name: "Agents ajoutés" }))
         .getAllByRole("listitem")
         .map((x) => x.textContent)
@@ -392,7 +396,7 @@ describe("decision 084 N, C: adding a team on /equipes", () => {
     await waitFor(() => expect(applies(sent)).toHaveLength(1));
     expect(applies(sent)[0]).toMatchObject({
       name: "wide",
-      before: DOCS,
+      before: NARROW,
       after: WIDE,
     });
   });

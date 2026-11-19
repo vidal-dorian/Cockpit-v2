@@ -394,6 +394,8 @@ function TeamRow({
               <select
                 className={field}
                 value={projectId}
+                // Changing project mid-commit would hide the commit's result while it still lands.
+                disabled={add.commit.isPending}
                 onChange={(e) => {
                   add.reset();
                   setProjectId(e.target.value);
