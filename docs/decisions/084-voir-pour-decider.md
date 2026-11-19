@@ -92,9 +92,20 @@ Les tickets (A, C, D, F, J, K ; quatrième morceau construit, S04) :
 - **Suppression** (K) : revient à `/projets/:id/tickets`.
 - **Pas de changement serveur** : ni route ni migration.
 
+La nuit et la liste des projets (A, C, D, E ; cinquième morceau construit, S05) :
+
+- **« Lire » sur /nuit** (A) : chaque US sous « Pourrait s'ajouter » a un bouton « Lire » (`aria-expanded`, devient « Replier ») qui déplie sur place `StoryBody` (lu par `fetchStory`, clé `["story", id]`, seulement une fois dépliée) ; « Valider et ajouter » reste sur la ligne, l'adresse reste `/nuit`, et le programme déjà composé est gardé. Une lecture en échec dit « Impossible de lire la user story. ».
+- **Liens pendant la nuit** (C) : le titre d'une US mène à `/us/:id`, le nom du projet à `/projets/:id`, et « Run n » à `/runs/n` quand l'US a un run. Le soir, quand le programme se compose et qu'aucune nuit n'existe encore, rien n'est un lien : quitter la page perdrait le programme (044 D'').
+- **`runId` de l'item** (C, serveur) : `GET /api/nights/current` ajoute `runId` à chaque US de la nuit : le run de l'item quand son tour est fini, sinon le dernier run lancé pour lui (`cloud_launches`), sinon `null`. Pas de migration.
+- **Où agir** (D) : « Connecte le lanceur » est un lien vers `/reglages/taches-cloud` ; la liste vide dit « Aucun projet n'est coché pour la nuit » avec « Cocher des projets » vers la même page seulement quand aucun projet n'est coché ; avec un projet coché, elle garde « Aucune user story à ajouter. » sans lien.
+- **Importer un repo** (D) : la barre latérale pointe vers `/projets#importer` ; une fois les repos chargés, `Importable` amène la section dans la vue (`scrollIntoView`). Sans projet, l'état vide porte le lien « Importer un repo » vers `#importer`. Après un import réussi, « Ouvrir le projet » mène à `/projets/:id` et la liste reste affichée (pas de navigation automatique).
+- **« Claude t'attend » sur la liste des projets** (E) : l'état d'un projet qui attend l'utilisateur est un lien « Claude t'attend · n <chose> » vers la première chose de son espèce : question (`/runs/:runId`), US à valider ou PR à relire (`/us/:id`), relance épuisée (`/us/:id`), run à vérifier (`/runs/:runId`). Le compte est celui des éléments du même genre que le premier.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
 - **Un refus de règles à l'accueil** : le lien `rules_pending` d'une ligne mène à l'écran de reprise du projet (`/regles`), sans `?regle=` : la ligne ne connaît pas la règle.
 - **`V` sur l'accueil** valide l'US affichée dans le panneau : le risque de valider par réflexe est celui que la 073 acceptait déjà au Kanban.
 - **Une US ouverte dans un panneau de ticket** n'est pas dans l'adresse : seul `?ticket=` l'est dans l'onglet Tickets, et la page d'un ticket ne garde pas l'US ouverte.
+- **Un programme du soir** n'a aucun lien : pour lire une US déjà au programme, il faut valider ou annuler d'abord (« Lire » ne vaut que sous « Pourrait s'ajouter »).
+- **« Claude t'attend · n »** ne compte que les éléments du genre du premier ; un projet qui attend des choses de genres différents n'affiche que le premier genre.

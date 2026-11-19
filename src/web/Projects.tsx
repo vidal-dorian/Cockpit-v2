@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { client } from "./api.ts";
 import { atLeast, QUOTA_REFUSAL, ROLE_LABELS } from "./roles.ts";
 import { Dot, StateSentence, useHome } from "./Shell.tsx";
@@ -48,6 +48,35 @@ const STATE_TEXT = {
   claude: "Claude travaille",
   idle: "rien en cours",
 } as Record<string, string>;
+
+type Waiting = NonNullable<
+  ReturnType<typeof useHome>["data"]
+>["forYou"][number];
+
+/** « Claude t'attend · 2 PR à relire » and where the first of them is (decision 084 E). */
+function waitingLink(items: Waiting[]) {
+  const [first] = items;
+  if (!first) return null;
+  const count = items.filter((i) => i.kind === first.kind).length;
+  const many = count > 1;
+  const [text, to] = {
+    answer: [
+      many ? "questions" : "question",
+      `/runs/${(first as { runId: number }).runId}`,
+    ],
+    validate: ["US à valider", `/us/${(first as { storyId: number }).storyId}`],
+    review: ["PR à relire", `/us/${(first as { storyId: number }).storyId}`],
+    relaunch_exhausted: [
+      many ? "relances épuisées" : "relance épuisée",
+      `/us/${(first as { storyId: number }).storyId}`,
+    ],
+    check: [
+      many ? "runs à vérifier" : "run à vérifier",
+      `/runs/${(first as { runId: number }).runId}`,
+    ],
+  }[first.kind] as [string, string];
+  return { label: `${STATE_TEXT.for_you} · ${count} ${text}`, to };
+}
 
 function ErrorAlert({ error }: { error: Error }) {
   return (
@@ -119,7 +148,12 @@ function ProjectList() {
   if (projects.data === null) return <LoginLink />;
   if (projects.data.length === 0)
     return (
-      <p className="text-muted-foreground">Aucun projet pour l'instant.</p>
+      <p className="text-muted-foreground">
+        Aucun projet pour l'instant.{" "}
+        <a href="#importer" className={`underline ${focusRing}`}>
+          Importer un repo
+        </a>
+      </p>
     );
   const favorites = projects.data.filter((p) => p.favorite).length;
   const error = archive.error ?? star.error;
@@ -193,7 +227,20 @@ function ProjectList() {
               <span
                 className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
               >
-                {STATE_TEXT[states.get(project.id) ?? "idle"]}
+                {(() => {
+                  const waits = waitingLink(
+                    (home?.forYou ?? []).filter(
+                      (i) => i.project.id === project.id,
+                    ),
+                  );
+                  return states.get(project.id) === "for_you" && waits ? (
+                    <Link to={waits.to} className={`underline ${focusRing}`}>
+                      {waits.label}
+                    </Link>
+                  ) : (
+                    STATE_TEXT[states.get(project.id) ?? "idle"]
+                  );
+                })()}
               </span>
               <span className="flex gap-2">
                 {project.archived ? (
@@ -578,6 +625,7 @@ function Importable() {
         const error = await failure(res);
         throw error.message === "plan" ? new Error(QUOTA_REFUSAL) : error;
       }
+      return (await res.json()).project;
     },
     onSuccess: () => setChoosing(null),
     onSettled: () =>
@@ -586,6 +634,14 @@ function Importable() {
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
       ]),
   });
+
+  // Once the repos are drawn, « + Importer un repo » (from any page) lands on this section (decision 084 D).
+  const { hash } = useLocation();
+  const loaded = repositories.isSuccess;
+  useEffect(() => {
+    if (loaded && hash === "#importer")
+      document.getElementById("importer")?.scrollIntoView?.();
+  }, [loaded, hash]);
 
   if (repositories.isPending)
     return <p className="loading text-muted-foreground">Chargement…</p>;
@@ -661,6 +717,16 @@ function Importable() {
             </li>
           ))}
         </ul>
+      )}
+      {importRepo.data && (
+        <p className="mt-3">
+          <Link
+            to={`/projets/${importRepo.data.id}`}
+            className={`font-semibold underline ${focusRing}`}
+          >
+            Ouvrir le projet
+          </Link>
+        </p>
       )}
       {choosing && (
         <ImportDialog

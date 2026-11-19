@@ -381,7 +381,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
             {home?.projects.length}
           </span>
         </NavLink>
-        <Link to="/projets" className={subItem({ isActive: false })}>
+        <Link to="/projets#importer" className={subItem({ isActive: false })}>
           + Importer un repo
         </Link>
         <p className={sidebarLabel}>Configurer</p>

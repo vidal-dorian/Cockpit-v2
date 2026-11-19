@@ -60,7 +60,7 @@ describe("slice 9.3: the shell of a logged-in user", () => {
       within(aside).getByRole("link", { name: /^Tous les projets/ })
         .textContent,
     ).toContain("3");
-    expect(href(/Importer un repo/)).toBe("/projets");
+    expect(href(/Importer un repo/)).toBe("/projets#importer");
     expect(href(/^Journal/)).toBe("/journal");
     expect(href(/^Réglages/)).toBe("/reglages");
   });

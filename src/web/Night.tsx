@@ -5,10 +5,13 @@ import { client } from "./api.ts";
 import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
 import { refusedError } from "./roles.ts";
 import { fetchNight, StateSentence, useHome } from "./Shell.tsx";
+import { StoryBody } from "./StoryBody.tsx";
+import { fetchStory } from "./StoryDecisions.tsx";
 import { toast } from "./toast.tsx";
 import {
   alertBox,
   button,
+  focusRing,
   iconButton,
   listCard,
   moved,
@@ -28,6 +31,61 @@ export const OUTCOMES: Record<string, string> = {
   skipped: "Sautée : plus prête",
   not_started: "Non lancée",
 };
+
+const link = `underline ${focusRing}`;
+
+/** A story to validate, with « Lire » unfolding its narrative and criteria in place before « Valider et ajouter » (decision 084 A). */
+function ToValidate({
+  story,
+  pending,
+  onValidate,
+}: {
+  story: { storyId: number; iWant: string; project: { name: string } };
+  pending: boolean;
+  onValidate: () => void;
+}) {
+  const [read, setRead] = useState(false);
+  const found = useQuery({
+    queryKey: ["story", String(story.storyId)],
+    queryFn: () => fetchStory(String(story.storyId)),
+    enabled: read,
+  });
+  return (
+    <li className={`${row} flex-wrap`}>
+      <b>{story.iWant}</b>
+      <span className="text-muted-foreground">{story.project.name}</span>
+      <span className="ml-auto flex gap-1.5">
+        <button
+          type="button"
+          className={button}
+          aria-expanded={read}
+          onClick={() => setRead(!read)}
+        >
+          {read ? "Replier" : "Lire"}
+        </button>
+        <button
+          type="button"
+          className={button}
+          disabled={pending}
+          aria-busy={pending}
+          onClick={onValidate}
+        >
+          Valider et ajouter
+        </button>
+      </span>
+      {read && found.data && found.data !== "not_found" && (
+        <div className="basis-full">
+          <StoryBody found={found.data} />
+        </div>
+      )}
+      {read && found.isError && (
+        <p role="alert" className={`basis-full ${alertBox}`}>
+          Impossible de lire la user story.
+        </p>
+      )}
+    </li>
+  );
+}
 
 /** The next instant, in the browser's time zone, when the clock reads `hour` o'clock. */
 const nextHour = (hour: number) => {
@@ -177,10 +235,33 @@ export function Night() {
                 <ul className={`mt-2 ${listCard}`}>
                   {shown.map((s, at) => (
                     <li key={s.storyId} className={row}>
-                      <b id={`night-${s.storyId}`}>{s.iWant}</b>
+                      <b id={`night-${s.storyId}`}>
+                        {open ? (
+                          <Link to={`/us/${s.storyId}`} className={link}>
+                            {s.iWant}
+                          </Link>
+                        ) : (
+                          s.iWant
+                        )}
+                      </b>
                       <span className="text-muted-foreground">
-                        {s.project.name} · {duration(s.estimatedSeconds)}
+                        {open ? (
+                          <Link
+                            to={`/projets/${s.project.id}`}
+                            className={link}
+                          >
+                            {s.project.name}
+                          </Link>
+                        ) : (
+                          s.project.name
+                        )}{" "}
+                        · {duration(s.estimatedSeconds)}
                       </span>
+                      {"runId" in s && s.runId != null && (
+                        <Link to={`/runs/${s.runId}`} className={link}>
+                          Run {s.runId}
+                        </Link>
+                      )}
                       {open && !planned ? (
                         <span className="ml-auto text-muted-foreground">
                           {s.outcome
@@ -260,25 +341,25 @@ export function Night() {
                       </li>
                     ))}
                     {maybe.map((s) => (
-                      <li key={s.storyId} className={row}>
-                        <b>{s.iWant}</b>
-                        <span className="text-muted-foreground">
-                          {s.project.name}
-                        </span>
-                        <button
-                          type="button"
-                          className={`ml-auto ${button}`}
-                          disabled={validate.isPending}
-                          aria-busy={validate.isPending}
-                          onClick={() => validate.mutate(s.storyId)}
-                        >
-                          Valider et ajouter
-                        </button>
-                      </li>
+                      <ToValidate
+                        key={s.storyId}
+                        story={s}
+                        pending={validate.isPending}
+                        onValidate={() => validate.mutate(s.storyId)}
+                      />
                     ))}
                     {addable.length + maybe.length === 0 && (
                       <li className={`${row} text-muted-foreground`}>
-                        Aucune user story à ajouter.
+                        {launcher.data?.projectIds.length === 0 ? (
+                          <>
+                            Aucun projet n'est coché pour la nuit.{" "}
+                            <Link to="/reglages/taches-cloud" className={link}>
+                              Cocher des projets
+                            </Link>
+                          </>
+                        ) : (
+                          "Aucune user story à ajouter."
+                        )}
                       </li>
                     )}
                   </ul>
@@ -308,7 +389,15 @@ export function Night() {
                       {count > 1 ? "user stories" : "user story"}
                     </button>
                     {reason && (
-                      <span className="text-muted-foreground">{reason}</span>
+                      <span className="text-muted-foreground">
+                        {launcher.data?.connected ? (
+                          reason
+                        ) : (
+                          <Link to="/reglages/taches-cloud" className={link}>
+                            {reason}
+                          </Link>
+                        )}
+                      </span>
                     )}
                   </>
                 )}
