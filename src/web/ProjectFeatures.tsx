@@ -286,7 +286,7 @@ export function ProjectFeatures({
           projectId={projectId}
           fullName={fullName}
           archived={archived}
-          initialRules={analyse === "rules"}
+          steps={analyse === "rules" ? ["rules"] : ["map"]}
           onClose={() => setAnalyse(null)}
         />
       )}

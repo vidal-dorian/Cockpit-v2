@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ComponentProps, useState } from "react";
 import Markdown from "react-markdown";
-import { AnalyseWindow } from "./AnalyseWindow.tsx";
+import { Link } from "react-router";
+import { AnalyseWindow, type Step } from "./AnalyseWindow.tsx";
 import {
   closedOnGitHub,
   type Decision,
@@ -51,6 +52,7 @@ const FILTERS = [
   ["upgrade", "Versions"],
   ["architecture", "Architecture"],
   ["stack", "Stack"],
+  ["ticketed", "En ticket"],
   ["dismissed", "Rejetés"],
 ] as const;
 type Filter = (typeof FILTERS)[number][0];
@@ -76,6 +78,7 @@ function FindingPanel({
   busy,
   counter,
   onDecide,
+  onAnalyse,
   onClose,
 }: {
   finding: Finding;
@@ -85,6 +88,7 @@ function FindingPanel({
   busy: boolean;
   counter?: ComponentProps<typeof Panel>["counter"];
   onDecide: (action: Decision, reason?: string) => void;
+  onAnalyse: () => void;
   onClose: () => void;
 }) {
   const [reason, setReason] = useState("");
@@ -162,6 +166,14 @@ function FindingPanel({
       {closed && (
         <p className="text-[13px] text-muted-foreground">Fermée sur GitHub</p>
       )}
+      {finding.ticketId !== null && (
+        <Link
+          to={`/tickets/${finding.ticketId}`}
+          className={`underline ${focusRing}`}
+        >
+          Ticket #{finding.ticketId}
+        </Link>
+      )}
       <div className={`text-[13.5px] leading-normal ${markdownStyle}`}>
         <Markdown disallowedElements={["img"]}>{finding.bodyMd}</Markdown>
       </div>
@@ -169,7 +181,14 @@ function FindingPanel({
         (finding.kind === "architecture" || finding.kind === "stack") && (
           <p className="text-[13px] text-muted-foreground">
             Aucune règle figée ne protège ce code : reprends d'abord la
-            fonctionnalité qui le touche.
+            fonctionnalité qui le touche.{" "}
+            <button
+              type="button"
+              className={`underline ${focusRing}`}
+              onClick={onAnalyse}
+            >
+              Reprendre la fonctionnalité
+            </button>
           </p>
         )}
       {finding.githubUrl && (
@@ -330,24 +349,29 @@ export function Findings({
   // The right panel: a finding, a runtime in end of life (by its name and version), or the window of the analysis.
   const [openId, setOpenId] = useState<number | null>(null);
   const [openRuntime, setOpenRuntime] = useState<string | null>(null);
-  const [analyse, setAnalyse] = useState(false);
+  const [analyse, setAnalyse] = useState<Step[] | null>(null);
+  // The ticket the last decision made, linked until the next decision (decision 084 C).
+  const [made, setMade] = useState<{ id: number; title: string } | null>(null);
   const versions = useVersions(projectId);
   const all = query.data ?? [];
+  // « Rejetés » and « En ticket » are read, not queued.
+  const settled = filter === "dismissed" || filter === "ticketed";
   const shown =
     filter === "dismissed"
       ? all.filter((f) => f.status === "dismissed" || closedOnGitHub(f))
-      : toDecide(all).filter((f) => filter === "all" || f.kind === filter);
+      : filter === "ticketed"
+        ? all.filter((f) => f.status === "ticketed")
+        : toDecide(all).filter((f) => filter === "all" || f.kind === filter);
   const rows =
     filter === "all" || filter === "upgrade"
       ? eolRows(versions.data ?? [])
       : [];
   const openRow = rows.find((r) => r.key === openRuntime);
-  const [first, ...others] = filter === "dismissed" ? [] : shown;
-  const rest = filter === "dismissed" ? shown : others;
+  const [first, ...others] = settled ? [] : shown;
+  const rest = settled ? shown : others;
   const open = all.find((f) => f.id === openId);
   // « i sur n » only for a finding still to decide: the dismissed ones are read, not queued.
-  const position =
-    filter === "dismissed" ? -1 : shown.findIndex((f) => f.id === openId);
+  const position = settled ? -1 : shown.findIndex((f) => f.id === openId);
   const show = (id: number | null, runtime: string | null = null) => {
     setOpenId(id);
     setOpenRuntime(runtime);
@@ -372,7 +396,8 @@ export function Findings({
   const decision = useMutation({
     mutationFn: (sent: { id: number; action: Decision; reason?: string }) =>
       decide(sent.id, sent.action, sent.reason),
-    onSuccess: (_, { id, action }) => {
+    onSuccess: (done, { id, action }) => {
+      setMade(done.ticket ?? null);
       // The next finding of the list opens, or the panel closes at the end (decision 084 B).
       const at = shown.findIndex((f) => f.id === id);
       show(at < 0 ? null : (shown[at + 1]?.id ?? null));
@@ -389,6 +414,16 @@ export function Findings({
   const run = (id: number, action: Decision, reason?: string) =>
     decision.mutate({ id, action, reason });
   const busy = decision.isPending;
+  const empty = shown.length === 0 && rows.length === 0;
+  const analyseButton = (className: string) => (
+    <button
+      type="button"
+      className={className}
+      onClick={() => setAnalyse(["bugs", "security", "architecture"])}
+    >
+      Analyser avec Claude
+    </button>
+  );
 
   return (
     <>
@@ -424,6 +459,7 @@ export function Findings({
       {query.data && (
         <>
           <div className="mb-4 flex flex-wrap items-center justify-end gap-1.5">
+            {!empty && analyseButton(button)}
             <button
               type="button"
               className={button}
@@ -463,12 +499,28 @@ export function Findings({
               {name} n'est pas activé sur ce repo.
             </p>
           ))}
-          {shown.length === 0 && rows.length === 0 && (
-            <p className={`${card} p-4`}>
-              {filter === "dismissed"
-                ? "Aucun constat rejeté."
-                : "Rien à trancher : Claude n'a rien trouvé de nouveau."}
+          {made && (
+            <p role="status" className={`${card} mb-2 px-4 py-2`}>
+              Ticket créé : {made.title}{" "}
+              <Link
+                to={`/tickets/${made.id}`}
+                className={`underline ${focusRing}`}
+              >
+                Ouvrir le ticket
+              </Link>
             </p>
+          )}
+          {empty && (
+            <div className={`${card} flex flex-wrap items-center gap-3.5 p-4`}>
+              <p className="min-w-0 flex-1">
+                {filter === "dismissed"
+                  ? "Aucun constat rejeté."
+                  : filter === "ticketed"
+                    ? "Aucun constat en ticket."
+                    : "Rien à trancher : Claude n'a rien trouvé de nouveau."}
+              </p>
+              {filter === "all" && analyseButton(primaryButton)}
+            </div>
           )}
           {first && (
             <section aria-label="À corriger d'abord" className="mb-5">
@@ -520,7 +572,11 @@ export function Findings({
           {(rest.length > 0 || rows.length > 0) && (
             <section aria-label="Les autres constats">
               <p className={`mb-2 ${sectionLabel}`}>
-                {filter === "dismissed" ? "Rejetés" : "Les autres constats"}
+                {filter === "dismissed"
+                  ? "Rejetés"
+                  : filter === "ticketed"
+                    ? "En ticket"
+                    : "Les autres constats"}
               </p>
               <ul className={listCard}>
                 {rest.map((f) => (
@@ -557,8 +613,9 @@ export function Findings({
           projectId={projectId}
           fullName={fullName}
           archived={archived}
-          initialVersions
-          onClose={() => setAnalyse(false)}
+          key={analyse.join()}
+          steps={analyse}
+          onClose={() => setAnalyse(null)}
         />
       )}
       {!analyse && openRow && (
@@ -567,7 +624,7 @@ export function Findings({
           row={openRow}
           projectId={projectId}
           fullName={fullName}
-          onPlan={() => setAnalyse(true)}
+          onPlan={() => setAnalyse(["versions"])}
           onClose={() => show(null)}
         />
       )}
@@ -590,6 +647,7 @@ export function Findings({
                 }
           }
           onDecide={(action, reason) => run(open.id, action, reason)}
+          onAnalyse={() => setAnalyse(["rules"])}
           onClose={() => show(null)}
         />
       )}

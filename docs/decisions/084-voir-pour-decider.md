@@ -129,6 +129,15 @@ Un refus mène à sa réparation (D ; huitième morceau construit, S08) :
 - **Santé** : la ligne `ci` rouge porte « Voir l'onglet CI / CD » vers `/projets/:id/ci` ; la ligne `webhook` en `wrong_url` ou `last_delivery_failed` porte `url` (réglages de l'App, `appSettingsUrl`) et le texte « Ouvrir les réglages de l'App ↗ » ; une ligne verte n'a pas d'`url`.
 - **Serveur** : `webhookLine` reçoit `appSettingsUrl` ; pas de route ni de migration.
 
+La conception et la santé (C, D ; neuvième morceau construit, S09) :
+
+- **Ticket créé** (C) : `POST /api/findings/:id/ticket` répondait déjà le ticket ; `findings.ts` le rend. L'écran Constats dit « Ticket créé : <titre> » avec « Ouvrir le ticket » vers `/tickets/:id`, jusqu'à la décision suivante. « C'est un bug » (`Reprise.tsx`) ajoute le même lien « Ouvrir le ticket » à sa notice.
+- **Filtre « En ticket »** (`Findings.tsx`) : liste les constats `ticketed`, lus comme « Rejetés » (ni compteur ni `J` / `K`) ; le constat porte « Ticket #n » vers `/tickets/n`.
+- **Règles d'un objet** (C, `ConceptionObject.tsx`) : le panneau d'un objet liste, sans doublon, les règles des fonctionnalités qui le citent (`useFeatures`), section « Les règles qui le touchent · n », chacune en lien `ruleHref` (`?regle=`).
+- **`?objet=`** (`ProjectConception.tsx`) : l'adresse est relue quand elle change alors que l'onglet reste monté, donc la puce d'un objet des Fonctionnalités ou de l'écran de reprise ouvre son panneau.
+- **Fenêtre d'analyse** (D) : `AnalyseWindow` prend `steps` (`Step[]`) à la place de `initialRules` et `initialVersions` ; seules les étapes listées sont cochées. « Analyser avec Claude » de Constats (en tête de liste, et dans l'état vide du filtre « Tous ») coche Bugs, Sécurité et Architecture et stack ; « Reprendre la fonctionnalité » (constat d'architecture sur du code sans règle figée) et l'état vide de Règles cochent Règles ; le plan de versions coche Versions ; les autres entrées gardent Carte.
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -141,3 +150,4 @@ Un refus mène à sa réparation (D ; huitième morceau construit, S08) :
 - **Touches 1 et 2** ne valent que pour la question affichée par `AnswerForm` : deux formulaires de réponse montés en même temps (jamais aujourd'hui) répondraient tous les deux.
 - **Finis aujourd'hui** ne montre que la première ligne du résumé d'un échec ; la suite se lit sur la page du run.
 - **Un code sans réparation connue** (`FIXES` ne le liste pas, ou `not_prepared` sans projet) garde le message seul : un nouveau code de refus demande une ligne dans `FIXES`.
+- **Le lien du ticket créé** disparaît à la décision suivante ou en quittant l'écran : le ticket se retrouve par « En ticket » ou par l'onglet Tickets.

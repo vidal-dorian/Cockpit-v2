@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { AnalyseWindow } from "./AnalyseWindow.tsx";
+import { AnalyseWindow, type Step } from "./AnalyseWindow.tsx";
 import { CodeView } from "./CodeView.tsx";
 import { fetchCode, permalink } from "./conception.ts";
 import {
@@ -485,10 +485,12 @@ export function Reprise({
           rules.findIndex((r) => r.state === "pending"),
         );
   const rule = rules[index];
-  const [analyse, setAnalyse] = useState(false);
+  const [analyse, setAnalyse] = useState<Step[] | null>(null);
   const [notice, setNotice] = useState<{
     text: string;
     undo?: number;
+    /** The ticket a bug was noted in (decision 084 C). */
+    ticket?: number;
     /** The US whose rules are all decided: the way to validate it (decision 084 B). */
     story?: number;
   } | null>(null);
@@ -559,7 +561,7 @@ export function Reprise({
     });
   const bug = (target: Rule) =>
     decision.mutate(async () => {
-      await reportBug(target.id);
+      const ticket = await reportBug(target.id);
       queryClient.setQueryData<Rule[]>(rulesKey(projectId), (old) =>
         old?.filter((r) => r.id !== target.id),
       );
@@ -576,6 +578,7 @@ export function Reprise({
         text: done
           ? "Bug noté dans un nouveau ticket. Toutes les règles de cette US sont validées."
           : "Bug noté dans un nouveau ticket.",
+        ticket: ticket.id,
         story: done ? target.storyId : undefined,
       });
       open(next?.id);
@@ -594,7 +597,11 @@ export function Reprise({
 
   const absent = rules.filter((r) => r.objects.some((o) => !o.inMap)).length;
   const analyseButton = (label: string) => (
-    <button type="button" className={button} onClick={() => setAnalyse(true)}>
+    <button
+      type="button"
+      className={button}
+      onClick={() => setAnalyse(["map"])}
+    >
       {label}
     </button>
   );
@@ -625,7 +632,7 @@ export function Reprise({
           <button
             type="button"
             className={primaryButton}
-            onClick={() => setAnalyse(true)}
+            onClick={() => setAnalyse(["rules"])}
           >
             Analyser avec Claude
           </button>
@@ -648,6 +655,17 @@ export function Reprise({
         >
           <span>
             {notice.text}
+            {notice.ticket !== undefined && (
+              <>
+                {" "}
+                <Link
+                  to={`/tickets/${notice.ticket}`}
+                  className={`underline ${focusRing}`}
+                >
+                  Ouvrir le ticket
+                </Link>
+              </>
+            )}
             {notice.story !== undefined && (
               <>
                 {" "}
@@ -684,7 +702,8 @@ export function Reprise({
           projectId={projectId}
           fullName={fullName}
           archived={archived}
-          onClose={() => setAnalyse(false)}
+          steps={analyse}
+          onClose={() => setAnalyse(null)}
         />
       ) : (
         rule && (
@@ -706,7 +725,7 @@ export function Reprise({
                 replace(await correctRule(rule.id, text)),
               )
             }
-            onAnalyse={() => setAnalyse(true)}
+            onAnalyse={() => setAnalyse(["map"])}
           />
         )
       )}
