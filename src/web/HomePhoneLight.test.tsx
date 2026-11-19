@@ -71,22 +71,23 @@ const why = (s: HTMLElement) =>
   );
 
 describe("decision 083 D1: the guide on the phone", () => {
-  it("given the guide with three steps left, when the home loads, then only the next step stays visible below md and the other six carry max-md:hidden", async () => {
+  it("given the guide with four steps left, when the home loads, then only the next step stays visible below md and the other six carry max-md:hidden", async () => {
     stub();
     renderAt("/");
 
     const rows = items(await guideSection());
     expect(rows).toHaveLength(7);
+    // install, project and claude are done in the fixture: the next step is « Préparer un repo pour Claude ».
     expect(rows.map((li) => li.className.includes("max-md:hidden"))).toEqual([
+      true,
       true,
       true,
       false,
       true,
       true,
       true,
-      true,
     ]);
-    expect(rows[2]?.textContent).toContain("Faire");
+    expect(rows[3]?.textContent).toContain("Faire");
   });
 
   it("given the guide, when the home loads, then « Voir les 7 étapes » is a collapsed button shown only below md", async () => {
