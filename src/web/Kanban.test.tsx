@@ -170,13 +170,18 @@ describe("criterion 4: the cards", () => {
     ).toBe("/projets/5?us=23");
   });
 
-  it("given a board with cards, when the page loads, then the Kanban section holds no button", async () => {
+  it("given a board with cards, when the page loads, then the columns hold no button", async () => {
     stubTicketApi(tickets, onBoard);
 
     renderAt("/projets/5");
 
     await screen.findByRole("link", { name: /vouloir-alpha/ });
-    expect(within(kanban()).queryAllByRole("button")).toEqual([]);
+    // The column chips of decision 083 C1 sit above the board: they are the only buttons of the section.
+    expect(
+      within(
+        screen.getByRole("region", { name: "Colonnes du Kanban" }),
+      ).queryAllByRole("button"),
+    ).toEqual([]);
   });
 });
 
