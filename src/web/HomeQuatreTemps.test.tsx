@@ -146,14 +146,16 @@ describe("slice 9.3: Maintenant, Ensuite and Claude en ce moment", () => {
     renderAt("/");
 
     const s = await section(/Claude en ce moment/);
+    // The first link is « Tous les runs » (decision 084 E).
     const links = within(s).getAllByRole("link");
     expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "/claude",
       "/runs/12",
       "/runs/13",
     ]);
-    expect(links[0]?.textContent).toContain("Run 12 · hello");
-    expect(links[0]?.textContent).toContain("developer");
-    expect(links[1]?.textContent).toContain("Démarrage");
+    expect(links[1]?.textContent).toContain("Run 12 · hello");
+    expect(links[1]?.textContent).toContain("developer");
+    expect(links[2]?.textContent).toContain("Démarrage");
   });
 
   it("given no run, when the home loads, then there is no Claude en ce moment", async () => {

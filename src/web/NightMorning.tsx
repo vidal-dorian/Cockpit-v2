@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { client } from "./api.ts";
 import { duration, OUTCOMES } from "./Night.tsx";
 import { plural } from "./tickets.ts";
-import { button, card } from "./ui.ts";
+import { button, card, focusRing } from "./ui.ts";
 
 type Item = {
   storyId: number;
@@ -28,6 +29,7 @@ const clock = (iso: string) => {
 export function NightMorning({
   night,
   questions,
+  onQuestions,
 }: {
   night: {
     id: number;
@@ -41,6 +43,8 @@ export function NightMorning({
     items: Item[];
   };
   questions: number;
+  /** Brings the focus into the panel, where the first question is open. */
+  onQuestions: () => void;
 }) {
   const queryClient = useQueryClient();
   const hide = useMutation({
@@ -78,20 +82,31 @@ export function NightMorning({
         <h2 id="cette-nuit" className="font-semibold">
           ☾ Cette nuit, Claude a livré {night.delivered} PR sur {night.total}
         </h2>
-        <button
-          type="button"
-          className={button}
-          disabled={hide.isPending}
-          aria-busy={hide.isPending}
-          onClick={() => hide.mutate()}
-        >
-          Masquer
-        </button>
+        <div className="flex items-center gap-3">
+          <Link to="/nuit" className={button}>
+            Voir la nuit
+          </Link>
+          <button
+            type="button"
+            className={button}
+            disabled={hide.isPending}
+            aria-busy={hide.isPending}
+            onClick={() => hide.mutate()}
+          >
+            Masquer
+          </button>
+        </div>
       </div>
       {questions > 0 && (
         <p>
-          {questions}{" "}
-          {questions > 1 ? "questions t'attendent" : "question t'attend"}
+          <button
+            type="button"
+            onClick={onQuestions}
+            className={`font-semibold underline ${focusRing}`}
+          >
+            {questions}{" "}
+            {questions > 1 ? "questions t'attendent" : "question t'attend"}
+          </button>
         </p>
       )}
       <p>
@@ -128,10 +143,13 @@ export function NightMorning({
           return (
             <li key={item.storyId} className="grid gap-1">
               <span className="flex flex-wrap gap-x-3">
-                <span>
+                <Link
+                  to={`/us/${item.storyId}`}
+                  className={`underline ${focusRing}`}
+                >
                   <span className="sr-only">US {item.storyId} · </span>
                   {item.iWant}
-                </span>
+                </Link>
                 <span className="text-muted-foreground">
                   {item.outcome ? (OUTCOMES[item.outcome] ?? item.outcome) : ""}
                   {item.startedAt &&

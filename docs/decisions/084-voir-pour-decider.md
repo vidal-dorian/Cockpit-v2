@@ -66,7 +66,21 @@ La suite après l'action (B, G ; deuxième morceau construit, S02) :
 - **Règles** : le panneau dit « En tant que … » (lien vers `/us/:id`) et le titre du ticket. Valider ou noter un bug ouvre la prochaine règle encore à relire après la courante, sinon la première restante : une règle déjà validée est sautée. Quand plus aucune règle de l'US n'est à trancher, la notice ajoute « Toutes les règles de cette US sont validées » et un lien « Valider l'US » vers `/us/:id`. Après « Noter un bug » ce message n'apparaît que si l'US a d'autres règles (sinon le serveur abandonne l'US, il n'y a rien à valider).
 - **Pas de changement serveur** : ni route ni migration.
 
+L'accueil (A, B, C, D, E, I ; troisième morceau construit, S03) :
+
+- **Panneau d'une US à valider** : `ValidatePanel` (`HomePage.tsx`) lit l'US (`fetchStory`, clé `["story", id]`) et montre `StoryDecisions` avec `StoryBody`, le lien « Ouvrir l'US » et le `counter` (« 1 sur 2 », `J` / `K`). Tant que l'US n'est pas lue, rien ne s'affiche ; si elle est introuvable, le panneau simple (`ItemPanel`) reste. Les autres sortes de lignes gardent `ItemPanel`.
+- **La suite** : après Valider, Renvoyer ou Abandonner réussis, l'accueil est relu (`["home"]`) : la file perd l'US et la même place montre la suivante, le focus va sur sa ligne « US n » ; à la dernière, le panneau se ferme. `V` valide dans ce panneau parce que le bouton Valider de `StoryDecisions` y est monté.
+- **Titres et carte « Maintenant »** : le titre de chaque ligne de « 2 · Ensuite » et de « Relances épuisées », et celui de la carte « 1 · Maintenant », sont des boutons qui ouvrent le panneau sur cet élément (focus compris).
+- **Valider d'une ligne** : le bouton n'existe que pour un rôle `can_validate` ou plus (rôle lu dans `["projects"]`). Un refus passe par `decisionError` (`tickets.ts`) : « Des règles sont encore à trancher. » (409 `rules_pending`, avec le lien « Trancher dans l'écran de reprise » vers `/projets/:id/conception/regles`), « Ton rôle sur ce projet ne le permet pas. » (403 `role`).
+- **Relance épuisée** : « Voir la PR #n » (GitHub) s'ajoute à « Ouvrir l'US », dans le panneau, sur la carte « Maintenant » et sur la ligne.
+- **Liens des maquettes** : « Tous les runs » (`/claude`) sur « Claude en ce moment » ; carte « Préparer la nuit » (`/nuit`, « n user stories prêtes à programmer ») seulement quand rien n'attend et qu'aucune nuit n'est en cours (même clé `["home", "night"]` que la barre latérale) ; « Importer un repo » (`/projets`) sans projet, sans guide et sans rien à faire ; « Voir la nuit » (`/nuit`) sur le bloc du matin.
+- **États d'erreur** : « Impossible de lire l'accueil. » et « Impossible de lire le journal. » portent « Réessayer », qui relit la requête.
+- **« Plus tard »** : un vrai bouton dans le panneau d'une question, qui ouvre la suivante (« 2 sur 2 ») et est désactivé à la dernière.
+- **Bloc du matin** (`NightMorning.tsx`) : chaque ligne de la frise mène à `/us/:id` ; « n question(s) t'attend(ent) » est un bouton qui ouvre la première question et amène le focus dans le panneau.
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
+- **Un refus de règles à l'accueil** : le lien `rules_pending` d'une ligne mène à l'écran de reprise du projet (`/regles`), sans `?regle=` : la ligne ne connaît pas la règle.
 - **`V` sur l'accueil** valide l'US affichée dans le panneau : le risque de valider par réflexe est celui que la 073 acceptait déjà au Kanban.
