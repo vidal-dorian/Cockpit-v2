@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
@@ -27,7 +27,7 @@ import {
 import { memberStory } from "./stories.ts";
 import { AGENT_NAME, MAX_TEAM_NAME } from "./team.ts";
 import { assertActive, body, noNul, refusal } from "./tickets.ts";
-import { workflowPath } from "./workflows.ts";
+import { ASK_GIVE_UP_MS, workflowPath } from "./workflows.ts";
 
 /** Decision 054 B: fixed, shown by « Copier la consigne ». Only `launch_id` travels in the fired text; the rest is read from Cockpit. */
 // Generic on purpose: what to do travels in `instructions`, so later launches (routines, the night) never make the user copy a new prompt.
@@ -437,7 +437,28 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
           },
           new Date(now()),
           [project.id],
-          async () => ({ projectId: project.id, workflowPath: path }),
+          async (tx) => {
+            // Decision 084 E: one cloud session at a time per workflow; the project row is the lock for two simultaneous asks.
+            await tx
+              .select({ id: projects.id })
+              .from(projects)
+              .where(eq(projects.id, project.id))
+              .for("update");
+            const [running] = await tx
+              .select({ id: cloudLaunches.id })
+              .from(cloudLaunches)
+              .where(
+                and(
+                  eq(cloudLaunches.projectId, project.id),
+                  eq(cloudLaunches.workflowPath, path),
+                  isNull(cloudLaunches.finishedAt),
+                  gt(cloudLaunches.createdAt, new Date(now() - ASK_GIVE_UP_MS)),
+                ),
+              )
+              .limit(1);
+            if (running) throw new Refused("launch_running");
+            return { projectId: project.id, workflowPath: path };
+          },
         );
         return "error" in launched
           ? c.json({ error: launched.error }, launched.status)

@@ -220,7 +220,6 @@ export function ProjectPage({
   const workflows = useQuery({
     queryKey: ["workflows", id],
     queryFn: () => fetchWorkflows(id),
-    enabled: tab === "ci",
     retry: false,
   });
   const schedule = useQuery({
@@ -430,7 +429,9 @@ export function ProjectPage({
             >
               {t.tab === "sante" && red > 0
                 ? `Santé · ${red} à corriger`
-                : t.label}
+                : t.tab === "ci" && workflows.data?.data?.proposal
+                  ? `${t.label} · 1 à relire`
+                  : t.label}
             </NavLink>
           ))}
         </nav>

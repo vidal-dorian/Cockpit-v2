@@ -81,6 +81,12 @@ const KINDS = {
     group: "Relances épuisées",
     hint: "la CI échoue encore",
   },
+  workflow_proposal: {
+    glyph: "⇄",
+    badge: "À relire",
+    group: "Propositions de Claude",
+    hint: "un changement de workflow",
+  },
   check: {
     glyph: "!",
     badge: "À vérifier",
@@ -94,7 +100,11 @@ const prUrl = (
 ) => `https://github.com/${item.project.name}/pull/${item.prNumber}`;
 
 const title = (item: Item) =>
-  item.kind === "answer" ? item.question : item.iWant;
+  item.kind === "answer"
+    ? item.question
+    : item.kind === "workflow_proposal"
+      ? `Claude propose un changement de ${item.path.split("/").pop()}`
+      : item.iWant;
 
 /** « Question de Claude · Run 3 · hello »: what the item is, then where. The row of « 2 · Ensuite » drops the kind, its group says it. */
 function subLine(item: Item, withKind = true) {
@@ -114,6 +124,8 @@ function subLine(item: Item, withKind = true) {
     }
     case "relaunch_exhausted":
       return `Relances épuisées : la CI échoue encore après 3 essais · PR #${item.prNumber} · ${project}`;
+    case "workflow_proposal":
+      return `${item.reason} · ${project}`;
     case "check":
       return `Run ${item.runId} · ${project}`;
   }
@@ -127,7 +139,13 @@ function rowTitle(item: Item) {
 }
 
 const itemKey = (item: Item) =>
-  `${item.kind}-${item.kind === "answer" ? item.questionId : item.storyId}`;
+  `${item.kind}-${
+    item.kind === "answer"
+      ? item.questionId
+      : item.kind === "workflow_proposal"
+        ? item.proposalId
+        : item.storyId
+  }`;
 
 function Section({
   label,
@@ -221,6 +239,12 @@ function RowActions({
           </Link>
         </>
       );
+    case "workflow_proposal":
+      return (
+        <Link to={`/projets/${item.project.id}/ci`} className={rowAction}>
+          Relire
+        </Link>
+      );
     case "check":
       return (
         <Link to={`/runs/${item.runId}`} className={rowAction}>
@@ -303,6 +327,15 @@ function ItemPanel({
           Ouvrir l'US
         </Link>
       </>
+    );
+  else if (item.kind === "workflow_proposal")
+    footer = (
+      <Link
+        to={`/projets/${item.project.id}/ci`}
+        className={panelPrimaryButton}
+      >
+        Relire la proposition
+      </Link>
     );
   else
     footer = (
@@ -884,13 +917,22 @@ export function HomePage({
               ✦
             </span>
             <span className="min-w-0">
-              <button
-                type="button"
-                onClick={() => open(0, true)}
-                className={`block max-w-full text-left text-[15px] font-semibold ${focusRing}`}
-              >
-                {rowTitle(first)}
-              </button>
+              {first.kind === "workflow_proposal" ? (
+                <Link
+                  to={`/projets/${first.project.id}/ci`}
+                  className={`block max-w-full text-left text-[15px] font-semibold ${focusRing}`}
+                >
+                  {rowTitle(first)}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => open(0, true)}
+                  className={`block max-w-full text-left text-[15px] font-semibold ${focusRing}`}
+                >
+                  {rowTitle(first)}
+                </button>
+              )}
               <span className="text-[12.5px] text-muted-foreground">
                 {subLine(first)}
               </span>

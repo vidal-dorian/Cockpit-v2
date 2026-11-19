@@ -127,6 +127,7 @@ Un refus mène à sa réparation (D ; huitième morceau construit, S08) :
 - **File en pause** (`Claude.tsx`) : `run_failed` ajoute « Voir le run » vers le run échoué de « Finis aujourd'hui » au plus grand id (rien s'il n'y en a pas) ; `launch_failed` ajoute le lien vers les Réglages.
 - **Bandeau de verrou** (`ProjectPage.tsx`) : « Voir l'abonnement » (`/reglages/abonnement`) seulement quand `lockedBy` est le login de l'utilisateur ; verrouillé par un autre (garde-fou), aucun lien.
 - **Santé** : la ligne `ci` rouge porte « Voir l'onglet CI / CD » vers `/projets/:id/ci` ; la ligne `webhook` en `wrong_url` ou `last_delivery_failed` porte `url` (réglages de l'App, `appSettingsUrl`) et le texte « Ouvrir les réglages de l'App ↗ » ; une ligne verte n'a pas d'`url`.
+- **Lancement de « Demander à Claude » jamais verrouillé** (E, précise 067 G) : un lancement sans nouvelles depuis deux heures (comme `GIVE_UP_MS` des routines, 056 B) ne compte plus : il ne bloque pas une nouvelle demande et la ligne ne dit plus « Claude regarde ». Une demande qui vient d'être acceptée remplace à l'écran le résumé du lancement précédent.
 - **Serveur** : `webhookLine` reçoit `appSettingsUrl` ; pas de route ni de migration.
 
 La conception et la santé (C, D ; neuvième morceau construit, S09) :
@@ -157,6 +158,15 @@ Les équipes, les agents et les plugins (A, C, D, N, O ; onzième morceau constr
 - **Plugins** (C, D) : sans repo relié, la phrase porte « Ouvrir un repo à Cockpit ↗ » vers `installUrl` ; avec l'App installée sur aucun repo : « L'App est installée, mais sur aucun repo. » et « Choisir des repos ». Le repo relié a « Ouvrir le repo ↗ » vers GitHub et chaque projet de « Tes projets » est un lien vers `/projets/:id`. « Installer » ou « Retirer » montre « Ce qui change » et « Faire le commit » dans le `li` du projet, avec « C'est fait » ou l'alerte de refus ; le haut de page ne les montre plus pour un projet.
 - **Pas de changement serveur** : ni route ni migration.
 
+La CI / CD (E ; douzième morceau construit, S12) :
+
+- **`claude` sur chaque workflow** (serveur) : `GET /api/projects/:id/workflows` ajoute à chaque workflow `claude` : `{ sessionUrl, startedAt, finishedAt, outcome, summary }` du dernier « Demander à Claude » (`claudeAsks`, `workflows.ts`), ou `null` si le workflow n'a jamais été demandé ou si le dernier lancement, non fini, n'a pas de nouvelles depuis `ASK_GIVE_UP_MS` (2 h). Un lancement en cours a `finishedAt: null` et `summary: null`.
+- **Pas de double lancement** : `POST .../workflows/ask` refuse avec 409 `launch_running` quand un lancement non fini (de moins de 2 h) existe pour le même workflow ; un autre workflow passe. Le test se fait dans la transaction de l'action, sous un verrou de la ligne du projet (deux demandes simultanées). Le refus est écrit en français (`REFUSALS`, `ProjectPrepare.tsx`).
+- **La ligne après rechargement** (`ProjectCi.tsx`) : un lancement non fini dit « Claude regarde depuis <durée> », garde « Voir la session » et grise « Demander à Claude » ; un lancement fini montre son résumé et le bouton redevient actif. Une demande qui vient d'être acceptée remplace le résumé précédent.
+- **Proposition à relire à l'accueil** : `GET /api/home` ajoute à `forYou`, en dernier, un item `workflow_proposal` `{ proposalId, path, reason, project }` par proposition en attente (`decision` nulle) des projets de l'utilisateur. « 1 · Maintenant » le montre en lien « Claude propose un changement de <fichier> » vers `/projets/:id/ci` ; les autres lignes de l'accueil ont « Relire » et le panneau « Relire la proposition » (groupe « Propositions de Claude »). Sur la liste des projets, « Claude t'attend » le compte comme « proposition de workflow ».
+- **Onglet** (`ProjectPage.tsx`) : « CI / CD · 1 à relire » dès qu'une proposition est en attente, sans classe destructive ; la requête des workflows n'est plus limitée à l'onglet CI / CD.
+- **Pas de migration**, aucune route ajoutée.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -173,3 +183,5 @@ Les équipes, les agents et les plugins (A, C, D, N, O ; onzième morceau constr
 - **Le dernier projet utilisé** n'est gardé qu'en mémoire de la page : un rechargement revient au premier projet de l'accueil.
 - **Le lien « Ouvrir le ticket »** de la barre d'idée disparaît avec le message « Idée notée dans … ».
 - **« Utilisé par »** ne lit que les équipes que `readTeam` sait lire ; une équipe illisible n'est pas comptée.
+- **« CI / CD · 1 à relire »** lit la requête des workflows, qui appelle GitHub : un échec de cette lecture (rejouée une seule fois au chargement de chaque onglet du projet) laisse l'onglet sans compteur.
+- **Un lancement sans nouvelles depuis 2 h** n'est ni affiché ni bloquant, même si sa session tourne encore : l'ancienne session peut alors s'ajouter à la nouvelle.

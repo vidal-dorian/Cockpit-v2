@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
 import type { Db } from "./db/db.ts";
-import { type projects, workflowProposals } from "./db/schema.ts";
+import {
+  cloudLaunches,
+  type projects,
+  workflowProposals,
+} from "./db/schema.ts";
 import type { ReadGitHub } from "./github.ts";
 import { assertActive } from "./tickets.ts";
 
@@ -162,4 +166,44 @@ export async function proposeWorkflowChange(
     if (!row) throw new Error("proposal not created");
     return { proposal_id: row.id, replaced: replaced.length > 0 };
   });
+}
+
+/** Decision 084 E: an ask without news after two hours no longer counts (as for routines, decision 056 B), so a dead session never locks a workflow. */
+export const ASK_GIVE_UP_MS = 2 * 3_600_000;
+
+/** Decision 084 E: the last « Demander à Claude » of each workflow of the project, by path (a workflow never asked about has none). */
+export async function claudeAsks(db: Db, projectId: number, at: Date) {
+  const asks = new Map<
+    string,
+    {
+      sessionUrl: string | null;
+      startedAt: Date;
+      finishedAt: Date | null;
+      outcome: "succeeded" | "failed" | null;
+      summary: string | null;
+    }
+  >();
+  for (const l of await db
+    .select()
+    .from(cloudLaunches)
+    .where(
+      and(
+        eq(cloudLaunches.projectId, projectId),
+        isNotNull(cloudLaunches.workflowPath),
+        or(
+          isNotNull(cloudLaunches.finishedAt),
+          gt(cloudLaunches.createdAt, new Date(at.getTime() - ASK_GIVE_UP_MS)),
+        ),
+      ),
+    )
+    .orderBy(desc(cloudLaunches.id)))
+    if (l.workflowPath && !asks.has(l.workflowPath))
+      asks.set(l.workflowPath, {
+        sessionUrl: l.sessionUrl,
+        startedAt: l.createdAt,
+        finishedAt: l.finishedAt,
+        outcome: l.outcome,
+        summary: l.summary,
+      });
+  return asks;
 }

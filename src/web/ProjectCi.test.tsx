@@ -576,3 +576,131 @@ describe("decision 067 H: the colour", () => {
     );
   });
 });
+
+// Story S12 (decision 084 B, E): `workflows[].claude` is null or { sessionUrl, startedAt, finishedAt, outcome, summary } (the last « Demander à Claude » of the path);
+// the tab of the project says « CI / CD · N à relire » while a proposal waits.
+const minutesAgo = (m: number) =>
+  new Date(Date.now() - m * 60_000).toISOString();
+const asked = (claude: Record<string, unknown>) => ({ ...RED, claude });
+const RUNNING = {
+  sessionUrl: SESSION,
+  startedAt: minutesAgo(4),
+  finishedAt: null,
+  outcome: null,
+  summary: null,
+};
+
+describe("S12: « Demander à Claude » stays visible after a reload", () => {
+  it("given a launch in progress, when the tab opens, then the line says Claude is looking, links the session and the button is disabled", async () => {
+    stubApi({ workflows: [asked(RUNNING) as never] });
+    renderAt();
+    const night = await line("nightly.yml");
+
+    expect(
+      await within(night).findByText(/Claude regarde depuis 4 min/),
+    ).toBeDefined();
+    expect(
+      within(night)
+        .getByRole("link", { name: /Voir la session/ })
+        .getAttribute("href"),
+    ).toBe(SESSION);
+    expect(
+      (
+        within(night).getByRole("button", {
+          name: "Demander à Claude",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it("given a finished launch with a summary, when the tab opens, then the summary shows on the line and the button is enabled again", async () => {
+    stubApi({
+      workflows: [
+        asked({
+          ...RUNNING,
+          finishedAt: minutesAgo(1),
+          outcome: "succeeded",
+          summary: "La cause est un test instable, pas le workflow.",
+        }) as never,
+      ],
+    });
+    renderAt();
+    const night = await line("nightly.yml");
+
+    expect(
+      await within(night).findByText(
+        /La cause est un test instable, pas le workflow\./,
+      ),
+    ).toBeDefined();
+    expect(
+      (
+        within(night).getByRole("button", {
+          name: "Demander à Claude",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
+  it("given a finished launch, when Claude is asked again and the server accepts, then the line says the new launch started, not the old summary", async () => {
+    stubApi({
+      workflows: [
+        asked({
+          ...RUNNING,
+          finishedAt: minutesAgo(1),
+          outcome: "succeeded",
+          summary: "La cause est un test instable, pas le workflow.",
+        }) as never,
+      ],
+    });
+    renderAt();
+    const night = await line("nightly.yml");
+
+    fireEvent.click(
+      within(night).getByRole("button", { name: "Demander à Claude" }),
+    );
+
+    expect(await within(night).findByText(/Lancé dans le cloud/)).toBeDefined();
+    expect(within(night).queryByText(/test instable/)).toBeNull();
+  });
+
+  it("given the server refuses a second launch with launch_running, when the button is clicked, then the line shows an alert in French, never the code", async () => {
+    stubApi({}, { ask: { status: 409, body: { error: "launch_running" } } });
+    renderAt();
+    const night = await line("nightly.yml");
+
+    fireEvent.click(
+      within(night).getByRole("button", { name: "Demander à Claude" }),
+    );
+
+    const alert = await within(night).findByRole("alert");
+    expect(alert.textContent?.trim().length).toBeGreaterThan(10);
+    expect(alert.textContent).not.toContain("launch_running");
+  });
+});
+
+describe("S12: a proposal is signalled on the tab", () => {
+  it("given a pending proposal, when another tab of the project is open, then the tab reads « CI / CD · 1 à relire » without the red of the destructive token", async () => {
+    stubApi({ proposal: PROPOSAL });
+    renderAt("/projets/5");
+
+    const nav = await screen.findByRole("navigation", {
+      name: "Sections du projet",
+    });
+    const tab = await within(nav).findByRole("link", {
+      name: "CI / CD · 1 à relire",
+    });
+    expect(tab.getAttribute("href")).toBe("/projets/5/ci");
+    expect(tab.className).not.toContain("destructive");
+  });
+
+  it("given no proposal, when the project opens, then the tab reads « CI / CD »", async () => {
+    stubApi({ proposal: null });
+    renderAt("/projets/5");
+
+    const nav = await screen.findByRole("navigation", {
+      name: "Sections du projet",
+    });
+    expect(within(nav).getByRole("link", { name: "CI / CD" })).toBeDefined();
+    expect(within(nav).queryByRole("link", { name: /à relire/ })).toBeNull();
+  });
+});

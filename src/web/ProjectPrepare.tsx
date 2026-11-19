@@ -46,6 +46,8 @@ const REFUSALS: Record<string, string> = {
     "Ce projet n'est plus coché dans le lanceur : coche-le dans les Réglages.",
   monthly_budget_reached:
     "Le plafond par mois est atteint : relève-le dans la page Coût pour lancer.",
+  launch_running:
+    "Claude regarde déjà ce workflow : attends la fin de sa session.",
   fire_failed: "Claude n'a pas pu être lancé : réessaie dans un instant.",
   pull_request_forbidden:
     "La branche par défaut est protégée et l'App n'a pas le droit d'ouvrir une pull request : donne-lui « Pull requests » en écriture dans ses réglages, puis recommence.",

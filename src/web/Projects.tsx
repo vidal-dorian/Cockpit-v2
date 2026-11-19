@@ -70,6 +70,10 @@ function waitingLink(items: Waiting[]) {
       many ? "relances épuisées" : "relance épuisée",
       `/us/${(first as { storyId: number }).storyId}`,
     ],
+    workflow_proposal: [
+      many ? "propositions de workflow" : "proposition de workflow",
+      `/projets/${first.project.id}/ci`,
+    ],
     check: [
       many ? "runs à vérifier" : "run à vérifier",
       `/runs/${(first as { runId: number }).runId}`,
