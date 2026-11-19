@@ -276,6 +276,80 @@ describe("E3: the stories of the night, by outcome", () => {
   });
 });
 
+describe("E3 follow-up: the legend matches the bar", () => {
+  it("given a folded group « Sautées ou non lancées », when /nuit is shown, then its dot has the background of the bar's skipped segment and a strong outline", async () => {
+    show([item(1, "pr"), item(2, "skipped")]);
+
+    const bar = (await block()).getByRole("img");
+    const segment = bar.querySelector(".bg-raised");
+    expect(segment).not.toBeNull();
+    const summary = (await blockElement()).querySelector(
+      "details summary",
+    ) as HTMLElement;
+    const dot = summary.querySelector("[aria-hidden='true']") as HTMLElement;
+    expect(dot.className).toContain("bg-raised");
+    expect(dot.className).toContain("border-border-strong");
+    expect(dot.className).not.toContain("bg-border-strong");
+  });
+
+  it("given a night whose items are empty, when /nuit is shown, then there is no bar image", async () => {
+    show([], { delivered: 0, total: 0 });
+
+    await block();
+    expect((await block()).queryByRole("img")).toBeNull();
+  });
+});
+
+describe("E5 follow-up: the button comes before the morning block", () => {
+  const precedes = (a: HTMLElement, b: HTMLElement) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const night = morning([item(1, "pr")]);
+
+  it("given the evening and a night to read, when /nuit is shown, then « Lancer la nuit » comes before « Cette nuit », which comes before « Au programme »", async () => {
+    stubNight({ ready: [story(2)], home: { night } });
+    renderAt("/nuit");
+
+    const launch = await screen.findByRole("button", {
+      name: /☾ Lancer la nuit/,
+    });
+    const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
+    const programme = await screen.findByRole("heading", {
+      name: "Au programme",
+    });
+    expect(precedes(launch, heading)).toBe(true);
+    expect(precedes(heading, programme)).toBe(true);
+  });
+
+  it.each([
+    ["Annuler la nuit", "planned"],
+    ["Arrêter la nuit", "running"],
+  ])(
+    "given a %s button and a night to read, when /nuit is shown, then it comes before « Cette nuit » (%s)",
+    async (name, status) => {
+      stubNight({
+        night: { id: 2, status, items: [story(2)] },
+        home: { night },
+      });
+      renderAt("/nuit");
+
+      const button = await screen.findByRole("button", { name });
+      const heading = await screen.findByRole("heading", {
+        name: /Cette nuit/,
+      });
+      expect(precedes(button, heading)).toBe(true);
+    },
+  );
+
+  it("given no connected launcher and a night to read, when /nuit is shown, then the reason comes before « Cette nuit »", async () => {
+    stubNight({ connected: false, ready: [story(2)], home: { night } });
+    renderAt("/nuit");
+
+    const reason = await screen.findByText(/Connecte le lanceur dans les/);
+    const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
+    expect(precedes(reason, heading)).toBe(true);
+  });
+});
+
 describe("E4: the frise is a drawing from md", () => {
   it("given a night, when /nuit is shown, then the frise is aria-hidden and hidden under md, and the list « Frise de la nuit » is gone", async () => {
     show([item(45, "pr", [local(8, 22), local(8, 23)])]);
