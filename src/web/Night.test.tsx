@@ -25,7 +25,7 @@ import { renderAt } from "./test-tickets.tsx";
 //   « Monter », « Descendre », « Retirer » in each row of the programme, « Valider et ajouter », « ☾ Lancer la nuit · N user stories »,
 //   « Annuler la nuit », « Arrêter la nuit »; reasons « Connecte le lanceur » and « Aucune user story » beside the disabled launch;
 //   outcomes written « En pause : attend ta réponse » and « CI en échec »;
-// - home: « Cette nuit, Claude a livré N PR sur M », « 1 question t'attend », the frise is a list named « Frise de la nuit », « Masquer ».
+// - /nuit (decision 083 E1): « Cette nuit, Claude a livré N PR sur M », « 1 question t'attend », « Masquer » (the frise and the outcome groups: NightVisual.test.tsx).
 
 type Call = { method: string; path: string; body: unknown };
 const story = (storyId: number, outcome: string | null = null) => ({
@@ -315,7 +315,7 @@ describe("criterion 11: the pages (M')", () => {
   });
 });
 
-describe("criterion 10: the morning on the home (J)", () => {
+describe("criterion 10: the morning at the top of /nuit (J, decision 083 E1)", () => {
   const night = {
     id: 7,
     delivered: 1,
@@ -338,7 +338,7 @@ describe("criterion 10: the morning on the home (J)", () => {
     ],
   };
 
-  it("given a finished night, when the home is shown, then it tells the PR count, the frise, the question waiting, and « Masquer » hides it", async () => {
+  it("given a finished night, when /nuit is shown, then it tells the PR count and the question waiting, and « Masquer » hides it", async () => {
     const answer = {
       kind: "answer",
       questionId: 9,
@@ -350,16 +350,12 @@ describe("criterion 10: the morning on the home (J)", () => {
       project: PROJECT,
     };
     const calls = stub({ home: { night, forYou: [answer] } });
-    renderAt("/");
+    renderAt("/nuit");
 
     await waitFor(() =>
       expect(main()).toContain("Cette nuit, Claude a livré 1 PR sur 2"),
     );
     expect(main()).toContain("1 question t'attend");
-    const frise = screen.getByRole("list", { name: "Frise de la nuit" });
-    const [first, second] = within(frise).getAllByRole("listitem");
-    expect(first?.textContent).toContain("En pause");
-    expect(second?.textContent).toContain("faire la chose 2");
     fireEvent.click(screen.getByRole("button", { name: "Masquer" }));
 
     await waitFor(() =>
