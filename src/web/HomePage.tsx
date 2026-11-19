@@ -761,7 +761,7 @@ export function HomePage({
           <div className={listCard}>
             {groups.map(({ kind, rows }) => (
               <div key={kind} className="divide-y divide-border">
-                <p className="flex min-h-9 items-center gap-2.5 px-[18px] text-[12.5px] font-semibold text-muted-foreground">
+                <p className="flex min-h-9 flex-wrap items-center gap-x-2.5 gap-y-0.5 px-[18px] py-1.5 text-[12.5px] font-semibold text-muted-foreground">
                   {KINDS[kind].group}
                   <span className={badge}>{rows.length}</span>
                   {KINDS[kind].hint && (

@@ -741,7 +741,7 @@ export function Projects() {
         }
         rest="Les autres avancent seuls ou dorment."
         actions={
-          <span className="mt-1 flex gap-2">
+          <span className="mt-1 flex flex-wrap gap-2">
             <Link to="/projets/nouveau" className={button}>
               Nouveau depuis un modèle
             </Link>
