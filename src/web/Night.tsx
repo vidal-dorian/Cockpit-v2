@@ -3,12 +3,14 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { fetchLauncher, fetchNightHours } from "./LauncherSettings.tsx";
+import { NightMorning } from "./NightMorning.tsx";
 import { refusedError } from "./roles.ts";
-import { fetchNight, StateSentence, useHome } from "./Shell.tsx";
+import { Dot, fetchNight, repoName, StateSentence, useHome } from "./Shell.tsx";
 import { toast } from "./toast.tsx";
 import {
   alertBox,
   button,
+  focusRing,
   iconButton,
   listCard,
   moved,
@@ -62,7 +64,11 @@ export function Night() {
     queryKey: ["night-hours"],
     queryFn: fetchNightHours,
   });
-  const morning = useHome().data?.night;
+  const home = useHome().data;
+  const morning = home?.night;
+  const questions = (home?.forYou ?? []).filter(
+    (item) => item.kind === "answer",
+  ).length;
   // The programme the user builds in the evening: nothing enters it without their gesture.
   const [order, setOrder] = useState<number[]>();
   const act = useMutation({
@@ -125,6 +131,10 @@ export function Night() {
       : null;
   const count = shown.length;
   const planned = open?.status === "planned";
+  const running = open?.status === "running";
+  const finished = shown.filter((s) => s.outcome).length;
+  // One story at a time (044): the first without outcome is the one running.
+  const current = running ? shown.find((s) => !s.outcome) : undefined;
   // The end: the start (the night's, or the next start hour) and the total, when every story has an estimate.
   const total = known.reduce((a, b) => a + b, 0);
   const start = open
@@ -155,6 +165,82 @@ export function Night() {
             : undefined
         }
       />
+      {data && (
+        <div className="flex flex-wrap items-center gap-3 px-[26px] pt-6">
+          {!open && (
+            <>
+              <button
+                type="button"
+                className={primaryButton}
+                disabled={reason !== null || act.isPending}
+                aria-busy={act.isPending}
+                onClick={() =>
+                  act.mutate(
+                    () =>
+                      client.api.nights.$post({
+                        json: { storyIds: program },
+                      }),
+                    {
+                      onSuccess: () => toast("Nuit programmée."),
+                    },
+                  )
+                }
+              >
+                ☾ Lancer la nuit · {count}{" "}
+                {count > 1 ? "user stories" : "user story"}
+              </button>
+              {reason && (
+                <span className="text-muted-foreground">
+                  {reason}
+                  {!launcher.data?.connected && (
+                    <>
+                      {" "}
+                      <Link
+                        to="/reglages/taches-cloud"
+                        className="font-semibold underline"
+                      >
+                        Réglages
+                      </Link>
+                    </>
+                  )}
+                </span>
+              )}
+            </>
+          )}
+          {open?.status === "planned" && (
+            <button
+              type="button"
+              className={button}
+              onClick={() =>
+                act.mutate(() => client.api.nights.current.cancel.$post(), {
+                  onSuccess: () => toast("Nuit annulée."),
+                })
+              }
+            >
+              Annuler la nuit
+            </button>
+          )}
+          {open?.status === "running" && (
+            <button
+              type="button"
+              className={button}
+              onClick={() =>
+                act.mutate(() => client.api.nights.current.stop.$post(), {
+                  onSuccess: () => toast("Arrêt de la nuit demandé."),
+                })
+              }
+            >
+              Arrêter la nuit
+            </button>
+          )}
+          {act.isError && (
+            <p role="alert" className={`basis-full ${alertBox}`}>
+              {act.error.message}
+            </p>
+          )}
+        </div>
+      )}
+      {morning && <NightMorning night={morning} questions={questions} />}
       <div className="grid gap-6 px-[26px] py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {(night.isError || launcher.isError) && (
           <p role="alert" className={`lg:col-span-2 ${alertBox}`}>
@@ -162,9 +248,9 @@ export function Night() {
             plus tard.
           </p>
         )}
-        {(act.isError || validate.isError) && (
+        {validate.isError && (
           <p role="alert" className={`lg:col-span-2 ${alertBox}`}>
-            {(act.error ?? validate.error)?.message}
+            {validate.error.message}
           </p>
         )}
         {data && (
@@ -174,18 +260,60 @@ export function Night() {
                 <h2 id="programme" className={sectionLabel}>
                   Au programme
                 </h2>
+                {running && (
+                  <div className="mt-2 grid gap-1.5">
+                    <p>
+                      {finished} sur {count} finies
+                    </p>
+                    <div
+                      role="progressbar"
+                      aria-label="Avancement de la nuit"
+                      aria-valuenow={finished}
+                      aria-valuemin={0}
+                      aria-valuemax={count}
+                      className="h-2 overflow-hidden rounded-full bg-raised"
+                    >
+                      <div
+                        className="h-full bg-claude"
+                        style={{ width: `${(finished / count) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <ul className={`mt-2 ${listCard}`}>
                   {shown.map((s, at) => (
                     <li key={s.storyId} className={row}>
-                      <b id={`night-${s.storyId}`}>{s.iWant}</b>
-                      <span className="text-muted-foreground">
-                        {s.project.name} · {duration(s.estimatedSeconds)}
+                      <span className="grid size-6 flex-none place-items-center rounded-full bg-raised text-[12px] font-semibold">
+                        {at + 1}
+                      </span>
+                      <span className="grid min-w-0 flex-[1_1_10rem]">
+                        <b id={`night-${s.storyId}`}>{s.iWant}</b>
+                        <span className="text-muted-foreground">
+                          {repoName(s.project.name)} ·{" "}
+                          {duration(s.estimatedSeconds)}
+                        </span>
                       </span>
                       {open && !planned ? (
-                        <span className="ml-auto text-muted-foreground">
+                        <span className="ml-auto inline-flex items-center gap-2 text-muted-foreground">
+                          <Dot
+                            tone={
+                              s.outcome
+                                ? s.outcome === "pr"
+                                  ? "done"
+                                  : s.outcome === "paused"
+                                    ? "you"
+                                    : "none"
+                                : s === current
+                                  ? "claude"
+                                  : "none"
+                            }
+                            live={s === current}
+                          />
                           {s.outcome
                             ? (OUTCOMES[s.outcome] ?? s.outcome)
-                            : "À venir"}
+                            : s === current
+                              ? "En cours"
+                              : "À venir"}
                         </span>
                       ) : (
                         <span className="ml-auto flex gap-1.5">
@@ -194,7 +322,7 @@ export function Night() {
                             aria-label="Monter"
                             aria-describedby={`night-${s.storyId}`}
                             disabled={at === 0}
-                            className={iconButton}
+                            className={`${iconButton} max-md:size-11`}
                             onClick={() => move(at, -1)}
                           >
                             ↑
@@ -204,7 +332,7 @@ export function Night() {
                             aria-label="Descendre"
                             aria-describedby={`night-${s.storyId}`}
                             disabled={at === shown.length - 1}
-                            className={iconButton}
+                            className={`${iconButton} max-md:size-11`}
                             onClick={() => move(at, 1)}
                           >
                             ↓
@@ -213,7 +341,7 @@ export function Night() {
                             type="button"
                             aria-label="Retirer"
                             aria-describedby={`night-${s.storyId}`}
-                            className={iconButton}
+                            className={`${iconButton} max-md:size-11`}
                             onClick={() =>
                               reorder(program.filter((id) => id !== s.storyId))
                             }
@@ -231,13 +359,6 @@ export function Night() {
                   )}
                 </ul>
               </section>
-              {morning && !open && (
-                <p>
-                  <Link to="/" className="font-semibold underline">
-                    Voir ce que Claude a fait cette nuit
-                  </Link>
-                </p>
-              )}
               {!open && (
                 <section aria-labelledby="peut-etre">
                   <h2 id="peut-etre" className={sectionLabel}>
@@ -284,75 +405,19 @@ export function Night() {
                   </ul>
                 </section>
               )}
-              <div className="flex flex-wrap items-center gap-3">
-                {!open && (
-                  <>
-                    <button
-                      type="button"
-                      className={primaryButton}
-                      disabled={reason !== null || act.isPending}
-                      aria-busy={act.isPending}
-                      onClick={() =>
-                        act.mutate(
-                          () =>
-                            client.api.nights.$post({
-                              json: { storyIds: program },
-                            }),
-                          {
-                            onSuccess: () => toast("Nuit programmée."),
-                          },
-                        )
-                      }
-                    >
-                      ☾ Lancer la nuit · {count}{" "}
-                      {count > 1 ? "user stories" : "user story"}
-                    </button>
-                    {reason && (
-                      <span className="text-muted-foreground">{reason}</span>
-                    )}
-                  </>
-                )}
-                {open?.status === "planned" && (
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() =>
-                      act.mutate(
-                        () => client.api.nights.current.cancel.$post(),
-                        {
-                          onSuccess: () => toast("Nuit annulée."),
-                        },
-                      )
-                    }
-                  >
-                    Annuler la nuit
-                  </button>
-                )}
-                {open?.status === "running" && (
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() =>
-                      act.mutate(() => client.api.nights.current.stop.$post(), {
-                        onSuccess: () => toast("Arrêt de la nuit demandé."),
-                      })
-                    }
-                  >
-                    Arrêter la nuit
-                  </button>
-                )}
-              </div>
             </div>
-            <section aria-labelledby="regles">
-              <h2 id="regles" className={sectionLabel}>
-                Les règles de la nuit
-              </h2>
+            <details>
+              <summary className={`cursor-pointer ${focusRing}`}>
+                <h2 className={`inline ${sectionLabel}`}>
+                  Les règles de la nuit
+                </h2>
+              </summary>
               <ul className={`mt-2 grid gap-2 ${listCard} px-[18px] py-3.5`}>
                 {RULES.map((rule) => (
                   <li key={rule}>{rule}</li>
                 ))}
               </ul>
-            </section>
+            </details>
           </>
         )}
         {night.isPending && (

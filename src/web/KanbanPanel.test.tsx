@@ -10,8 +10,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { panel, stubProjectShell } from "./test-shell.tsx";
 import { renderAt, story, ticket } from "./test-tickets.tsx";
+import { stubWidth } from "./test-width.ts";
 
 // Slice 9.5 (decision 069 G, H): a card of the Kanban opens in the right panel, at ?us=<id> or ?ticket=<id>.
+// Decision 084 C3: from lg (1024 px) only; below, a card goes to its page (KanbanPhone.test.tsx). The clicks below are those of a desktop.
 
 afterEach(() => {
   cleanup();
@@ -29,6 +31,7 @@ const board_ = () => screen.getByRole("region", { name: "Colonnes du Kanban" });
 
 describe("criterion 9: a card opens in the right panel", () => {
   it("given the US 42 to validate, when its card is clicked, then the URL has ?us=42 and the panel shows Valider and Ouvrir l'US to /us/42 while the columns stay", async () => {
+    stubWidth(1280);
     stubProjectShell({}, tickets, board);
     renderAt("/projets/5");
 
@@ -44,6 +47,7 @@ describe("criterion 9: a card opens in the right panel", () => {
   });
 
   it("given an open card, when it is clicked again, or Escape is pressed, then the panel closes, ?us disappears and the focus is back on the card", async () => {
+    stubWidth(1280);
     stubProjectShell({}, tickets, board);
     renderAt("/projets/5");
     fireEvent.click(await card());

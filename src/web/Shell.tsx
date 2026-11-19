@@ -11,6 +11,7 @@ import { client } from "./api.ts";
 import { uploadAttachment } from "./attachments.ts";
 import { type Idea, IdeaPanel } from "./IdeaPanel.tsx";
 import { Logo } from "./Logo.tsx";
+import { Modal } from "./Modal.tsx";
 import { fetchProjects } from "./Projects.tsx";
 import { atLeast } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
@@ -260,15 +261,30 @@ export function Panel({
   );
 }
 
-const navItem = ({ isActive }: { isActive: boolean }) =>
-  `flex h-[34px] items-center gap-2.5 rounded-[9px] px-2.5 font-semibold ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
-const subItem = ({ isActive }: { isActive: boolean }) =>
-  `flex h-[30px] items-center gap-2.5 rounded-lg pr-2.5 pl-[22px] text-[13.5px] font-medium ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+// `tall`: the rows of the phone's menu are at least 44 px (decision 084 B2).
+const navItem =
+  (tall: boolean) =>
+  ({ isActive }: { isActive: boolean }) =>
+    `flex ${tall ? "h-11" : "h-[34px]"} items-center gap-2.5 rounded-[9px] px-2.5 font-semibold ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+const subItem =
+  (tall: boolean) =>
+  ({ isActive }: { isActive: boolean }) =>
+    `flex ${tall ? "h-11" : "h-[30px]"} items-center gap-2.5 rounded-lg pr-2.5 pl-[22px] text-[13.5px] font-medium ${focusRing} ${isActive ? "bg-raised text-foreground" : "text-muted-foreground hover:text-foreground"}`;
 const sidebarLabel =
   "mx-2.5 mt-3.5 mb-1 text-[11px] font-bold uppercase tracking-[.08em] text-dim";
 
-/** The left column of a logged-in user (045 F): search, navigation with counters, the favourite projects and the ones that are not idle, Réglages, the account and the version. */
-export function Sidebar({ onSearch }: { onSearch: () => void }) {
+/** What the left column and the phone's menu hold (045 F, 084 B2): search, navigation with counters, the favourite projects and the ones that are not idle, Réglages, the account and the version. `menu` makes the rows 44 px tall; `onNavigate` runs when a row is touched. */
+function SidebarContent({
+  onSearch,
+  menu = false,
+  onNavigate,
+}: {
+  onSearch: () => void;
+  menu?: boolean;
+  onNavigate?: () => void;
+}) {
+  const nav = navItem(menu);
+  const sub = subItem(menu);
   const queryClient = useQueryClient();
   const me = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data;
   const health = useQuery({
@@ -313,29 +329,28 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
   ];
 
   return (
-    <aside
-      aria-label="Barre latérale"
-      className="hidden flex-col border-r border-border bg-card px-3 py-4 md:sticky md:flex md:top-0 md:h-screen md:overflow-y-auto"
-    >
-      <Link
-        to="/"
-        className={`mb-3.5 flex items-center gap-2.5 rounded-xl px-2.5 text-base font-bold ${focusRing}`}
-      >
-        <Logo className="size-5" />
-        Cockpit
-      </Link>
+    <>
+      {!menu && (
+        <Link
+          to="/"
+          className={`mb-3.5 flex items-center gap-2.5 rounded-xl px-2.5 text-base font-bold ${focusRing}`}
+        >
+          <Logo className="size-5" />
+          Cockpit
+        </Link>
+      )}
       <button
         type="button"
         onClick={onSearch}
         aria-keyshortcuts="Control+K Meta+K"
-        className={`mb-3 flex h-9 items-center gap-2 rounded-[10px] border border-border bg-sunken px-2.5 text-[13px] text-muted-foreground hover:text-foreground ${focusRing}`}
+        className={`mb-3 flex ${menu ? "h-11" : "h-9"} items-center gap-2 rounded-[10px] border border-border bg-sunken px-2.5 text-[13px] text-muted-foreground hover:text-foreground ${focusRing}`}
       >
         <span aria-hidden="true">⌕</span>
         Chercher
-        <kbd className={`${kbd} ml-auto`}>Ctrl K</kbd>
+        {!menu && <kbd className={`${kbd} ml-auto`}>Ctrl K</kbd>}
       </button>
       <nav aria-label="Navigation principale" className="flex flex-col gap-0.5">
-        <NavLink to="/" end className={navItem}>
+        <NavLink to="/" end className={nav} onClick={onNavigate}>
           Accueil
           {forYou.length > 0 && (
             <>
@@ -344,10 +359,10 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
             </>
           )}
         </NavLink>
-        <NavLink to="/claude" className={navItem}>
+        <NavLink to="/claude" className={nav} onClick={onNavigate}>
           Claude
         </NavLink>
-        <NavLink to="/nuit" className={navItem}>
+        <NavLink to="/nuit" className={nav} onClick={onNavigate}>
           ☾ Cette nuit
           {night && night.items.length > 0 && (
             <span className={`${badge} ml-auto`}>{night.items.length}</span>
@@ -367,33 +382,38 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               key={p.id}
               to={`/projets/${p.id}`}
               aria-label={p.name}
-              className={subItem}
+              className={sub}
+              onClick={onNavigate}
             >
               <Dot tone={p.id === firstProject ? "you" : "none"} />
-              {repoName(p.name)}
+              <span className="min-w-0 truncate">{repoName(p.name)}</span>
               {count > 0 && <span className={`${badge} ml-auto`}>{count}</span>}
             </NavLink>
           );
         })}
-        <NavLink to="/projets" end className={subItem}>
+        <NavLink to="/projets" end className={sub} onClick={onNavigate}>
           Tous les projets
           <span className="ml-auto text-muted-foreground">
             {home?.projects.length}
           </span>
         </NavLink>
-        <Link to="/projets" className={subItem({ isActive: false })}>
+        <Link
+          to="/projets"
+          className={sub({ isActive: false })}
+          onClick={onNavigate}
+        >
           + Importer un repo
         </Link>
         <p className={sidebarLabel}>Configurer</p>
-        <NavLink to="/equipes" className={navItem}>
+        <NavLink to="/equipes" className={nav} onClick={onNavigate}>
           Équipes d'agents
         </NavLink>
-        <NavLink to="/journal" className={navItem}>
+        <NavLink to="/journal" className={nav} onClick={onNavigate}>
           Journal
         </NavLink>
       </nav>
       <div className="mt-auto flex flex-col gap-0.5 pt-4">
-        <NavLink to="/reglages" className={navItem}>
+        <NavLink to="/reglages" className={nav} onClick={onNavigate}>
           Réglages
         </NavLink>
         {me && (
@@ -425,7 +445,7 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
               aria-busy={logout.isPending}
-              className={`rounded-md hover:text-foreground disabled:opacity-50 ${focusRing}`}
+              className={`rounded-md hover:text-foreground disabled:opacity-50 ${menu ? "h-11" : ""} ${focusRing}`}
             >
               Se déconnecter
             </button>
@@ -433,75 +453,179 @@ export function Sidebar({ onSearch }: { onSearch: () => void }) {
           {health.data && <span>{`Cockpit v${health.data.version}`}</span>}
         </div>
       </div>
+    </>
+  );
+}
+
+/** The left column of a logged-in user (045 F). */
+export function Sidebar({ onSearch }: { onSearch: () => void }) {
+  return (
+    <aside
+      aria-label="Barre latérale"
+      className="hidden flex-col border-r border-border bg-card px-3 py-4 md:sticky md:flex md:top-0 md:h-screen md:overflow-y-auto"
+    >
+      <SidebarContent onSearch={onSearch} />
     </aside>
   );
 }
 
 const tab = ({ isActive }: { isActive: boolean }) =>
-  `flex min-h-11 flex-1 flex-col items-center justify-center text-[11.5px] font-semibold ${focusRing} ${isActive ? "text-foreground" : "text-muted-foreground"}`;
+  `flex min-h-16 flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold ${focusRing} ${isActive ? "text-foreground" : "text-muted-foreground"}`;
 
-/** The bar of the phone (decision 071 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project. */
+/** The 24 px icon of a tab, drawn in the colour of its word. */
+function TabIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+// Pages only the menu reaches: its tab is the current one there (decision 084 B4).
+const MENU_ONLY = /^\/(claude|equipes|journal|reglages)(\/|$)/;
+
+/** The bar of the phone (decision 071 B, 084 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project; « Menu » opens the content of the sidebar full screen. */
 function PhoneNav({
   onIdea,
   open,
   onNavigate,
+  onSearch,
+  morning,
 }: {
   onIdea?: (opener: HTMLElement) => void;
+  /** The morning block of the home still waits: the Nuit tab says « bilan à lire » (084 B5). */
+  morning: boolean;
   open: boolean;
   onNavigate: () => void;
+  onSearch: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const idle = !open && !menuOpen;
+  const menuPage = MENU_ONLY.test(pathname);
+  const closeMenu = () => setMenuOpen(false);
   return (
-    <nav
-      aria-label="Navigation du téléphone"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card md:hidden"
-    >
-      <NavLink
-        to="/"
-        end
-        className={(state) => tab({ isActive: state.isActive && !open })}
-        onClick={onNavigate}
+    <>
+      <nav
+        aria-label="Navigation du téléphone"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        <span aria-hidden="true">⌂</span>
-        Accueil
-      </NavLink>
-      {onIdea && (
+        <NavLink
+          to="/"
+          end
+          className={(state) => tab({ isActive: state.isActive && idle })}
+          onClick={onNavigate}
+        >
+          <TabIcon>
+            <path d="M3 11l9-8 9 8" />
+            <path d="M5 10v10h14V10" />
+          </TabIcon>
+          Accueil
+        </NavLink>
+        {onIdea && (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={(event) => onIdea(event.currentTarget)}
+            className={tab({ isActive: open })}
+          >
+            <TabIcon>
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
+            </TabIcon>
+            Idée
+          </button>
+        )}
+        <NavLink
+          to="/nuit"
+          aria-label={morning ? "Nuit, bilan à lire" : undefined}
+          className={(state) => tab({ isActive: state.isActive && idle })}
+          onClick={onNavigate}
+        >
+          <span className="relative">
+            <TabIcon>
+              <path d="M21 13A9 9 0 1111 3a7 7 0 0010 10z" />
+            </TabIcon>
+            {morning && (
+              <span className="absolute -top-0.5 -right-1">
+                <Dot tone="done" />
+              </span>
+            )}
+          </span>
+          Nuit
+        </NavLink>
+        <NavLink
+          to="/projets"
+          end
+          className={(state) => tab({ isActive: state.isActive && idle })}
+          onClick={onNavigate}
+        >
+          <TabIcon>
+            <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+          </TabIcon>
+          Projets
+        </NavLink>
         <button
           type="button"
-          aria-expanded={open}
-          onClick={(event) => onIdea(event.currentTarget)}
-          className={tab({ isActive: open })}
+          aria-expanded={menuOpen}
+          aria-haspopup="dialog"
+          aria-current={menuPage && !menuOpen ? "page" : undefined}
+          onClick={() => {
+            onNavigate();
+            setMenuOpen(true);
+          }}
+          className={tab({ isActive: menuOpen || (menuPage && !open) })}
         >
-          <span aria-hidden="true">✎</span>
-          Idée
+          <TabIcon>
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </TabIcon>
+          Menu
         </button>
+      </nav>
+      {menuOpen && (
+        <Modal label="Menu" onClose={closeMenu}>
+          <div className="flex min-h-full flex-col bg-card px-3 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              onClick={closeMenu}
+              className={`mb-3 ml-auto h-11 rounded-[10px] px-3.5 font-semibold text-muted-foreground hover:text-foreground ${focusRing}`}
+            >
+              Fermer
+            </button>
+            <SidebarContent
+              menu
+              onNavigate={closeMenu}
+              onSearch={() => {
+                closeMenu();
+                onSearch();
+              }}
+            />
+          </div>
+        </Modal>
       )}
-      <NavLink
-        to="/nuit"
-        className={(state) => tab({ isActive: state.isActive && !open })}
-        onClick={onNavigate}
-      >
-        <span aria-hidden="true">☾</span>
-        Nuit
-      </NavLink>
-      <NavLink
-        to="/projets"
-        end
-        className={(state) => tab({ isActive: state.isActive && !open })}
-        onClick={onNavigate}
-      >
-        <span aria-hidden="true">▤</span>
-        Projets
-      </NavLink>
-    </nav>
+    </>
   );
 }
 
 /** The bar at the bottom of the center (045 F): note an idea as a ticket of a project; `n` anywhere focuses it. The bar is hidden without a project and below md, where the phone nav opens the same panel. */
 export function IdeaBar({
   ref,
+  onSearch,
 }: {
   /** Opens the panel of the idea from elsewhere (the search window); the argument is what gets the focus back, if any. */
   ref?: React.Ref<(opener: HTMLElement | null) => void>;
+  /** Opens the search window (the « Chercher » row of the phone's menu). */
+  onSearch: () => void;
 }) {
   const queryClient = useQueryClient();
   const home = useHome();
@@ -622,13 +746,15 @@ export function IdeaBar({
           onIdea={projects.length > 0 ? openPanel : undefined}
           open={open}
           onNavigate={() => setOpen(false)}
+          onSearch={onSearch}
+          morning={home.data?.night != null}
         />
       )}
       {projects.length > 0 && (
         <div
           ref={wrapper}
           // The content fades out as it passes under the bar (decision 080 J); as tall as the margin above, so nothing is covered at rest.
-          className="sticky bottom-0 mx-[26px] mt-4 mb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-linear-to-t before:from-background before:content-[''] max-md:bottom-16"
+          className="sticky bottom-0 mx-[26px] mt-4 mb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-linear-to-t before:from-background before:content-[''] max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
         >
           {send.isError && (
             <p role="alert" className="mb-2 text-destructive">

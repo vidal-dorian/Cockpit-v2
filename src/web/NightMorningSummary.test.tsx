@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HomeData } from "./test-home.tsx";
-import { stubShell } from "./test-shell.tsx";
+import { stubNight } from "./test-night.tsx";
 import { renderAt } from "./test-tickets.tsx";
 
-// Slice 14.7 (decision 070): the morning block of the home. Pinned where the decision leaves room:
+// Slice 14.7 (decision 070), moved to /nuit by decision 084 E: the morning block. Pinned where the decision leaves room:
 // - night = { id, startsAt, endsAt, delivered, total, workSeconds, criteriaProven, failures, items: [{ storyId, iWant, outcome, startedAt, finishedAt }] };
 // - « US n » is the story id; the box is the element whose own text is « ✓ US 45 » (or ✦ / ✕) and it carries style.left and style.width in %;
 // - a graduation is an element whose text is exactly « 22 h »; the row of a story is its <li>.
@@ -43,19 +42,20 @@ const show = (items: ReturnType<typeof item>[], summary = {}) => {
     ...summary,
     items,
   };
-  stubShell({ night } as unknown as Partial<HomeData>);
-  renderAt("/");
+  stubNight({ home: { night } });
+  renderAt("/nuit");
 };
 const block = async () => {
   const found = (
-    await screen.findByRole("heading", { name: /Cette nuit/ })
+    await screen.findByRole("heading", { name: /Cette nuit, Claude/ })
   ).closest("section");
   if (!found) throw new Error("no <section> around « Cette nuit »");
   return within(found);
 };
+// The line of a story in the outcome groups (decision 084 E3): the <li> of its link « US n · … ».
 const row = async (storyId: number) => {
   const found = (await block())
-    .getByText(`faire la chose ${storyId}`)
+    .getByRole("link", { name: new RegExp(`^US ${storyId} ·`) })
     .closest("li");
   if (!found) throw new Error("no row");
   return found;
@@ -63,23 +63,33 @@ const row = async (storyId: number) => {
 const box = async (label: string) =>
   (await block()).getByText(label) as HTMLElement;
 
-describe("slice 14.7: the summary line of the night", () => {
+describe("slice 14.7: the summary of the night", () => {
   it.each([
     [
       { workSeconds: 7800, criteriaProven: 21, failures: 0 },
-      ["2 h 10 de travail", "21 critères prouvés", "aucun échec"],
+      [
+        ["Travail", "2 h 10"],
+        ["Critères prouvés", "21"],
+        ["Échecs", "aucun"],
+      ],
     ],
     [
       { workSeconds: 7800, criteriaProven: 1, failures: 2 },
-      ["1 critère prouvé", "2 échecs"],
+      [
+        ["Critères prouvés", "1"],
+        ["Échecs", "2"],
+      ],
     ],
   ])(
-    "given the summary %j, when the page shows, then the block says %j",
-    async (summary, texts) => {
+    "given the summary %j, when the page shows, then the boxes say %j",
+    async (summary, boxes) => {
       show([item(45, "pr")], summary);
 
-      for (const text of texts)
-        expect(await (await block()).findByText(new RegExp(text))).toBeTruthy();
+      for (const [label, value] of boxes)
+        expect(
+          (await (await block()).findByText(label as string)).parentElement
+            ?.textContent,
+        ).toContain(value);
     },
   );
 });
@@ -95,7 +105,7 @@ describe("slice 14.7: the frise", () => {
     );
   });
 
-  it("given a run from 22 h 00 to 23 h 30 on a night of 9 h, when the page shows, then its box starts at 0% and is about 16.67% wide, and its row says 22 h 00 → 23 h 30", async () => {
+  it("given a run from 22 h 00 to 23 h 30 on a night of 9 h, when the page shows, then its box starts at 0% and is about 16.67% wide, and its line says 22 h 00 → 23 h 30", async () => {
     show([item(45, "pr", [local(8, 22), local(8, 23, 30)])]);
 
     const found = await box("✓ US 45");
@@ -118,15 +128,17 @@ describe("slice 14.7: the frise", () => {
     expect(end).toBeCloseTo(100, 1);
   });
 
-  it("given a paused story and a skipped one without run, when the page shows, then the paused row has a ✦ box and its outcome, the skipped row has no box and says Sautée : plus prête", async () => {
+  it("given a paused story and a skipped one without run, when the page shows, then the paused story has a ✦ box and sits in « En pause : attend ta réponse », the skipped one has no box and sits in « Sautées ou non lancées »", async () => {
     show([item(46, "paused"), item(47, "skipped")]);
 
     expect(await box("✦ US 46")).toBeTruthy();
-    expect((await row(46)).textContent).toContain(
-      "En pause : attend ta réponse",
-    );
+    await row(46);
+    expect(
+      (await block()).getByText(/En pause : attend ta réponse/),
+    ).toBeTruthy();
     expect((await block()).queryByText(/[✓✦✕] US 47/)).toBeNull();
-    expect((await row(47)).textContent).toContain("Sautée : plus prête");
+    await row(47);
+    expect((await block()).getByText(/Sautées ou non lancées/)).toBeTruthy();
   });
 
   it("given three stories whose last finished run ends at 4 h 10, when the page shows, then « fini à 4 h 10 » appears once", async () => {

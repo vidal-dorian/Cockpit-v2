@@ -341,15 +341,17 @@ describe("Projets page, import", () => {
 
     renderAt("/projets");
 
-    await screen.findByText("octocat/available");
-    const available = rowOf("octocat/available");
+    // Decision 084 A4: the row shows the repo name without its owner, then « owner · branch ».
+    await screen.findByText("available");
+    const available = rowOf("available");
     expect(
       within(available).getByRole("button", { name: "Importer" }),
     ).toBeDefined();
     expect(within(available).queryByText("Déjà importé")).toBeNull();
     // The tracked repo appears in the project list too; the import section is the row that says Déjà importé.
     const imported = screen.getByText("Déjà importé").closest("li, tr");
-    expect(imported?.textContent).toContain("octocat/tracked");
+    expect(imported?.textContent).toContain("tracked");
+    expect(imported?.textContent).toContain("octocat · main");
     expect(within(imported as HTMLElement).queryByRole("button")).toBeNull();
   });
 
