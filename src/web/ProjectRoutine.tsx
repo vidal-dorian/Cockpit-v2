@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { fetchLauncher } from "./LauncherSettings.tsx";
 import { FixLink } from "./ProjectPrepare.tsx";
 import { fetchRoutine } from "./RoutineSettings.tsx";
 import { ROLE_REFUSAL } from "./roles.ts";
+import { failure as taskFailure } from "./TaskCard.tsx";
 import {
   alertBox,
   badge,
@@ -396,6 +398,7 @@ export function ProjectRoutine({
         </div>
       </section>
       <div className="grid gap-3.5">
+        <CloudCard projectId={projectId} />
         <CloneFolderCard projectId={projectId} />
         <ArchiveCard projectId={projectId} archived={archived} />
       </div>
@@ -470,6 +473,14 @@ function ArchiveCard({
           Archiver le projet
         </button>
       )}
+      {!archived && (
+        <Link
+          to={`/reglages/membres?projet=${projectId}`}
+          className={`mt-2.5 block underline ${focusRing}`}
+        >
+          Inviter sur ce projet
+        </Link>
+      )}
       <p className="mt-2.5 text-[12.5px] text-muted-foreground">
         Archivé, il disparaît de la barre latérale ; rien n'est supprimé, ni ici
         ni sur GitHub.
@@ -477,6 +488,79 @@ function ArchiveCard({
       {archive.error && (
         <p role="alert" className={`mt-3 ${alertBox}`}>
           {archive.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Decision 084 P: « Lancer ce projet dans le cloud », the same value as the step 4 of Réglages › Tâches cloud. */
+function CloudCard({ projectId }: { projectId: string }) {
+  const queryClient = useQueryClient();
+  const launcher = useQuery({ queryKey: ["launcher"], queryFn: fetchLauncher });
+  const tick = useMutation({
+    mutationFn: async (inLauncher: boolean) => {
+      const res = await client.api.projects[":id"].launcher.$put({
+        param: { id: projectId },
+        json: { inLauncher },
+      });
+      if (!res.ok) throw taskFailure(res);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["launcher"] }),
+  });
+  const data = launcher.data;
+  const id = Number(projectId);
+  return (
+    <section
+      aria-labelledby="dans-le-cloud"
+      className={`px-[18px] py-4 ${card}`}
+    >
+      <h2 id="dans-le-cloud" className={`mb-3 ${sectionLabel}`}>
+        Dans le cloud
+      </h2>
+      {launcher.isPending && (
+        <p className="loading text-muted-foreground">Chargement…</p>
+      )}
+      {launcher.isError && (
+        <p role="alert" className={alertBox}>
+          Impossible de lire le lanceur. Recharge la page.
+        </p>
+      )}
+      {data &&
+        (data.connected ? (
+          <>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={data.projectIds.includes(id)}
+                disabled={tick.isPending}
+                aria-busy={tick.isPending}
+                onChange={(e) => tick.mutate(e.target.checked)}
+              />
+              Lancer ce projet dans le cloud
+            </label>
+            {data.missingProjectIds.includes(id) && (
+              <p className="mt-2 text-destructive">
+                Le repo n'est pas dans la tâche : ajoute-le sur claude.ai, puis
+                coche à nouveau.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-muted-foreground">
+            Le lanceur n'est pas relié : relie-le dans{" "}
+            <Link
+              to="/reglages/taches-cloud"
+              className={`underline ${focusRing}`}
+            >
+              Réglages
+            </Link>
+            .
+          </p>
+        ))}
+      {tick.error && (
+        <p role="alert" className={`mt-3 ${alertBox}`}>
+          {tick.error.message}
         </p>
       )}
     </section>

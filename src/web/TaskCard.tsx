@@ -1,6 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { alertBox, badge, button, field, primaryButton } from "./ui.ts";
+import {
+  alertBox,
+  badge,
+  button,
+  dangerButton,
+  field,
+  primaryButton,
+} from "./ui.ts";
 
 /** A French sentence for a failed answer; the codes of the server are not meant to be read. */
 export const failure = (res: { status: number }) =>
@@ -98,12 +105,41 @@ export function ConnectStep({
 }) {
   const [fireUrl, setFireUrl] = useState("");
   const [token, setToken] = useState("");
-  const retire = (
+  const [confirming, setConfirming] = useState(false);
+  // The token is shown once by claude.ai and erased here: the removal is confirmed in place (decision 003, rule 4).
+  const retire = confirming ? (
+    <>
+      <span>
+        Retirer la tâche ? Il faudra régénérer son jeton sur claude.ai.
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          task.remove.mutate(undefined, {
+            onSettled: () => setConfirming(false),
+          })
+        }
+        disabled={task.remove.isPending}
+        aria-busy={task.remove.isPending}
+        className={dangerButton}
+      >
+        Confirmer le retrait
+      </button>
+      <button
+        type="button"
+        // The Retirer button is gone: keep the keyboard focus on the safe choice.
+        // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+        autoFocus
+        onClick={() => setConfirming(false)}
+        className={button}
+      >
+        Annuler
+      </button>
+    </>
+  ) : (
     <button
       type="button"
-      onClick={() => task.remove.mutate()}
-      disabled={task.remove.isPending}
-      aria-busy={task.remove.isPending}
+      onClick={() => setConfirming(true)}
       className={button}
     >
       Retirer

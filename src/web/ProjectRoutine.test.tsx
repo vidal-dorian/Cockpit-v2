@@ -49,6 +49,12 @@ type State = {
   putAnswer?: Response;
   /** What the next GET of the schedule shows after a successful run. */
   lastRunAfterRun?: Schedule["lastRun"];
+  /** GET /api/me/launcher (not connected, no project by default). */
+  launcher?: {
+    connected?: boolean;
+    projectIds?: number[];
+    missingProjectIds?: number[];
+  };
 };
 type Call = { method: string; path: string; body: string };
 
@@ -183,6 +189,24 @@ function stubApi(state: State) {
           },
         };
         return Response.json({ sessionUrl: NEW_SESSION });
+      }
+      if (path === "/api/me/launcher" && method === "GET")
+        return Response.json({
+          connected: false,
+          needsReconnect: false,
+          prompt: "LAUNCHER",
+          projectIds: [],
+          missingProjectIds: [],
+          autoRelaunch: false,
+          ...state.launcher,
+        });
+      if (path === "/api/projects/5/launcher" && method === "PUT") {
+        const { inLauncher } = JSON.parse(body) as { inLauncher: boolean };
+        state.launcher = {
+          ...state.launcher,
+          projectIds: inLauncher ? [5] : [],
+        };
+        return Response.json({ inLauncher });
       }
       if (path === "/api/projects/5/archive" && method === "POST")
         return Response.json({ ok: true });
@@ -631,5 +655,92 @@ describe("Project page, the section Écriture automatique des US", () => {
 
     expect(window.localStorage.getItem("cockpit.clone.5")).toBe("/work/hello");
     window.localStorage.removeItem("cockpit.clone.5");
+  });
+});
+
+// Decision 084 P (S13): the project settings also carry the box « lancer ce projet dans le cloud » (same value as the
+// step 4 of Réglages › Tâches cloud), and the invitation link of the audit.
+describe("Project settings, the card Dans le cloud (084 P)", () => {
+  const cloudCard = async () => {
+    const heading = await screen.findByRole("heading", {
+      name: "Dans le cloud",
+    });
+    return heading.closest("section") as HTMLElement;
+  };
+
+  it("given a connected launcher without this project, when /projets/5/reglages loads, then the box is unchecked and ticking it sends PUT /api/projects/5/launcher { inLauncher: true }", async () => {
+    const calls = stubApi({
+      schedule: OFF,
+      routine: CONNECTED,
+      launcher: { connected: true },
+    });
+    renderAt("/projets/5/reglages");
+    const card = await cloudCard();
+    const box = (await within(card).findByRole("checkbox", {
+      name: /lancer ce projet dans le cloud/i,
+    })) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+
+    fireEvent.click(box);
+
+    await waitFor(() => expect(writes(calls)).toHaveLength(1));
+    expect(writes(calls)[0]).toMatchObject({
+      method: "PUT",
+      path: "/api/projects/5/launcher",
+    });
+    expect(sent(writes(calls)[0])).toEqual({ inLauncher: true });
+  });
+
+  it("given the project is in the launcher, when the page loads, then the box is checked", async () => {
+    stubApi({
+      schedule: OFF,
+      routine: CONNECTED,
+      launcher: { connected: true, projectIds: [5] },
+    });
+    renderAt("/projets/5/reglages");
+    const card = await cloudCard();
+
+    const box = (await within(card).findByRole("checkbox", {
+      name: /lancer ce projet dans le cloud/i,
+    })) as HTMLInputElement;
+    await waitFor(() => expect(box.checked).toBe(true));
+  });
+
+  it("given the repo is missing from the task, when the page loads, then the card says Le repo n'est pas dans la tâche", async () => {
+    stubApi({
+      schedule: OFF,
+      routine: CONNECTED,
+      launcher: { connected: true, missingProjectIds: [5] },
+    });
+    renderAt("/projets/5/reglages");
+    const card = await cloudCard();
+
+    await waitFor(() =>
+      expect(card.textContent).toContain("Le repo n'est pas dans la tâche"),
+    );
+  });
+
+  it("given a launcher that is not connected, when the page loads, then the card links to /reglages/taches-cloud", async () => {
+    stubApi({ schedule: OFF, routine: CONNECTED });
+    renderAt("/projets/5/reglages");
+    const card = await cloudCard();
+
+    await waitFor(() =>
+      expect(
+        card.querySelector('a[href="/reglages/taches-cloud"]'),
+      ).not.toBeNull(),
+    );
+  });
+});
+
+describe("Project settings, the invitation link (S13)", () => {
+  it("given the project settings, when the page loads, then the card Projet has « Inviter sur ce projet » leading to /reglages/membres?projet=5", async () => {
+    stubApi({ schedule: OFF, routine: CONNECTED });
+    renderAt("/projets/5/reglages");
+
+    const link = await screen.findByRole("link", {
+      name: "Inviter sur ce projet",
+    });
+    expect(link.getAttribute("href")).toBe("/reglages/membres?projet=5");
   });
 });

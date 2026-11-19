@@ -167,6 +167,14 @@ La CI / CD (E ; douzième morceau construit, S12) :
 - **Onglet** (`ProjectPage.tsx`) : « CI / CD · 1 à relire » dès qu'une proposition est en attente, sans classe destructive ; la requête des workflows n'est plus limitée à l'onglet CI / CD.
 - **Pas de migration**, aucune route ajoutée.
 
+Les réglages (P, Q, C ; treizième morceau construit, S13) :
+
+- **Fréquences par projet** (Q, `RoutineSettings.tsx`) : une tâche « Écrire les US » connectée liste « Fréquence de chaque projet » : les projets non archivés (`["projects"]`), chacun en lien vers `/projets/:id/reglages` avec sa phrase (« chaque jour à 7 h », « chaque semaine à … », « à la demande », « désactivée »), lue par `fetchSchedule` de `ProjectRoutine.tsx`. Tâche non connectée, ou aucun projet actif : rien n'est listé.
+- **Carte « Dans le cloud »** (P, `CloudCard`, `ProjectRoutine.tsx`) : la case « Lancer ce projet dans le cloud » lit `["launcher"]` (`fetchLauncher`) et envoie `PUT /api/projects/:id/launcher { inLauncher }` : même valeur que l'étape 4 des Réglages. Le projet dans `missingProjectIds` dit « Le repo n'est pas dans la tâche » ; un lanceur non relié montre un lien vers `/reglages/taches-cloud`.
+- **Inviter** (`Members.tsx`) : la carte d'archivage du projet porte « Inviter sur ce projet » vers `/reglages/membres?projet=<id>` (absente si le projet est archivé). Le projet est déjà choisi quand l'adresse porte `?projet=<id>` d'un projet de la liste, ou quand il n'y en a qu'un ; un clic sur une puce garde la priorité. Après « Copier », la page dit « Copié. ».
+- **Retirer une tâche reliée** (C, `ConnectStep`, `TaskCard.tsx`, donc Écrire les US et Lanceur) : « Retirer » n'envoie plus rien ; il montre « Retirer la tâche ? Il faudra régénérer son jeton sur claude.ai. » avec « Confirmer le retrait » (envoie le DELETE) et « Annuler » (focus dessus, rétablit « Retirer » sans requête).
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -185,3 +193,5 @@ La CI / CD (E ; douzième morceau construit, S12) :
 - **« Utilisé par »** ne lit que les équipes que `readTeam` sait lire ; une équipe illisible n'est pas comptée.
 - **« CI / CD · 1 à relire »** lit la requête des workflows, qui appelle GitHub : un échec de cette lecture (rejouée une seule fois au chargement de chaque onglet du projet) laisse l'onglet sans compteur.
 - **Un lancement sans nouvelles depuis 2 h** n'est ni affiché ni bloquant, même si sa session tourne encore : l'ancienne session peut alors s'ajouter à la nouvelle.
+- **« Copié. »** reste affiché tant que le lien d'invitation l'est ; il ne revient pas à « Copier » après un délai.
+- **Fréquences des projets** : une requête de planning par projet actif (`fetchSchedule`) ; sans réponse, la ligne montre le nom du projet seul.

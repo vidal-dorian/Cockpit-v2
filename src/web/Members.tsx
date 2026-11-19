@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { ROLE_LABELS, type Role, roleRefusal } from "./roles.ts";
 import { plural } from "./tickets.ts";
@@ -73,16 +74,20 @@ function RoleSelect({
 
 /** The link of an invitation, shown once: the server keeps only its hash. */
 function InviteLink({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <code className="min-w-0 break-all font-mono text-[12.5px]">{url}</code>
       <button
         type="button"
-        onClick={() => navigator.clipboard.writeText(url)}
+        onClick={() =>
+          navigator.clipboard.writeText(url).then(() => setCopied(true))
+        }
         className={button}
       >
         Copier
       </button>
+      {copied && <span role="status">Copié.</span>}
       <p className="basis-full text-xs text-muted-foreground">
         Envoie-le toi-même : il ne sera plus montré, et vaut 7 jours.
       </p>
@@ -95,7 +100,17 @@ export function Members() {
   const queryClient = useQueryClient();
   const members = useQuery({ queryKey: ["members"], queryFn: fetchMembers });
   const [login, setLogin] = useState("");
-  const [projectId, setProjectId] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
+  // Chosen already when the address says ?projet=<id> or when there is only one project.
+  const [params] = useSearchParams();
+  const projectList = members.data?.projects ?? [];
+  const projectId =
+    picked ??
+    (
+      projectList.find((p) => String(p.id) === params.get("projet")) ??
+      (projectList.length === 1 ? projectList[0] : undefined)
+    )?.id ??
+    null;
   const [role, setRole] = useState<Invitable>("can_validate");
   const [link, setLink] = useState<string | null>(null);
   // The row being edited, by project and user; one at a time, with its form in place of the invitation's.
@@ -208,7 +223,7 @@ export function Members() {
                 key={p.id}
                 type="button"
                 aria-pressed={projectId === p.id}
-                onClick={() => setProjectId(p.id)}
+                onClick={() => setPicked(p.id)}
                 className={chipLink({ isActive: projectId === p.id })}
               >
                 {projectId === p.id && <span aria-hidden="true">✓ </span>}

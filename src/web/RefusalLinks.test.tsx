@@ -348,6 +348,15 @@ describe("084 D: the refusals of the project pages", () => {
           needsReconnect: false,
           prompt: "p",
         });
+      if (path === "/api/me/launcher")
+        return Response.json({
+          connected: false,
+          needsReconnect: false,
+          prompt: "p",
+          projectIds: [],
+          missingProjectIds: [],
+          autoRelaunch: false,
+        });
       if (path === "/api/projects/5/routine/run" && method === "POST")
         return Response.json(
           { error: "routine_needs_reconnect" },

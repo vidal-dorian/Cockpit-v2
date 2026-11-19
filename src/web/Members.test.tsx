@@ -391,3 +391,74 @@ describe("S48, 076 F: managing members and invitations", () => {
     );
   });
 });
+
+// S13 (audit): the project is preselected when there is only one or when the address says ?projet=<id>, and Copier answers.
+describe("Members, inviting without choosing the project", () => {
+  it("given one project only, when the owner types a login, then the project is already chosen and the button is enabled", async () => {
+    stubApi({
+      members: data({
+        projects: [{ id: 1, fullName: "acme/gestion" }],
+        members: [],
+        invitations: [],
+      }),
+    });
+    renderAt("/reglages/membres");
+
+    fireEvent.change(
+      await screen.findByRole("textbox", { name: "@login GitHub" }),
+      { target: { value: "marie" } },
+    );
+
+    expect(
+      screen
+        .getByRole("button", { name: "acme/gestion" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Créer le lien d'invitation",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
+  it("given two projects and ?projet=2 in the address, when the page loads, then acme/api is chosen", async () => {
+    stubApi({ members: data({ members: [], invitations: [] }) });
+    renderAt("/reglages/membres?projet=2");
+
+    await screen.findByRole("textbox", { name: "@login GitHub" });
+    expect(
+      screen
+        .getByRole("button", { name: "acme/api" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: "acme/gestion" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  it("given an invitation link shown, when Copier is clicked, then the page says Copié.", async () => {
+    stubApi({ members: data({ members: [], invitations: [] }) });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(async (_t: string) => {}) },
+      configurable: true,
+    });
+    renderAt("/reglages/membres");
+    fireEvent.change(
+      await screen.findByRole("textbox", { name: "@login GitHub" }),
+      { target: { value: "marie" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "acme/gestion" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Créer le lien d'invitation" }),
+    );
+    await screen.findByText(LINK);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copier" }));
+
+    await screen.findByText("Copié.");
+  });
+});
