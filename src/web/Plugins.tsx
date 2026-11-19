@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router";
 import { pluginSettings } from "../server/plugin-settings.ts";
 import { client } from "./api.ts";
 import { AddAgent, AgentForm, type Editing } from "./ProjectAgents.tsx";
@@ -61,9 +62,12 @@ export function Plugins() {
   const [adding, setAdding] = useState(false);
   const [problem, setProblem] = useState<Failure | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+  // The project whose install is open or just committed: its row shows the diff and the result (decision 084).
+  const [at, setAt] = useState<number | null>(null);
 
   const link = useMutation({
     mutationFn: async (fullName: string | null) => {
+      setAt(null); // the refusal shows in the top alert, not in a project row
       const res = await client.api.plugins.repo.$put(
         {},
         { init: { body: JSON.stringify({ fullName }), headers: json } },
@@ -126,6 +130,7 @@ export function Plugins() {
     setProblem(null);
     setDone(null);
     setAdding(false);
+    setAt(next?.kind === "project" ? next.id : null);
     setOpen(next);
   };
 
@@ -188,7 +193,7 @@ export function Plugins() {
         {!plugins.data && !plugins.isError && (
           <p className="loading text-muted-foreground">Chargement…</p>
         )}
-        {(failed || problem) && (
+        {(failed || (problem && at === null)) && (
           <div role="alert" className={alertBox}>
             <p>{message((failed ?? problem) as Failure)}</p>
             {failed?.status === 409 && (
@@ -204,7 +209,7 @@ export function Plugins() {
             )}
           </div>
         )}
-        {done && <DoneBox done={done} />}
+        {done && at === null && <DoneBox done={done} />}
         {repo === null && (
           <section aria-labelledby="relier">
             <h2 id="relier" className={sectionLabel}>
@@ -213,7 +218,30 @@ export function Plugins() {
             <p className="mt-2">
               Crée un repo sur GitHub avec un premier commit (un README suffit),
               ouvre-le à Cockpit, puis relie-le ici.
+              {repositories.data && (
+                <>
+                  {" "}
+                  <a
+                    href={repositories.data.installUrl}
+                    className={`underline ${focusRing}`}
+                  >
+                    Ouvrir un repo à Cockpit ↗
+                  </a>
+                </>
+              )}
             </p>
+            {repositories.data?.installed &&
+              repositories.data.repositories.length === 0 && (
+                <p className="mt-2 text-muted-foreground">
+                  L'App est installée, mais sur aucun repo.{" "}
+                  <a
+                    href={repositories.data.installUrl}
+                    className={`underline ${focusRing}`}
+                  >
+                    Choisir des repos
+                  </a>
+                </p>
+              )}
             <ul className={`mt-2 ${listCard}`}>
               {repositories.data?.repositories.map((r) => (
                 <li
@@ -245,6 +273,12 @@ export function Plugins() {
                 <h2 id="commun" className={sectionLabel}>
                   Agents et skills communs · {repo}
                 </h2>
+                <a
+                  href={`https://github.com/${repo}`}
+                  className={`underline ${focusRing}`}
+                >
+                  Ouvrir le repo ↗
+                </a>
                 <button
                   type="button"
                   disabled={link.isPending}
@@ -334,68 +368,83 @@ export function Plugins() {
               )}
               <ul className={`mt-2 ${listCard}`}>
                 {list.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex min-h-[50px] items-center justify-between gap-3 px-[18px] py-2"
-                  >
-                    <span className="font-semibold">{p.fullName}</span>
-                    {p.installed && (
-                      <span className="text-muted-foreground">installé</span>
+                  <li key={p.id} className="min-h-[50px] px-[18px] py-2">
+                    <div className="flex min-h-[34px] items-center justify-between gap-3">
+                      <Link
+                        to={`/projets/${p.id}`}
+                        className={`font-semibold underline ${focusRing}`}
+                      >
+                        {p.fullName}
+                      </Link>
+                      {p.installed && (
+                        <span className="text-muted-foreground">installé</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          show({
+                            kind: "project",
+                            id: p.id,
+                            install: !p.installed,
+                          })
+                        }
+                        className={button}
+                      >
+                        {p.installed ? "Retirer" : "Installer"}
+                      </button>
+                    </div>
+                    {at === p.id && (
+                      <>
+                        {problem && (
+                          <p role="alert" className={`mt-3 ${alertBox}`}>
+                            {message(problem)}
+                          </p>
+                        )}
+                        {done && <DoneBox done={done} />}
+                        {project?.id === p.id && after === null && (
+                          <p role="alert" className={`mt-3 ${alertBox}`}>
+                            {message({ code: "invalid_settings", status: 409 })}
+                          </p>
+                        )}
+                        {target && project?.id === p.id && after && (
+                          <Editor
+                            {...common}
+                            before={project.settings}
+                            after={after}
+                            file=".claude/settings.json"
+                            left={
+                              <p>
+                                {target.install ? "Installer" : "Retirer"} les
+                                agents et skills communs{" "}
+                                {target.install ? "dans" : "de"}{" "}
+                                {project.fullName}.
+                              </p>
+                            }
+                            onReset={() => show(null)}
+                            onCommit={() => {
+                              setProblem(null);
+                              commit.mutate(() =>
+                                client.api.projects[":id"].plugins.apply.$post(
+                                  { param: { id: String(project.id) } },
+                                  {
+                                    init: {
+                                      body: JSON.stringify({
+                                        install: target.install,
+                                        before: project.settings,
+                                      }),
+                                      headers: json,
+                                    },
+                                  },
+                                ),
+                              );
+                            }}
+                          />
+                        )}
+                      </>
                     )}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        show({
-                          kind: "project",
-                          id: p.id,
-                          install: !p.installed,
-                        })
-                      }
-                      className={button}
-                    >
-                      {p.installed ? "Retirer" : "Installer"}
-                    </button>
                   </li>
                 ))}
               </ul>
-              {project && after === null && (
-                <p role="alert" className={`mt-3 ${alertBox}`}>
-                  {message({ code: "invalid_settings", status: 409 })}
-                </p>
-              )}
-              {target && project && after && (
-                <Editor
-                  {...common}
-                  before={project.settings}
-                  after={after}
-                  file=".claude/settings.json"
-                  left={
-                    <p>
-                      {target.install ? "Installer" : "Retirer"} les agents et
-                      skills communs {target.install ? "dans" : "de"}{" "}
-                      {project.fullName}.
-                    </p>
-                  }
-                  onReset={() => show(null)}
-                  onCommit={() => {
-                    setProblem(null);
-                    commit.mutate(() =>
-                      client.api.projects[":id"].plugins.apply.$post(
-                        { param: { id: String(project.id) } },
-                        {
-                          init: {
-                            body: JSON.stringify({
-                              install: target.install,
-                              before: project.settings,
-                            }),
-                            headers: json,
-                          },
-                        },
-                      ),
-                    );
-                  }}
-                />
-              )}
             </section>
           </>
         )}

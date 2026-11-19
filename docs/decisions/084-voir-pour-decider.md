@@ -147,6 +147,16 @@ La coque, la recherche et la barre d'idée (C, M ; dixième morceau construit, S
 - **« Idée notée dans … »** porte « Ouvrir le ticket » vers `/tickets/<id du ticket créé>`.
 - **Pas de changement serveur** : ni route ni migration.
 
+Les équipes, les agents et les plugins (A, C, D, N, O ; onzième morceau construit, S11) :
+
+- **Ajouter ou mettre à jour une équipe** (N) : le clic lit le projet (`planAdd`) et montre, dans la ligne de l'équipe, « Ce qui change » (diff de la copie du repo vers le texte global, ou le texte seul pour un ajout) et, s'il en manque, la liste « Agents ajoutés » (absente sinon). Rien n'est envoyé à `team/apply` avant « Faire le commit », qui envoie le même corps qu'avant. Vaut pour l'onglet Agents (« Tes équipes », `GlobalTeamRow`, « C'est fait » reste dans la ligne) et pour `/equipes` (« Ajouter » après le choix du projet). La fenêtre « Développer avec Claude » garde l'ajout en un clic (`useAddTeam`) : elle avertit déjà d'une équipe « à mettre à jour ».
+- **Suite d'un ajout** (C) : sur `/equipes`, le résultat porte « Ouvrir dans <projet> › Agents » vers `/projets/:id/agents`. Après « Créer l'équipe » (création, pas modification), la ligne de la nouvelle équipe s'ouvre sur « Ajouter à un projet ».
+- **Agent absent du repo** (O) : l'étape dont l'agent manque au repo mais figure au catalogue montre « Ajouter l'agent du catalogue » ; il ouvre le formulaire d'agent prérempli du texte du catalogue, et le commit envoie `before: null`. Le bouton est absent hors catalogue, si l'agent est déjà dans le repo, et dans la fenêtre « Nouvelle équipe ».
+- **Utilisé par** (A) : l'agent ouvert liste les équipes qui le nomment (« Par défaut » pour `team.md`, puis les équipes nommées lisibles par `readTeam`) ; la confirmation « Supprimer l'agent » nomme les mêmes. Rien n'est affiché pour un agent non utilisé.
+- **Liens GitHub** (D) : un en-tête d'agent illisible, une équipe nommée ou `team.md` illisible portent « Ouvrir sur GitHub ↗ » vers `https://github.com/<repo>/blob/HEAD/<chemin>` ; la ligne « Fichier trop gros » est un lien, plus un bouton désactivé.
+- **Plugins** (C, D) : sans repo relié, la phrase porte « Ouvrir un repo à Cockpit ↗ » vers `installUrl` ; avec l'App installée sur aucun repo : « L'App est installée, mais sur aucun repo. » et « Choisir des repos ». Le repo relié a « Ouvrir le repo ↗ » vers GitHub et chaque projet de « Tes projets » est un lien vers `/projets/:id`. « Installer » ou « Retirer » montre « Ce qui change » et « Faire le commit » dans le `li` du projet, avec « C'est fait » ou l'alerte de refus ; le haut de page ne les montre plus pour un projet.
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -162,3 +172,4 @@ La coque, la recherche et la barre d'idée (C, M ; dixième morceau construit, S
 - **Le lien du ticket créé** disparaît à la décision suivante ou en quittant l'écran : le ticket se retrouve par « En ticket » ou par l'onglet Tickets.
 - **Le dernier projet utilisé** n'est gardé qu'en mémoire de la page : un rechargement revient au premier projet de l'accueil.
 - **Le lien « Ouvrir le ticket »** de la barre d'idée disparaît avec le message « Idée notée dans … ».
+- **« Utilisé par »** ne lit que les équipes que `readTeam` sait lire ; une équipe illisible n'est pas comptée.

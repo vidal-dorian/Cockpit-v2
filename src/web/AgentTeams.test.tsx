@@ -557,6 +557,7 @@ describe("decision 074 B4: a team of the list", () => {
     fireEvent.change(select, { target: { value: "5" } });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     await waitFor(() => expect(applies(sent)).toHaveLength(1));
     const [body] = applies(sent);
@@ -588,6 +589,7 @@ describe("decision 074 B4: a team of the list", () => {
     fireEvent.change(select, { target: { value: "5" } });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     await waitFor(() => expect(applies(sent)).toHaveLength(1));
     expect(sorted(applies(sent)[0]?.agents)).toEqual([
@@ -615,6 +617,7 @@ describe("decision 074 B4: a team of the list", () => {
     fireEvent.change(select, { target: { value: "5" } });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     await waitFor(() => expect(applies(sent)).toHaveLength(1));
     expect(applies(sent)[0]).toEqual({
@@ -657,6 +660,7 @@ describe("decision 074 B4: a team of the list", () => {
     fireEvent.change(select, { target: { value: "5" } });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     await screen.findByText(/C'est fait|pull request/);
     expect(
@@ -676,6 +680,7 @@ describe("decision 074 B4: a team of the list", () => {
     fireEvent.change(select, { target: { value: "5" } });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(
       REPO_CHANGED,
@@ -716,9 +721,14 @@ describe("feedback on E6: adding a team to a project", () => {
     });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     const status = await screen.findByRole("status");
     expect(status.textContent).toContain("Ajout en cours…");
+    expect(
+      (li.getByRole("button", { name: "Faire le commit" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
     expect(
       (li.getByRole("button", { name: "Ajouter" }) as HTMLButtonElement)
         .disabled,
@@ -782,6 +792,7 @@ describe("feedback on E6: adding a team to a project", () => {
     fireEvent.change(select, { target: { value: "5" } });
 
     fireEvent.click(li.getByRole("button", { name: "Ajouter" }));
+    fireEvent.click(await li.findByRole("button", { name: "Faire le commit" }));
 
     expect(await screen.findByText(/C'est fait/)).toBeDefined();
     await waitFor(() => expect(select.value).toBe(""));
@@ -809,6 +820,14 @@ describe("decision 074 B5: « Tes équipes » on the tab Agents of a project", (
     const reads = calls.agentReads;
 
     click("Ajouter au projet");
+    const teams = within(
+      screen
+        .getByRole("heading", { name: "Tes équipes" })
+        .closest("section") as HTMLElement,
+    );
+    fireEvent.click(
+      await teams.findByRole("button", { name: "Faire le commit" }),
+    );
 
     await waitFor(() => expect(applies(sent)).toHaveLength(1));
     const [body] = applies(sent);

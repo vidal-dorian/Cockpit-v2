@@ -101,6 +101,7 @@ function StepPanel({
   onRemove,
   canEditAgent,
   onEditAgent,
+  onAddAgent,
 }: {
   uid: string;
   step: TeamStep;
@@ -111,6 +112,8 @@ function StepPanel({
   onRemove: () => void;
   canEditAgent: boolean;
   onEditAgent?: () => void;
+  /** The agent is missing from the repo but in the catalog (decision 084 O). */
+  onAddAgent?: () => void;
 }) {
   return (
     <div className={`${card} mt-4 p-4`}>
@@ -204,6 +207,11 @@ function StepPanel({
             Modifier l'agent
           </button>
         )}
+        {onAddAgent && (
+          <button type="button" onClick={onAddAgent} className={button}>
+            Ajouter l'agent du catalogue
+          </button>
+        )}
       </div>
     </div>
   );
@@ -217,6 +225,8 @@ function StepEditor({
   archived,
   view,
   onEditAgent,
+  addable,
+  onAddAgent,
 }: {
   steps: TeamStep[];
   onSteps: (next: TeamStep[]) => void;
@@ -226,6 +236,9 @@ function StepEditor({
   view: "graph" | "list" | "both";
   /** Absent in the dialog: the agent form would open behind it. */
   onEditAgent?: (name: string) => void;
+  /** The catalog agents the repo lacks, and the way to add one (decision 084 O); absent in the dialog. */
+  addable?: string[];
+  onAddAgent?: (name: string) => void;
 }) {
   const uid = useId();
   const [open, setOpen] = useState<string | null>(null);
@@ -416,6 +429,11 @@ function StepEditor({
             "string"
           }
           onEditAgent={onEditAgent && (() => onEditAgent(openStep.agent))}
+          onAddAgent={
+            onAddAgent && addable?.includes(openStep.agent)
+              ? () => onAddAgent(openStep.agent)
+              : undefined
+          }
         />
       )}
       {view !== "graph" && addButton}
@@ -482,6 +500,8 @@ export function ProjectTeam({
   teams,
   onSaved,
   onEditAgent,
+  addable,
+  onAddAgent,
 }: {
   projectId: string;
   fullName: string;
@@ -493,6 +513,8 @@ export function ProjectTeam({
   teams: { name: string; text: string }[];
   onSaved: () => void;
   onEditAgent: (name: string) => void;
+  addable: string[];
+  onAddAgent: (name: string) => void;
 }) {
   // The team shown: null is the default one. A named team that is not in `teams` yet is a new one, started from `copy`.
   const [name, setName] = useState<string | null>(null);
@@ -901,7 +923,13 @@ export function ProjectTeam({
           {deleteBlock}
           <p className="mt-3">
             {name === null ? "Ce team.md contient" : "Cette équipe contient"}{" "}
-            des lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub
+            des lignes que Cockpit ne sait pas réécrire : modifie-le sur GitHub{" "}
+            <a
+              href={`https://github.com/${fullName}/blob/HEAD/.claude/${name === null ? "team.md" : `teams/${name}.md`}`}
+              className={`underline ${focusRing}`}
+            >
+              Ouvrir sur GitHub ↗
+            </a>
           </p>
         </div>
       </section>
@@ -954,6 +982,8 @@ export function ProjectTeam({
             archived={archived}
             view={view}
             onEditAgent={onEditAgent}
+            addable={addable}
+            onAddAgent={onAddAgent}
           />
         )}
         {problem && !canvas && <Problem problem={problem} />}
