@@ -166,24 +166,42 @@ export function ProjectPage({
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
     board.filter((s) => statuses.includes(s.status)).length;
-  const waiting = count("to_validate", "to_rewrite", "in_review");
+  // A story Claude rewrites does not wait for you (decision 084 E, as on the home page).
+  const waiting = count("to_validate", "in_review");
   const working = count("in_progress");
   const asking = board.find((s) => s.questionPending);
+  const firstWaiting = board.find((s) =>
+    ["to_validate", "in_review"].includes(s.status),
+  );
+  // The sentence names what waits, and leads to the first thing to do (decision 084 E).
+  const toStory = (id: number | undefined, text: string) => (
+    <Link to={`?us=${id}`} className={`underline ${focusRing}`}>
+      {text}
+    </Link>
+  );
   const kanbanSentence = {
     inline: true,
-    title: stories.isPending
-      ? "Chargement…"
-      : stories.isError
-        ? (project?.fullName.split("/").pop() ?? "Projet")
-        : asking
-          ? `Claude t'attend sur l'US ${asking.id}.`
-          : waiting > 0
-            ? waiting === 1
-              ? "1 user story t'attend."
-              : `${waiting} user stories t'attendent.`
-            : working > 0
-              ? `Claude développe ${plural(working, "user story", "user stories")}.`
-              : "Rien ne t'attend sur ce projet.",
+    title: stories.isPending ? (
+      "Chargement…"
+    ) : stories.isError ? (
+      (project?.fullName.split("/").pop() ?? "Projet")
+    ) : asking ? (
+      <>Claude t'attend sur {toStory(asking.id, `l'US ${asking.id}`)}.</>
+    ) : waiting > 0 ? (
+      <>
+        {toStory(
+          firstWaiting?.id,
+          waiting === 1
+            ? "1 user story t'attend"
+            : `${waiting} user stories t'attendent`,
+        )}
+        .
+      </>
+    ) : working > 0 ? (
+      `Claude développe ${plural(working, "user story", "user stories")}.`
+    ) : (
+      "Rien ne t'attend sur ce projet."
+    ),
     rest: !stories.data
       ? undefined
       : board.length === 0
@@ -226,7 +244,7 @@ export function ProjectPage({
     tab === "agents" && FILES.some((f) => f === search.get("fichier"));
   const waitingUs = (tickets.data ?? []).filter((t) => t.step === "new").length;
   const name = project?.fullName.split("/").pop() ?? "Projet";
-  const sentence: { title: string; rest?: string; inline?: boolean } =
+  const sentence: { title: React.ReactNode; rest?: string; inline?: boolean } =
     tab === "kanban"
       ? kanbanSentence
       : tab === "sante" && planned !== null

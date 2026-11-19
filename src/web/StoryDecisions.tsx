@@ -1,6 +1,6 @@
 // biome-ignore-all lint/suspicious/noThenProperty: "then" is the Then field of a Given/When/Then criterion (decision 017)
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { Fragment, type RefObject, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
@@ -84,7 +84,7 @@ export function StoryDecisions({
   /** The status of the story on the page (tabIndex -1): where the focus goes when the button that was used is gone. */
   statusRef: RefObject<HTMLElement | null>;
   /** The rules of a takeover story that are still to decide (decision 047 K): the story cannot be validated before. */
-  toDecide?: string[];
+  toDecide?: { id: number; summary: string }[];
   /** What the panel shows under its headline (the pull request of a story in review). */
   children?: React.ReactNode;
 }) {
@@ -286,7 +286,18 @@ export function StoryDecisions({
                 {toDecide.length === 1
                   ? "1 règle à trancher"
                   : `${toDecide.length} règles à trancher`}{" "}
-                : {toDecide.join(" · ")}
+                :{" "}
+                {toDecide.map((rule, index) => (
+                  <Fragment key={rule.id}>
+                    {index > 0 && " · "}
+                    <Link
+                      to={`/projets/${project.id}/conception/regles?regle=${rule.id}`}
+                      className={`underline ${focusRing}`}
+                    >
+                      {rule.summary}
+                    </Link>
+                  </Fragment>
+                ))}
               </p>
             )}
           {status === "to_validate" && (

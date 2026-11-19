@@ -1,9 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { type KeyboardEvent, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { type KeyboardEvent, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { AnswerForm } from "./AnswerForm.tsx";
 import { client } from "./api.ts";
+import { fetchRun } from "./RunPage.tsx";
+import { WhyAsked } from "./RunQuestions.tsx";
 import { Dot } from "./Shell.tsx";
+import { StoryBody } from "./StoryBody.tsx";
 import { fetchStory, StoryDecisions } from "./StoryDecisions.tsx";
+import { StoryGitHub } from "./StoryGitHub.tsx";
+import { StoryVerdict } from "./StoryPage.tsx";
 import { TicketTags } from "./TagField.tsx";
 import { TicketPanel } from "./TicketPanel.tsx";
 import { fetchTickets, plural, STORY_STATUSES } from "./tickets.ts";
@@ -54,16 +60,63 @@ const COLUMN_OF = {
   (typeof COLUMNS)[number]["name"]
 >;
 
-/** The panel of an open US card (decision 069 H): the decisions of its page, headed by the way to the page and to its running run. */
+/** The pending question of the story's running run (decision 084 G), answered where the card is opened. */
+function CardQuestion({ runId }: { runId: number }) {
+  const queryClient = useQueryClient();
+  const run = useQuery({
+    queryKey: ["run", String(runId)],
+    queryFn: () => fetchRun(String(runId)),
+  });
+  const question =
+    typeof run.data === "object"
+      ? run.data?.questions.find((q) => q.answer === null)
+      : undefined;
+  return (
+    question && (
+      <section className="grid gap-3">
+        <h3 className="text-base font-semibold break-words whitespace-pre-wrap">
+          {question.question}
+        </h3>
+        <WhyAsked context={question.context} />
+        <AnswerForm
+          key={question.id}
+          id={question.id}
+          suggestedAnswers={question.suggestedAnswers}
+          queryKey={["run", String(runId)]}
+          onSent={() => {
+            // The board and the panel read the story, not the run: they must see the question gone.
+            queryClient.invalidateQueries({ queryKey: ["stories"] });
+            queryClient.invalidateQueries({ queryKey: ["story"] });
+          }}
+        />
+      </section>
+    )
+  );
+}
+
+/** The panel of an open US card (decisions 069 H and 084 G): the decisions of its page, with what is needed to take them (the story, the pull request, the question). */
 function StoryCardPanel({ id }: { id: string }) {
   const statusRef = useRef<HTMLParagraphElement>(null);
   const found = useQuery({
     queryKey: ["story", id],
     queryFn: () => fetchStory(id),
   }).data;
+  const loaded = found && found !== "not_found" ? found.story.id : null;
+  // Under lg the panel follows the board: opening a card brings the focus and the view to it (decision 084 H).
+  useEffect(() => {
+    if (loaded === null) return;
+    statusRef.current?.focus();
+    statusRef.current?.scrollIntoView({ block: "nearest" });
+  }, [loaded]);
   if (!found || found === "not_found") return null;
   const { story, project } = found;
   const running = story.runs?.find((run) => run.status === "running");
+  const latestRun = story.runs?.reduce<{ id: number } | undefined>(
+    (best, run) => (!best || run.id > best.id ? run : best),
+    undefined,
+  );
+  const pr =
+    story.prNumber != null ? { ...story, prNumber: story.prNumber } : null;
   return (
     <StoryDecisions
       key={story.id}
@@ -72,13 +125,22 @@ function StoryCardPanel({ id }: { id: string }) {
       archived={project.archived}
       statusRef={statusRef}
       toDecide={story.criteria.flatMap((c) =>
-        c.takeoverState === "pending" ? [c.summary ?? ""] : [],
+        c.takeoverState === "pending"
+          ? [{ id: c.id, summary: c.summary ?? "" }]
+          : [],
       )}
     >
       <p ref={statusRef} tabIndex={-1} className="text-[12.5px]">
         US {story.id} ·{" "}
         <Link to={`/us/${story.id}`} className={`underline ${focusRing}`}>
           Ouvrir l'US
+        </Link>
+        {" · "}
+        <Link
+          to={`/tickets/${found.ticket.id}`}
+          className={`underline ${focusRing}`}
+        >
+          {found.ticket.title}
         </Link>
         {running && (
           <>
@@ -92,6 +154,24 @@ function StoryCardPanel({ id }: { id: string }) {
           </>
         )}
       </p>
+      {story.issue?.diverged && (
+        <p className="text-muted-foreground">
+          Issue modifiée sur GitHub :{" "}
+          <Link to={`/us/${story.id}`} className={`underline ${focusRing}`}>
+            Choisir la version
+          </Link>
+        </p>
+      )}
+      {["to_validate", "to_rewrite", "ready"].includes(story.status) && (
+        <StoryBody found={found} />
+      )}
+      {story.status === "in_review" && (
+        <>
+          {pr && <StoryGitHub story={pr} fullName={project.fullName} />}
+          {latestRun && <StoryVerdict runId={latestRun.id} />}
+        </>
+      )}
+      {running && <CardQuestion runId={running.id} />}
     </StoryDecisions>
   );
 }
@@ -252,6 +332,9 @@ export function ProjectKanban({ projectId }: { projectId: string }) {
                                 )
                               : null,
                             story.prNumber ? `PR #${story.prNumber}` : null,
+                            story.status === "ready" && story.blockedBy
+                              ? `dépend de l'US ${story.blockedBy}`
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(" · ");

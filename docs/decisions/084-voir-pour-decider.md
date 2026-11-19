@@ -46,6 +46,18 @@ Ce que ces règles changent dans les décisions existantes :
 | P | Lancer dans le cloud | **054 D** : la case n'est que dans les réglages globaux | Elle est aussi dans les réglages du projet (la même valeur) |
 | Q | Écriture des US | **022 D** : réglée projet par projet | Réglages › Tâches cloud liste la fréquence de chaque projet, avec un lien vers ses réglages |
 
+## Ce que le code a précisé
+
+Panneau d'une carte du Kanban (G, H, A, C, E ; premier morceau construit) :
+
+- **`StoryBody`** : le récit, le commentaire de renvoi (US à réécrire) et les critères sont sortis de `StoryPage.tsx` dans `src/web/StoryBody.tsx`, partagé par la page de l'US et le panneau. Le panneau le montre pour une US à valider, à réécrire ou prête ; en revue il montre `StoryGitHub` (lien « PR #n ») et `StoryVerdict` du dernier run.
+- **Question en attente** : le panneau lit le run en cours de l'US et montre sa première question sans réponse, son contexte et `AnswerForm` (réponses suggérées comprises) ; la réponse invalide `["stories"]` et `["story"]`.
+- **`blockedBy`** : `GET /api/projects/:id/stories` rend l'id de la première dépendance (par id croissant) dont le statut n'est pas `done`, sinon `null`. La carte ne dit « dépend de l'US n » que si l'US est prête.
+- **Liens** : le titre du ticket mène à `/tickets/:id` ; « Issue modifiée sur GitHub » porte « Choisir la version » vers `/us/:id` ; chaque règle à trancher mène à `/projets/:id/conception/regles?regle=<id>` ; dans la phrase d'état, « l'US n » et « n user stories t'attendent » mènent à `?us=` de la première US concernée.
+- **Compte de la phrase d'état** : une US à réécrire n'est plus comptée comme attendant l'utilisateur (comme à l'accueil) ; seules « à valider » et « en revue » le sont.
+- **Focus** : à l'ouverture d'une carte, le focus va sur la ligne « US n » du panneau, qui est amenée dans la vue (`scrollIntoView`), à toute largeur.
+- **Pas encore fait** : « Valider, Renvoyer ou Abandonner ouvre l'US suivante » (B, ligne G) n'est pas dans ce morceau.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
