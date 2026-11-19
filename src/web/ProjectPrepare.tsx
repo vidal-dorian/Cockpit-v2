@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router";
 import { client } from "./api.ts";
 import { DiffList } from "./DiffList.tsx";
 import { diffLines } from "./diff.ts";
@@ -53,6 +54,36 @@ const UNAVAILABLE =
   "GitHub ne répond pas comme prévu, réessaie dans un instant.";
 const UNAUTHORIZED = "Ta session a expiré : reconnecte-toi, puis recommence.";
 const FAILED = "Ça n'a pas marché, réessaie dans un instant.";
+
+// The page that fixes a refusal (decision 084 D), by code of the server; `/projets/:id/…` ones need the project.
+const FIXES: Record<string, (projectId?: string) => [string, string] | null> = {
+  project_not_in_launcher: () => ["/reglages/taches-cloud", "les Réglages"],
+  launcher_not_connected: () => ["/reglages/taches-cloud", "les Réglages"],
+  launcher_needs_reconnect: () => ["/reglages/taches-cloud", "les Réglages"],
+  routine_not_connected: () => ["/reglages/taches-cloud", "les Réglages"],
+  routine_needs_reconnect: () => ["/reglages/taches-cloud", "les Réglages"],
+  launch_failed: () => ["/reglages/taches-cloud", "les Réglages"],
+  monthly_budget_reached: () => ["/claude/cout", "la page Coût"],
+  not_prepared: (id) =>
+    id ? [`/projets/${id}/sante`, "la Santé du projet"] : null,
+  no_plugin_repo: () => ["/equipes/commun", "les Équipes"],
+};
+
+/** The link to the page that fixes the refusal `code`, nothing when it has none. */
+export function FixLink({
+  code,
+  projectId,
+}: {
+  code?: string | null;
+  projectId?: string;
+}) {
+  const fix = FIXES[code ?? ""]?.(projectId);
+  return fix ? (
+    <Link to={fix[0]} className={`underline ${focusRing}`}>
+      Ouvrir {fix[1]}
+    </Link>
+  ) : null;
+}
 
 export type Plan = NonNullable<Awaited<ReturnType<typeof readPlan>>["plan"]>;
 type PlanFile = Plan["files"][number];
@@ -162,9 +193,11 @@ export function FileRow({ file }: { file: PlanFile }) {
 
 /** The refusal of a write, in French, with the way out when there is one. */
 export function ProblemAlert({ problem }: { problem: Failure }) {
+  const { id } = useParams();
   return (
     <div role="alert" className={`mt-3 ${alertBox}`}>
       <p>{message(problem)}</p>
+      <FixLink code={problem.code} projectId={id} />
       {problem.status === 401 && (
         <a href="/api/auth/login" className={`underline ${focusRing}`}>
           Se connecter avec GitHub

@@ -7,6 +7,7 @@ import {
   type Done,
   DoneBox,
   type Failure,
+  FixLink,
   failure,
   message,
 } from "./ProjectPrepare.tsx";
@@ -157,6 +158,7 @@ function WorkflowLine({
       {problem && (
         <div role="alert" className={`mt-2 basis-full ${alertBox}`}>
           <p>{message(problem)}</p>
+          <FixLink code={problem.code} projectId={projectId} />
         </div>
       )}
     </li>

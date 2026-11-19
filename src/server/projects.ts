@@ -874,7 +874,11 @@ export function projectRoutes(
         return [hook, access];
       };
       const webhook = async () =>
-        webhookLine(await readWebhook(c.get("github")), publicUrl);
+        webhookLine(
+          await readWebhook(c.get("github")),
+          publicUrl,
+          c.get("appSettingsUrl"),
+        );
       try {
         const read = await c
           .get("github")

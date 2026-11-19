@@ -25,7 +25,7 @@ import { fetchProjects } from "./Projects.tsx";
 import { ProjectTickets } from "./ProjectTickets.tsx";
 import { atLeast } from "./roles.ts";
 import { rulesSentence, useRules } from "./rules.ts";
-import { Breadcrumb, StateSentence } from "./Shell.tsx";
+import { Breadcrumb, fetchMe, StateSentence } from "./Shell.tsx";
 import { fetchTickets } from "./tickets.ts";
 import { UpdatesLine } from "./UpdatesLine.tsx";
 import {
@@ -146,6 +146,7 @@ export function ProjectPage({
     refetchOnWindowFocus: false,
   });
   const project = projects.data?.find((p) => String(p.id) === id);
+  const me = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   // What writes in the repo is the owner's (decision 076 G): the other roles read the bilan.
   const owner = atLeast(project?.role, "owner");
   const stories = useQuery({
@@ -402,6 +403,17 @@ export function ProjectPage({
         >
           Ce projet est en lecture seule : l'abonnement Gratuit de @
           {project.lockedBy} couvre 3 projets.
+          {project.lockedBy === me.data?.login && (
+            <>
+              {" "}
+              <Link
+                to="/reglages/abonnement"
+                className={`underline ${focusRing}`}
+              >
+                Voir l'abonnement
+              </Link>
+            </>
+          )}
         </p>
       )}
       {!notFound && (
@@ -521,6 +533,22 @@ export function ProjectPage({
                           {!line.ok && (
                             <span className="block text-[12.5px] text-muted-foreground">
                               {EXPLANATIONS[`${line.key}.${line.detail}`]}{" "}
+                              {line.key === "ci" && (
+                                <Link
+                                  to={`/projets/${id}/ci`}
+                                  className={`underline ${focusRing}`}
+                                >
+                                  Voir l'onglet CI / CD
+                                </Link>
+                              )}
+                              {line.key === "webhook" &&
+                                "url" in line &&
+                                line.url && (
+                                  <AccessLink
+                                    detail={line.detail}
+                                    url={line.url}
+                                  />
+                                )}
                               {line.key === "github_alerts" && (
                                 <AccessLink
                                   detail={line.detail}

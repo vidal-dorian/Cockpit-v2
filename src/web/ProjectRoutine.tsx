@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { fetchRoutine } from "./RoutineSettings.tsx";
 import { ROLE_REFUSAL } from "./roles.ts";
 import {
@@ -50,10 +51,13 @@ const RUN_REFUSALS: Record<string, string> = {
 
 async function failure(res: Response, refusals: Record<string, string>) {
   const body: { error?: string } | null = await res.json().catch(() => null);
-  return new Error(
-    (body?.error &&
-      (body.error === "role" ? ROLE_REFUSAL : refusals[body.error])) ||
-      "L'opération a échoué, réessaie.",
+  return Object.assign(
+    new Error(
+      (body?.error &&
+        (body.error === "role" ? ROLE_REFUSAL : refusals[body.error])) ||
+        "L'opération a échoué, réessaie.",
+    ),
+    { code: body?.error },
   );
 }
 
@@ -90,22 +94,24 @@ export function RunNowButton({
 }) {
   const queryClient = useQueryClient();
   const routine = useQuery({ queryKey: ["routine"], queryFn: fetchRoutine });
-  const run = useMutation({
-    mutationFn: async () => {
-      const res = await client.api.projects[":id"].routine.run.$post({
-        param: { id: projectId },
-      });
-      if (!res.ok) throw await failure(res, RUN_REFUSALS);
-      return (await res.json()).sessionUrl;
+  const run = useMutation<string | null | undefined, Error & { code?: string }>(
+    {
+      mutationFn: async () => {
+        const res = await client.api.projects[":id"].routine.run.$post({
+          param: { id: projectId },
+        });
+        if (!res.ok) throw await failure(res, RUN_REFUSALS);
+        return (await res.json()).sessionUrl;
+      },
+      onSettled: () =>
+        Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["routine-schedule", projectId],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["routine"] }),
+        ]),
     },
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ["routine-schedule", projectId],
-        }),
-        queryClient.invalidateQueries({ queryKey: ["routine"] }),
-      ]),
-  });
+  );
   if (onlyConnected && !routine.data?.connected) return null;
   return (
     <>
@@ -134,7 +140,7 @@ export function RunNowButton({
       )}
       {run.error && (
         <p role="alert" className={`mt-3 ${alertBox}`}>
-          {run.error.message}
+          {run.error.message} <FixLink code={run.error.code} />
         </p>
       )}
     </>

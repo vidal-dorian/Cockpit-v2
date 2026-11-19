@@ -120,6 +120,15 @@ Les runs (A, C, D, L ; septième morceau construit, S07) :
 - **Finis aujourd'hui** (C, D ; serveur) : `GET /api/claude` ajoute à chaque ligne de `finishedToday` `verdict` (`runVerdict`, comme l'accueil), `prNumber`, `storyStatus` et `summary`. Pas de migration.
 - **Finis aujourd'hui** (C, D ; écran) : la ligne dit « verdict : à vérifier » ou « acceptable » et « PR #n » ; « Relire la PR #n » (GitHub) seulement quand l'US est en revue ; pour un échec, la première ligne du résumé ; la section porte « Tout l'historique » vers `/journal`.
 
+Un refus mène à sa réparation (D ; huitième morceau construit, S08) :
+
+- **`FixLink`** (`ProjectPrepare.tsx`) : une table `FIXES` associe le code de refus du serveur à la page qui le répare, et `FixLink` rend « Ouvrir … » ou rien. `project_not_in_launcher`, `launcher_not_connected`, `launcher_needs_reconnect`, `routine_not_connected`, `routine_needs_reconnect` et `launch_failed` mènent à `/reglages/taches-cloud` ; `monthly_budget_reached` à `/claude/cout` ; `no_plugin_repo` à `/equipes/commun` ; `not_prepared` à `/projets/:id/sante` (seulement quand l'écran connaît le projet).
+- **Où il est monté** : l'alerte de `DevelopWindow` (le code du refus est gardé sur l'erreur), celle d'`AnswerForm` (« Réponse enregistrée… », code `saved`), « Lancer maintenant » de `/claude/taches`, « Écrire les US maintenant » (`ProjectRoutine.tsx`), `ProblemAlert` de « Préparer pour Claude », et « Demander à Claude » d'un workflow rouge de l'onglet CI / CD.
+- **File en pause** (`Claude.tsx`) : `run_failed` ajoute « Voir le run » vers le run échoué de « Finis aujourd'hui » au plus grand id (rien s'il n'y en a pas) ; `launch_failed` ajoute le lien vers les Réglages.
+- **Bandeau de verrou** (`ProjectPage.tsx`) : « Voir l'abonnement » (`/reglages/abonnement`) seulement quand `lockedBy` est le login de l'utilisateur ; verrouillé par un autre (garde-fou), aucun lien.
+- **Santé** : la ligne `ci` rouge porte « Voir l'onglet CI / CD » vers `/projets/:id/ci` ; la ligne `webhook` en `wrong_url` ou `last_delivery_failed` porte `url` (réglages de l'App, `appSettingsUrl`) et le texte « Ouvrir les réglages de l'App ↗ » ; une ligne verte n'a pas d'`url`.
+- **Serveur** : `webhookLine` reçoit `appSettingsUrl` ; pas de route ni de migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -131,3 +140,4 @@ Les runs (A, C, D, L ; septième morceau construit, S07) :
 - **Le journal à l'accueil** n'ouvre pas le panneau : la ligne mène à la page de l'objet, les autres objets de l'entrée (US ou ticket d'une entrée qui a aussi un run) ne se lisent que dans le panneau du journal.
 - **Touches 1 et 2** ne valent que pour la question affichée par `AnswerForm` : deux formulaires de réponse montés en même temps (jamais aujourd'hui) répondraient tous les deux.
 - **Finis aujourd'hui** ne montre que la première ligne du résumé d'un échec ; la suite se lit sur la page du run.
+- **Un code sans réparation connue** (`FIXES` ne le liste pas, ou `not_prepared` sans projet) garde le message seul : un nouveau code de refus demande une ligne dans `FIXES`.

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { ROLE_REFUSAL, roleRefusal } from "./roles.ts";
 import { useShortcut } from "./Shortcuts.tsx";
 import { alertBox, field, focusRing, kbd, panelPrimaryButton } from "./ui.ts";
@@ -131,7 +132,8 @@ export function AnswerForm({
             ? `Réponse enregistrée, mais l'US n'a pas pu être relancée : ${RELAUNCH_REFUSALS[send.error.saved] ?? "relance refusée"}.`
             : send.error.message === ROLE_REFUSAL
               ? ROLE_REFUSAL
-              : "La réponse n'a pas été enregistrée."}
+              : "La réponse n'a pas été enregistrée."}{" "}
+          <FixLink code={send.error.saved} />
         </p>
       )}
     </>

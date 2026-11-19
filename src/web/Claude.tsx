@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
 import { client } from "./api.ts";
+import { FixLink } from "./ProjectPrepare.tsx";
 import { refusedError } from "./roles.ts";
 import { StateSentence } from "./Shell.tsx";
 import {
@@ -62,6 +63,13 @@ export function Claude() {
     );
   const running = claude.data?.running ?? [];
   const pausedFor = queue.data?.pausedReason;
+  // shortcut: the latest failed run of the day may not come from the queue; upgrade when the pause stores its run id.
+  const failedRun = claude.data?.finishedToday
+    .filter((r) => r.outcome === "failed")
+    .reduce<{ runId: number } | undefined>(
+      (a, r) => (a && a.runId > r.runId ? a : r),
+      undefined,
+    );
 
   return (
     <main>
@@ -174,7 +182,16 @@ export function Claude() {
               </div>
               {queue.data.paused && (
                 <p role="status" className="mt-2 text-muted-foreground">
-                  La file est en pause. {pausedFor && (PAUSES[pausedFor] ?? "")}
+                  La file est en pause. {pausedFor && (PAUSES[pausedFor] ?? "")}{" "}
+                  {pausedFor === "run_failed" && failedRun && (
+                    <Link
+                      to={`/runs/${failedRun.runId}`}
+                      className={`underline ${focusRing}`}
+                    >
+                      Voir le run
+                    </Link>
+                  )}
+                  <FixLink code={pausedFor} />
                 </p>
               )}
               {adding && (
