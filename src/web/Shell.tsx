@@ -831,7 +831,7 @@ export function IdeaBar({
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id} className="bg-card">
-                  <span className="min-w-0 truncate">{repoName(p.name)}</span>
+                  {repoName(p.name)}
                 </option>
               ))}
             </select>
