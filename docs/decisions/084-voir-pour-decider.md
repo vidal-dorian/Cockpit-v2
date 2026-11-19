@@ -40,7 +40,7 @@ Ce que ces règles changent dans les décisions existantes :
 | J | Panneau d'un ticket | **055 G** : il liste ses US, avec leur statut seulement | Une US de la liste s'ouvre dans le panneau, avec « ← Ticket » pour revenir |
 | K | Supprimer un ticket | **014 G** : « puis revient au projet » | Revient à l'onglet Tickets du projet (055 F en a fait un onglet) |
 | L | Page d'un run, téléphone | **071 E** : la question reste dans son panneau, sous le contenu | Sous `lg`, la question en attente vient juste après la phrase d'état ; rien ne change au-dessus de `lg` |
-| M | Recherche | **073 C** : les actions sont filtrées par les mots tapés | Une recherche sans résultat propose « Noter « texte » », qui ouvre la barre d'idée avec ce texte. Sur téléphone, un bouton « Chercher » en haut de page ouvre la recherche (lève la limite connue de 071, sans 5ᵉ onglet : 071 B reste) |
+| M | Recherche | **073 C** : les actions sont filtrées par les mots tapés | Une recherche propose, après ses résultats, « Noter « texte » », qui ouvre la barre d'idée avec ce texte. Sur téléphone, un bouton « Chercher » en haut de page ouvre la recherche (lève la limite connue de 071, sans 5ᵉ onglet : 071 B reste) |
 | N | Équipes d'agents | **074 B8 et B9** : ajouter ou mettre à jour en un clic | Le clic montre d'abord ce qui change (agents ajoutés, diff de la copie du repo), puis confirme |
 | O | Étape « Agent absent du repo » | **031 E** : on ajoute l'agent par l'onglet Agents | Un bouton « Ajouter l'agent du catalogue » ouvre le formulaire de 030 D, prérempli |
 | P | Lancer dans le cloud | **054 D** : la case n'est que dans les réglages globaux | Elle est aussi dans les réglages du projet (la même valeur) |
@@ -138,6 +138,15 @@ La conception et la santé (C, D ; neuvième morceau construit, S09) :
 - **Fenêtre d'analyse** (D) : `AnalyseWindow` prend `steps` (`Step[]`) à la place de `initialRules` et `initialVersions` ; seules les étapes listées sont cochées. « Analyser avec Claude » de Constats (en tête de liste, et dans l'état vide du filtre « Tous ») coche Bugs, Sécurité et Architecture et stack ; « Reprendre la fonctionnalité » (constat d'architecture sur du code sans règle figée) et l'état vide de Règles cochent Règles ; le plan de versions coche Versions ; les autres entrées gardent Carte.
 - **Pas de changement serveur** : ni route ni migration.
 
+La coque, la recherche et la barre d'idée (C, M ; dixième morceau construit, S10) :
+
+- **Action « Équipes d'agents »** (`SearchDialog.tsx`) : elle mène à `/equipes`, comme la barre latérale.
+- **Noter le texte tapé** : dès deux caractères tapés et la recherche terminée, une action « Noter « <texte> » » ferme la fenêtre et ouvre le panneau d'idée avec ce titre ; elle vient après les résultats, et seulement quand la page peut noter une idée (un projet existe). `onIdea` reçoit le titre, et la référence de `IdeaBar` accepte `(opener, title?)`.
+- **« Chercher » au téléphone** (`SearchButton`, `Shell.tsx`, monté par `App.tsx` sous les bandeaux) : bouton visible sous `md` seulement, il ouvre la fenêtre de recherche.
+- **Projet de la barre d'idée** : l'ordre est le choix de l'utilisateur, puis le projet de la page (`/projets/:id`, ou le projet de l'US, du ticket ou du run affiché, lu par les requêtes `["story", id]`, `["ticket", id]`, `["run", id]` des pages), puis le dernier projet où une idée a été notée, puis le premier de l'accueil. `fetchTicket` passe de `TicketPage.tsx` à `tickets.ts` pour être partagé ; `fetchStory` et `fetchRun` étaient déjà exportés.
+- **« Idée notée dans … »** porte « Ouvrir le ticket » vers `/tickets/<id du ticket créé>`.
+- **Pas de changement serveur** : ni route ni migration.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -151,3 +160,5 @@ La conception et la santé (C, D ; neuvième morceau construit, S09) :
 - **Finis aujourd'hui** ne montre que la première ligne du résumé d'un échec ; la suite se lit sur la page du run.
 - **Un code sans réparation connue** (`FIXES` ne le liste pas, ou `not_prepared` sans projet) garde le message seul : un nouveau code de refus demande une ligne dans `FIXES`.
 - **Le lien du ticket créé** disparaît à la décision suivante ou en quittant l'écran : le ticket se retrouve par « En ticket » ou par l'onglet Tickets.
+- **Le dernier projet utilisé** n'est gardé qu'en mémoire de la page : un rechargement revient au premier projet de l'accueil.
+- **Le lien « Ouvrir le ticket »** de la barre d'idée disparaît avec le message « Idée notée dans … ».

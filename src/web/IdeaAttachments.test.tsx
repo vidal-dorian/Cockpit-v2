@@ -194,8 +194,9 @@ describe("061 F: Noter", () => {
       { ticketId: 100, name: "exemple.csv", size: 2_048, field: "file" },
       { ticketId: 100, name: "plan.png", size: 100, field: "file" },
     ]);
+    // Decision 084 C: the status also links to the ticket.
     expect((await screen.findByRole("status")).textContent).toBe(
-      "Idée notée dans hello.",
+      "Idée notée dans hello. Ouvrir le ticket",
     );
     expect(screen.queryByRole("alert")).toBeNull();
   });

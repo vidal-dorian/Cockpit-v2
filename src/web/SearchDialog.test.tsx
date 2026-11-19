@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addErgonomics, FOUND } from "./test-ergonomics.tsx";
+import { addErgonomics, FOUND, NO_RESULTS } from "./test-ergonomics.tsx";
 import { PROJECT } from "./test-home.tsx";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
@@ -212,5 +212,58 @@ describe("slice 15.3 D: Ctrl+Enter", () => {
       "noopener",
     );
     expect(window.location.pathname).toBe("/");
+  });
+});
+
+// Decision 084 C, M (S10): the actions follow the sidebar, a search that finds nothing offers to note it, the phone has a Chercher button.
+describe("084 M: the search window leads somewhere", () => {
+  it("given the actions, when « Équipes d'agents » is chosen, then the page goes to /equipes like the sidebar", async () => {
+    start();
+    await sidebarButton();
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    const d = await dialog();
+
+    fireEvent.click(
+      within(d).getByRole("option", { name: /Équipes d'agents/ }),
+    );
+
+    await waitFor(() => expect(window.location.pathname).toBe("/equipes"));
+  });
+
+  it("given a search that finds nothing, when « Noter « export csv » » is chosen, then the idea panel opens with that title and the window closes", async () => {
+    stubShell({ projects: [{ ...PROJECT, state: "idle" }] });
+    addErgonomics({ search: NO_RESULTS });
+    renderAt("/");
+    await sidebarButton();
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    const d = await dialog();
+
+    fireEvent.change(field(d), { target: { value: "export csv" } });
+    fireEvent.click(
+      await within(d).findByRole("option", { name: /Noter « export csv »/ }),
+    );
+
+    const panel = within(
+      await screen.findByRole("dialog", { name: "Noter une idée" }),
+    );
+    expect(
+      (panel.getByRole("textbox", { name: "Titre" }) as HTMLInputElement).value,
+    ).toBe("export csv");
+    expect(screen.queryByRole("dialog", { name: "Chercher" })).toBeNull();
+  });
+
+  it("given the page on a phone, when the Chercher button outside the sidebar is pressed, then the search window opens", async () => {
+    start();
+    const aside = await screen.findByRole("complementary", {
+      name: "Barre latérale",
+    });
+
+    const button = screen
+      .getAllByRole("button", { name: /^Chercher/ })
+      .find((b) => !aside.contains(b));
+    expect(button, "a Chercher button outside the sidebar").toBeDefined();
+    fireEvent.click(button as HTMLElement);
+
+    expect(await dialog()).toBeDefined();
   });
 });

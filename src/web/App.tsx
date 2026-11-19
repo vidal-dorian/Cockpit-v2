@@ -39,6 +39,7 @@ import {
   fetchTelemetry,
   IdeaBar,
   ScrollToTop,
+  SearchButton,
   Sidebar,
   useHome,
 } from "./Shell.tsx";
@@ -248,7 +249,8 @@ function Shell({
 }) {
   // The one stream of the tab, opened after the page's own: the home, the sidebar and the idea bar read the same query.
   useAnyChange("home");
-  const idea = useRef<(opener: HTMLElement | null) => void>(null);
+  const idea =
+    useRef<(opener: HTMLElement | null, title?: string) => void>(null);
   // The idea panel only exists with a project.
   const hasProject = (useHome().data?.projects.length ?? 0) > 0;
   const routes = (
@@ -375,7 +377,9 @@ function Shell({
       {overlay === "search" && (
         <SearchDialog
           onClose={() => onOverlay(undefined)}
-          onIdea={hasProject ? () => idea.current?.(null) : undefined}
+          onIdea={
+            hasProject ? (title) => idea.current?.(null, title) : undefined
+          }
         />
       )}
       {overlay === "shortcuts" && (
@@ -385,6 +389,7 @@ function Shell({
       <div className="flex min-h-screen min-w-0 flex-col pb-16 md:pb-0 lg:has-[aside[data-panel]]:pr-[380px]">
         <OfflineBanner />
         <InstallBanner />
+        <SearchButton onClick={() => onOverlay("search")} />
         <div className="flex-1">{routes}</div>
         <IdeaBar ref={idea} />
       </div>

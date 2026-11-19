@@ -23,7 +23,7 @@ const PAGES = [
   ["Claude", "/claude"],
   ["Cette nuit", "/nuit"],
   ["Tous les projets", "/projets"],
-  ["Équipes d'agents", "/equipes/commun"],
+  ["Équipes d'agents", "/equipes"],
   ["Journal", "/journal"],
   ["Réglages", "/reglages"],
   ["Préférences", "/reglages/preferences"],
@@ -35,6 +35,8 @@ type Option = {
   detail: string;
   /** Absent on « Noter une idée », which opens a panel instead of a page. */
   to?: string;
+  /** The title the panel opens with. */
+  idea?: string;
   keys?: string;
 };
 
@@ -59,13 +61,13 @@ function Highlight({ text, words }: { text: string; words: string[] }) {
   );
 }
 
-/** `Ctrl K`: the search window. `onIdea` opens the panel of « Noter une idée »; it is absent when the page cannot note one. */
+/** `Ctrl K`: the search window. `onIdea` opens the panel of « Noter une idée » with a title; it is absent when the page cannot note one. */
 export function SearchDialog({
   onClose,
   onIdea,
 }: {
   onClose: () => void;
-  onIdea?: () => void;
+  onIdea?: (title: string) => void;
 }) {
   const navigate = useNavigate();
   const names = new Map(useHome().data?.projects.map((p) => [p.id, p.name]));
@@ -115,6 +117,17 @@ export function SearchDialog({
       detail: "Projet",
       to: `/projets/${p.id}`,
     })),
+    // What was typed can be noted whatever it finds (decision 084 C), once the results are in so that they stay first.
+    ...(onIdea && typed.length >= 2 && !search.isFetching
+      ? [
+          {
+            group: "Actions" as const,
+            title: `Noter « ${typed} »`,
+            detail: "comme idée, dans le projet de ton choix",
+            idea: typed,
+          },
+        ]
+      : []),
     ...[
       ...(onIdea
         ? [
@@ -122,6 +135,7 @@ export function SearchDialog({
               title: "Noter une idée",
               detail: "dans le projet de ton choix",
               keys: "N",
+              idea: "",
             },
           ]
         : []),
@@ -138,7 +152,7 @@ export function SearchDialog({
       return void window.open(option.to, "_blank", "noopener");
     onClose();
     if (option.to) navigate(option.to);
-    else onIdea?.();
+    else onIdea?.(option.idea ?? "");
   };
 
   return (

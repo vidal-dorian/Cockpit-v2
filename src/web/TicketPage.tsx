@@ -17,6 +17,7 @@ import { TagField } from "./TagField.tsx";
 import { TicketAttachments } from "./TicketAttachments.tsx";
 import {
   decisionError,
+  fetchTicket,
   fetchTickets,
   isPlainClick,
   PRIORITIES,
@@ -38,15 +39,6 @@ import {
   primaryButton,
   sectionLabel,
 } from "./ui.ts";
-
-/** The ticket with its stories, "not_found" when the user cannot reach it, or null when the server answers 401. */
-async function fetchTicket(id: string) {
-  const res = await client.api.tickets[":id"].$get({ param: { id } });
-  if (res.status === 401) return null;
-  if (res.status === 404) return "not_found" as const;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
 
 type Loaded = Exclude<
   Awaited<ReturnType<typeof fetchTicket>>,
