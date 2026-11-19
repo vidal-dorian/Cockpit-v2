@@ -111,6 +111,15 @@ Le journal et les objets cités (C ; sixième morceau construit, S06) :
 - **Branches à nettoyer** (« Ce qui a été livré », `ProjectDelivered.tsx`) : « PR #n » mène à GitHub et « US n » à `/us/n`, sur la ligne de la branche.
 - **Pas de changement serveur** : ni route ni migration.
 
+Les runs (A, C, D, L ; septième morceau construit, S07) :
+
+- **Téléphone, question en tête** (L) : `RunQuestions` prend une prop `part`. `RunPage` le monte deux fois : `pending` juste après la phrase d'état (avant « Les étapes » et « Les critères »), `answered` en fin de page pour la liste « Questions ». Le découpage est le même à toute largeur : la question en tête vaut aussi au-dessus de `lg` (le panneau reste, lui, à sa place).
+- **Touches 1 et 2** (D) : `AnswerForm` appelle `useShortcut("1")` et `useShortcut("2")`, qui envoient la réponse proposée de même rang (`POST /api/questions/:id/answer`). Rien n'est envoyé dans un champ, sans réponse proposée, ni pendant un envoi. Chaque bouton porte `aria-keyshortcuts` ; la fenêtre « ? » et la carte Raccourcis de Préférences listent « Répondre à Claude (réponses proposées) ».
+- **Verdict** (D) : `RunVerdict` reçoit `summary`, `prUrl`, `projectId` et `criteriaTo`. Le résumé du run est dans la carte « Le verdict de Claude » (une fois) ; la section « Résumé » du bas de `RunPage` est supprimée. Chaque raison est un lien : `ci_failing` et `ci_pending` vers `<PR>/checks` (GitHub), `changes_requested` vers la PR, `ci_missing` vers `/projets/:id/ci`, `criteria_failed` vers `#criteres` (id de la section « Les critères » de `RunPage`) ; `StoryVerdict` (page de l'US) pointe vers `/runs/:id#criteres`. Sans PR, les raisons qui en dépendent restent du texte.
+- **Relancer** (D) : « Relancer » mène à `/us/:id?developper`. `StoryDecisions` ouvre alors la fenêtre « Développer avec Claude » si l'US est prête ou en revue, sur un projet non archivé et pour un rôle `can_launch` ou plus, puis retire le paramètre de l'adresse (`replace`). Sinon la fenêtre reste fermée.
+- **Finis aujourd'hui** (C, D ; serveur) : `GET /api/claude` ajoute à chaque ligne de `finishedToday` `verdict` (`runVerdict`, comme l'accueil), `prNumber`, `storyStatus` et `summary`. Pas de migration.
+- **Finis aujourd'hui** (C, D ; écran) : la ligne dit « verdict : à vérifier » ou « acceptable » et « PR #n » ; « Relire la PR #n » (GitHub) seulement quand l'US est en revue ; pour un échec, la première ligne du résumé ; la section porte « Tout l'historique » vers `/journal`.
+
 ## Limites connues
 
 - **Un panneau plus long** : le récit et les critères d'une US défilent dans un panneau de 380 px ; c'est le prix d'un aller-retour en moins par US.
@@ -120,3 +129,5 @@ Le journal et les objets cités (C ; sixième morceau construit, S06) :
 - **Un programme du soir** n'a aucun lien : pour lire une US déjà au programme, il faut valider ou annuler d'abord (« Lire » ne vaut que sous « Pourrait s'ajouter »).
 - **« Claude t'attend · n »** ne compte que les éléments du genre du premier ; un projet qui attend des choses de genres différents n'affiche que le premier genre.
 - **Le journal à l'accueil** n'ouvre pas le panneau : la ligne mène à la page de l'objet, les autres objets de l'entrée (US ou ticket d'une entrée qui a aussi un run) ne se lisent que dans le panneau du journal.
+- **Touches 1 et 2** ne valent que pour la question affichée par `AnswerForm` : deux formulaires de réponse montés en même temps (jamais aujourd'hui) répondraient tous les deux.
+- **Finis aujourd'hui** ne montre que la première ligne du résumé d'un échec ; la suite se lit sur la page du run.

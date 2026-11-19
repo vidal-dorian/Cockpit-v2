@@ -143,6 +143,10 @@ describe("criterion 5: the page Claude", () => {
           iWant: "Fini hier soir",
           project,
           outcome: "succeeded",
+          verdict: { acceptable: true, reasons: [] },
+          prNumber: null,
+          storyStatus: "done",
+          summary: null,
         },
       ],
     });

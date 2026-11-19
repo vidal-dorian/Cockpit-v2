@@ -36,6 +36,14 @@ export function StoryVerdict({ runId }: { runId: number }) {
       verdict={data.verdict}
       criteria={data.criteria}
       story={data.story}
+      summary={data.run.summary}
+      prUrl={
+        data.story.prNumber == null
+          ? null
+          : `https://github.com/${data.project.name}/pull/${data.story.prNumber}`
+      }
+      projectId={data.project.id}
+      criteriaTo={`/runs/${runId}#criteres`}
     />
   ) : null;
 }

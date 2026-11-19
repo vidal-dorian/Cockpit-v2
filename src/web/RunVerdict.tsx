@@ -1,4 +1,5 @@
-import { button, card, primaryButton, sectionLabel } from "./ui.ts";
+import { Link } from "react-router";
+import { button, card, focusRing, primaryButton, sectionLabel } from "./ui.ts";
 
 export const REASONS: Record<string, string> = {
   run_not_succeeded: "Le run n'a pas réussi",
@@ -18,10 +19,20 @@ export function RunVerdict({
   verdict,
   criteria,
   story,
+  summary,
+  prUrl,
+  projectId,
+  criteriaTo,
 }: {
   verdict: { acceptable: boolean; reasons: string[] };
   criteria: { result: string | null }[];
   story: { prAppFiles: string[] | null; prAppFilesCount: number | null };
+  /** What Claude wrote at the end of the run: the reason of a failure is read next to the verdict (decision 084 D). */
+  summary: string | null;
+  prUrl: string | null;
+  projectId: number;
+  /** Where « Les critères » is: an anchor on the run page, the run page itself elsewhere. */
+  criteriaTo: string;
 }) {
   const appFiles = story.prAppFiles ?? [];
   const more = (story.prAppFilesCount ?? 0) - appFiles.length;
@@ -35,6 +46,28 @@ export function RunVerdict({
       "critère non signalé dans ce run",
       "critères non signalés dans ce run",
     ),
+  };
+  // Each reason leads to its cause (decision 084 D).
+  const links: Record<string, string | null> = {
+    ci_failing: prUrl && `${prUrl}/checks`,
+    ci_pending: prUrl && `${prUrl}/checks`,
+    changes_requested: prUrl,
+    ci_missing: `/projets/${projectId}/ci`,
+    criteria_failed: criteriaTo,
+  };
+  const linkOf = (code: string, text: string) => {
+    const to = links[code];
+    if (!to) return text;
+    const className = `underline ${focusRing}`;
+    return to.startsWith("/") ? (
+      <Link to={to} className={className}>
+        {text}
+      </Link>
+    ) : (
+      <a href={to} className={className}>
+        {text}
+      </a>
+    );
   };
   return (
     <section>
@@ -55,7 +88,7 @@ export function RunVerdict({
                 <span aria-hidden="true" className="mr-2 text-muted-foreground">
                   ✕
                 </span>
-                {texts[code] ?? code}
+                {linkOf(code, texts[code] ?? code)}
                 {code === "app_code_changed" && (
                   <ul className="ml-6 font-mono text-[13px] text-muted-foreground">
                     {appFiles.map((path) => (
@@ -72,6 +105,7 @@ export function RunVerdict({
             ))}
           </ul>
         )}
+        {summary && <p className="mt-2 whitespace-pre-wrap">{summary}</p>}
       </div>
     </section>
   );

@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { client } from "./api.ts";
 import { DevelopWindow } from "./DevelopWindow.tsx";
 import { ACTIONS, RESULTS } from "./Journal.tsx";
@@ -186,6 +186,15 @@ export function StoryDecisions({
     ["ready", "in_review"].includes(status) &&
     !archived &&
     atLeast(project.role, "can_launch");
+  // « Relancer » of a run asks for the window with ?developper (decision 084 D); the parameter is spent once it opened.
+  const [params, setParams] = useSearchParams();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only the parameter and the right to develop decide
+  useEffect(() => {
+    if (!params.has("developper") || !canDevelop) return;
+    params.delete("developper");
+    setParams(params, { replace: true });
+    open("develop");
+  }, [params, canDevelop]);
   const prLink =
     status === "in_review" && story.prNumber != null
       ? `https://github.com/${project.fullName}/pull/${story.prNumber}`

@@ -150,6 +150,8 @@ describe("criterion 8: the run page", () => {
           finishedAt: "2026-11-05T10:30:00.000Z",
         }),
         steps: [],
+        // The summary is read in the card of the verdict (decision 084 D).
+        verdict: { acceptable: false, reasons: [] },
       });
 
       renderAt("/runs/12");

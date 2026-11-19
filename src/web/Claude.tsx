@@ -280,9 +280,17 @@ export function Claude() {
               </ul>
             </section>
             <section aria-labelledby="finis">
-              <h2 id="finis" className={sectionLabel}>
-                Finis aujourd'hui
-              </h2>
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 id="finis" className={sectionLabel}>
+                  Finis aujourd'hui
+                </h2>
+                <Link
+                  to="/journal"
+                  className={`text-[13px] underline ${focusRing}`}
+                >
+                  Tout l'historique ›
+                </Link>
+              </div>
               <ul className={`mt-2 ${listCard}`}>
                 {claude.data.finishedToday.map((r) => (
                   <li key={r.runId} className={row}>
@@ -294,7 +302,22 @@ export function Claude() {
                     </span>
                     <span className="ml-auto text-muted-foreground">
                       {r.outcome === "succeeded" ? "réussi" : "échoué"}
+                      {r.prNumber !== null && ` · PR #${r.prNumber}`}
+                      {` · verdict : ${r.verdict.acceptable ? "acceptable" : "à vérifier"}`}
                     </span>
+                    {r.outcome === "failed" && r.summary && (
+                      <span className="basis-full text-[13px] text-muted-foreground">
+                        {r.summary.split("\n")[0]}
+                      </span>
+                    )}
+                    {r.storyStatus === "in_review" && r.prNumber !== null && (
+                      <a
+                        href={`https://github.com/${r.project.name}/pull/${r.prNumber}`}
+                        className={`basis-full text-[13px] underline ${focusRing}`}
+                      >
+                        {`Relire la PR #${r.prNumber}`}
+                      </a>
+                    )}
                   </li>
                 ))}
                 {claude.data.finishedToday.length === 0 && (

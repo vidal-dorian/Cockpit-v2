@@ -163,7 +163,7 @@ function Steps({
 function Criteria({ criteria }: { criteria: NonNullable<Run["criteria"]> }) {
   const passed = criteria.filter((k) => k.result === "passed").length;
   return (
-    <section>
+    <section id="criteres">
       <h2 className={sectionLabel}>
         Les critères{" "}
         <span className="font-normal tracking-normal normal-case">
@@ -313,6 +313,13 @@ export function RunPage() {
               }
             />
             <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-6 px-[26px]">
+              <RunQuestions
+                part="pending"
+                runId={id}
+                running={found.run.status === "running"}
+                questions={found.questions ?? []}
+                onAnswered={() => titleRef.current?.focus()}
+              />
               <div className="-mb-3 grid gap-1 text-[12.5px] text-muted-foreground">
                 <p>
                   <span className={badge}>
@@ -360,6 +367,14 @@ export function RunPage() {
                   verdict={found.verdict}
                   criteria={found.criteria ?? []}
                   story={found.story}
+                  summary={found.run.summary}
+                  prUrl={
+                    found.story.prNumber == null
+                      ? null
+                      : `https://github.com/${found.project.name}/pull/${found.story.prNumber}`
+                  }
+                  projectId={found.project.id}
+                  criteriaTo="#criteres"
                 />
               )}
               {running && (
@@ -403,19 +418,12 @@ export function RunPage() {
                 </details>
               )}
               <RunQuestions
+                part="answered"
                 runId={id}
                 running={found.run.status === "running"}
                 questions={found.questions ?? []}
                 onAnswered={() => titleRef.current?.focus()}
               />
-              {found.run.summary && (
-                <section>
-                  <h2 className={sectionLabel}>Résumé</h2>
-                  <p className="mt-2 whitespace-pre-wrap">
-                    {found.run.summary}
-                  </p>
-                </section>
-              )}
             </div>
           </>
         )}

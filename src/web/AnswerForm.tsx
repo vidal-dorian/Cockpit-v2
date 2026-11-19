@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { ROLE_REFUSAL, roleRefusal } from "./roles.ts";
+import { useShortcut } from "./Shortcuts.tsx";
 import { alertBox, field, focusRing, kbd, panelPrimaryButton } from "./ui.ts";
 
 // Why the story of a paused run could not be relaunched after its answer was saved (decision 044 E).
@@ -60,6 +61,13 @@ export function AnswerForm({
   });
   // Also after a success, until the refetch shows the answer: a second click would only get a 409.
   const busy = send.isPending || send.isSuccess;
+  // Keys 1 and 2 answer the suggested answers (decision 084 D); useShortcut keeps quiet in a field.
+  const press = (n: number) => {
+    const answer = busy ? undefined : suggestedAnswers?.[n - 1];
+    return answer === undefined ? undefined : () => send.mutate(answer);
+  };
+  useShortcut("1", press(1));
+  useShortcut("2", press(2));
   return (
     <>
       <form
@@ -75,6 +83,7 @@ export function AnswerForm({
             type="button"
             disabled={busy}
             aria-busy={send.isPending}
+            aria-keyshortcuts={String(i + 1)}
             onClick={() => send.mutate(answer)}
             className={`flex items-center gap-[9px] rounded-[14px] border px-3.5 py-[11px] text-left text-[13.5px] font-semibold disabled:opacity-50 ${focusRing} ${send.variables === answer && busy ? "border-foreground bg-raised" : "border-border-strong bg-card hover:bg-raised-hover"}`}
           >
