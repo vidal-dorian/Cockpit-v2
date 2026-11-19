@@ -542,7 +542,7 @@ function OnboardingGuide({
         {rows.map((r, i) => (
           <li
             key={GUIDE[i]?.key}
-            className={`grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px] ${r.done ? "text-muted-foreground" : ""} ${i === next || expanded ? "" : "max-md:hidden"}`}
+            className={`grid min-h-[50px] grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 px-[18px] ${r.done ? "text-muted-foreground" : ""} ${i === next || expanded ? "" : "max-md:hidden"} ${expanded ? "" : "max-md:border-b-0"}`}
           >
             <span
               aria-hidden="true"

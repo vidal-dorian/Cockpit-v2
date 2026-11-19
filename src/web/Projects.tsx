@@ -674,7 +674,7 @@ function Importable() {
                 <span className="block break-all font-mono text-[13px] font-semibold">
                   {repoName(repo.fullName)}
                 </span>
-                <span className="block text-[12.5px] text-muted-foreground">
+                <span className="block break-words text-[12.5px] text-muted-foreground">
                   {repo.fullName.split("/")[0]} · {repo.defaultBranch}
                 </span>
               </span>

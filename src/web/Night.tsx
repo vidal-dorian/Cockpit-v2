@@ -10,6 +10,7 @@ import { toast } from "./toast.tsx";
 import {
   alertBox,
   button,
+  focusRing,
   iconButton,
   listCard,
   moved,
@@ -152,6 +153,76 @@ export function Night() {
             : undefined
         }
       />
+      {data && (
+        <div className="flex flex-wrap items-center gap-3 px-[26px] pt-6">
+          {!open && (
+            <>
+              <button
+                type="button"
+                className={primaryButton}
+                disabled={reason !== null || act.isPending}
+                aria-busy={act.isPending}
+                onClick={() =>
+                  act.mutate(
+                    () =>
+                      client.api.nights.$post({
+                        json: { storyIds: program },
+                      }),
+                    {
+                      onSuccess: () => toast("Nuit programmée."),
+                    },
+                  )
+                }
+              >
+                ☾ Lancer la nuit · {count}{" "}
+                {count > 1 ? "user stories" : "user story"}
+              </button>
+              {reason && (
+                <span className="text-muted-foreground">
+                  {reason}
+                  {!launcher.data?.connected && (
+                    <>
+                      {" "}
+                      <Link
+                        to="/reglages/taches-cloud"
+                        className="font-semibold underline"
+                      >
+                        Réglages
+                      </Link>
+                    </>
+                  )}
+                </span>
+              )}
+            </>
+          )}
+          {open?.status === "planned" && (
+            <button
+              type="button"
+              className={button}
+              onClick={() =>
+                act.mutate(() => client.api.nights.current.cancel.$post(), {
+                  onSuccess: () => toast("Nuit annulée."),
+                })
+              }
+            >
+              Annuler la nuit
+            </button>
+          )}
+          {open?.status === "running" && (
+            <button
+              type="button"
+              className={button}
+              onClick={() =>
+                act.mutate(() => client.api.nights.current.stop.$post(), {
+                  onSuccess: () => toast("Arrêt de la nuit demandé."),
+                })
+              }
+            >
+              Arrêter la nuit
+            </button>
+          )}
+        </div>
+      )}
       {morning && <NightMorning night={morning} questions={questions} />}
       <div className="grid gap-6 px-[26px] py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {(night.isError || launcher.isError) && (
@@ -168,77 +239,6 @@ export function Night() {
         {data && (
           <>
             <div className="grid content-start gap-6">
-              <div className="flex flex-wrap items-center gap-3">
-                {!open && (
-                  <>
-                    <button
-                      type="button"
-                      className={primaryButton}
-                      disabled={reason !== null || act.isPending}
-                      aria-busy={act.isPending}
-                      onClick={() =>
-                        act.mutate(
-                          () =>
-                            client.api.nights.$post({
-                              json: { storyIds: program },
-                            }),
-                          {
-                            onSuccess: () => toast("Nuit programmée."),
-                          },
-                        )
-                      }
-                    >
-                      ☾ Lancer la nuit · {count}{" "}
-                      {count > 1 ? "user stories" : "user story"}
-                    </button>
-                    {reason && (
-                      <span className="text-muted-foreground">
-                        {reason}
-                        {!launcher.data?.connected && (
-                          <>
-                            {" "}
-                            <Link
-                              to="/reglages/taches-cloud"
-                              className="font-semibold underline"
-                            >
-                              Réglages
-                            </Link>
-                          </>
-                        )}
-                      </span>
-                    )}
-                  </>
-                )}
-                {open?.status === "planned" && (
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() =>
-                      act.mutate(
-                        () => client.api.nights.current.cancel.$post(),
-                        {
-                          onSuccess: () => toast("Nuit annulée."),
-                        },
-                      )
-                    }
-                  >
-                    Annuler la nuit
-                  </button>
-                )}
-                {open?.status === "running" && (
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() =>
-                      act.mutate(() => client.api.nights.current.stop.$post(), {
-                        onSuccess: () => toast("Arrêt de la nuit demandé."),
-                      })
-                    }
-                  >
-                    Arrêter la nuit
-                  </button>
-                )}
-              </div>
               <section aria-labelledby="programme">
                 <h2 id="programme" className={sectionLabel}>
                   Au programme
@@ -375,7 +375,7 @@ export function Night() {
               )}
             </div>
             <details>
-              <summary className="cursor-pointer">
+              <summary className={`cursor-pointer ${focusRing}`}>
                 <h2 className={`inline ${sectionLabel}`}>
                   Les règles de la nuit
                 </h2>

@@ -4,7 +4,7 @@ import { client } from "./api.ts";
 import { duration } from "./Night.tsx";
 import { Dot } from "./Shell.tsx";
 import { plural } from "./tickets.ts";
-import { button, card } from "./ui.ts";
+import { button, card, focusRing } from "./ui.ts";
 
 type Item = {
   storyId: number;
@@ -118,7 +118,14 @@ export function NightMorning({
   ];
   const title = (g: (typeof groups)[number]) => (
     <span className="inline-flex items-center gap-2 font-semibold">
-      <Dot tone={g.tone} />
+      {g.bar === "bg-raised" ? (
+        <span
+          aria-hidden="true"
+          className="size-[7px] flex-none rounded-full border border-border-strong bg-raised"
+        />
+      ) : (
+        <Dot tone={g.tone} />
+      )}
       {g.name}
       <span className="font-normal text-muted-foreground">
         {g.items.length}
@@ -179,24 +186,28 @@ export function NightMorning({
           </div>
         ))}
       </div>
-      <div
-        role="img"
-        aria-label={groups.map((g) => g.count(g.items.length)).join(", ")}
-        className="flex h-2.5 gap-px overflow-hidden rounded-full"
-      >
-        {groups.map((g) => (
-          <span
-            key={g.name}
-            className={g.bar}
-            style={{ flexGrow: g.items.length }}
-          />
-        ))}
-      </div>
+      {groups.length > 0 && (
+        <div
+          role="img"
+          aria-label={groups.map((g) => g.count(g.items.length)).join(", ")}
+          className="flex h-2.5 gap-px overflow-hidden rounded-full"
+        >
+          {groups.map((g) => (
+            <span
+              key={g.name}
+              className={g.bar}
+              style={{ flexGrow: g.items.length }}
+            />
+          ))}
+        </div>
+      )}
       <div className="grid gap-3">
         {groups.map((g) => {
           return g === groups.at(-1) && g.bar === "bg-raised" ? (
             <details key={g.name} className="grid gap-1.5">
-              <summary className="cursor-pointer">{title(g)}</summary>
+              <summary className={`cursor-pointer ${focusRing}`}>
+                {title(g)}
+              </summary>
               <div className="mt-1.5">{lines(g.items)}</div>
             </details>
           ) : (

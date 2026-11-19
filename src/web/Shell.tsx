@@ -738,7 +738,7 @@ export function IdeaBar({
         <div
           ref={wrapper}
           // The content fades out as it passes under the bar (decision 080 J); as tall as the margin above, so nothing is covered at rest.
-          className="sticky bottom-0 mx-[26px] mt-4 mb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-linear-to-t before:from-background before:content-[''] max-md:bottom-[calc(4rem+env(safe-area-inset-bottom))]"
+          className="sticky bottom-0 mx-[26px] mt-4 mb-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4 before:bg-linear-to-t before:from-background before:content-[''] max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
         >
           {send.isError && (
             <p role="alert" className="mb-2 text-destructive">
