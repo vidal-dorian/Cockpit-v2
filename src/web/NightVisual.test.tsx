@@ -348,6 +348,35 @@ describe("E5 follow-up: the button comes before the morning block", () => {
     const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
     expect(precedes(reason, heading)).toBe(true);
   });
+
+  it("given a night to read and a launch the server refuses, when « Lancer la nuit » is tapped, then the alert comes before « Cette nuit »", async () => {
+    stubNight({ ready: [story(2)], home: { night } });
+    const stubbed = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+        (init?.method ?? "GET").toUpperCase() === "POST" &&
+        new URL(
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url,
+          "http://localhost",
+        ).pathname === "/api/nights"
+          ? Response.json({ error: "Refusé" }, { status: 403 })
+          : stubbed(input, init),
+      ),
+    );
+    renderAt("/nuit");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /☾ Lancer la nuit/ }),
+    );
+    const alert = await screen.findByRole("alert");
+    const heading = await screen.findByRole("heading", { name: /Cette nuit/ });
+    expect(precedes(alert, heading)).toBe(true);
+  });
 });
 
 describe("E4: the frise is a drawing from md", () => {

@@ -221,6 +221,11 @@ export function Night() {
               Arrêter la nuit
             </button>
           )}
+          {act.isError && (
+            <p role="alert" className={`basis-full ${alertBox}`}>
+              {act.error.message}
+            </p>
+          )}
         </div>
       )}
       {morning && <NightMorning night={morning} questions={questions} />}
@@ -231,9 +236,9 @@ export function Night() {
             plus tard.
           </p>
         )}
-        {(act.isError || validate.isError) && (
+        {validate.isError && (
           <p role="alert" className={`lg:col-span-2 ${alertBox}`}>
-            {(act.error ?? validate.error)?.message}
+            {validate.error.message}
           </p>
         )}
         {data && (
