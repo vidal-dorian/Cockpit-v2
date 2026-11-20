@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app.ts";
@@ -8,6 +9,7 @@ import { instanceSettings, users } from "./db/schema.ts";
 import { checkInstanceKey, instanceReader } from "./instance.ts";
 import { scheduleRoutines } from "./routines.ts";
 import { loadOrCreateKey } from "./secrets.ts";
+import { shutdown } from "./shutdown.ts";
 import { schedulePurge } from "./tokens.ts";
 import { scheduleDeliveries } from "./webhooks.ts";
 
@@ -52,13 +54,15 @@ try {
   process.exit(1);
 }
 // Started once the key is known good, so a failing start deletes nothing.
-schedulePurge(db);
+const timers = [schedulePurge(db)];
 const fire = { encryptionKey, fireRoutine: fetch, now: Date.now };
-scheduleRoutines(db, fire);
-scheduleDeliveries(db, {
-  readInstance: instanceReader(db, encryptionKey),
-  fire,
-});
+timers.push(
+  scheduleRoutines(db, fire),
+  scheduleDeliveries(db, {
+    readInstance: instanceReader(db, encryptionKey),
+    fire,
+  }),
+);
 const [settings] = await db
   .select({ id: instanceSettings.id })
   .from(instanceSettings);
@@ -70,9 +74,22 @@ const [admin] = await db
 // The code is also needed when the App exists but nobody could become administrator.
 const needsSetupCode = !settings || !admin;
 
-serve({ fetch: app.fetch, port }, (info) => {
+const server = serve({ fetch: app.fetch, port }, (info) => {
   const url = `http://localhost:${info.port}`;
   console.log(`Cockpit v${version} listening on ${url}`);
   if (needsSetupCode)
     console.log(`Cockpit setup code: ${setupCode} — open ${url}/installation`);
+});
+
+let stopping = false;
+process.on("SIGTERM", () => {
+  // A second SIGTERM (a manual kill during the grace period) must not end the pool twice and crash mid-write.
+  if (stopping) return;
+  stopping = true;
+  void shutdown({
+    server: server as Server,
+    timers,
+    pool: db.$client,
+    exit: process.exit,
+  });
 });

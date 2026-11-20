@@ -30,6 +30,17 @@ fi
 
 dc() { docker compose --env-file "$env_file" --profile tunnel "$@"; }
 
+# Back up the database before anything changes, so a failed migration can be rolled back.
+# First deploy: no data volume yet, nothing to back up. Any other backup failure stops the deploy.
+if docker volume inspect cockpit_db-data > /dev/null 2>&1; then
+  COCKPIT_ENV_FILE="$env_file" scripts/backup.sh || {
+    echo "Database backup failed: deploy stopped, nothing was changed." >&2
+    exit 1
+  }
+else
+  echo "No database volume yet (first deploy): backup skipped."
+fi
+
 dc up -d --build --wait --wait-timeout 180 --remove-orphans || {
   dc logs --tail 50 >&2
   exit 1

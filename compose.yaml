@@ -16,9 +16,18 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    # Bounded logs, so they never fill the SD card.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   app:
     build: .
+    # A real init process, so SIGTERM reaches Node; the grace period outlasts a GitHub write (about 100 s) so a stop never cuts one.
+    init: true
+    stop_grace_period: 120s
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set (see the env file)}@db:5432/cockpit
       # Turns the PostHog telemetry on when set (decision 083 B); empty, nothing leaves.
@@ -39,6 +48,11 @@ services:
       retries: 10
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # In the Cloudflare dashboard, the public hostname points at http://app:3000 (service name on the Compose network).
   tunnel:

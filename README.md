@@ -253,7 +253,7 @@ Cockpit tourne sur le Raspberry Pi avec Docker Compose (Cockpit, PostgreSQL, `cl
 
 ### Déployer
 
-Dans GitHub : Actions → CD → Run workflow. `scripts/deploy.sh` vérifie le fichier d'environnement (il ajoute `POSTGRES_PASSWORD` s'il manque), construit l'image, démarre les services, contrôle que `/api/health` renvoie la version de `version.txt`, puis supprime les anciennes images. Un autre fichier peut être indiqué avec `COCKPIT_ENV_FILE`.
+Dans GitHub : Actions → CD → Run workflow. `scripts/deploy.sh` vérifie le fichier d'environnement (il ajoute `POSTGRES_PASSWORD` s'il manque), fait une sauvegarde de la base (voir « Sauvegarde »), construit l'image, démarre les services, contrôle que `/api/health` renvoie la version de `version.txt`, puis supprime les anciennes images. Un autre fichier peut être indiqué avec `COCKPIT_ENV_FILE`.
 
 ### Mesurer l'usage avec PostHog (facultatif)
 
@@ -303,6 +303,8 @@ Perdre le volume sans cette copie oblige à refaire l'assistant (nouvelle App) e
 0 3 * * * /chemin/du/runner/_work/Cockpit-v2/Cockpit-v2/scripts/backup.sh >> $HOME/cockpit-backup.log 2>&1
 ```
 
+`scripts/deploy.sh` lance aussi `backup.sh` juste avant `docker compose up` : si la sauvegarde échoue, le déploiement s'arrête sans rien changer et le dit. Au tout premier déploiement, le volume de la base n'existe pas encore : il n'y a rien à sauvegarder, l'étape est sautée. Si le volume existe mais que le conteneur de la base est arrêté, la sauvegarde échoue et le déploiement s'arrête : relancer la base (`docker compose --env-file /etc/cockpit/cockpit.env up -d db`) puis le CD. Les journaux Docker de l'application et de la base sont bornés (`max-size` 10 Mo, `max-file` 3 par service dans `compose.yaml`), pour ne pas remplir la carte SD.
+
 En cas de doute, lire `~/cockpit-backup.log` : les erreurs du script y sont écrites.
 
 ### Restaurer
@@ -310,6 +312,8 @@ En cas de doute, lire `~/cockpit-backup.log` : les erreurs du script y sont écr
 Il faut la sauvegarde de la base **et** la clé de chiffrement (volume `secrets`) : sans la clé, les secrets de la GitHub App stockés en base ne se relisent pas.
 
 **Ne jamais lancer `docker compose down -v` sur la vraie pile** : `-v` supprime aussi le volume `secrets`, donc la clé. On arrête avec `down` seul, et on ne supprime que le volume de la base.
+
+À l'arrêt (`down`, `stop`, un déploiement), Cockpit reçoit SIGTERM, finit ses requêtes en cours puis sort ; `compose.yaml` lui laisse 120 s (`stop_grace_period`) avant que Docker ne le tue. Un plantage, lui, n'est pas couvert.
 
 Depuis le dossier du checkout (celui de `compose.yaml`), avec `ENV=/etc/cockpit/cockpit.env` :
 

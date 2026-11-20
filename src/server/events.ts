@@ -18,6 +18,20 @@ export function subscribe(userId: number, listener: Listener) {
   };
 }
 
+const enders = new Set<() => void>();
+
+/** Registers how to end an open stream when the server stops; returns the way out. */
+export function onStop(end: () => void) {
+  enders.add(end);
+  return () => enders.delete(end);
+}
+
+/** Ends every open stream, which would otherwise keep the server alive until the client leaves. */
+export function endStreams() {
+  for (const end of enders) end();
+  enders.clear();
+}
+
 /** Tells the members of a project that objects changed (`run:12`, `story:42`). Call it after the transaction committed; it never fails the caller, a missed event is only a page that reloads later. */
 export async function publish(db: Db, projectId: number, keys: string[]) {
   try {
