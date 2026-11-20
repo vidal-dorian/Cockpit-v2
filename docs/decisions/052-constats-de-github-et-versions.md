@@ -62,4 +62,4 @@ Pour lire les alertes, l'App a besoin de trois permissions en lecture de plus. *
 - **Une alerte Dependabot ne cite pas de ligne** : le texte nomme le manifeste.
 - **Plus de 1 000 alertes ouvertes** pour un outil : les suivantes ne sont pas lues à « Actualiser », mais le webhook les apporte quand elles changent.
 - **Le produit d'endoflife.date est deviné** à partir du nom du runtime : un nom inconnu donne « inconnu », sans signal.
-- **Le cache de la fin de vie est en mémoire** : il s'ajoute aux choses à passer en base pour plusieurs instances ([architecture](../architecture.md), « Montée en charge »).
+- **Le cache de la fin de vie est en mémoire** : il s'ajoute aux choses à passer en base pour plusieurs instances ([annexe du découpage](../decoupage.md#montée-en-charge), « Montée en charge »).

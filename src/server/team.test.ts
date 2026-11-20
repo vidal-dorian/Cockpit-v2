@@ -59,3 +59,16 @@ describe("parseTeam comments", () => {
     expect(parseTeam(text)).toEqual(["developer", "doc-writer"]);
   });
 });
+
+describe("story 60: one line splitter", () => {
+  it("given the code, when looking for what cuts team.md into agent lines, then the server and the page go through the same function", async () => {
+    const { readFileSync } = await import("node:fs");
+    const split = /\.split\(\s*(\/[^/]*\\n[^/]*\/|"[^"]*\\n")/g;
+    const server = readFileSync("src/server/team.ts", "utf8");
+    const web = readFileSync("src/web/team-file.ts", "utf8");
+    expect(web.match(split) ?? []).toHaveLength(0);
+    expect((server.match(split) ?? []).length).toBeLessThanOrEqual(1);
+    // the page must import the splitter from somewhere, not own one
+    expect(web).toMatch(/import \{[^}]*\} from "\.\.\/server\/team\.ts"/);
+  });
+});

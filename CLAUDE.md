@@ -1,6 +1,6 @@
 # Cockpit v2
 
-Self-hosted control center for the GitHub repos developed with Claude Code. Read `cockpit-v2-brief.md` for the product, `docs/ecrans/` for the screens, `docs/decoupage.md` for the slices and `docs/decisions/` for every decision already taken, `docs/glossaire.md` for the one name of each notion in the UI; `docs/architecture.md` sums up the current architecture. Do not reopen a decision without saying so.
+Self-hosted control center for the GitHub repos developed with Claude Code. Read `cockpit-v2-brief.md` for the product, `docs/ecrans/` for the screens, `docs/decoupage.md` for the slices and `docs/decisions/` for every decision already taken, `docs/glossaire.md` for the one name of each notion in the UI; `docs/architecture.md` sums up the current architecture in ten minutes and `docs/regles.md` lists the rules in force, one line each with its decision. Do not reopen a decision without saying so.
 
 ## Commands
 
@@ -20,7 +20,7 @@ CI runs lint, typecheck, test and build, plus a Docker smoke test of the stack (
 
 ## Layout
 
-- `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`: PostgreSQL in production, PGlite in tests via `test-db.ts`).
+- `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`: PostgreSQL in production, PGlite in tests via `test-db.ts`). The GitHub client is `github.ts` (`githubClient`, which assembles and re-exports), split by domain: `github-repos.ts`, `github-pulls.ts`, `github-issues.ts`, `github-alert-reads.ts`, `github-workflows.ts`, with the types and helpers they share in `github-shared.ts`.
 - `src/web`: React page built by Vite. `api.ts` is the typed client of the server routes. `public/` holds the PWA files (manifest, icons, `sw.js`, decision 072), copied as they are into `dist/web`.
 - `drizzle/`: generated SQL migrations, applied at startup. Never edit an applied migration; add a new one.
 - `catalog/`: the agents (including `cartographer`, `rules-analyst`, `bug-hunter`, `security-reviewer`, `architect` and `upgrade-advisor`, plus `doc-writer` and `doc-reviewer`, written only by the Premium and Max teams), skills (`/dev-us`, `/write-us`, `/analyser`) and starter `CLAUDE.md` and the four starter teams (`teams/<level>.md`, decision 063) that « Préparer pour Claude » writes into a user's repo (decision 027), plus the starter CI workflows (`ci/<language>.yml`, decision 067) that the CI / CD tab commits; `history.json` lists the hashes of every past version (decision 049); copied into the Docker image.
@@ -50,4 +50,5 @@ Only then open the pull request.
 - A button disabled while its request runs also gets `aria-busy` (right after `disabled`); an action whose success the screen does not already say declares `meta: { done: "…" }` on its mutation, or calls `toast()` at the call site, only once the action really succeeded (decision 081).
 - Every route or MCP tool that writes asks its role from `memberProject(db, userId, projectId, min)` (`min`: `read_only` by default, up to `owner`; decision 076); a new write gesture names its `min`.
 - Tests never call Claude, the real GitHub, PostHog or a push service (`sendPush` is injected; `test-setup.ts` deletes `POSTHOG_KEY`, the telemetry tests stub `posthog-js` and `fetch`). Server routes are tested with `app.request()` on an in-memory PostgreSQL (`openTestDatabase()` from `src/server/db/test-db.ts`, PGlite: migrated once per run, one database per worker, emptied at the start of each test, so never `it.concurrent` on it). The server's test files are not isolated from each other (they share their modules, `isolate: false`): a test leaves no global state behind (timers and stubbed globals are reset after each test); screens with Testing Library and a stubbed `fetch`.
+- An agent of `.claude/agents/` that also lives in `catalog/agents/` must match it, except for the parts only this repo needs: wrap them in `<!-- repo-specific -->` ... `<!-- /repo-specific -->` (each marker on its own line), with, inside, an optional `<!-- generic` ... `-->` comment that holds the catalog's own text (a comment, so the agent does not take it as its instruction). `src/server/agent-drift.test.ts` fails on any other difference.
 - Every PR has a "Notions TS utilisées ici" section, in French, for Dorian who is learning TypeScript.

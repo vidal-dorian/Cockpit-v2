@@ -79,7 +79,7 @@ Sur le Pi, une instance suffit. Pour pouvoir en lancer plusieurs plus tard, on s
 | Les codes d'autorisation OAuth (006) | Une table, avec expiration à 60 s |
 | Les sessions du transport MCP | Le mode sans session du SDK MCP |
 
-*Depuis la [016](016-serveur-mcp.md), le MCP tourne sans session : il ne garde plus rien en mémoire. La liste à jour est dans [l'architecture](../architecture.md#montée-en-charge), « Montée en charge ».*
+*Depuis la [016](016-serveur-mcp.md), le MCP tourne sans session : il ne garde plus rien en mémoire. La liste à jour est dans [l'annexe du découpage](../decoupage.md#montée-en-charge), « Montée en charge ».*
 
 ## Webhooks : enregistrer d'abord, traiter ensuite
 
