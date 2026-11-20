@@ -19,8 +19,46 @@ const PULL_FILES_MAX_PAGES = 30;
 // Shorter than Cloudflare's ~100 s limit, so a slow GitHub ends on our 502, not a 524 (as in auth.ts).
 const GITHUB_TIMEOUT_MS = 10_000;
 
+// A rate limit asking for longer than this is not waited out: the call fails fast, and a webhook delivery is tried again later.
+const MAX_RATE_LIMIT_WAIT_S = 30;
+
+/** Whether GitHub refused for its rate limits (429, or 403 with Retry-After, no request left, or a secondary limit that only says so in its message), not for another reason. */
+export function isRateLimited(error: unknown) {
+  const { status, message, response } = error as {
+    status?: number;
+    message?: string;
+    response?: { headers?: Record<string, string | undefined> };
+  };
+  const headers = response?.headers ?? {};
+  return (
+    status === 429 ||
+    (status === 403 &&
+      (headers["retry-after"] !== undefined ||
+        headers["x-ratelimit-remaining"] === "0" ||
+        /rate limit/i.test(message ?? "")))
+  );
+}
+
+/** Waits the Retry-After of a rate limit, then asks once more. (@octokit/plugin-throttling ignores Retry-After on 429 and on primary limits.) */
+function retryAfterRateLimit(octokit: Octokit) {
+  octokit.hook.wrap("request", async (request, options) => {
+    try {
+      return await request(options);
+    } catch (error) {
+      const wait = Number(
+        (error as { response?: { headers?: Record<string, string> } }).response
+          ?.headers?.["retry-after"],
+      );
+      if (!isRateLimited(error) || !(wait > 0 && wait <= MAX_RATE_LIMIT_WAIT_S))
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, wait * 1000));
+      return request(options);
+    }
+  });
+}
+
 // Looks the global fetch up at call time, so a test's stub still applies.
-const TimedOctokit = Octokit.defaults({
+const TimedOctokit = Octokit.plugin(retryAfterRateLimit).defaults({
   request: {
     fetch: (url: string, init?: RequestInit) =>
       fetch(url, { ...init, signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS) }),
