@@ -1,4 +1,4 @@
-import { AGENT_NAME } from "../server/team.ts";
+import { AGENT_NAME, teamLines } from "../server/team.ts";
 
 /** Decision 079 A: `id`, `parallel` and `max` are absent (undefined) unless the file says them. */
 export type TeamStep = {
@@ -73,49 +73,53 @@ const KEY = /^ {4}(does|id|parallel|wait|loop_to|until|max): (.*)$/;
 
 /** The steps and the text after the front matter of a `team.md` (decisions 031 G and 079 A2); null when Cockpit cannot write it back without loss. */
 // shortcut: line-based like `parseTeam`, exactly the format `writeTeam` writes (LF, two and four spaces, bare agent names, `does` and `until` as JSON strings or as plain text) plus blank lines; a comment, another key, a multi-line value, a single-quoted one or CRLF make the file unrewritable. Replace it with a YAML library if hand-written files must be edited.
-export function readTeam(
+function read(
   text: string,
-): { steps: TeamStep[]; body: string } | null {
-  const lines = text.split("\n");
-  if (lines[0] !== "---") return null;
+): { steps: TeamStep[]; body: string } | { bad: string } {
+  const lines = teamLines(text);
+  if (lines[0] !== "---") return { bad: "" };
   const end = lines.findIndex((l, i) => i > 0 && l === "---");
-  if (end === -1) return null;
+  if (end === -1) return { bad: "" };
   const front = lines.slice(1, end).filter((l) => l !== "");
-  if (front[0] !== "steps:") return null;
+  if (front[0] !== "steps:") return { bad: front[0] ?? "" };
   const steps: TeamStep[] = [];
   const seen = new Set<string>();
   const waits = new Set<number>();
+  // The source line of each key of each step (`agent` for its first line), to name the line at fault.
+  const marks: Record<string, string>[] = [];
   for (const line of front.slice(1)) {
     const agent = STEP.exec(line)?.[1];
     if (agent !== undefined) {
-      if (!AGENT_NAME.test(agent)) return null;
+      if (!AGENT_NAME.test(agent)) return { bad: line };
       steps.push({ agent, does: "", loopTo: null, until: "" });
+      marks.push({ agent: line });
       seen.clear();
       continue;
     }
     const [, key = "", raw = ""] = KEY.exec(line) ?? [];
     const step = steps.at(-1);
-    if (!key || !step || seen.has(key)) return null;
+    if (!key || !step || seen.has(key)) return { bad: line };
     seen.add(key);
+    (marks.at(-1) as Record<string, string>)[key] = line;
     if (key === "loop_to" || key === "id") {
-      if (!AGENT_NAME.test(raw)) return null;
+      if (!AGENT_NAME.test(raw)) return { bad: line };
       if (key === "id") step.id = raw;
       else step.loopTo = raw;
       continue;
     }
     if (key === "parallel") {
-      if (raw !== "true") return null;
+      if (raw !== "true") return { bad: line };
       step.parallel = true;
       continue;
     }
     if (key === "wait") {
       // An older file may say `wait` on a group head: read, then ignored (decision 079).
-      if (raw !== "first" && raw !== "all") return null;
+      if (raw !== "first" && raw !== "all") return { bad: line };
       waits.add(steps.length - 1);
       continue;
     }
     if (key === "max") {
-      if (!/^[1-9]$/.test(raw)) return null;
+      if (!/^[1-9]$/.test(raw)) return { bad: line };
       step.max = Number(raw);
       continue;
     }
@@ -124,27 +128,48 @@ export function readTeam(
       try {
         value = JSON.parse(raw);
       } catch {
-        return null;
+        return { bad: line };
       }
     // A YAML indicator or a comment: the value would not be read as plain text.
-    else if (/^[#[{&*!|>'%@`]|\s#/.test(raw)) return null;
-    if (typeof value !== "string") return null;
+    else if (/^[#[{&*!|>'%@`]|\s#/.test(raw)) return { bad: line };
+    if (typeof value !== "string") return { bad: line };
     if (key === "does") step.does = value;
     else step.until = value;
   }
   const groups = groupIndexes(steps);
   // An `until` or a `max` without its loop, or a loop that does not go back, would be dropped by a rewrite.
-  return steps.length > 0 &&
-    new Set(steps.map(keyOf)).size === steps.length &&
-    steps.every(
-      (s, i) =>
-        !(i === 0 && s.parallel) &&
-        (!waits.has(i) || (!s.parallel && steps[i + 1]?.parallel === true)) &&
-        (s.loopTo ? loopIsValid(steps, i, groups) : !s.until && !s.max),
-    )
-    ? { steps, body: lines.slice(end + 1).join("\n") }
-    : null;
+  const bad = steps.flatMap((s, i) => {
+    const at = marks[i] ?? {};
+    if (steps.findIndex((t) => keyOf(t) === keyOf(s)) < i)
+      return [at.id ?? at.agent ?? ""];
+    if (i === 0 && s.parallel) return [at.parallel ?? ""];
+    if (waits.has(i) && (s.parallel || steps[i + 1]?.parallel !== true))
+      return [at.wait ?? ""];
+    if (s.loopTo)
+      return loopIsValid(steps, i, groups) ? [] : [at.loop_to ?? ""];
+    return s.until ? [at.until ?? ""] : s.max ? [at.max ?? ""] : [];
+  })[0];
+  if (steps.length === 0) return { bad: "" };
+  if (bad !== undefined) return { bad };
+  return {
+    steps,
+    body: text.slice(
+      /^---\r?\n(?:.*\r?\n)*?---(?:\r?\n|$)/.exec(text)?.[0].length,
+    ),
+  };
 }
+
+/** The steps and the text after the front matter of a `team.md`; null when Cockpit cannot write it back without loss. */
+export const readTeam = (text: string) => {
+  const read_ = read(text);
+  return "bad" in read_ ? null : read_;
+};
+
+/** The line that makes `readTeam` refuse a file, "" when no single line is at fault. */
+export const refusedLine = (text: string) => {
+  const read_ = read(text);
+  return "bad" in read_ ? read_.bad : "";
+};
 
 /** The whole file: the front matter of decisions 031 G and 079 A, then `body` as it is. */
 export function writeTeam(steps: TeamStep[], body: string): string {
