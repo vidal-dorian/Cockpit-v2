@@ -40,7 +40,7 @@ Vus et **gardés tels quels** : les états vides en une phrase (« Aucune équip
 | F | Les chargements (4) | La classe `loading` sur chaque « Chargement… » : le texte reste (lecteurs d'écran, tests), précédé d'un petit anneau qui tourne, et **n'apparaît qu'après 300 ms** : une réponse rapide ne fait plus clignoter la page |
 | G | Les messages (6) | Tout `role="status"` et `role="alert"` apparaît en fondu, en montant de 4 px (180 ms) |
 | H | Le point vivant (7) | Le point reste allumé ; un halo de sa couleur s'en échappe toutes les 2 s, comme une respiration ; sous « réduire les animations », un anneau fixe |
-| I | Les onglets au téléphone (8) | Sous `md`, la rangée d'onglets d'un projet défile horizontalement sur une ligne, sans barre de défilement visible |
+| I | Les onglets au téléphone (8) | Sous `md`, la rangée d'onglets d'un projet défile horizontalement sur une ligne, sans barre de défilement visible (un dégradé au bord droit montre la suite : [092](092-onglets-du-projet-au-telephone.md)) |
 | J | La barre d'idée (9) | Un dégradé du fond, de 16 px (la marge au-dessus de la barre), au-dessus de la barre : le contenu s'efface en passant dessous |
 | K | Les sections repliables (10) | La flèche tourne de 90° à l'ouverture ; le contenu s'ouvre en hauteur dans les navigateurs qui savent animer `::details-content` (Chromium), d'un coup ailleurs |
 | L | Sélection et défilement (11) | La sélection prend la teinte « Claude » à 35 % ; les barres de défilement sont fines, couleur `border-strong`. Aucun nouveau jeton de couleur |

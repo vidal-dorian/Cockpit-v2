@@ -156,6 +156,12 @@ export function ProjectPage({
   });
   // How many files the plan of « Préparer pour Claude » adds, while it is on screen.
   const [planned, setPlanned] = useState<number | null>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  // Decision 080 I reopened: tabs hidden on the right show a fade.
+  const measureTabs = (nav: HTMLElement | null) => {
+    if (nav)
+      setMoreRight(nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1);
+  };
   const notFound = health.data === "not_found";
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
@@ -424,7 +430,10 @@ export function ProjectPage({
       {!notFound && (
         <nav
           aria-label="Sections du projet"
-          className="mt-4 flex gap-x-[22px] border-b border-border px-[26px] max-md:mt-3 max-md:overflow-x-auto max-md:pt-1 max-md:[scrollbar-width:none] md:flex-wrap"
+          ref={measureTabs}
+          onScroll={(e) => measureTabs(e.currentTarget)}
+          data-more-right={moreRight}
+          className="mt-4 flex gap-x-[22px] border-b border-border px-[26px] max-md:mt-3 max-md:overflow-x-auto max-md:pt-1 max-md:[scrollbar-width:none] max-md:data-[more-right=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-40px),transparent)] md:flex-wrap"
         >
           {TABS.map((t) => (
             <NavLink
