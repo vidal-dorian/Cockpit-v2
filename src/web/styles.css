@@ -22,7 +22,7 @@
   --color-border-strong: #343b48;
   --color-muted-foreground: #a9b0bf;
   /* Dimmer than muted (section labels), and what is past. */
-  --color-dim: #6f7787;
+  --color-dim: #838b9b;
   --color-past: #4a5262;
 
   /* The main button is white: ink on the dark page (045 C). */
