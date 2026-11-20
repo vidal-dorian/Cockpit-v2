@@ -72,14 +72,16 @@ const STEP = /^ {2}- agent: (\S+)$/;
 const KEY = /^ {4}(does|id|parallel|wait|loop_to|until|max): (.*)$/;
 
 /** The steps and the text after the front matter of a `team.md` (decisions 031 G and 079 A2); null when Cockpit cannot write it back without loss. */
-// shortcut: line-based like `parseTeam`, exactly the format `writeTeam` writes (LF, two and four spaces, bare agent names, `does` and `until` as JSON strings or as plain text) plus blank lines; a comment, another key, a multi-line value, a single-quoted one or CRLF make the file unrewritable. Replace it with a YAML library if hand-written files must be edited.
+// shortcut: line-based like `parseTeam`, exactly the format `writeTeam` writes (LF, two and four spaces, bare agent names, `does` and `until` as JSON strings or as plain text) plus blank lines; a comment, another key, a multi-line value or a single-quoted one make the file unrewritable (the refusal names the line). Replace it with a YAML library if hand-written files must be edited.
 function read(
   text: string,
 ): { steps: TeamStep[]; body: string } | { bad: string } {
   const lines = teamLines(text);
-  if (lines[0] !== "---") return { bad: "" };
-  const end = lines.findIndex((l, i) => i > 0 && l === "---");
+  // The launch (`parseTeam`) trims the delimiters: name a `---` with a stray space or BOM, rather than a generic refusal.
+  if (lines[0] !== "---") return { bad: lines[0] ?? "" };
+  const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
   if (end === -1) return { bad: "" };
+  if (lines[end] !== "---") return { bad: lines[end] ?? "" };
   const front = lines.slice(1, end).filter((l) => l !== "");
   if (front[0] !== "steps:") return { bad: front[0] ?? "" };
   const steps: TeamStep[] = [];

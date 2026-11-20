@@ -20,6 +20,16 @@ it.each([
     file("  - agent: dev", "    loop_to: reviewer", '    until: "x"'),
     "    loop_to: reviewer",
   ],
+  [
+    "an opening line with a trailing space",
+    "--- \nsteps:\n  - agent: developer\n---\n",
+    "--- ",
+  ],
+  [
+    "a closing line with a trailing space",
+    "---\nsteps:\n  - agent: developer\n--- \nBody\n",
+    "--- ",
+  ],
 ])("names the line of %s", (_n, text, line) => {
   expect(refusedLine(text)).toBe(line);
 });
