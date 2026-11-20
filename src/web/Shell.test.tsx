@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -168,7 +169,14 @@ describe("slice 9.3: the shell of a logged-out visitor", () => {
       }),
     );
 
-    await waitFor(() => expect(document.activeElement).toBe(tab));
+    // The bar was unmounted while the title had focus (084 B4 amended): the tab is a new element.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(
+          screen.getByRole("navigation", { name: "Navigation du téléphone" }),
+        ).getByRole("button", { name: /Idée/ }),
+      ),
+    );
   });
 
   it("given the panel open on a phone, when Nuit is tapped, then the nav is not inert and the panel closes on /nuit", async () => {
@@ -176,11 +184,17 @@ describe("slice 9.3: the shell of a logged-out visitor", () => {
     stubShell({ projects });
     renderAt("/");
 
-    const nav = await screen.findByRole("navigation", {
-      name: "Navigation du téléphone",
-    });
-    fireEvent.click(within(nav).getByRole("button", { name: /Idée/ }));
+    const barName = { name: "Navigation du téléphone" };
+    fireEvent.click(
+      within(await screen.findByRole("navigation", barName)).getByRole(
+        "button",
+        { name: /Idée/ },
+      ),
+    );
     await screen.findByRole("dialog");
+    // The title has focus: the bar is hidden until focus leaves it (084 B4 amended).
+    act(() => (document.activeElement as HTMLElement).blur());
+    const nav = await screen.findByRole("navigation", barName);
     expect(nav.closest("[inert]")).toBeNull();
     expect(screen.getByRole("main").closest("[inert]")).not.toBeNull();
 

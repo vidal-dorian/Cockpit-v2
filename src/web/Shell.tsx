@@ -1,11 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -512,8 +506,7 @@ const MENU_ONLY = /^\/(claude|equipes|journal|reglages)(\/|$)/;
 const NO_KEYBOARD_INPUTS =
   /^(checkbox|radio|button|submit|reset|range|color|file|image|hidden)$/;
 
-const KEEPS_NAV = "[data-keeps-phone-nav]";
-const BAR_CONTROLS = "a, button";
+const PHONE_IDEA_TAB = "phone-idea-tab";
 
 function opensKeyboard(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
@@ -522,82 +515,25 @@ function opensKeyboard(el: EventTarget | null) {
   return el.isContentEditable || el.getAttribute("contenteditable") === "true";
 }
 
-/** `typing` is true while a text field has focus. iOS keeps a fixed bottom bar offset by the keyboard height once the keyboard is gone; not rendering the bar meanwhile makes the browser lay it out again at the real bottom (decision 084 B). The idea panel keeps the bar rendered (084 B4), so when focus leaves its fields (or they are removed) `barKey` changes: the bar is re-created instead. */
-function useTextFieldFocus() {
+/** True while a text field has focus. iOS keeps a fixed bottom bar offset by the keyboard height once the keyboard is gone; not rendering the bar meanwhile makes the browser lay it out again at the real bottom (decision 084 B). */
+function useTextFieldFocus(panelOpen: boolean) {
   const [typing, setTyping] = useState(false);
-  const [barKey, setBarKey] = useState(0);
-  const navRef = useRef<HTMLElement>(null);
-  // Index of the bar's control that last got focus: the re-created bar gives it back (the idea panel hands focus to its Idée tab as it closes).
-  const focused = useRef(-1);
-  useLayoutEffect(() => {
-    const i = focused.current;
-    focused.current = -1;
-    const active = document.activeElement;
-    if (
-      barKey &&
-      i >= 0 &&
-      (!active || active === document.body || !active.isConnected)
-    )
-      navRef.current?.querySelectorAll<HTMLElement>(BAR_CONTROLS)[i]?.focus();
-  }, [barKey]);
+  // A field removed with the panel fires no focusout: look at the focus again once it closes.
   useEffect(() => {
-    const onIn = (e: FocusEvent) => {
-      focused.current = navRef.current
-        ? [...navRef.current.querySelectorAll(BAR_CONTROLS)].indexOf(
-            e.target as Element,
-          )
-        : -1;
-      setTyping(
-        opensKeyboard(e.target) &&
-          !(e.target as HTMLElement).closest(KEEPS_NAV),
-      );
-    };
+    if (!panelOpen) setTyping(opensKeyboard(document.activeElement));
+  }, [panelOpen]);
+  useEffect(() => {
+    const onIn = (e: FocusEvent) => setTyping(opensKeyboard(e.target));
     // activeElement is unreliable during focusout: the next target is relatedTarget.
-    const onOut = (e: FocusEvent) => {
-      const next = e.relatedTarget;
-      const panel =
-        e.target instanceof HTMLElement && e.target.closest(KEEPS_NAV);
-      setTyping(
-        opensKeyboard(next) && !(next as HTMLElement).closest(KEEPS_NAV),
-      );
-      if (
-        panel &&
-        opensKeyboard(e.target) &&
-        !(
-          opensKeyboard(next) &&
-          (next as HTMLElement).closest(KEEPS_NAV) === panel
-        )
-      ) {
-        // A tap on the bar blurs the field on mousedown (the compatibility event of a touch tap too, after pointerup and touchend): re-creating the bar then would swallow the click, so wait for the end of the press.
-        if (pressed) pending = true;
-        else setBarKey((k) => k + 1);
-      }
-    };
-    let pressed = false;
-    let pending = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const onDown = () => {
-      pressed = true;
-    };
-    const onUp = () => {
-      pressed = false;
-      // After the click, which is dispatched right after the button goes up.
-      if (pending) timer = setTimeout(() => setBarKey((k) => k + 1));
-      pending = false;
-    };
+    const onOut = (e: FocusEvent) => setTyping(opensKeyboard(e.relatedTarget));
     document.addEventListener("focusin", onIn);
     document.addEventListener("focusout", onOut);
-    document.addEventListener("mousedown", onDown, true);
-    document.addEventListener("mouseup", onUp, true);
     return () => {
       document.removeEventListener("focusin", onIn);
       document.removeEventListener("focusout", onOut);
-      document.removeEventListener("mousedown", onDown, true);
-      document.removeEventListener("mouseup", onUp, true);
-      clearTimeout(timer);
     };
   }, []);
-  return { typing, barKey, navRef };
+  return typing;
 }
 
 /** The bar of the phone (decision 071 B, 084 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project; « Menu » opens the content of the sidebar full screen. */
@@ -620,13 +556,11 @@ function PhoneNav({
   const idle = !open && !menuOpen;
   const menuPage = MENU_ONLY.test(pathname);
   const closeMenu = () => setMenuOpen(false);
-  const { typing, barKey, navRef } = useTextFieldFocus();
+  const typing = useTextFieldFocus(open);
   return (
     <>
       {!typing && (
         <nav
-          key={barKey}
-          ref={navRef}
           aria-label="Navigation du téléphone"
           className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
         >
@@ -645,6 +579,7 @@ function PhoneNav({
           {onIdea && (
             <button
               type="button"
+              id={PHONE_IDEA_TAB}
               aria-expanded={open}
               onClick={(event) => onIdea(event.currentTarget)}
               className={tab({ isActive: open })}
@@ -797,12 +732,20 @@ export function IdeaBar({
     if (open) wasOpen.current = true;
     else if (wasOpen.current) {
       wasOpen.current = false;
-      // The opener is not displayed once the window grew past md.
-      (opener.current?.checkVisibility?.() === false
-        ? input.current
-        : (opener.current ?? input.current)
-      )?.focus();
+      const el = opener.current;
       opener.current = null;
+      // The bar was unmounted while the title had focus, so its Idée tab is a new element once the bar is back.
+      if (el && !el.isConnected) {
+        requestAnimationFrame(() =>
+          document.getElementById(PHONE_IDEA_TAB)?.focus(),
+        );
+        return;
+      }
+      // The opener is not displayed once the window grew past md.
+      (el?.checkVisibility?.() === false
+        ? input.current
+        : (el ?? input.current)
+      )?.focus();
     }
   }, [open]);
 

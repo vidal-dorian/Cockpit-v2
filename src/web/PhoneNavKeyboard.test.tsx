@@ -1,8 +1,16 @@
 // @vitest-environment jsdom
-import { act, cleanup, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubShell } from "./test-shell.tsx";
 import { renderAt } from "./test-tickets.tsx";
+import { stubBar } from "./test-tickets-full.tsx";
 
 // Decision 084 B (amendment): while a text field has focus the phone bar is not rendered. On iOS a fixed bottom bar stays offset by the keyboard height once the keyboard is dismissed; putting the bar back when focus leaves lays it out again at the real bottom. jsdom has no keyboard: these tests prove the bar hides while a text field has focus and comes back after, the real behaviour is checked on the phone.
 
@@ -95,130 +103,58 @@ describe("decision 084 B: the phone bar while the keyboard is up", () => {
   });
 });
 
-// Decision 084 B4 (amendment): the idea panel keeps the bar rendered while its fields have focus, but when focus leaves them the bar's <nav> is created again, so iOS lays it out at the real bottom.
-describe("decision 084 B: the phone bar around the idea panel", () => {
-  const getNav = () => screen.getByRole("navigation", NAV);
-
-  function panel() {
-    const box = document.createElement("div");
-    box.setAttribute("data-test-field", "");
-    box.setAttribute("data-keeps-phone-nav", "");
-    document.body.appendChild(box);
-    const add = <K extends "input" | "textarea">(tag: K) => {
-      const el = document.createElement(tag);
-      box.appendChild(el);
-      return el;
-    };
-    return { box, add };
-  }
-  const leave = (el: HTMLElement) =>
-    act(() => {
-      el.dispatchEvent(
-        new FocusEvent("focusout", { bubbles: true, relatedTarget: null }),
-      );
+// Decision 084 B4 (amendment of 2026-11-19): no exception for the idea panel. While its title (autofocused) or any field has focus the bar is hidden, under the keyboard anyway; it returns when focus leaves, and closing the panel opened from the phone Idée tab puts focus back on that tab.
+describe("decision 084 B4: the phone bar around the idea panel", () => {
+  const tabIdee = () =>
+    within(screen.getByRole("navigation", NAV)).getByRole("button", {
+      name: /Idée/,
     });
+  const panel = async () =>
+    within(await screen.findByRole("dialog", { name: "Noter une idée" }));
 
-  it("given the phone bar shown, when a field of the idea panel gets focus, then the bar stays with Idée, Nuit and Menu", async () => {
-    await shellReady();
-    focus(panel().add("input"));
-    expect(barShown()).toBe(true);
-    const nav = getNav();
-    expect(nav.textContent).toContain("Nuit");
-    expect(nav.textContent).toContain("Menu");
-  });
+  async function openFromTab() {
+    stubBar();
+    renderAt("/");
+    await screen.findByRole("navigation", NAV);
+    const opener = tabIdee();
+    opener.focus();
+    fireEvent.click(opener);
+    return { opener, p: await panel() };
+  }
 
-  it("given a field of the idea panel with focus, when focus leaves it for the page, then the bar is a new element, still rendered", async () => {
-    await shellReady();
-    const input = panel().add("input");
-    focus(input);
-    const before = getNav();
-    blur(input);
-    expect(barShown()).toBe(true);
-    expect(getNav()).not.toBe(before);
-    expect(before.isConnected).toBe(false);
-    expect(getNav().textContent).toContain("Nuit");
-    expect(getNav().textContent).toContain("Menu");
-  });
-
-  it("given a field of the idea panel with focus, when the field is removed (panel closed), then the bar is a new element, still rendered", async () => {
-    await shellReady();
-    const { box, add } = panel();
-    const input = add("input");
-    focus(input);
-    const before = getNav();
-    leave(input);
-    act(() => box.remove());
-    expect(barShown()).toBe(true);
-    expect(getNav()).not.toBe(before);
-    expect(getNav().textContent).toContain("Menu");
-  });
-
-  it("given a field of the idea panel with focus, when focus moves to another field of the same panel, then the bar is the same element", async () => {
-    await shellReady();
-    const { add } = panel();
-    const first = add("input");
-    const second = add("textarea");
-    focus(first);
-    const before = getNav();
-    focus(second);
-    expect(getNav()).toBe(before);
-    expect(before.isConnected).toBe(true);
-  });
-
-  it("given a field of the idea panel with focus, when focus moves to a field outside the panel, then the bar is hidden", async () => {
-    await shellReady();
-    const input = panel().add("input");
-    focus(input);
-    focus(field("textarea"));
+  it("given the panel opened from the Idée tab, when its title has focus, then the bar is hidden", async () => {
+    const { p } = await openFromTab();
+    act(() => p.getByRole("textbox", { name: "Titre" }).focus());
     expect(barShown()).toBe(false);
   });
 
-  it("given a field of the idea panel with focus, when the Nuit tab is tapped, then the tap navigates and the bar is re-created after it", async () => {
-    await shellReady();
-    window.history.replaceState({}, "", "/");
-    const input = panel().add("input");
-    focus(input);
-    const before = getNav();
-    const nuit = screen.getByRole("link", { name: /Nuit/ });
-    const fire = (type: string) =>
-      act(() => void nuit.dispatchEvent(new Event(type, { bubbles: true })));
-    // Touch order: the compatibility mouse events come after pointerup and touchend.
-    fire("pointerdown");
-    fire("pointerup");
-    fire("touchend");
-    fire("mousedown");
-    act(() => {
-      input.dispatchEvent(
-        new FocusEvent("focusout", { bubbles: true, relatedTarget: null }),
-      );
-    });
-    expect(getNav()).toBe(before);
-    act(() => nuit.click());
-    fire("mouseup");
-    await act(() => new Promise((r) => setTimeout(r)));
-    expect(window.location.pathname).toBe("/nuit");
-    expect(getNav()).not.toBe(before);
+  it("given a field of the panel with focus, when focus leaves it for a button of the panel, then the bar is back", async () => {
+    const { p } = await openFromTab();
+    act(() => p.getByRole("textbox", { name: "Titre" }).focus());
+    expect(barShown()).toBe(false);
+    act(() => p.getByRole("button", { name: "Annuler" }).focus());
+    expect(barShown()).toBe(true);
   });
 
-  it("given the panel opened from the Idée tab, when Annuler is pressed (mousedown, focusout, click, mouseup elsewhere), then the new bar's Idée tab has focus", async () => {
-    await shellReady();
-    const input = panel().add("input");
-    focus(input);
-    const fire = (el: Element, type: string) =>
-      act(() => void el.dispatchEvent(new Event(type, { bubbles: true })));
-    const idee = () => screen.getByRole("button", { name: /Idée/ });
-    const old = idee();
-    fire(old, "mousedown");
-    act(() => {
-      input.dispatchEvent(
-        new FocusEvent("focusout", { bubbles: true, relatedTarget: old }),
-      );
-    });
-    // The panel closes and hands focus back to its opener.
-    focus(old);
-    fire(document.body, "mouseup");
-    await act(() => new Promise((r) => setTimeout(r)));
-    expect(old.isConnected).toBe(false);
-    expect(document.activeElement).toBe(idee());
+  it("given the panel opened from the Idée tab and its title typed in, when Annuler is pressed, then the bar is back and its Idée tab has the focus", async () => {
+    const { p } = await openFromTab();
+    act(() => p.getByRole("textbox", { name: "Titre" }).focus());
+    expect(barShown()).toBe(false);
+    fireEvent.click(p.getByRole("button", { name: "Annuler" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(tabIdee()));
+  });
+
+  it("given the panel opened from the Idée tab and its title typed in, when Noter succeeds, then the bar is back and its Idée tab has the focus", async () => {
+    const { p } = await openFromTab();
+    const title = p.getByRole("textbox", { name: "Titre" });
+    act(() => title.focus());
+    expect(barShown()).toBe(false);
+    fireEvent.change(title, { target: { value: "ranger" } });
+    fireEvent.click(p.getByRole("button", { name: /^Noter/ }));
+    await screen.findByText(/Idée notée dans hello/);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(barShown()).toBe(true);
+    await waitFor(() => expect(document.activeElement).toBe(tabIdee()));
   });
 });
