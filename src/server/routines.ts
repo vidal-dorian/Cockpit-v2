@@ -173,7 +173,8 @@ const presentRoutine = (
   prompt: PROMPT,
 });
 
-const presentSchedule = (p: typeof projects.$inferSelect) => ({
+// Only the owner fires the routine (button and schedule are owner-only), so only the owner sees its session (decision 088).
+const presentSchedule = (p: typeof projects.$inferSelect, owner: boolean) => ({
   frequency: p.routineFrequency,
   hour: p.routineHour,
   weekday: p.routineWeekday,
@@ -184,7 +185,7 @@ const presentSchedule = (p: typeof projects.$inferSelect) => ({
       ? {
           at: p.routineLastRunAt,
           result: p.routineLastRunResult,
-          sessionUrl: p.routineLastRunSessionUrl,
+          sessionUrl: owner ? p.routineLastRunSessionUrl : null,
         }
       : null,
 });
@@ -738,7 +739,9 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
         c.get("userId"),
         Number(c.req.param("id")),
       );
-      return project ? c.json(presentSchedule(project)) : c.json(notFound, 404);
+      return project
+        ? c.json(presentSchedule(project, project.role === "owner"))
+        : c.json(notFound, 404);
     })
     .put("/api/projects/:id/routine", body(scheduleBody), async (c) => {
       const userId = c.get("userId");
@@ -783,7 +786,7 @@ export function routineRoutes(db: Db, deps: Fire, now: () => number) {
           if (!saved) throw new Refused("not_found");
           return saved;
         });
-        return c.json(presentSchedule(row));
+        return c.json(presentSchedule(row, true));
       } catch (error) {
         return refusal(c, error);
       }
