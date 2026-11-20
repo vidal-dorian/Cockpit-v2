@@ -311,6 +311,8 @@ Il faut la sauvegarde de la base **et** la clé de chiffrement (volume `secrets`
 
 **Ne jamais lancer `docker compose down -v` sur la vraie pile** : `-v` supprime aussi le volume `secrets`, donc la clé. On arrête avec `down` seul, et on ne supprime que le volume de la base.
 
+À l'arrêt (`down`, `stop`, un déploiement), Cockpit reçoit SIGTERM, finit ses requêtes en cours puis sort ; `compose.yaml` lui laisse 120 s (`stop_grace_period`) avant que Docker ne le tue. Un plantage, lui, n'est pas couvert.
+
 Depuis le dossier du checkout (celui de `compose.yaml`), avec `ENV=/etc/cockpit/cockpit.env` :
 
 ```sh

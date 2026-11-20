@@ -19,6 +19,9 @@ services:
 
   app:
     build: .
+    # A real init process, so SIGTERM reaches Node; the grace period outlasts a GitHub write (about 100 s) so a stop never cuts one.
+    init: true
+    stop_grace_period: 120s
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set (see the env file)}@db:5432/cockpit
       # Turns the PostHog telemetry on when set (decision 083 B); empty, nothing leaves.

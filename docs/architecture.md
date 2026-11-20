@@ -132,6 +132,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | Tests serveur sur PGlite, tests d'écran, lint, typecheck, CI | Fait |
 | Déploiement : `Dockerfile`, `compose.yaml` (app, PostgreSQL, tunnel), `scripts/deploy.sh`, `scripts/backup.sh` | Fait (1.2), en service sur le Pi ; procédure dans le README, « Déployer sur le Pi » |
 | Test de bout en bout du déploiement (`scripts/smoke-test.sh`, job `docker` de la CI) | Fait (1.2) |
+| Arrêt propre sur SIGTERM (`src/server/shutdown.ts`, appelé par `index.ts`) : le serveur n'accepte plus de connexion, attend les requêtes en cours (les flux d'événements sont clos, les connexions inactives fermées), arrête les passages programmés (purge, routines, livraisons), ferme le pool PostgreSQL et sort avec le code 0 ; `compose.yaml` met `init: true` et `stop_grace_period: 120s` sur `app`, plus long qu'une écriture GitHub (environ 100 s) ; couvre un arrêt demandé, pas un plantage | Fait (ticket 39) |
 | Connexion avec GitHub : `/api/auth/login`, `/callback`, `/logout`, `/api/me`, table `sessions`, inscription ouverte et comptes bloqués (en 1.6, la liste de comptes autorisés ayant été abandonnée) | Fait (1.3) |
 | Historique inaltérable : table `history` (triggers qui refusent `UPDATE`, `DELETE`, `TRUNCATE`), fonction `act` (action + entrée dans une transaction), `/api/history`, page Journal | Fait (1.4) |
 | Projets : importer un repo de l'installation de l'App, lister, archiver (`/api/github/repositories`, `/api/projects`), tables `projects` et `project_members`, page Projets | Fait (2.1) |

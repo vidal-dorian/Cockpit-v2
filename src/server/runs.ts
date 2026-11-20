@@ -15,7 +15,7 @@ import {
   tickets,
   userStories,
 } from "./db/schema.ts";
-import { publish, subscribe } from "./events.ts";
+import { onStop, publish, subscribe } from "./events.ts";
 import type { ReadGitHub } from "./github.ts";
 import { syncIssue } from "./issues.ts";
 import { isDatabaseId } from "./projects.ts";
@@ -647,7 +647,14 @@ export function runRoutes(
         const unsubscribe = subscribe(user.userId, (key) => {
           stream.writeSSE({ event: "change", data: key }).catch(() => {});
         });
-        stream.onAbort(unsubscribe);
+        const unstop = onStop(() => {
+          stream.abort();
+          void stream.close();
+        });
+        stream.onAbort(() => {
+          unsubscribe();
+          unstop();
+        });
         // A comment every 25 s keeps the connection open behind Cloudflare (decision 033 G).
         while (!stream.aborted) {
           await stream.sleep(25_000);
