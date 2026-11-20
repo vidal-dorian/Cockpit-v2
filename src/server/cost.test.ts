@@ -6,6 +6,7 @@ import {
   costOf,
   finishLaunched,
   launch,
+  metricsTokenOf,
   NOW,
   otlp,
   pass,
@@ -20,7 +21,7 @@ import {
   routineOf,
   setBudgets,
 } from "./test-launcher.ts";
-import { callTool, dataOf, rows } from "./test-mcp.ts";
+import { callTool, dataOf, rows, userWithToken } from "./test-mcp.ts";
 import { runRow } from "./test-run-controls.ts";
 
 // Slice 14.5 (decision 060): the cost of the cloud launches, the caps. Also pinned: GET /api/claude/cost ->
@@ -117,6 +118,58 @@ describe("criterion 1: the receiver", () => {
     expect((await postMetrics(ctx, { hello: "world" })).status).toBe(400);
     expect((await postMetrics(ctx, "not json")).status).toBe(400);
     expect((await costOf(ctx)).cost).toBe(0);
+  });
+});
+
+// Story #46 (ticket #41, reopens 060): the receiver only takes the points of the sender's own sessions.
+describe("story #46: the secret of /v1/metrics", () => {
+  it("given a send without the expected secret, when it reaches /v1/metrics, then it is refused and no cost is added", async () => {
+    const ctx = await launched();
+    expect(await metricsTokenOf(ctx), "alice has a secret").toBeTruthy();
+
+    const none = await postMetrics(ctx, otlp(0.5), "application/json", null);
+    const wrong = await postMetrics(ctx, otlp(0.5), "application/json", "nope");
+
+    expect([none.status, wrong.status]).toEqual([401, 401]);
+    expect(await costOf(ctx)).toMatchObject({ cost: 0, tokens: 0 });
+  });
+
+  it("given the secret of another user, when it reaches /v1/metrics for Alice's launch, then it is refused and no cost is added", async () => {
+    const ctx = await launched();
+    const bob = await userWithToken(ctx.app, ctx.db, 1001);
+    const bobToken = await metricsTokenOf(ctx, bob.cookie);
+    expect(bobToken, "bob has a secret").toBeTruthy();
+    expect(bobToken).not.toBe(await metricsTokenOf(ctx));
+
+    const res = await postMetrics(ctx, otlp(0.5), "application/json", bobToken);
+
+    expect(res.status).toBe(401);
+    expect(await costOf(ctx)).toMatchObject({ cost: 0, tokens: 0 });
+  });
+
+  it("given the right secret, when a point comes, then the cost adds to the run as before and the secret is stable", async () => {
+    const ctx = await launched();
+    const first = await metricsTokenOf(ctx);
+
+    await pay(ctx, 0.42);
+
+    expect(first).toBeTruthy();
+    expect(await metricsTokenOf(ctx)).toBe(first);
+    expect((await costOf(ctx)).cost).toBeCloseTo(0.42);
+  });
+
+  it("given a secret, when the database is read, then the secret is not stored in clear", async () => {
+    const ctx = await launched();
+    const token = (await metricsTokenOf(ctx)) ?? "";
+    expect(token).toBeTruthy();
+
+    const dump = JSON.stringify(
+      (await ctx.db.execute(sql`select * from users`)) as unknown as {
+        rows: unknown[];
+      },
+    );
+
+    expect(dump).not.toContain(token);
   });
 });
 

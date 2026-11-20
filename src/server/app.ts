@@ -209,7 +209,7 @@ export function createApp(
       .route("/", customRoutineRoutes(db, fireDeps, now))
       .route("/", agentTeamRoutes(db))
       // Outside /api: Claude Code's exporter has no session and its own 1 MiB limit (decision 060 A).
-      .route("/", metricsRoutes(db))
+      .route("/", metricsRoutes(db, encryptionKey))
       .route("/", tokenRoutes(db))
       .route("/", mcpRoutes(db, readGitHub, readInstance, version, fireDeps))
       .route("/", oauthRoutes(db, readInstance, fetchClientMetadata, now))

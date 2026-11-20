@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   and,
   asc,
@@ -103,12 +104,26 @@ const MAX_COST_POINT = 1000;
 const MAX_TOKEN_POINT = 1e9;
 const MAX_SESSIONS = 100;
 
-/** The unauthenticated receiver of Claude Code's telemetry (decision 060 A, B, D): only a point of a session Cockpit launched counts; the answer is always `200 {}`. */
-export function metricsRoutes(db: Db) {
+/** The secret a user's sessions send in `x-cockpit-token`: derived from the instance key, so nothing is stored (ticket #41). */
+export const metricsTokenOf = (encryptionKey: Buffer, userId: number) =>
+  createHmac("sha256", encryptionKey)
+    .update(`metrics:${userId}`)
+    .digest("base64url");
+
+/** The receiver of Claude Code's telemetry (decision 060 A, B, D): only a point of a session Cockpit launched counts, and only with the secret of its owner (401 otherwise). */
+export function metricsRoutes(db: Db, encryptionKey: Buffer) {
   return new Hono().post(
     "/v1/metrics",
     bodyLimit({ maxSize: 1024 * 1024 }),
     async (c) => {
+      const sent = Buffer.from(c.req.header("x-cockpit-token") ?? "");
+      const allowed = (userId: number) => {
+        const expected = Buffer.from(metricsTokenOf(encryptionKey, userId));
+        return (
+          sent.length === expected.length && timingSafeEqual(sent, expected)
+        );
+      };
+      if (!sent.length) return c.json({ error: "Unauthorized" }, 401);
       if (!c.req.header("content-type")?.startsWith("application/json"))
         return c.json({ error: "Unsupported Media Type" }, 415);
       const parsed = metricsBody.safeParse(
@@ -162,14 +177,13 @@ export function metricsRoutes(db: Db) {
         ...new Set([...groups.values()].map((g) => g.session)),
       ].slice(0, MAX_SESSIONS);
       if (sessions.length === 0) return c.json({});
-      const known = new Set(
-        (
-          await db
-            .select({ id: cloudLaunches.sessionId })
-            .from(cloudLaunches)
-            .where(inArray(cloudLaunches.sessionId, sessions))
-        ).map((l) => l.id),
-      );
+      const launches = await db
+        .select({ id: cloudLaunches.sessionId, userId: cloudLaunches.userId })
+        .from(cloudLaunches)
+        .where(inArray(cloudLaunches.sessionId, sessions));
+      if (!launches.every((l) => allowed(l.userId)))
+        return c.json({ error: "Unauthorized" }, 401);
+      const known = new Set(launches.map((l) => l.id));
       for (const { session, kind, add, max } of groups.values()) {
         if (!known.has(session)) continue;
         const column =

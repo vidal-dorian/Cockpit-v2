@@ -362,16 +362,31 @@ export const otlp = (value: number, o: PointOptions = {}) => {
     ],
   };
 };
-export const postMetrics = (
+// Story #46 (ticket #41, reopens 060): /v1/metrics wants the sender's secret in the header `x-cockpit-token`; GET /api/me/launcher
+// gives it as `metricsToken` (per user, stable, whether or not the launcher is connected).
+export const metricsTokenOf = async (ctx: Ctx, cookie = ctx.alice.cookie) =>
+  (
+    (await (await send(ctx.app, cookie, "GET", "/api/me/launcher")).json()) as {
+      metricsToken?: string;
+    }
+  ).metricsToken;
+/** `token`: undefined sends Alice's secret, null sends none, a string sends that one. */
+export const postMetrics = async (
   ctx: Ctx,
   body: unknown,
   contentType = "application/json",
-) =>
-  ctx.app.request("/v1/metrics", {
+  token?: string | null,
+) => {
+  const secret = token === undefined ? await metricsTokenOf(ctx) : token;
+  return ctx.app.request("/v1/metrics", {
     method: "POST",
-    headers: { "content-type": contentType },
+    headers: {
+      "content-type": contentType,
+      ...(secret ? { "x-cockpit-token": secret } : {}),
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
+};
 /** Claude Code reports a point, the answer checked. */
 export async function pay(ctx: Ctx, value: number, o: PointOptions = {}) {
   const res = await postMetrics(ctx, otlp(value, o));
