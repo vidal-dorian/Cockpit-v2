@@ -2,7 +2,7 @@ import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { act, type Entry, Refused } from "./action.ts";
-import { budgetsOf, usd } from "./cost.ts";
+import { budgetsOf, metricsTokenOf, usd } from "./cost.ts";
 import type { Db } from "./db/db.ts";
 import {
   cloudLaunchers,
@@ -266,6 +266,7 @@ export function launcherRoutes(db: Db, deps: Fire, now: () => number) {
       connected: row !== undefined,
       needsReconnect: row?.needsReconnect ?? false,
       prompt: LAUNCHER_PROMPT,
+      metricsToken: metricsTokenOf(deps.encryptionKey, userId),
       projectIds,
       missingProjectIds,
     };

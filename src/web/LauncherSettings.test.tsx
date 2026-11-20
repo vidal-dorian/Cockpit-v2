@@ -391,6 +391,24 @@ describe("criterion 14.5: the telemetry variables", () => {
   });
 });
 
+// Story #46 (ticket #41): GET /api/me/launcher also gives `metricsToken`; the card shows and copies the header line, and warns.
+describe("story #46: the header of the telemetry", () => {
+  it("given the launcher card, when it is read, then it shows and copies the header line with the secret, and says old environments must paste it", async () => {
+    const writeText = stubClipboard();
+    stubApi({ metricsToken: "SECRET-4f2a" } as Partial<Launcher>);
+    renderAt("/reglages/taches-cloud");
+    const section = await launcherCard();
+    const line = "OTEL_EXPORTER_OTLP_HEADERS=x-cockpit-token=SECRET-4f2a";
+
+    await waitFor(() => expect(section.textContent).toContain(line));
+    expect(section.textContent).toMatch(/environnement.*(existant|déjà)/is);
+    fireEvent.click(within(section).getByRole("button", { name: "Copier" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0]?.[0]).toContain(line);
+  });
+});
+
 // Audit finding (003 rule 4): Retirer a connected launcher asks to confirm, focus on Annuler.
 describe("Retirer the launcher asks to confirm", () => {
   it("given a connected launcher, when Retirer is clicked, then nothing is deleted until Confirmer le retrait, and Annuler (focused) keeps the task", async () => {

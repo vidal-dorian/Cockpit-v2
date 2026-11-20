@@ -128,13 +128,14 @@ function NightStep() {
 }
 
 /** Decision 060 F: the variables that make Claude Code report its cost to this Cockpit; they go on the cloud environment, not on the task. */
-function CostStep() {
+function CostStep({ token }: { token: string }) {
   const [copy, setCopy] = useState<"idle" | "done" | "failed">("idle");
   const variables = [
     "CLAUDE_CODE_ENABLE_TELEMETRY=1",
     "OTEL_METRICS_EXPORTER=otlp",
     "OTEL_EXPORTER_OTLP_PROTOCOL=http/json",
     `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=${window.location.origin}/v1/metrics`,
+    `OTEL_EXPORTER_OTLP_HEADERS=x-cockpit-token=${token}`,
   ].join("\n");
   return (
     <li className="px-[18px] py-3.5">
@@ -143,6 +144,14 @@ function CostStep() {
         Pour que Cockpit affiche le coût des runs, ajoute ces variables à
         l'environnement cloud de la tâche, et autorise l'hôte{" "}
         <code>{window.location.host}</code> dans son accès réseau.
+      </p>
+      <p className="mt-1">
+        La dernière ligne est le secret de tes envois : sans elle, Cockpit
+        refuse le coût. Tout environnement déjà configuré cesse de remonter le
+        coût, et tes plafonds (par run, par nuit, par mois) ne s'y appliquent
+        plus, tant que tu n'y as pas collé cette ligne. Un environnement ne
+        porte qu'un secret : ne le partage pas avec un autre utilisateur de
+        Cockpit.
       </p>
       <pre className="mt-2 overflow-x-auto font-mono text-[12.5px]">
         {variables}
@@ -305,7 +314,7 @@ export function LauncherSettings() {
               </p>
             </li>
             <NightStep />
-            <CostStep />
+            <CostStep token={data.metricsToken} />
           </ol>
         )}
         {error && (

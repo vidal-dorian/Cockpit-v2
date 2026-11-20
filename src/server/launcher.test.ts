@@ -81,6 +81,7 @@ describe("criterion 1: the launcher of the user (C)", () => {
     expect(got).toEqual({
       autoRelaunch: false,
       connected: true,
+      metricsToken: expect.any(String),
       needsReconnect: false,
       prompt: expect.any(String),
       projectIds: [],
