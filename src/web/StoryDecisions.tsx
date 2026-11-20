@@ -349,12 +349,12 @@ export function StoryDecisions({
           {takeover &&
             ["to_validate", "to_rewrite", "ready"].includes(status) && (
               <p className="text-muted-foreground">
-                Les règles se corrigent dans l'
+                Les règles se corrigent dans l'onglet{" "}
                 <Link
                   to={`/projets/${project.id}/conception/regles`}
                   className={`underline ${focusRing}`}
                 >
-                  écran de reprise
+                  Règles
                 </Link>
                 .
               </p>

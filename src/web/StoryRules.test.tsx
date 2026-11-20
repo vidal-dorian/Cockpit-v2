@@ -9,7 +9,7 @@ import { renderAt, story, ticket } from "./test-tickets.tsx";
 //
 // Pinned where the decision leaves it open (the developer follows these):
 // - GET /api/stories/:id gives story.kind ("feature" | "takeover") and, on each criterion of a takeover story, `summary` and `takeoverState` ("pending" | "kept"), null on others.
-// - A criterion of a takeover story shows its summary, « à relire » (pending) or « validée » (kept), and a link « Juger dans l'écran de reprise » to
+// - A criterion of a takeover story shows its summary, « à relire » (pending) or « validée » (kept), and a link « Juger dans les Règles » to
 //   /projets/5/conception/regles?regle=<criterion id>. An ordinary story shows none of that.
 // - While a rule is pending, « Valider » is disabled and the page says « 2 règles à trancher : <summaries> » (« 1 règle à trancher » for one), right rule 5 of decision 003.
 
@@ -65,12 +65,12 @@ describe("decision 047 K: the rules on the page of the story", () => {
     expect(item(211).textContent).toContain("validée");
     expect(
       within(item(210))
-        .getByRole("link", { name: "Juger dans l'écran de reprise" })
+        .getByRole("link", { name: "Juger dans les Règles" })
         .getAttribute("href"),
     ).toBe("/projets/5/conception/regles?regle=210");
     expect(
       within(item(211))
-        .getByRole("link", { name: "Juger dans l'écran de reprise" })
+        .getByRole("link", { name: "Juger dans les Règles" })
         .getAttribute("href"),
     ).toBe("/projets/5/conception/regles?regle=211");
   });
@@ -80,7 +80,7 @@ describe("decision 047 K: the rules on the page of the story", () => {
 
     expect(
       within(main()).queryByRole("link", {
-        name: "Juger dans l'écran de reprise",
+        name: "Juger dans les Règles",
       }),
     ).toBeNull();
     expect(main().textContent).not.toContain("à relire");

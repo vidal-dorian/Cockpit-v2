@@ -90,7 +90,7 @@ export function StoryBody({ found }: { found: Found }) {
                     to={`/projets/${found.project.id}/conception/regles?regle=${criterion.id}`}
                     className={`font-semibold underline ${focusRing}`}
                   >
-                    Juger dans l'écran de reprise
+                    Juger dans les Règles
                   </Link>
                 </p>
               )}

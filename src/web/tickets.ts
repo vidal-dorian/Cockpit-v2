@@ -77,7 +77,7 @@ export async function decisionError(res: Response) {
     );
   if (error === "takeover_story")
     return new Error(
-      "Une US de reprise ne se réécrit pas : corrige ses règles dans l'écran de reprise.",
+      "Une US de reprise ne se réécrit pas : corrige ses règles dans l'onglet Règles.",
     );
   if (error === "rules_pending")
     return new Error("Des règles sont encore à trancher.");

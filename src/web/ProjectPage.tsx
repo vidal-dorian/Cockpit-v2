@@ -277,7 +277,7 @@ export function ProjectPage({
                       ? featureSentence(feature)
                       : "Pas encore de fonctionnalité.",
                     rest: feature
-                      ? "Un clic sur une règle ouvre l'écran de reprise."
+                      ? "Un clic sur une règle ouvre l'onglet Règles."
                       : undefined,
                   }
                 : tab === "conception" && view === "features"

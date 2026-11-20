@@ -16,7 +16,7 @@ import { App } from "./App.tsx";
 //
 // Pinned where the decision leaves it open:
 // - The tab reads GET /api/projects/:id/claude-config -> { claudeMd, rules, skills, mcpJson } (server tests: claude-config.test.ts) and still GET .../agents.
-// - The chips are links in the tab, named « CLAUDE.md », « Règles · N », « Skills · N », « Agents · N » and « .mcp.json », hrefs /projets/:id/agents with ?fichier=claude-md | regles | skills | mcp
+// - The chips are links in the tab, named « CLAUDE.md », « Règles du code · N », « Skills · N », « Agents · N » and « .mcp.json », hrefs /projets/:id/agents with ?fichier=claude-md | regles | skills | mcp
 //   (none for Agents); the open one has aria-current="true".
 // - A rule or a skill is a list item (`li`) with a button « Ouvrir <name> ». « + Nouvelle règle » shows a field « Nom de la règle » and a button « Continuer » (as « Ajouter un agent » of 030);
 //   « + Nouveau skill » shows a field « Nom » in the form (only when creating), with « Description », « Outils autorisés » and « Consigne ».
@@ -178,7 +178,7 @@ describe("decision 065 D: the chips of the tab Agents", () => {
     expect((await chip("CLAUDE.md")).getAttribute("href")).toBe(
       "/projets/5/agents?fichier=claude-md",
     );
-    expect((await chip("Règles · 2")).getAttribute("href")).toBe(
+    expect((await chip("Règles du code · 2")).getAttribute("href")).toBe(
       "/projets/5/agents?fichier=regles",
     );
     expect((await chip("Skills · 1")).getAttribute("href")).toBe(
@@ -203,7 +203,9 @@ describe("decision 065 D: the chips of the tab Agents", () => {
     stubApi();
     renderAt("/projets/5/agents");
 
-    fireEvent.click(await screen.findByRole("link", { name: "Règles · 2" }));
+    fireEvent.click(
+      await screen.findByRole("link", { name: "Règles du code · 2" }),
+    );
 
     await screen.findByRole("button", { name: "Ouvrir style" });
     expect(window.location.search).toBe("?fichier=regles");
@@ -217,7 +219,7 @@ describe("decision 065 D: the chips of the tab Agents", () => {
     ).toBeDefined();
     expect(
       screen
-        .getByRole("link", { name: "Règles · 2" })
+        .getByRole("link", { name: "Règles du code · 2" })
         .getAttribute("aria-current"),
     ).toBe("true");
   });
@@ -509,5 +511,19 @@ describe("decision 065 G: the refusals", () => {
     renderAt("/projets/5/agents?fichier=regles");
     await screen.findByRole("button", { name: "Ouvrir style" });
     expect(button("+ Nouvelle règle").disabled).toBe(true);
+  });
+});
+
+describe("story 51, criterion 1: one name per notion in the tab Claude", () => {
+  it("given a project with two .claude/rules files, when I look at the chips, then the rules chip is « Règles du code · 2 », distinct from the Règles of Conception", async () => {
+    stubApi();
+
+    renderAt("/projets/5/agents");
+
+    const chip = await screen.findByRole("link", {
+      name: "Règles du code · 2",
+    });
+    expect(chip.getAttribute("href")).toBe("/projets/5/agents?fichier=regles");
+    expect(screen.queryByRole("link", { name: "Règles · 2" })).toBeNull();
   });
 });
