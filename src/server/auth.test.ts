@@ -417,6 +417,7 @@ describe("GET /api/me", () => {
       avatarUrl: "https://avatars/1",
       isAdmin: true,
       theme: "dark",
+      singleKeyShortcutsOff: false,
     });
   });
 

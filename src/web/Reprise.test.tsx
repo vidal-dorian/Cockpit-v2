@@ -594,6 +594,20 @@ describe("decision 047 E: the keys", () => {
     expect(api.writes()).toEqual([]);
   });
 
+  it("given the single-key shortcuts turned off, when M, B or P is pressed, then nothing opens, nothing is sent and the rule stays", async () => {
+    localStorage.setItem("cockpit-single-key-shortcuts-off", "1");
+    const api = await open(rules(3));
+
+    key("m");
+    key("b");
+    key("p");
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(api.writes()).toEqual([]);
+    expect(panel().textContent).toContain("Règle 1 sur 3");
+    localStorage.clear();
+  });
+
   it("given the rule 1, when J is pressed, then the next rule is open; when K is pressed, then the previous one", async () => {
     await open(rules(3));
 

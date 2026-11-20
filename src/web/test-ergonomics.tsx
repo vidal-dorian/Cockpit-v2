@@ -3,6 +3,7 @@ import { vi } from "vitest";
 // Shared by the acceptance tests of slice 15.3 (decision 073). It wraps the fetch fake already stubbed (stubShell, stubDecisionApi...) with what the slice adds:
 // - GET /api/search?q= answers `state.search` ({ stories, tickets, runs, projects }, every group always there) whatever the query; the filters are the window's (no parameter);
 // - GET /api/me adds `theme` ("dark" | "light" | "system"); PUT /api/me/theme { theme } answers { theme } and keeps it;
+// - GET /api/me adds `singleKeyShortcutsOff`; PUT /api/me/single-key-shortcuts { off } answers { off } and keeps it;
 // - GET /api/projects answers `state.projects` when given ({ id, fullName, defaultBranch, archived, favorite }); PUT /api/projects/:id/favorite { favorite } answers { favorite };
 // - GET /api/me/notifications answers the defaults (the tab Préférences reads it).
 
@@ -48,6 +49,7 @@ export function addErgonomics(
   const state = {
     search: options.search ?? NO_RESULTS,
     theme: options.theme ?? "dark",
+    singleKeyShortcutsOff: false,
     projects: options.projects,
   };
   vi.stubGlobal(
@@ -75,6 +77,7 @@ export function addErgonomics(
       const mine =
         path === "/api/search" ||
         path === "/api/me/theme" ||
+        path === "/api/me/single-key-shortcuts" ||
         path === "/api/me/notifications" ||
         favorite ||
         (path === "/api/me" && method === "GET") ||
@@ -94,7 +97,12 @@ export function addErgonomics(
           avatarUrl: null,
           isAdmin: false,
           theme: state.theme,
+          singleKeyShortcutsOff: state.singleKeyShortcutsOff,
         });
+      if (path === "/api/me/single-key-shortcuts") {
+        state.singleKeyShortcutsOff = body.off;
+        return Response.json({ off: body.off });
+      }
       if (path === "/api/me/theme") {
         state.theme = body.theme;
         return Response.json({ theme: body.theme });

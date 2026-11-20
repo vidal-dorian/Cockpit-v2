@@ -63,6 +63,10 @@ export const users = pgTable("users", {
   theme: text("theme", { enum: ["dark", "light", "system"] })
     .notNull()
     .default("dark"),
+  // WCAG 2.1.4: « Désactiver les raccourcis d'une touche », the same on every device (decision 073 F).
+  singleKeyShortcutsOff: boolean("single_key_shortcuts_off")
+    .notNull()
+    .default(false),
   // « Masquer ce guide » (decision 075 E): the getting-started guide is gone for this user, on every device.
   onboardingHiddenAt: timestamp("onboarding_hidden_at", {
     withTimezone: true,

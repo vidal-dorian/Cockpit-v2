@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { client } from "./api.ts";
 import { fetchMe } from "./Shell.tsx";
-import { ShortcutList } from "./Shortcuts.tsx";
+import { ShortcutList, setSingleKeysOff } from "./Shortcuts.tsx";
 import { applyTheme } from "./theme.ts";
 import {
   alertBox,
@@ -305,6 +305,28 @@ function Guide() {
 
 /** The cards of S47: notifications, « Guide de mise en route », « Thème » and « Raccourcis clavier » (decision 073 I). */
 export function Preferences() {
+  const queryClient = useQueryClient();
+  const off = useQuery({ queryKey: ["me"], queryFn: fetchMe }).data
+    ?.singleKeyShortcutsOff;
+  // The server's value is the truth (decision 073 F): show the new one at once, put the old one back if the save fails.
+  const show = (value: boolean) => {
+    setSingleKeysOff(value);
+    queryClient.setQueryData(
+      ["me"],
+      (me: Awaited<ReturnType<typeof fetchMe>>) =>
+        me && { ...me, singleKeyShortcutsOff: value },
+    );
+  };
+  const save = useMutation({
+    mutationFn: async (value: boolean) => {
+      const res = await client.api.me["single-key-shortcuts"].$put({
+        json: { off: value },
+      });
+      if (!res.ok) throw new Error("Le réglage n'a pas pu être enregistré.");
+    },
+    onMutate: (value) => show(value),
+    onError: (_error, value) => show(!value),
+  });
   return (
     <div className="grid gap-4">
       <Notifications />
@@ -321,6 +343,19 @@ export function Preferences() {
           <div className="mt-4">
             <ShortcutList />
           </div>
+          <label className="mt-4 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={off ?? false}
+              onChange={(e) => save.mutate(e.target.checked)}
+            />
+            Désactiver les raccourcis d'une touche
+          </label>
+          {save.isError && (
+            <p role="alert" className={`mt-3 ${alertBox}`}>
+              {save.error.message}
+            </p>
+          )}
         </section>
       </div>
     </div>

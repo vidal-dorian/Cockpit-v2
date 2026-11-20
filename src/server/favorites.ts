@@ -12,6 +12,7 @@ export function favoriteRoutes(db: Db) {
   return new Hono<{ Variables: { userId: number } }>()
     .use("/api/projects/:id/favorite", signedIn(db))
     .use("/api/me/theme", signedIn(db))
+    .use("/api/me/single-key-shortcuts", signedIn(db))
     .use("/api/me/onboarding/hide", signedIn(db))
     .use("/api/me/onboarding/show", signedIn(db))
     .put(
@@ -46,6 +47,18 @@ export function favoriteRoutes(db: Db) {
           .where(eq(users.id, c.get("userId")))
           .returning({ theme: users.theme });
         return c.json(row);
+      },
+    )
+    .put(
+      "/api/me/single-key-shortcuts",
+      body(z.object({ off: z.boolean() })),
+      async (c) => {
+        const { off } = c.req.valid("json");
+        await db
+          .update(users)
+          .set({ singleKeyShortcutsOff: off })
+          .where(eq(users.id, c.get("userId")));
+        return c.json({ off });
       },
     )
     .post("/api/me/onboarding/hide", async (c) => {

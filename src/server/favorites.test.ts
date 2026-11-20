@@ -144,3 +144,22 @@ describe("slice 15.3 F: the theme", () => {
     expect(me.theme).toBe("dark");
   });
 });
+
+describe("story 50: the single-key shortcuts switch", () => {
+  it("given a new user, when PUT /api/me/single-key-shortcuts is called, then /api/me tells it on every read; an invalid body is a 400 and no session a 401", async () => {
+    const ctx = await withProject();
+    const me = async () =>
+      (await (
+        await send(ctx.app, ctx.alice.cookie, "GET", "/api/me")
+      ).json()) as { singleKeyShortcutsOff: boolean };
+    expect((await me()).singleKeyShortcutsOff).toBe(false);
+
+    const put = (cookie: string, body: unknown) =>
+      send(ctx.app, cookie, "PUT", "/api/me/single-key-shortcuts", body);
+    expect((await put(ctx.alice.cookie, { off: true })).status).toBe(200);
+    expect((await me()).singleKeyShortcutsOff).toBe(true);
+    expect((await put(ctx.alice.cookie, { off: "yes" })).status).toBe(400);
+    expect((await put("", { off: false })).status).toBe(401);
+    expect((await me()).singleKeyShortcutsOff).toBe(true);
+  });
+});
