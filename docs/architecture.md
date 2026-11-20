@@ -313,6 +313,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [087](decisions/087-reafficher-le-guide.md) | Le guide de mise en route peut revenir | Proposée | Bouton « Réafficher le guide de mise en route » dans Préférences, `POST /api/me/onboarding/show` remet `users.onboarding_hidden_at` à `null`, étapes déjà cochées (modifie 075 E) |
 | [088](decisions/088-adresse-de-session-au-lanceur.md) | L'adresse de la session cloud n'est montrée qu'au lanceur | Proposée | `GET /api/runs/:id` et `claudeAsks` ne rendent `sessionUrl` qu'au lanceur du lancement, pour qu'un membre en lecture seule ne gonfle pas le coût ; modifie 060 (limites connues) |
 | [089](decisions/089-secret-d-envoi-du-cout.md) | Un secret par utilisateur pour envoyer le coût | Proposée | `POST /v1/metrics` exige `x-cockpit-token`, un HMAC de l'utilisateur dérivé de la clé de l'instance (rien de stocké), égal à celui du lanceur de chaque session envoyée, sinon `401` ; la page « Tâches cloud » donne la ligne `OTEL_EXPORTER_OTLP_HEADERS` ; modifie 060 (choix A, limites connues) |
+| [090](decisions/090-limites-de-debit-de-github.md) | Les limites de débit de GitHub ne font plus perdre d'événements | Proposée | Appel limité (429, 403 avec `Retry-After`) : attente puis un nouvel essai, plafonnée à 30 s ; livraison limitée non comptée parmi les 5 tentatives ; écart doublé entre deux essais ; lecteur GitHub gardé entre les passages |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts

@@ -13,7 +13,7 @@ import {
   userStories,
   webhookDeliveries,
 } from "./db/schema.ts";
-import { githubReader } from "./github.ts";
+import { githubReader, isRateLimited } from "./github.ts";
 import { isAlertEvent, receiveAlert } from "./github-alerts.ts";
 import { type ReadInstance, WEBHOOK_PATH } from "./instance.ts";
 import { renderStory } from "./issues.ts";
@@ -52,7 +52,12 @@ async function projectOfRepo(db: Db | Tx, repoId: number | null) {
 
 type Delivery = typeof webhookDeliveries.$inferSelect;
 // `fire` lets a failed CI relaunch Claude (decision 059); without it, none does.
-type Deps = { readInstance: ReadInstance; fire?: LiveFire };
+type Deps = {
+  readInstance: ReadInstance;
+  fire?: LiveFire;
+  /** Kept between the passes, so the client and its installation tokens are reused. */
+  readGitHub?: ReturnType<typeof githubReader>;
+};
 
 const issueEdited = z.object({
   repository: z.object({ id: z.number() }),
@@ -211,13 +216,17 @@ const claimable = and(
   isNull(webhookDeliveries.processedAt),
   or(
     isNull(webhookDeliveries.claimedAt),
-    lt(webhookDeliveries.claimedAt, sql`now() - interval '1 minute'`),
+    // The wait doubles with each failed attempt: 1, 2, 4, 8 then 16 minutes.
+    lt(
+      webhookDeliveries.claimedAt,
+      sql`now() - interval '1 minute' * power(2, ${webhookDeliveries.attempts})`,
+    ),
   ),
 );
 
 /** One pass over the deliveries not processed yet (decision 025 A): each is reserved by one atomic statement, handled by its event, and dated when done. Never throws. */
 export async function processDeliveries(db: Db, deps: Deps) {
-  const readGitHub = githubReader(deps.readInstance);
+  const readGitHub = deps.readGitHub ?? githubReader(deps.readInstance);
   try {
     for (;;) {
       const [next] = await db
@@ -247,7 +256,8 @@ export async function processDeliveries(db: Db, deps: Deps) {
           .where(eq(webhookDeliveries.id, delivery.id));
       } catch (error) {
         console.error(`Webhook delivery ${delivery.id} failed:`, error);
-        await fail(db, delivery);
+        // A rate limit is GitHub's doing, not a failure: it is not one of the tries (the claim date delays the next one).
+        if (!isRateLimited(error)) await fail(db, delivery);
       }
     }
   } catch (error) {
@@ -257,7 +267,8 @@ export async function processDeliveries(db: Db, deps: Deps) {
 
 /** Processes now, then every minute, to take up what failed or was interrupted. */
 export function scheduleDeliveries(db: Db, deps: Deps): NodeJS.Timeout {
-  const run = () => void processDeliveries(db, deps);
+  const readGitHub = githubReader(deps.readInstance);
+  const run = () => void processDeliveries(db, { ...deps, readGitHub });
   run();
   return setInterval(run, PROCESS_EVERY_MS).unref();
 }
@@ -268,6 +279,7 @@ export function webhookRoutes(
   readInstance: ReadInstance,
   fire: LiveFire,
 ) {
+  const readGitHub = githubReader(readInstance);
   return new Hono().post(
     WEBHOOK_PATH,
     bodyLimit({ maxSize: MAX_BODY }),
@@ -353,7 +365,7 @@ export function webhookRoutes(
         });
       });
       // Not awaited: the answer does not wait for the processing, which never throws.
-      void processDeliveries(db, { readInstance, fire });
+      void processDeliveries(db, { readInstance, fire, readGitHub });
       return c.body(null, 202);
     },
   );
