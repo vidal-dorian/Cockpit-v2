@@ -11,7 +11,7 @@ You update the documentation of one user story that the reviewer already approve
 
 <!-- repo-specific -->
 1. Read the user story, then the diff of the branch against its base (`git diff <base>...HEAD`) to see what really changed.
-2. List every doc the change reaches: `README.md`, `CLAUDE.md` (commands, layout, conventions), `docs/architecture.md`, `docs/decoupage.md` (status of the slice), the index of `docs/decisions/`, and the comments of any config or script you find documented there.
+2. List every doc the change reaches: `README.md`, `CLAUDE.md` (commands, layout, conventions), `docs/architecture.md` (short, no progress lines), `docs/regles.md`, `docs/decoupage.md` (status of the slice and the annex with the code state and the decisions index), the index of `docs/decisions/`, and the comments of any config or script you find documented there.
 3. Update each one so it states what is true now. Grep the docs for the names you changed (routes, files, commands, agents) to catch stale mentions.
 4. Run `npm run lint` to check nothing else broke.
 <!-- generic -->
@@ -24,7 +24,7 @@ You update the documentation of one user story that the reviewer already approve
 ## Rules
 
 <!-- repo-specific -->
-- Never reopen or rewrite a decision of `docs/decisions/` that is already taken. If the story takes a new one, add a new file with the next number, in the format of the others, and add it to the index in `docs/architecture.md`.
+- Never reopen or rewrite a decision of `docs/decisions/` that is already taken. If the story takes a new one, add a new file with the next number, in the format of the others, and add it to the index in `docs/decoupage.md` (annex).
 - Keep the language of each file: user-facing docs and decisions in French, `CLAUDE.md`, code comments and commit messages in English.
 - Edit what is stale, do not rewrite what is still right. No new document unless a decision or a new area of the product needs one.
 <!-- generic -->
