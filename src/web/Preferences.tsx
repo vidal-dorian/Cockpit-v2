@@ -269,11 +269,46 @@ function Notifications() {
   );
 }
 
-/** The cards of S47: notifications, « Thème » and « Raccourcis clavier » (decision 073 I). */
+/** The card « Guide de mise en route »: brings back the guide hidden with « Masquer ce guide » (decision 075 E). */
+function Guide() {
+  const queryClient = useQueryClient();
+  const show = useMutation({
+    mutationFn: async () => {
+      const res = await client.api.me.onboarding.show.$post();
+      if (!res.ok) throw new Error("Le guide n'a pas pu être réaffiché.");
+    },
+    meta: { done: "Le guide est de retour sur l'accueil." },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["home"] }),
+  });
+  return (
+    <section aria-labelledby="guide" className={`${card} px-5 py-[18px]`}>
+      <h2 id="guide" className={sectionLabel}>
+        Guide de mise en route
+      </h2>
+      <button
+        type="button"
+        className={`mt-4 ${button}`}
+        disabled={show.isPending}
+        aria-busy={show.isPending}
+        onClick={() => show.mutate()}
+      >
+        Réafficher le guide de mise en route
+      </button>
+      {show.isError && (
+        <p role="alert" className={`mt-3 ${alertBox}`}>
+          {show.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** The cards of S47: notifications, « Guide de mise en route », « Thème » and « Raccourcis clavier » (decision 073 I). */
 export function Preferences() {
   return (
     <div className="grid gap-4">
       <Notifications />
+      <Guide />
       <div className="grid gap-4 md:grid-cols-2">
         <Theme />
         <section

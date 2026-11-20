@@ -13,6 +13,7 @@ export function favoriteRoutes(db: Db) {
     .use("/api/projects/:id/favorite", signedIn(db))
     .use("/api/me/theme", signedIn(db))
     .use("/api/me/onboarding/hide", signedIn(db))
+    .use("/api/me/onboarding/show", signedIn(db))
     .put(
       "/api/projects/:id/favorite",
       body(z.object({ favorite: z.boolean() })),
@@ -51,6 +52,13 @@ export function favoriteRoutes(db: Db) {
       await db
         .update(users)
         .set({ onboardingHiddenAt: new Date() })
+        .where(eq(users.id, c.get("userId")));
+      return c.json({ ok: true });
+    })
+    .post("/api/me/onboarding/show", async (c) => {
+      await db
+        .update(users)
+        .set({ onboardingHiddenAt: null })
         .where(eq(users.id, c.get("userId")));
       return c.json({ ok: true });
     });
