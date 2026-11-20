@@ -582,7 +582,7 @@ export function ClaudeChips({
   return (
     <div className="mx-[26px] mt-4 flex flex-wrap gap-2">
       {chip("claude-md", "CLAUDE.md")}
-      {chip("regles", "Règles", counts.rules)}
+      {chip("regles", "Règles du code", counts.rules)}
       {chip("skills", "Skills", counts.skills)}
       {chip(null, "Agents", counts.agents)}
       {chip("mcp", ".mcp.json")}

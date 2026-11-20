@@ -303,7 +303,7 @@ describe("decision 085 D: a refused Valider of a row says why and leads to the f
     expect(alert.textContent).toContain("Des règles sont encore à trancher.");
     expect(
       within(alert)
-        .getByRole("link", { name: /Trancher dans l'écran de reprise/ })
+        .getByRole("link", { name: /Trancher dans les Règles/ })
         .getAttribute("href"),
     ).toBe("/projets/5/conception/regles");
   });

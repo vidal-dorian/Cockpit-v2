@@ -42,7 +42,11 @@ import {
   Sidebar,
   useHome,
 } from "./Shell.tsx";
-import { ShortcutsDialog, useShortcut } from "./Shortcuts.tsx";
+import {
+  ShortcutsDialog,
+  setSingleKeysOff,
+  useShortcut,
+} from "./Shortcuts.tsx";
 import { Taches } from "./Taches.tsx";
 import { reset, track } from "./telemetry.ts";
 import { applyTheme } from "./theme.ts";
@@ -425,6 +429,11 @@ function Routed({
   useEffect(() => {
     if (theme) applyTheme(theme);
   }, [theme]);
+  // Same for the single-key shortcuts: the server's value is copied where the key handlers read it.
+  const singleKeysOff = me.data?.singleKeyShortcutsOff;
+  useEffect(() => {
+    if (singleKeysOff !== undefined) setSingleKeysOff(singleKeysOff);
+  }, [singleKeysOff]);
   return (
     <Routes>
       <Route path="/autoriser" element={<Autoriser />} />

@@ -264,9 +264,10 @@ describe("criterion 5: the page Claude", () => {
     stub();
     renderAt("/claude");
 
-    const link = await screen.findByRole("link", {
-      name: /Tâches programmées/,
-    });
+    const link = await within(await screen.findByRole("main")).findByRole(
+      "link",
+      { name: /Tâches programmées/ },
+    );
 
     expect(link.getAttribute("href")).toBe("/claude/taches");
   });

@@ -39,7 +39,7 @@ La source est le canevas « Cockpit — Maquettes » (https://claude.ai/artifact
 
 | Écran | Ce qu'il montre | Tranche | Décisions | À trancher |
 |---|---|---|---|---|
-| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3, 15.3 (favoris, existent) | 011, 073 | les favoris sont construits ([073](../decisions/073-ergonomie.md) H) ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
+| [S10](S10_TousLesProjets.png) | Tous les projets (50), filtres, favoris | 2.1, 9.3, 15.3 (favoris, existent) | 011, 073 | les favoris sont construits ([073](../decisions/073-ergonomie.md) H) ; la recherche par nom est de retour ([091](../decisions/091-chercher-dans-tous-les-projets.md)) ; les autres filtres sont retirés ([069](../decisions/069-finitions.md) I) |
 | [S11](S11_Importer.png) | Importer des repos ; un repo ancien propose la reprise | 2.1 (existe), R1, 11.6 (existe) | 011, 007, 063, 074, 084 | la liste a un champ « Chercher un repo » et montre 10 repos, « Afficher plus » en ajoute 10 ([084](../decisions/084-le-telephone-deuxieme-passe.md) A) ; le choix du niveau n'est plus sur l'écran : « Importer » ouvre une fenêtre à carrousel ([074](../decisions/074-equipes-a-la-demande.md) A) |
 | [S12](S12_Sante.png) | Onglet Santé : le bilan, « À corriger d'abord » | 2.2, 6.2 (existent) ; R6 : lignes « Alertes GitHub » et « Mises à jour automatiques » | 013, 027, 052 | |
 | [S13](S13_PreparerPourClaude.png) | Préparer pour Claude : chaque fichier relu avant le commit | 6.2 (existe) | 026, 027 | |

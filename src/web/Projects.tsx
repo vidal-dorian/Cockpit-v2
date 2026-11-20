@@ -133,6 +133,7 @@ function ProjectList() {
       ]),
   });
   const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [search, setSearch] = useState("");
 
   if (projects.isPending)
     return <p className="loading text-muted-foreground">Chargement…</p>;
@@ -162,8 +163,24 @@ function ProjectList() {
     );
   const favorites = projects.data.filter((p) => p.favorite).length;
   const error = archive.error ?? star.error;
+  const typed = search.trim();
+  const needle = typed.toLowerCase();
+  const visible = projects.data
+    .filter((p) => p.favorite || !onlyFavorites)
+    .filter((p) => p.fullName.toLowerCase().includes(needle));
   return (
     <>
+      <input
+        type="search"
+        aria-label="Chercher un projet"
+        placeholder="Chercher un projet…"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        className={`mb-3 ${field}`}
+      />
       <button
         type="button"
         aria-pressed={onlyFavorites}
@@ -177,10 +194,14 @@ function ProjectList() {
           Aucun favori : l'étoile d'une ligne en ajoute un.
         </p>
       )}
-      <ul className={listCard}>
-        {projects.data
-          .filter((p) => p.favorite || !onlyFavorites)
-          .map((project) => (
+      {typed && visible.length === 0 && (!onlyFavorites || favorites > 0) && (
+        <p className="text-muted-foreground">
+          Aucun projet ne correspond à « {typed} ».
+        </p>
+      )}
+      {visible.length > 0 && (
+        <ul className={listCard}>
+          {visible.map((project) => (
             <li
               key={project.id}
               className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
@@ -291,7 +312,8 @@ function ProjectList() {
               </span>
             </li>
           ))}
-      </ul>
+        </ul>
+      )}
       {error && <ErrorAlert error={error} />}
     </>
   );
@@ -577,7 +599,7 @@ function ImportDialog({
             <b className="font-semibold text-foreground">
               Cette équipe est entièrement modifiable.
             </b>{" "}
-            Ce n'est qu'un point de départ : dans l'onglet Agents du projet, tu
+            Ce n'est qu'un point de départ : dans l'onglet Claude du projet, tu
             pourras ajouter, retirer ou réordonner ses agents, changer leur
             modèle et leurs consignes, ou passer à un autre niveau.
           </span>

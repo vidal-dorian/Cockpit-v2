@@ -1,6 +1,6 @@
 # Cockpit v2
 
-Self-hosted control center for the GitHub repos developed with Claude Code. Read `cockpit-v2-brief.md` for the product, `docs/ecrans/` for the screens, `docs/decoupage.md` for the slices and `docs/decisions/` for every decision already taken; `docs/architecture.md` sums up the current architecture. Do not reopen a decision without saying so.
+Self-hosted control center for the GitHub repos developed with Claude Code. Read `cockpit-v2-brief.md` for the product, `docs/ecrans/` for the screens, `docs/decoupage.md` for the slices and `docs/decisions/` for every decision already taken, `docs/glossaire.md` for the one name of each notion in the UI; `docs/architecture.md` sums up the current architecture. Do not reopen a decision without saying so.
 
 ## Commands
 

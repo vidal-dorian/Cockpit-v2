@@ -2,7 +2,27 @@ import { useEffect } from "react";
 import { Modal } from "./Modal.tsx";
 import { button, kbd, sectionLabel } from "./ui.ts";
 
-/** Runs `action` when `key` is pressed alone, like `N` and `R` (decision 073 E): never with Ctrl, Cmd or Alt, never in a field. No action, no shortcut. */
+const OFF_KEY = "cockpit-single-key-shortcuts-off";
+
+/** WCAG 2.1.4: the browser's copy of the user's preference (kept on the server, decision 073 F), read at each key press. */
+export function singleKeysOff() {
+  try {
+    return localStorage.getItem(OFF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setSingleKeysOff(off: boolean) {
+  try {
+    if (off) localStorage.setItem(OFF_KEY, "1");
+    else localStorage.removeItem(OFF_KEY);
+  } catch {
+    // Storage blocked: the shortcuts stay as they were.
+  }
+}
+
+/** Runs `action` when `key` is pressed alone, like `N` and `R` (decision 073 E): never with Ctrl, Cmd or Alt, never in a field, never when Préférences turned them off. No action, no shortcut. */
 export function useShortcut(
   key: string,
   action: ((event: KeyboardEvent) => void) | undefined,
@@ -10,7 +30,7 @@ export function useShortcut(
   useEffect(() => {
     if (!action) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== key) return;
+      if (event.key.toLowerCase() !== key || singleKeysOff()) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       // An open window keeps the page behind it out of reach, wherever the browser put the focus.
@@ -33,6 +53,8 @@ const SHORTCUTS = [
   ["Noter une idée", ["N"]],
   ["Élément suivant, précédent", ["J", "K"]],
   ["Valider", ["V"]],
+  ["Reprise : modifier, signaler un bug, passer", ["M", "B", "P"]],
+  ["Accueil : relire en série", ["R"]],
   ["Répondre à Claude (réponses proposées)", ["1", "2"]],
 ] as const;
 

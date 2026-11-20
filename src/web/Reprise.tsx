@@ -16,6 +16,7 @@ import {
   useRules,
 } from "./rules.ts";
 import { Panel } from "./Shell.tsx";
+import { singleKeysOff } from "./Shortcuts.tsx";
 import {
   alertBox,
   badge,
@@ -271,7 +272,8 @@ function RulePanel({
         event.metaKey ||
         event.altKey ||
         event.shiftKey ||
-        editing
+        editing ||
+        singleKeysOff()
       )
         return;
       const target = event.target as HTMLElement;

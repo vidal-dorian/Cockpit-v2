@@ -59,7 +59,7 @@ describe("decision 047 K: a takeover story on its page", () => {
     seed();
     renderAt("/us/21");
 
-    const link = await screen.findByRole("link", { name: "écran de reprise" });
+    const link = await screen.findByRole("link", { name: "Règles" });
 
     expect(link.getAttribute("href")).toBe("/projets/5/conception/regles");
     expect(screen.queryByRole("button", { name: "Modifier" })).toBeNull();

@@ -178,7 +178,7 @@ describe("Project page, the tabs (decision 028 G)", () => {
     // Decision 053 I: « Historique » before « Réglages »; decision 067 A: « CI / CD » between « Agents » and « Historique ».
     expect(links).toHaveLength(8);
     expect(links[2]?.textContent?.trim()).toBe("Conception");
-    expect(links[4]?.textContent?.trim()).toBe("Agents");
+    expect(links[4]?.textContent?.trim()).toBe("Claude");
     expect(links[5]?.textContent?.trim()).toBe("CI / CD");
     expect(links[5]?.getAttribute("href")).toBe("/projets/5/ci");
     expect(links[6]?.textContent?.trim()).toBe("Historique");

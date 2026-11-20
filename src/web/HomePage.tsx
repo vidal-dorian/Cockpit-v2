@@ -539,7 +539,7 @@ function Row({ item, open }: { item: Item; open: () => void }) {
                   to={`/projets/${item.project.id}/conception/regles`}
                   className={link}
                 >
-                  Trancher dans l'écran de reprise
+                  Trancher dans les Règles
                 </Link>
               </>
             )}

@@ -21,6 +21,8 @@ const FILTERS = [
 const PAGES = [
   ["Accueil", "/"],
   ["Claude", "/claude"],
+  ["Coût", "/claude/cout"],
+  ["Tâches programmées", "/claude/taches"],
   ["Cette nuit", "/nuit"],
   ["Tous les projets", "/projets"],
   ["Équipes d'agents", "/equipes"],

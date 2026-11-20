@@ -102,7 +102,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "tickets", to: "/tickets", label: "Tickets" },
   { tab: "conception", to: "/conception", label: "Conception" },
   { tab: "sante", to: "/sante", label: "Santé" },
-  { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "agents", to: "/agents", label: "Claude" },
   { tab: "ci", to: "/ci", label: "CI / CD" },
   { tab: "historique", to: "/historique", label: "Historique" },
   { tab: "reglages", to: "/reglages", label: "Réglages" },
@@ -127,7 +127,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   reglages: "",
 };
 
-/** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
+/** The page of a project in eight tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({
   tab,
   view,
@@ -156,6 +156,12 @@ export function ProjectPage({
   });
   // How many files the plan of « Préparer pour Claude » adds, while it is on screen.
   const [planned, setPlanned] = useState<number | null>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  // Decision 080 I reopened: tabs hidden on the right show a fade.
+  const measureTabs = (nav: HTMLElement | null) => {
+    if (nav)
+      setMoreRight(nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1);
+  };
   const notFound = health.data === "not_found";
   const board = (stories.data ?? []).filter((s) => s.status !== "abandoned");
   const count = (...statuses: string[]) =>
@@ -271,7 +277,7 @@ export function ProjectPage({
                       ? featureSentence(feature)
                       : "Pas encore de fonctionnalité.",
                     rest: feature
-                      ? "Un clic sur une règle ouvre l'écran de reprise."
+                      ? "Un clic sur une règle ouvre l'onglet Règles."
                       : undefined,
                   }
                 : tab === "conception" && view === "features"
@@ -424,7 +430,10 @@ export function ProjectPage({
       {!notFound && (
         <nav
           aria-label="Sections du projet"
-          className="mt-4 flex gap-x-[22px] border-b border-border px-[26px] max-md:mt-3 max-md:overflow-x-auto max-md:pt-1 max-md:[scrollbar-width:none] md:flex-wrap"
+          ref={measureTabs}
+          onScroll={(e) => measureTabs(e.currentTarget)}
+          data-more-right={moreRight}
+          className="mt-4 flex gap-x-[22px] border-b border-border px-[26px] max-md:mt-3 max-md:overflow-x-auto max-md:pt-1 max-md:[scrollbar-width:none] max-md:data-[more-right=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-40px),transparent)] md:flex-wrap"
         >
           {TABS.map((t) => (
             <NavLink
