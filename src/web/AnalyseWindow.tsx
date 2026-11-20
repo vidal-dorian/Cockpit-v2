@@ -314,7 +314,7 @@ export function AnalyseWindow({
           required
           className={field}
           value={folder}
-          placeholder="C:\Users\dorian\code\mon-repo ou /home/dorian/code/mon-repo"
+          placeholder="C:\Users\vous\code\mon-repo ou /home/vous/code/mon-repo"
           onChange={(e) => setFolder(e.target.value)}
         />
       </label>
