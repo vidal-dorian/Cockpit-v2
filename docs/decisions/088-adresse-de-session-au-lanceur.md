@@ -17,10 +17,8 @@ La 060 recevait la télémétrie sans secret et notait que quiconque connaît l'
 | Qui voit l'adresse | Seul le lanceur du lancement (`cloud_launches.user_id`) |
 | La page d'un run | `GET /api/runs/:id` rend `cloud: { sessionUrl }` au lanceur ; aux autres membres `cloud` est un objet sans `sessionUrl` (la page ne montre pas le lien). `cloud` reste `null` pour un run sans lancement cloud |
 | Les demandes à Claude | `claudeAsks` (onglet CI / CD, 067) reçoit l'utilisateur et rend `sessionUrl: null` pour les lancements d'un autre |
-| Les autres routes | `custom-routines.ts` ne rend l'adresse qu'à son propriétaire (il filtre sur `routines.userId` et `cloud_launches.userId`) : rien à changer. La routine du projet (`routines.ts`) n'est pas couverte, voir « Ce qui reste » |
+| Les autres routes | `custom-routines.ts` ne rend l'adresse qu'à son propriétaire (il filtre sur `routines.userId` et `cloud_launches.userId`) : rien à changer. La routine d'écriture des US du projet (`routines.ts`, `presentSchedule`) : `GET /api/projects/:id/routine` ne rend `lastRun.sessionUrl` qu'au propriétaire du projet, seul à pouvoir la lancer (bouton et planning) ; les autres membres reçoivent `null` |
 
 ## Ce qui reste
 
-Un membre qui a déjà vu l'adresse avant ce changement, ou à qui le lanceur la transmet, peut encore gonfler le coût : la limite « sans secret » de la 060 demeure, seule l'exposition par Cockpit est fermée.
-
-Exposition restante : `GET /api/projects/:id/routine` et le `PUT` qui suit (`routines.ts`, `presentSchedule`) rendent `lastRun.sessionUrl`, lu dans `projects.routineLastRunSessionUrl`, à tout membre du projet, lecture seule comprise. Ce champ est écrit par le projet et non par un lancement, donc il n'a pas de lanceur à comparer ; le fermer demande un choix (garder l'utilisateur de la routine, ou cacher l'adresse aux autres membres) qui n'est pas pris ici. Tant qu'il n'est pas fait, un membre en lecture seule peut encore y lire l'adresse de la dernière session de la routine.
+Un membre qui a déjà vu l'adresse avant ce changement, ou à qui le lanceur la transmet, pouvait encore gonfler le coût tant que `/v1/metrics` acceptait un envoi sans secret : la [089](089-secret-d-envoi-du-cout.md), dans la même PR, ferme ce reste.
