@@ -13,6 +13,7 @@ import {
   moveStep,
   parseMax,
   readTeam,
+  refusedLine,
   removeStep,
   type TeamStep,
   writeTeam,
@@ -531,6 +532,7 @@ export function ProjectTeam({
     [current, name, copy],
   );
   const [draft, setDraft] = useState(initial);
+  const refused = !initial && current !== null ? refusedLine(current) : "";
   const key = `${name ?? ""}:${current}`;
   const [seen, setSeen] = useState(key);
   const [switchTo, setSwitchTo] = useState<string | null>(null);
@@ -930,6 +932,11 @@ export function ProjectTeam({
             >
               Ouvrir sur GitHub ↗
             </a>
+            {refused && (
+              <span className="block">
+                Ligne en cause : <code>{refused}</code>
+              </span>
+            )}
           </p>
         </div>
       </section>

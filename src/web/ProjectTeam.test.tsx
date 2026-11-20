@@ -761,6 +761,30 @@ describe("decision 031 G: a team.md Cockpit cannot rewrite", () => {
   });
 });
 
+describe("story 60: one reader for .claude/team.md", () => {
+  it("given a team.md with CRLF line endings, when I open it in the Équipe tab, then it opens in edition", async () => {
+    stubApi({
+      team: '---\r\nsteps:\r\n  - agent: developer\r\n    does: "writes"\r\n---\r\nBody\r\n',
+    });
+    await openTeam();
+
+    expect(screen.queryByText(NOT_REWRITABLE)).toBeNull();
+    expect(card("developer")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Monter" })).toBeDefined();
+  });
+
+  it("given a team.md the editor cannot rewrite without loss, when I open it in the Équipe tab, then the message names the line at fault", async () => {
+    stubApi({
+      team: "---\nsteps:\n  - agent: developer\n    does: writes\n    # why not\n---\n",
+    });
+    await openTeam();
+
+    expect(screen.getByText(/ne sait pas réécrire/).textContent).toContain(
+      "# why not",
+    );
+  });
+});
+
 describe("decision 029 demo: adding doc-writer after developer", () => {
   it("given the agents test-writer, developer, reviewer, doc-writer and no team.md, when I add doc-writer, move it up once and commit, then the posted after lists test-writer, developer, doc-writer, reviewer with reviewer looping to developer", async () => {
     const calls = stubApi({ team: null });

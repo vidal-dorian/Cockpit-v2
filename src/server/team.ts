@@ -2,10 +2,13 @@ export const AGENT_NAME = /^[a-z0-9][a-z0-9-]*$/;
 /** The longest team name for which `.claude/teams/<name>.md` fits in 255 characters (decision 032 A). */
 export const MAX_TEAM_NAME = 255 - ".claude/teams/".length - ".md".length;
 
+/** The lines of a `team.md`, LF or CRLF: the one splitter of the server and the page. */
+export const teamLines = (text: string) => text.split(/\r?\n/);
+
 /** The agent names of `.claude/team.md` (decision 029 B), in order; null when the file cannot be read. */
 // shortcut: a line-based reader of a fixed format (front matter, `steps:`, one `- agent: <name>` per step), not YAML; replace it with a YAML library if the format grows.
 export function parseTeam(text: string): string[] | null {
-  const lines = text.split(/\r?\n/);
+  const lines = teamLines(text);
   if (lines[0]?.trim() !== "---") return null;
   const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
   if (end === -1) return null;
