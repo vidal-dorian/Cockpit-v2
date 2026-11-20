@@ -4,6 +4,7 @@
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur, la session rendue par `/fire`), [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md) (la demande d'arrêt), [058 — La file d'attente](058-file-d-attente.md)
+- **Modifiée par** : [088](088-adresse-de-session-au-lanceur.md) (l'adresse de la session n'est montrée qu'au lanceur), [089](089-secret-d-envoi-du-cout.md) (choix A et « Limites connues » : `/v1/metrics` demande un secret, sans lui `401`)
 - **Tranche** : 14.5 du [découpage](../decoupage.md)
 - **Écrans** : [S33](../ecrans/S33_CoutBudget.png) (le coût et les plafonds), [S30](../ecrans/S30_Run_Fini.png) (« Coût du run »)
 
