@@ -810,7 +810,10 @@ export function HomePage({
   const blocked = forYou.filter((item) => item.kind === "answer").length;
   const w = claudeWorks.length;
   // "Tout va bien" only when nothing waits on the user: a failed run (check) says otherwise.
-  const allFine = !forYou.some((item) => item.kind === "check");
+  // A run to check and a PR whose relaunches ran out both mean something went wrong.
+  const allFine = !forYou.some(
+    (item) => item.kind === "check" || item.kind === "relaunch_exhausted",
+  );
   const claude =
     w === 0
       ? "Claude ne travaille sur rien."
