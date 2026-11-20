@@ -29,6 +29,10 @@ import { invitationReturn, memberRoutes } from "./members.ts";
 import { nightRoutes } from "./night.ts";
 import { oauthRoutes } from "./oauth.ts";
 import { planRoutes } from "./pro-codes.ts";
+import { healthRoutes } from "./project-health.ts";
+import { pluginRoutes } from "./project-plugins.ts";
+import { prepareRoutes } from "./project-prepare.ts";
+import { workflowRoutes } from "./project-workflows.ts";
 import { projectRoutes, RoleRefused } from "./projects.ts";
 import { pushRoutes, type SendPush, webPushSender } from "./push.ts";
 import { questionRoutes } from "./questions.ts";
@@ -176,10 +180,12 @@ export function createApp(
       .route("/", dataRoutes(db, encryptionKey))
       .route("/", planRoutes(db, encryptionKey))
       .route("/", webhookRoutes(db, readInstance, fireDeps))
-      .route(
-        "/",
-        projectRoutes(db, readGitHub, healthCacheSize, now, encryptionKey),
-      )
+      .route("/", projectRoutes(db, readGitHub, encryptionKey))
+      // After projectRoutes: its gate covers these routes.
+      .route("/", healthRoutes(db, healthCacheSize, now))
+      .route("/", prepareRoutes(db))
+      .route("/", workflowRoutes(db, now))
+      .route("/", pluginRoutes(db))
       .route("/", templateRoutes(db, readInstance, readGitHub, encryptionKey))
       .route("/", memberRoutes(db, readInstance))
       .route("/", codeMapRoutes(db, readGitHub))
