@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { projects } from "./db/schema.ts";
 import { send } from "./test-decisions.ts";
 import { stubGitHub } from "./test-github.ts";
 import {
@@ -104,5 +106,45 @@ describe("story #45: the session address of a run is the launcher's", () => {
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).not.toContain(URL_OF_SESSION);
+  });
+});
+
+describe("story #45: the session address of the project's write-US routine is the owner's", () => {
+  async function firedRoutine() {
+    const ctx = await ready();
+    await ctx.db
+      .update(projects)
+      .set({
+        routineLastRunAt: new Date(),
+        routineLastRunResult: "ok",
+        routineLastRunSessionUrl: URL_OF_SESSION,
+      })
+      .where(eq(projects.id, ctx.projectId));
+    const bob = await memberWith(ctx, 2000, "read_only");
+    return { ctx, bob };
+  }
+  const readRoutine = async (ctx: Ctx, cookie: string) => {
+    const res = await send(
+      ctx.app,
+      cookie,
+      "GET",
+      `/api/projects/${ctx.projectId}/routine`,
+    );
+    expect(res.status).toBe(200);
+    return (await res.json()) as { lastRun: { sessionUrl: string | null } };
+  };
+
+  it("given the owner's routine fired on a shared project, when a read-only member reads the routine, then its last session address is hidden", async () => {
+    const { ctx, bob } = await firedRoutine();
+
+    expect((await readRoutine(ctx, bob.cookie)).lastRun.sessionUrl).toBeNull();
+  });
+
+  it("given the same routine, when the owner reads it, then the last session address is there", async () => {
+    const { ctx } = await firedRoutine();
+
+    expect((await readRoutine(ctx, ctx.alice.cookie)).lastRun.sessionUrl).toBe(
+      URL_OF_SESSION,
+    );
   });
 });

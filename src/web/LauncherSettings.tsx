@@ -148,7 +148,10 @@ function CostStep({ token }: { token: string }) {
       <p className="mt-1">
         La dernière ligne est le secret de tes envois : sans elle, Cockpit
         refuse le coût. Tout environnement déjà configuré cesse de remonter le
-        coût tant que tu n'y as pas collé cette ligne.
+        coût, et tes plafonds (par run, par nuit, par mois) ne s'y appliquent
+        plus, tant que tu n'y as pas collé cette ligne. Un environnement ne
+        porte qu'un secret : ne le partage pas avec un autre utilisateur de
+        Cockpit.
       </p>
       <pre className="mt-2 overflow-x-auto font-mono text-[12.5px]">
         {variables}

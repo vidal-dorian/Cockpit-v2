@@ -83,6 +83,7 @@ export function IdeaPanel({
     <div
       role="dialog"
       aria-labelledby={heading}
+      data-keeps-phone-nav
       onKeyDown={(event) => {
         if (event.key === "Escape" && !pending) onCancel();
         if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
