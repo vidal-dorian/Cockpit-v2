@@ -216,7 +216,7 @@ const claimable = and(
   isNull(webhookDeliveries.processedAt),
   or(
     isNull(webhookDeliveries.claimedAt),
-    // The wait doubles with each failed attempt: 1, 2, 4, 8 then 16 minutes.
+    // The wait is 2^attempts minutes: 1 after a rate-limited first pass, then 2, 4, 8 and 16 after each failure.
     lt(
       webhookDeliveries.claimedAt,
       sql`now() - interval '1 minute' * power(2, ${webhookDeliveries.attempts})`,
