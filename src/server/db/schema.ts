@@ -444,6 +444,9 @@ export const userStories = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index("user_stories_ticket_idx").on(t.ticketId),
+    index("user_stories_pr_number_idx").on(t.prNumber),
+    index("user_stories_issue_number_idx").on(t.issueNumber),
     check(
       "user_stories_status_check",
       sql`${t.status} in ('to_validate', 'to_rewrite', 'ready', 'in_progress', 'in_review', 'done', 'abandoned')`,
@@ -500,6 +503,7 @@ export const runs = pgTable(
     uniqueIndex("runs_one_running_per_story_idx")
       .on(t.storyId)
       .where(sql`${t.status} = 'running'`),
+    index("runs_story_idx").on(t.storyId),
     check(
       "runs_status_check",
       sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually', 'paused')`,
@@ -590,6 +594,9 @@ export const cloudLaunches = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index("cloud_launches_session_idx").on(t.sessionId),
+    index("cloud_launches_run_idx").on(t.runId),
+    index("cloud_launches_user_idx").on(t.userId),
     check(
       "cloud_launches_one_target",
       sql`num_nonnulls(${t.storyId}, ${t.routineId}, ${t.workflowPath}) = 1`,
@@ -717,6 +724,7 @@ export const runSteps = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
   },
   (t) => [
+    index("run_steps_run_idx").on(t.runId),
     check(
       "run_steps_status_check",
       sql`${t.status} in ('running', 'succeeded', 'failed')`,
@@ -750,6 +758,7 @@ export const acceptanceCriteria = pgTable(
     takeoverState: text("takeover_state", { enum: TAKEOVER_STATES }),
   },
   (t) => [
+    index("acceptance_criteria_story_idx").on(t.storyId),
     check(
       "acceptance_criteria_result_check",
       sql`${t.result} in ('passed', 'failed')`,
@@ -967,23 +976,34 @@ export const history = pgTable(
 );
 
 /** What GitHub delivered at /api/webhooks/github, recorded before any processing (decisions 008 and 024 C). Purged after 30 days. */
-export const webhookDeliveries = pgTable("webhook_deliveries", {
-  // The X-GitHub-Delivery header: GitHub resends a delivery with the same one.
-  id: text("id").primaryKey(),
-  event: text("event").notNull(),
-  action: text("action"),
-  installationId: bigint("installation_id", { mode: "number" }),
-  repoId: bigint("repo_id", { mode: "number" }),
-  payload: jsonb("payload").notNull(),
-  receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" })
-    .notNull()
-    .defaultNow(),
-  // Null: still to process (decision 025 A).
-  processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
-  // The reservation of a pass (a claim older than a minute is a pass that died), and the failures so far (decision 025 A).
-  claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
-  attempts: integer("attempts").notNull().default(0),
-});
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    // The X-GitHub-Delivery header: GitHub resends a delivery with the same one.
+    id: text("id").primaryKey(),
+    event: text("event").notNull(),
+    action: text("action"),
+    installationId: bigint("installation_id", { mode: "number" }),
+    repoId: bigint("repo_id", { mode: "number" }),
+    payload: jsonb("payload").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    // Null: still to process (decision 025 A).
+    processedAt: timestamp("processed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    // The reservation of a pass (a claim older than a minute is a pass that died), and the failures so far (decision 025 A).
+    claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
+    attempts: integer("attempts").notNull().default(0),
+  },
+  (t) => [
+    index("webhook_deliveries_unprocessed_idx")
+      .on(t.receivedAt)
+      .where(sql`${t.processedAt} is null`),
+  ],
+);
 
 /** Ids, closed values and numbers only: never free text or personal data (decision 010 D). */
 type HistoryArgs = Record<string, string | number | boolean | null>;
