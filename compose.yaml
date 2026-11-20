@@ -16,6 +16,12 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    # Bounded logs, so they never fill the SD card.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   app:
     build: .
@@ -42,6 +48,11 @@ services:
       retries: 10
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # In the Cloudflare dashboard, the public hostname points at http://app:3000 (service name on the Compose network).
   tunnel:

@@ -108,7 +108,7 @@ Conventions : dates en `timestamptz`, JSON en `jsonb`, identifiants entiers `ide
 | Quand | Dorian et des proches | Dès les premiers clients payants |
 | Cockpit | Image Docker (Node, serveur, page construite) | La même image |
 | PostgreSQL | Conteneur, données dans un volume | Service géré : sauvegarde continue, restauration à une date |
-| Sauvegarde | `scripts/backup.sh` lancé chaque jour par cron : `pg_dump` compressé, 14 jours gardés | Fournie par l'hébergeur |
+| Sauvegarde | `scripts/backup.sh` lancé chaque jour par cron : `pg_dump` compressé, 14 jours gardés ; aussi lancée par `deploy.sh` avant chaque déploiement (un échec l'arrête). Journaux Docker bornés (10 Mo × 3 fichiers par service) | Fournie par l'hébergeur |
 | Exposition | Cloudflare Tunnel (`cloudflared`), aucun port ouvert ; avec Cloudflare Access, `/mcp`, `/.well-known/*`, `/oauth/token`, `/api/webhooks/github` et `/v1/metrics` (la télémétrie des sessions cloud, sans session ni jeton) en « Bypass » ([021](decisions/021-connecter-claude.md), [060](decisions/060-cout-et-budget.md)) | Selon l'hébergeur |
 | Mise en production | Workflow CD lancé à la main, runner sur le Pi, `scripts/deploy.sh` (refuse de partir sans ses secrets, vérifie la version servie) | À définir |
 | Secrets | `/etc/cockpit/cockpit.env` sur le Pi (`TUNNEL_TOKEN` à saisir, `POSTGRES_PASSWORD` généré par `deploy.sh`), hors du repo : le checkout du CD efface les fichiers non suivis. La clé de chiffrement des secrets de la GitHub App vit dans le volume `secrets`, dont une copie est gardée hors du Pi | Gestion des secrets de l'hébergeur |
