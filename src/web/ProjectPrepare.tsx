@@ -58,7 +58,10 @@ const UNAUTHORIZED = "Ta session a expiré : reconnecte-toi, puis recommence.";
 const FAILED = "Ça n'a pas marché, réessaie dans un instant.";
 
 // The page that fixes a refusal (decision 085 D), by code of the server; `/projets/:id/…` ones need the project.
-const FIXES: Record<string, (projectId?: string) => [string, string] | null> = {
+export const FIXES: Record<
+  string,
+  (projectId?: string) => [string, string] | null
+> = {
   project_not_in_launcher: () => ["/reglages/taches-cloud", "les Réglages"],
   launcher_not_connected: () => ["/reglages/taches-cloud", "les Réglages"],
   launcher_needs_reconnect: () => ["/reglages/taches-cloud", "les Réglages"],

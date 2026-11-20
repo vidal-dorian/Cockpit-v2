@@ -809,10 +809,15 @@ export function HomePage({
   const [first, ...others] = forYou;
   const blocked = forYou.filter((item) => item.kind === "answer").length;
   const w = claudeWorks.length;
+  // "Tout va bien" only when nothing waits on the user: a failed run (check) says otherwise.
+  // A run to check and a PR whose relaunches ran out both mean something went wrong.
+  const allFine = !forYou.some(
+    (item) => item.kind === "check" || item.kind === "relaunch_exhausted",
+  );
   const claude =
     w === 0
       ? "Claude ne travaille sur rien."
-      : `Claude travaille sur ${w} ${plural(w, "run", "runs")}, tout va bien.`;
+      : `Claude travaille sur ${w} ${plural(w, "run", "runs")}${allFine ? ", tout va bien" : ""}.`;
   // Not before step 1 is known (or has failed once: React Query retries for seconds), so the guide and its sentence do not flip.
   const guide =
     installation.isPending && installation.failureCount === 0

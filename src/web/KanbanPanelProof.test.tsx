@@ -381,7 +381,7 @@ describe("decision 085 E: the sentence of the page is a link to the first thing 
     renderAt("/projets/5");
 
     const link = await within(
-      await screen.findByRole("heading", { level: 1 }),
+      await screen.findByRole("heading", { level: 1, name: /^(?!Chargement)/ }),
     ).findByRole("link", { name: /US 42/ });
     expect(link.getAttribute("href")).toMatch(/\?us=42$/);
     fireEvent.click(link);
@@ -398,7 +398,7 @@ describe("decision 085 E: the sentence of the page is a link to the first thing 
     renderAt("/projets/5");
 
     const link = await within(
-      await screen.findByRole("heading", { level: 1 }),
+      await screen.findByRole("heading", { level: 1, name: /^(?!Chargement)/ }),
     ).findByRole("link", { name: /2 user stories t'attendent/ });
     expect(link.getAttribute("href")).toMatch(/\?us=42$/);
   });
@@ -412,7 +412,10 @@ describe("decision 085 E: a story Claude rewrites does not wait for you", () => 
     ]);
     renderAt("/projets/5");
 
-    const title = await screen.findByRole("heading", { level: 1 });
+    const title = await screen.findByRole("heading", {
+      level: 1,
+      name: /^(?!Chargement)/,
+    });
     await waitFor(() =>
       expect(title.textContent).toContain("1 user story t'attend."),
     );
@@ -422,7 +425,10 @@ describe("decision 085 E: a story Claude rewrites does not wait for you", () => 
     load([withStory(43, "vouloir-bravo", { status: "to_rewrite" })]);
     renderAt("/projets/5");
 
-    const title = await screen.findByRole("heading", { level: 1 });
+    const title = await screen.findByRole("heading", {
+      level: 1,
+      name: /^(?!Chargement)/,
+    });
     await waitFor(() =>
       expect(title.textContent).toContain("Rien ne t'attend sur ce projet."),
     );

@@ -589,7 +589,7 @@ function CloneFolderCard({ projectId }: { projectId: string }) {
         <input
           className={`${field} font-mono`}
           value={folder}
-          placeholder="/home/dorian/code/mon-repo"
+          placeholder="/home/vous/code/mon-repo"
           onChange={(e) => {
             setFolder(e.target.value);
             try {

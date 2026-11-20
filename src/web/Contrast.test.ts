@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 // - WCAG AA, 4.5:1: the text tokens (foreground, muted-foreground, and each -text token of idea, you, claude, done) on the grounds they are drawn on:
 //   background, card, sunken and raised (the pages, the cards, the fields and the panel, the buttons and badges); the -text token of a colour also on its -soft ground;
 //   primary-foreground on primary. Muted-foreground and the -text tokens are held to the four grounds; foreground too.
-// (The dark theme already reaches these ratios; only the light one is tested.)
+// The dark theme is checked too, for the dim text (--color-dim) on the page, card and raised grounds (ticket #44).
 
 const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
 const block = (opening: RegExp) => {
@@ -75,6 +75,30 @@ describe("slice 15.3 G: the palettes", () => {
       return !a || !b || ratio(a, b) < 4.5;
     }).map(([t, g]) => `${t} on ${g}`);
     expect(failing).toEqual([]);
+  });
+});
+
+describe("ticket #44: dim text in the dark theme", () => {
+  it("given the dark theme, when I count --color-dim on the page, card and raised grounds, then each ratio is at least 4.5:1", () => {
+    const dim = dark.get("dim") as string;
+    expect(
+      ["background", "card", "raised"]
+        .map((g) => [g, ratio(dim, dark.get(g) as string)] as const)
+        .filter(([, r]) => r < 4.5)
+        .map(([g, r]) => `dim on ${g}: ${r.toFixed(2)}`),
+    ).toEqual([]);
+  });
+
+  it("given the dark theme, when I compare dim and muted-foreground, then dim stays dimmer", () => {
+    const on = (t: string) =>
+      ratio(dark.get(t) as string, dark.get("background") as string);
+    expect(on("dim")).toBeLessThan(on("muted-foreground"));
+  });
+
+  it("given Contrast.test.ts, when I read its header, then it no longer says the dark theme already passes", () => {
+    const self = readFileSync(import.meta.filename, "utf8");
+    expect(self).not.toMatch(/dark theme already\s+reach/i);
+    expect(self).toMatch(/dark/i);
   });
 });
 

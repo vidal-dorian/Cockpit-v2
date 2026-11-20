@@ -7,7 +7,7 @@ import { AddResult, fetchAgentTeams, useAddTeam } from "./AgentTeams.tsx";
 import { client } from "./api.ts";
 import { fetchBudgets } from "./Cost.tsx";
 import { fetchLauncher } from "./LauncherSettings.tsx";
-import { FixLink } from "./ProjectPrepare.tsx";
+import { FIXES } from "./ProjectPrepare.tsx";
 import { ROLE_REFUSAL } from "./roles.ts";
 import { Panel } from "./Shell.tsx";
 import { STORY_STATUSES } from "./tickets.ts";
@@ -16,6 +16,7 @@ import {
   badge,
   button,
   field,
+  focusRing,
   ghostButton,
   kbd,
   panelPrimaryButton,
@@ -72,6 +73,23 @@ const LAUNCH_ERRORS: Record<string, string> = {
   monthly_budget_reached:
     "Le plafond par mois est atteint : relève-le dans la page Coût pour lancer.",
 };
+
+/** The refusal with the words that name the fixing page (decision 085 D) as a link to it. */
+function linked(message: string, code?: string) {
+  const fix = FIXES[code ?? ""]?.();
+  const word = fix?.[1].replace(/^(les|la) /, "");
+  const at = word ? message.indexOf(word) : -1;
+  if (!fix || !word || at < 0) return message;
+  return (
+    <>
+      {message.slice(0, at)}
+      <Link to={fix[0]} className={`underline ${focusRing}`}>
+        {word}
+      </Link>
+      {message.slice(at + word.length)}
+    </>
+  );
+}
 
 /** Decision 034, in the right panel (decision 045): the form that builds the link of decision 005. The button that opens it is in the decisions of the story. */
 export function DevelopWindow({
@@ -527,7 +545,7 @@ export function DevelopWindow({
               required
               className={field}
               value={folder}
-              placeholder="C:\Users\dorian\code\mon-repo ou /home/dorian/code/mon-repo"
+              placeholder="C:\Users\vous\code\mon-repo ou /home/vous/code/mon-repo"
               onChange={(e) => setFolder(e.target.value)}
             />
           </label>
@@ -613,8 +631,7 @@ export function DevelopWindow({
           )}
           {launch.isError && (
             <div role="alert" className={alertBox}>
-              <p>{launch.error.message}</p>
-              <FixLink code={launch.error.code} />
+              <p>{linked(launch.error.message, launch.error.code)}</p>
               <button
                 type="button"
                 onClick={() => launch.mutate()}

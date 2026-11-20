@@ -55,7 +55,8 @@ function renderAt(path: string) {
 
 const main = () => screen.getByRole("main");
 const last = (requests: URLSearchParams[]) => requests[requests.length - 1];
-const sentence = () => screen.findByRole("heading", { level: 1 });
+const sentence = () =>
+  screen.findByRole("heading", { level: 1, name: /^(?!Chargement)/ });
 const rows = () => [...main().querySelectorAll("li")] as HTMLElement[];
 const author = (row: HTMLElement) =>
   [...row.querySelectorAll("*")].filter(
