@@ -1219,7 +1219,12 @@ export function projectRoutes(
       );
       if (!project) return c.json({ error: "Not found" }, 404);
       const proposal = await pendingProposal(db, project.id);
-      const asks = await claudeAsks(db, project.id, new Date(now()));
+      const asks = await claudeAsks(
+        db,
+        project.id,
+        user.userId,
+        new Date(now()),
+      );
       try {
         // A read is not an action: no history entry (decision 013 G).
         const github = c.get("github");

@@ -544,6 +544,7 @@ export function runRoutes(
         .orderBy(asc(runSteps.id));
       const [launch] = await db
         .select({
+          userId: cloudLaunches.userId,
           sessionUrl: cloudLaunches.sessionUrl,
           costUsd: cloudLaunches.costUsd,
         })
@@ -612,7 +613,12 @@ export function runRoutes(
           startedAt: run.startedAt,
           finishedAt: run.finishedAt,
         },
-        cloud: launch ? { sessionUrl: launch.sessionUrl } : null,
+        // Only the launcher sees the session address: with it a member could add messages and inflate the cost (decision 060, amended).
+        cloud: launch
+          ? launch.userId === user.userId
+            ? { sessionUrl: launch.sessionUrl }
+            : ({} as { sessionUrl?: string | null })
+          : null,
         // A local run has no cost (decision 060 B); 0 is a cloud run no point reached yet, which the page cannot tell from none.
         costUsd: launch && launch.costUsd > 0 ? launch.costUsd : null,
         stopReason: stop?.detail?.reason === "budget" ? "budget" : null,

@@ -172,7 +172,12 @@ export async function proposeWorkflowChange(
 export const ASK_GIVE_UP_MS = 2 * 3_600_000;
 
 /** Decision 085 E: the last « Demander à Claude » of each workflow of the project, by path (a workflow never asked about has none). */
-export async function claudeAsks(db: Db, projectId: number, at: Date) {
+export async function claudeAsks(
+  db: Db,
+  projectId: number,
+  userId: number,
+  at: Date,
+) {
   const asks = new Map<
     string,
     {
@@ -199,7 +204,8 @@ export async function claudeAsks(db: Db, projectId: number, at: Date) {
     .orderBy(desc(cloudLaunches.id)))
     if (l.workflowPath && !asks.has(l.workflowPath))
       asks.set(l.workflowPath, {
-        sessionUrl: l.sessionUrl,
+        // Only the launcher sees the session address (decision 060, amended).
+        sessionUrl: l.userId === userId ? l.sessionUrl : null,
         startedAt: l.createdAt,
         finishedAt: l.finishedAt,
         outcome: l.outcome,
