@@ -1,6 +1,6 @@
 # Cockpit v2
 
-Self-hosted control center for the GitHub repos developed with Claude Code. Read `cockpit-v2-brief.md` for the product, `docs/ecrans/` for the screens, `docs/decoupage.md` for the slices and `docs/decisions/` for every decision already taken, `docs/glossaire.md` for the one name of each notion in the UI; `docs/architecture.md` sums up the current architecture. Do not reopen a decision without saying so.
+Self-hosted control center for the GitHub repos developed with Claude Code. Read `cockpit-v2-brief.md` for the product, `docs/ecrans/` for the screens, `docs/decoupage.md` for the slices and `docs/decisions/` for every decision already taken, `docs/glossaire.md` for the one name of each notion in the UI; `docs/architecture.md` sums up the current architecture in ten minutes and `docs/regles.md` lists the rules in force, one line each with its decision. Do not reopen a decision without saying so.
 
 ## Commands
 
@@ -20,7 +20,7 @@ CI runs lint, typecheck, test and build, plus a Docker smoke test of the stack (
 
 ## Layout
 
-- `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`: PostgreSQL in production, PGlite in tests via `test-db.ts`).
+- `src/server`: Hono app (`app.ts`, testable with `app.request()`), entry point (`index.ts`), database (`db/`: PostgreSQL in production, PGlite in tests via `test-db.ts`). The GitHub client is `github.ts` (`githubClient`, which assembles and re-exports), split by domain: `github-repos.ts`, `github-pulls.ts`, `github-issues.ts`, `github-alert-reads.ts`, `github-workflows.ts`, with the types and helpers they share in `github-shared.ts`.
 - `src/web`: React page built by Vite. `api.ts` is the typed client of the server routes. `public/` holds the PWA files (manifest, icons, `sw.js`, decision 072), copied as they are into `dist/web`.
 - `drizzle/`: generated SQL migrations, applied at startup. Never edit an applied migration; add a new one.
 - `catalog/`: the agents (including `cartographer`, `rules-analyst`, `bug-hunter`, `security-reviewer`, `architect` and `upgrade-advisor`, plus `doc-writer` and `doc-reviewer`, written only by the Premium and Max teams), skills (`/dev-us`, `/write-us`, `/analyser`) and starter `CLAUDE.md` and the four starter teams (`teams/<level>.md`, decision 063) that « Préparer pour Claude » writes into a user's repo (decision 027), plus the starter CI workflows (`ci/<language>.yml`, decision 067) that the CI / CD tab commits; `history.json` lists the hashes of every past version (decision 049); copied into the Docker image.
