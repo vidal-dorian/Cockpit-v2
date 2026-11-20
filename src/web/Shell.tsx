@@ -496,6 +496,35 @@ function TabIcon({ children }: { children: React.ReactNode }) {
 // Pages only the menu reaches: its tab is the current one there (decision 084 B4).
 const MENU_ONLY = /^\/(claude|equipes|journal|reglages)(\/|$)/;
 
+const NO_KEYBOARD_INPUTS =
+  /^(checkbox|radio|button|submit|reset|range|color|file|image|hidden)$/;
+
+function opensKeyboard(el: EventTarget | null) {
+  if (!(el instanceof HTMLElement)) return false;
+  // The idea panel keeps the bar usable (decision 084 B4).
+  if (el.closest("[data-keeps-phone-nav]")) return false;
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) return !NO_KEYBOARD_INPUTS.test(el.type);
+  return el.isContentEditable || el.getAttribute("contenteditable") === "true";
+}
+
+/** True while a text field has focus. iOS keeps a fixed bottom bar offset by the keyboard height once the keyboard is gone; not rendering the bar meanwhile makes the browser lay it out again at the real bottom (decision 084 B). */
+function useTextFieldFocus() {
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const onIn = (e: FocusEvent) => setTyping(opensKeyboard(e.target));
+    // activeElement is unreliable during focusout: the next target is relatedTarget.
+    const onOut = (e: FocusEvent) => setTyping(opensKeyboard(e.relatedTarget));
+    document.addEventListener("focusin", onIn);
+    document.addEventListener("focusout", onOut);
+    return () => {
+      document.removeEventListener("focusin", onIn);
+      document.removeEventListener("focusout", onOut);
+    };
+  }, []);
+  return typing;
+}
+
 /** The bar of the phone (decision 071 B, 084 B), below md: « Idée » opens the panel of the idea bar, so it is absent without a project; « Menu » opens the content of the sidebar full screen. */
 function PhoneNav({
   onIdea,
@@ -516,84 +545,87 @@ function PhoneNav({
   const idle = !open && !menuOpen;
   const menuPage = MENU_ONLY.test(pathname);
   const closeMenu = () => setMenuOpen(false);
+  const typing = useTextFieldFocus();
   return (
     <>
-      <nav
-        aria-label="Navigation du téléphone"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
-      >
-        <NavLink
-          to="/"
-          end
-          className={(state) => tab({ isActive: state.isActive && idle })}
-          onClick={onNavigate}
+      {!typing && (
+        <nav
+          aria-label="Navigation du téléphone"
+          className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
         >
-          <TabIcon>
-            <path d="M3 11l9-8 9 8" />
-            <path d="M5 10v10h14V10" />
-          </TabIcon>
-          Accueil
-        </NavLink>
-        {onIdea && (
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={(event) => onIdea(event.currentTarget)}
-            className={tab({ isActive: open })}
+          <NavLink
+            to="/"
+            end
+            className={(state) => tab({ isActive: state.isActive && idle })}
+            onClick={onNavigate}
           >
             <TabIcon>
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
+              <path d="M3 11l9-8 9 8" />
+              <path d="M5 10v10h14V10" />
             </TabIcon>
-            Idée
-          </button>
-        )}
-        <NavLink
-          to="/nuit"
-          aria-label={morning ? "Nuit, bilan à lire" : undefined}
-          className={(state) => tab({ isActive: state.isActive && idle })}
-          onClick={onNavigate}
-        >
-          <span className="relative">
+            Accueil
+          </NavLink>
+          {onIdea && (
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={(event) => onIdea(event.currentTarget)}
+              className={tab({ isActive: open })}
+            >
+              <TabIcon>
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
+              </TabIcon>
+              Idée
+            </button>
+          )}
+          <NavLink
+            to="/nuit"
+            aria-label={morning ? "Nuit, bilan à lire" : undefined}
+            className={(state) => tab({ isActive: state.isActive && idle })}
+            onClick={onNavigate}
+          >
+            <span className="relative">
+              <TabIcon>
+                <path d="M21 13A9 9 0 1111 3a7 7 0 0010 10z" />
+              </TabIcon>
+              {morning && (
+                <span className="absolute -top-0.5 -right-1">
+                  <Dot tone="done" />
+                </span>
+              )}
+            </span>
+            Nuit
+          </NavLink>
+          <NavLink
+            to="/projets"
+            end
+            className={(state) => tab({ isActive: state.isActive && idle })}
+            onClick={onNavigate}
+          >
             <TabIcon>
-              <path d="M21 13A9 9 0 1111 3a7 7 0 0010 10z" />
+              <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </TabIcon>
-            {morning && (
-              <span className="absolute -top-0.5 -right-1">
-                <Dot tone="done" />
-              </span>
-            )}
-          </span>
-          Nuit
-        </NavLink>
-        <NavLink
-          to="/projets"
-          end
-          className={(state) => tab({ isActive: state.isActive && idle })}
-          onClick={onNavigate}
-        >
-          <TabIcon>
-            <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-          </TabIcon>
-          Projets
-        </NavLink>
-        <button
-          type="button"
-          aria-expanded={menuOpen}
-          aria-haspopup="dialog"
-          aria-current={menuPage && !menuOpen ? "page" : undefined}
-          onClick={() => {
-            onNavigate();
-            setMenuOpen(true);
-          }}
-          className={tab({ isActive: menuOpen || (menuPage && !open) })}
-        >
-          <TabIcon>
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </TabIcon>
-          Menu
-        </button>
-      </nav>
+            Projets
+          </NavLink>
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-haspopup="dialog"
+            aria-current={menuPage && !menuOpen ? "page" : undefined}
+            onClick={() => {
+              onNavigate();
+              setMenuOpen(true);
+            }}
+            className={tab({ isActive: menuOpen || (menuPage && !open) })}
+          >
+            <TabIcon>
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </TabIcon>
+            Menu
+          </button>
+        </nav>
+      )}
       {menuOpen && (
         <Modal label="Menu" onClose={closeMenu}>
           <div className="flex min-h-full flex-col bg-card px-3 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
