@@ -89,6 +89,29 @@ describe("story 54: screens never say something false while loading or failing",
     expect((await h1()).textContent).not.toContain("tout va bien");
   });
 
+  it("given the home with a PR whose relaunches are exhausted and a run in progress, when it displays, then it does not say tout va bien", async () => {
+    stubShell({
+      forYou: [
+        {
+          kind: "relaunch_exhausted",
+          storyId: 22,
+          iWant: "trier les exports",
+          prNumber: 7,
+          project: PROJECT,
+        },
+      ],
+      claudeWorks: [
+        { runId: 12, storyId: 30, iWant: "x", project: PROJECT, step: null },
+      ],
+    });
+    renderAt("/");
+
+    await waitFor(async () =>
+      expect((await h1()).textContent).toContain("1 chose t'attend."),
+    );
+    expect((await h1()).textContent).not.toContain("tout va bien");
+  });
+
   it("given a project page while the projects load, when it displays, then its header shows a loading text, not a void", async () => {
     stubShell();
     overrideFetch((path, method) => {
