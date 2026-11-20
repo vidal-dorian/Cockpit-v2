@@ -314,6 +314,7 @@ Le code ne contient rien de propre au Pi : tout passe par `DATABASE_URL`, `PORT`
 | [088](decisions/088-adresse-de-session-au-lanceur.md) | L'adresse de la session cloud n'est montrée qu'au lanceur | Proposée | `GET /api/runs/:id` et `claudeAsks` ne rendent `sessionUrl` qu'au lanceur du lancement, pour qu'un membre en lecture seule ne gonfle pas le coût ; modifie 060 (limites connues) |
 | [089](decisions/089-secret-d-envoi-du-cout.md) | Un secret par utilisateur pour envoyer le coût | Proposée | `POST /v1/metrics` exige `x-cockpit-token`, un HMAC de l'utilisateur dérivé de la clé de l'instance (rien de stocké), égal à celui du lanceur de chaque session envoyée, sinon `401` ; la page « Tâches cloud » donne la ligne `OTEL_EXPORTER_OTLP_HEADERS` ; modifie 060 (choix A, limites connues) |
 | [090](decisions/090-limites-de-debit-de-github.md) | Les limites de débit de GitHub ne font plus perdre d'événements | Proposée | Appel limité (429, 403 avec `Retry-After`) : attente puis un nouvel essai, plafonnée à 30 s ; livraison limitée non comptée parmi les 5 tentatives ; écart doublé entre deux essais ; lecteur GitHub gardé entre les passages |
+| [091](decisions/091-chercher-dans-tous-les-projets.md) | Chercher un projet dans « Tous les projets » | Proposée | Champ « Chercher un projet » comme celui de l'import (084 A1) : nom complet, sans la casse, avec « Favoris » ; ce n'est pas un des filtres retirés par la 069 I |
 | [Offres](offres.md) | Gratuit, Pro, Entreprise | Notes, rien de décidé | Idées de prix et de quotas |
 
 ## Points ouverts
