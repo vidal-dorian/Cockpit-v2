@@ -333,67 +333,73 @@ export function ProjectPage({
           />
         </>
       ) : (
-        !projects.isPending && (
-          <div className="flex flex-col gap-1.5 px-[26px] pt-6">
-            {/* The actions share the breadcrumb's row, the sentence sits under both (S36, S41). */}
-            <div className="flex items-start gap-3">
-              <nav
-                aria-label="Fil d'Ariane"
-                className="flex flex-wrap items-baseline gap-1.5 text-[12.5px] text-muted-foreground"
-              >
-                <Link
-                  to="/projets"
-                  className={`rounded-md hover:text-foreground ${focusRing}`}
-                >
-                  Projets
-                </Link>
-                <span aria-hidden="true">›</span>
-                <span>{name}</span>
-                {project && (
-                  <span className="font-mono text-[11.5px]">
-                    {project.fullName}
-                  </span>
-                )}
-              </nav>
-              {project && (
-                <div className="ml-auto flex flex-wrap justify-end gap-2">
-                  {view === "features" &&
-                    feature &&
-                    features.data &&
-                    codeMap.data && (
-                      <FeaturesExport
-                        fullName={project.fullName}
-                        feature={feature}
-                        features={features.data.features}
-                        modules={codeMap.data}
-                      />
-                    )}
-                  <a
-                    href={`https://github.com/${project.fullName}`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className={button}
-                  >
-                    Ouvrir sur GitHub ↗
-                  </a>
-                </div>
-              )}
-            </div>
-            <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
-              {sentence.title}
-              {sentence.rest && (
-                <>
-                  {sentence.inline && " "}
-                  <span
-                    className={`font-medium text-muted-foreground ${sentence.inline ? "" : "block"}`}
-                  >
-                    {sentence.rest}
-                  </span>
-                </>
-              )}
+        <div className="flex flex-col gap-1.5 px-[26px] pt-6">
+          {projects.isPending ? (
+            <h1 className="loading text-[26px] leading-tight font-semibold text-muted-foreground">
+              Chargement…
             </h1>
-          </div>
-        )
+          ) : (
+            <>
+              {/* The actions share the breadcrumb's row, the sentence sits under both (S36, S41). */}
+              <div className="flex items-start gap-3">
+                <nav
+                  aria-label="Fil d'Ariane"
+                  className="flex flex-wrap items-baseline gap-1.5 text-[12.5px] text-muted-foreground"
+                >
+                  <Link
+                    to="/projets"
+                    className={`rounded-md hover:text-foreground ${focusRing}`}
+                  >
+                    Projets
+                  </Link>
+                  <span aria-hidden="true">›</span>
+                  <span>{name}</span>
+                  {project && (
+                    <span className="font-mono text-[11.5px]">
+                      {project.fullName}
+                    </span>
+                  )}
+                </nav>
+                {project && (
+                  <div className="ml-auto flex flex-wrap justify-end gap-2">
+                    {view === "features" &&
+                      feature &&
+                      features.data &&
+                      codeMap.data && (
+                        <FeaturesExport
+                          fullName={project.fullName}
+                          feature={feature}
+                          features={features.data.features}
+                          modules={codeMap.data}
+                        />
+                      )}
+                    <a
+                      href={`https://github.com/${project.fullName}`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className={button}
+                    >
+                      Ouvrir sur GitHub ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+              <h1 className="text-[26px] leading-tight font-semibold tracking-[-.01em]">
+                {sentence.title}
+                {sentence.rest && (
+                  <>
+                    {sentence.inline && " "}
+                    <span
+                      className={`font-medium text-muted-foreground ${sentence.inline ? "" : "block"}`}
+                    >
+                      {sentence.rest}
+                    </span>
+                  </>
+                )}
+              </h1>
+            </>
+          )}
+        </div>
       )}
       {project?.lockedBy && (
         <p

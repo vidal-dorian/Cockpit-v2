@@ -74,7 +74,15 @@ export function Claude() {
   return (
     <main>
       <StateSentence
-        title={`Claude travaille sur ${running.length} ${running.length > 1 ? "runs" : "run"}.`}
+        title={
+          claude.data ? (
+            `Claude travaille sur ${running.length} ${running.length > 1 ? "runs" : "run"}.`
+          ) : claude.isError ? (
+            "Claude"
+          ) : (
+            <span className="loading text-muted-foreground">Chargement…</span>
+          )
+        }
         actions={
           <span className="flex gap-4">
             <Link to="/claude/cout" className="underline">
@@ -88,10 +96,19 @@ export function Claude() {
       />
       <div className="grid gap-6 px-[26px] py-6">
         {(claude.isError || queue.isError) && (
-          <p role="alert" className={alertBox}>
-            Impossible de lire la page. Recharge-la ; si cela continue, réessaie
-            plus tard.
-          </p>
+          <div role="alert" className={alertBox}>
+            <p>Impossible de lire la page.</p>
+            <button
+              type="button"
+              onClick={() => {
+                claude.refetch();
+                queue.refetch();
+              }}
+              className={`mt-3 ${button}`}
+            >
+              Réessayer
+            </button>
+          </div>
         )}
         {change.isError && (
           <p role="alert" className={alertBox}>
