@@ -518,7 +518,7 @@ function opensKeyboard(el: EventTarget | null) {
 /** True while a text field has focus. iOS keeps a fixed bottom bar offset by the keyboard height once the keyboard is gone; not rendering the bar meanwhile makes the browser lay it out again at the real bottom (decision 084 B). */
 function useTextFieldFocus(panelOpen: boolean) {
   const [typing, setTyping] = useState(false);
-  // A field removed with the panel fires no focusout: look at the focus again once it closes.
+  // A field removed with the panel may fire no focusout (jsdom does not): look at the focus again once it closes.
   useEffect(() => {
     if (!panelOpen) setTyping(opensKeyboard(document.activeElement));
   }, [panelOpen]);
