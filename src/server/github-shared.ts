@@ -18,10 +18,11 @@ export const GITHUB_TIMEOUT_MS = 10_000;
 // A rate limit asking for longer than this is not waited out: the call fails fast, and a webhook delivery is tried again later.
 export const MAX_RATE_LIMIT_WAIT_S = 30;
 
-/** Whether GitHub refused for its rate limits (429, or 403 with Retry-After or no request left), not for another reason. */
+/** Whether GitHub refused for its rate limits (429, or 403 with Retry-After, no request left, or a secondary limit that only says so in its message), not for another reason. */
 export function isRateLimited(error: unknown) {
-  const { status, response } = error as {
+  const { status, message, response } = error as {
     status?: number;
+    message?: string;
     response?: { headers?: Record<string, string | undefined> };
   };
   const headers = response?.headers ?? {};
@@ -29,7 +30,8 @@ export function isRateLimited(error: unknown) {
     status === 429 ||
     (status === 403 &&
       (headers["retry-after"] !== undefined ||
-        headers["x-ratelimit-remaining"] === "0"))
+        headers["x-ratelimit-remaining"] === "0" ||
+        /rate limit/i.test(message ?? "")))
   );
 }
 

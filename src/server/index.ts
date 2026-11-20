@@ -81,7 +81,11 @@ const server = serve({ fetch: app.fetch, port }, (info) => {
     console.log(`Cockpit setup code: ${setupCode} — open ${url}/installation`);
 });
 
+let stopping = false;
 process.on("SIGTERM", () => {
+  // A second SIGTERM (a manual kill during the grace period) must not end the pool twice and crash mid-write.
+  if (stopping) return;
+  stopping = true;
   void shutdown({
     server: server as Server,
     timers,

@@ -7,8 +7,20 @@ import { type GitHubAppConfig, TimedOctokit } from "./github-shared.ts";
 import { githubWorkflows } from "./github-workflows.ts";
 import type { ReadInstance } from "./instance.ts";
 
-export * from "./github-alert-reads.ts";
-export * from "./github-shared.ts";
+// The same public interface as before the split: the helpers of the domain files stay theirs.
+export {
+  ALERT_TOOLS,
+  type AlertTool,
+  codeScanningAlert,
+  dependabotAlert,
+  secretScanningAlert,
+} from "./github-alert-reads.ts";
+export {
+  checkWriteFiles,
+  isRateLimited,
+  type RepoFiles,
+  type WriteFile,
+} from "./github-shared.ts";
 
 /** Talks to GitHub with the identity of the App only, never a user's token (decision 011). Errors are left to the caller. */
 export function githubClient(config: GitHubAppConfig) {

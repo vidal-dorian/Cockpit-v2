@@ -22,7 +22,7 @@
 - **Les secrets de la GitHub App sont chiffrés en base**, avec une clé hors de la base et de ses sauvegardes ([012](decisions/012-configuration-automatique.md)).
 - **Aucune donnée personnelle en clair dans l'historique** ([004](decisions/004-outils-mcp.md), [008](decisions/008-service-en-ligne.md)).
 - **Aucun jeton GitHub d'utilisateur n'est gardé** : la session est un cookie dont seule l'empreinte est en base ([009](decisions/009-connexion-github.md)).
-- **Les erreurs se voient** : à l'écran avec « Réessayer » ; le serveur refuse de partir sans `DATABASE_URL` ([008](decisions/008-service-en-ligne.md), [012](decisions/012-configuration-automatique.md)).
+- **Les erreurs se voient** : à l'écran avec « Réessayer » ; le serveur refuse de partir sans `DATABASE_URL` ([003](decisions/003-interface.md), [008](decisions/008-service-en-ligne.md), [012](decisions/012-configuration-automatique.md)).
 - **La télémétrie est facultative** : rien ne part sans `POSTHOG_KEY` ([083](decisions/083-telemetrie-posthog.md)).
 
 ## Interface

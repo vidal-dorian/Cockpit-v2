@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { githubClient } from "./github.ts";
+import { githubClient, isRateLimited } from "./github.ts";
 import {
   githubAppConfig,
   githubCalls,
@@ -223,5 +223,27 @@ describe("criterion 4: the minute pass reuses its GitHub client", () => {
     clearInterval(timer);
 
     expect(tokensNow() - before).toBe(1);
+  });
+});
+
+describe("a secondary rate limit that names itself only in its message", () => {
+  it("given a 403 with no rate-limit header but GitHub's secondary-limit message, when it is classified, then it is a rate limit", () => {
+    expect(
+      isRateLimited({
+        status: 403,
+        message: "You have exceeded a secondary rate limit. Please wait.",
+        response: { headers: {} },
+      }),
+    ).toBe(true);
+  });
+
+  it("given a 403 for a missing permission, when it is classified, then it is not a rate limit", () => {
+    expect(
+      isRateLimited({
+        status: 403,
+        message: "Resource not accessible by integration",
+        response: { headers: {} },
+      }),
+    ).toBe(false);
   });
 });

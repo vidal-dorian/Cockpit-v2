@@ -21,6 +21,7 @@ La 060 recevait la télémétrie sur `POST /v1/metrics` sans secret : quiconque 
 
 ## Ce qui reste
 
-- **Les environnements déjà configurés** cessent de remonter le coût tant que la ligne d'en-tête n'y est pas collée : la page le dit.
-- **Le secret est le même pour tous les environnements d'un utilisateur** et ne se renouvelle qu'avec la clé de l'instance ; changer cette clé invalide tous les secrets.
+- **Les environnements déjà configurés** cessent de remonter le coût tant que la ligne d'en-tête n'y est pas collée, et les plafonds par run, par nuit et par mois ne s'y appliquent donc plus : la page le dit, mais rien ne le signale ailleurs (ni l'accueil ni la page Coût).
+- **Un environnement partagé par deux utilisateurs** de Cockpit ne porte qu'un secret : le coût des sessions de l'autre est refusé (`401`). Chacun garde son propre environnement ; la page le dit.
+- **Le secret est le même pour tous les environnements d'un utilisateur** et ne se renouvelle qu'avec la clé de l'instance ; changer cette clé invalide tous les secrets et casse le déchiffrement des jetons stockés. Un secret qui fuit ne se révoque donc pas : un compteur par utilisateur dans l'entrée du HMAC, avec un bouton « Régénérer », le permettrait (pas construit).
 - **La 060 garde le reste** : un envoi répété compte deux fois en `delta`, la réponse est `200 {}` pour un corps valide.

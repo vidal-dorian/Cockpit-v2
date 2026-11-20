@@ -46,6 +46,19 @@ describe("agent drift", () => {
     expect(agentDrift(repo, catalog)).toEqual([]);
   });
 
+  it("given a repo-specific section whose catalog text sits in a <!-- generic … --> comment, when compared, then that comment stands in for the section", () => {
+    const [repo, catalog] = folders(
+      {
+        "a.md":
+          "one\n<!-- repo-specific -->\nours\n<!-- generic\ntheirs\n-->\n<!-- /repo-specific -->\ntwo\n",
+        "b.md":
+          "one\n<!-- repo-specific -->\nours\n<!-- generic\nother\n-->\n<!-- /repo-specific -->\ntwo\n",
+      },
+      { "a.md": "one\ntheirs\ntwo\n", "b.md": "one\ntheirs\ntwo\n" },
+    );
+    expect(agentDrift(repo, catalog)).toEqual(["b.md"]);
+  });
+
   it("given the current repo and catalog agents (reviewer, test-writer, doc-writer, doc-reviewer), when compared, then each is aligned or declared and nothing drifts", () => {
     expect(agentDrift(".claude/agents", "catalog/agents")).toEqual([]);
   });
