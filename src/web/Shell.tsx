@@ -364,6 +364,12 @@ function SidebarContent({
         <NavLink to="/claude" className={nav} onClick={onNavigate}>
           Claude
         </NavLink>
+        <NavLink to="/claude/cout" className={sub} onClick={onNavigate}>
+          Coût
+        </NavLink>
+        <NavLink to="/claude/taches" className={sub} onClick={onNavigate}>
+          Tâches programmées
+        </NavLink>
         <NavLink to="/nuit" className={nav} onClick={onNavigate}>
           ☾ Cette nuit
           {night && night.items.length > 0 && (
