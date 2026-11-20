@@ -199,114 +199,121 @@ function ProjectList() {
           Aucun projet ne correspond à « {typed} ».
         </p>
       )}
-      <ul className={listCard}>
-        {visible.map((project) => (
-          <li
-            key={project.id}
-            className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
-          >
-            <Dot
-              tone={
-                project.id === first
-                  ? "you"
-                  : states.get(project.id) === "claude"
-                    ? "claude"
-                    : "none"
-              }
-              live={project.id !== first && states.get(project.id) === "claude"}
-            />
-            <button
-              type="button"
-              aria-pressed={project.favorite}
-              aria-label={
-                project.favorite ? "Retirer des favoris" : "Ajouter aux favoris"
-              }
-              onClick={() =>
-                star.mutate({ id: project.id, favorite: !project.favorite })
-              }
-              className={`grid size-8 place-items-center rounded-lg hover:text-foreground ${project.favorite ? "text-foreground" : "text-dim"} ${focusRing}`}
+      {visible.length > 0 && (
+        <ul className={listCard}>
+          {visible.map((project) => (
+            <li
+              key={project.id}
+              className="flex min-h-[50px] flex-wrap items-center gap-x-3 gap-y-2 px-[18px] py-2"
             >
-              {project.favorite ? "★" : "☆"}
-            </button>
-            <span className="min-w-0 flex-1 basis-48">
-              <Link
-                to={`/projets/${project.id}`}
-                className={`block truncate font-semibold hover:underline ${focusRing}`}
+              <Dot
+                tone={
+                  project.id === first
+                    ? "you"
+                    : states.get(project.id) === "claude"
+                      ? "claude"
+                      : "none"
+                }
+                live={
+                  project.id !== first && states.get(project.id) === "claude"
+                }
+              />
+              <button
+                type="button"
+                aria-pressed={project.favorite}
+                aria-label={
+                  project.favorite
+                    ? "Retirer des favoris"
+                    : "Ajouter aux favoris"
+                }
+                onClick={() =>
+                  star.mutate({ id: project.id, favorite: !project.favorite })
+                }
+                className={`grid size-8 place-items-center rounded-lg hover:text-foreground ${project.favorite ? "text-foreground" : "text-dim"} ${focusRing}`}
               >
-                {project.fullName.split("/").pop()}
-              </Link>
-              <span className="block font-mono text-[11.5px] text-muted-foreground">
-                {project.fullName}
-              </span>
-              {project.sharedBy && (
-                <span className="block text-[12.5px] text-muted-foreground">
-                  partagé par @{project.sharedBy} · {ROLE_LABELS[project.role]}
+                {project.favorite ? "★" : "☆"}
+              </button>
+              <span className="min-w-0 flex-1 basis-48">
+                <Link
+                  to={`/projets/${project.id}`}
+                  className={`block truncate font-semibold hover:underline ${focusRing}`}
+                >
+                  {project.fullName.split("/").pop()}
+                </Link>
+                <span className="block font-mono text-[11.5px] text-muted-foreground">
+                  {project.fullName}
                 </span>
-              )}
-            </span>
-            <span
-              className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
-            >
-              {(() => {
-                const waits = waitingLink(
-                  (home?.forYou ?? []).filter(
-                    (i) => i.project.id === project.id,
-                  ),
-                );
-                return states.get(project.id) === "for_you" && waits ? (
-                  <Link to={waits.to} className={`underline ${focusRing}`}>
-                    {waits.label}
-                  </Link>
-                ) : (
-                  STATE_TEXT[states.get(project.id) ?? "idle"]
-                );
-              })()}
-            </span>
-            <span className="flex gap-2">
-              {project.archived ? (
-                <span className={badge}>Archivé</span>
-              ) : confirming === project.id ? (
-                <>
-                  <span className="basis-full">
-                    Archiver {project.fullName} ? Il n'y a pas encore de
-                    désarchivage.
+                {project.sharedBy && (
+                  <span className="block text-[12.5px] text-muted-foreground">
+                    partagé par @{project.sharedBy} ·{" "}
+                    {ROLE_LABELS[project.role]}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => archive.mutate(project.id)}
-                    disabled={archive.isPending}
-                    aria-busy={archive.isPending}
-                    className={dangerButton}
-                  >
-                    Confirmer l'archivage
-                  </button>
-                  <button
-                    type="button"
-                    // The Archiver button is gone: keep the keyboard focus on the safe choice.
-                    // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
-                    autoFocus
-                    onClick={() => setConfirming(null)}
-                    className={button}
-                  >
-                    Annuler
-                  </button>
-                </>
-              ) : (
-                // The mockup has no slot for it: a quiet button before the row's end; archiving is the owner's (decision 076 A).
-                atLeast(project.role, "owner") && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(project.id)}
-                    className={ghostButton}
-                  >
-                    Archiver
-                  </button>
-                )
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
+                )}
+              </span>
+              <span
+                className={`flex-1 basis-40 text-[13px] ${project.id === first ? "text-you-text" : "text-muted-foreground"}`}
+              >
+                {(() => {
+                  const waits = waitingLink(
+                    (home?.forYou ?? []).filter(
+                      (i) => i.project.id === project.id,
+                    ),
+                  );
+                  return states.get(project.id) === "for_you" && waits ? (
+                    <Link to={waits.to} className={`underline ${focusRing}`}>
+                      {waits.label}
+                    </Link>
+                  ) : (
+                    STATE_TEXT[states.get(project.id) ?? "idle"]
+                  );
+                })()}
+              </span>
+              <span className="flex gap-2">
+                {project.archived ? (
+                  <span className={badge}>Archivé</span>
+                ) : confirming === project.id ? (
+                  <>
+                    <span className="basis-full">
+                      Archiver {project.fullName} ? Il n'y a pas encore de
+                      désarchivage.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => archive.mutate(project.id)}
+                      disabled={archive.isPending}
+                      aria-busy={archive.isPending}
+                      className={dangerButton}
+                    >
+                      Confirmer l'archivage
+                    </button>
+                    <button
+                      type="button"
+                      // The Archiver button is gone: keep the keyboard focus on the safe choice.
+                      // biome-ignore lint/a11y/noAutofocus: focus moves with the confirmation the user just asked for
+                      autoFocus
+                      onClick={() => setConfirming(null)}
+                      className={button}
+                    >
+                      Annuler
+                    </button>
+                  </>
+                ) : (
+                  // The mockup has no slot for it: a quiet button before the row's end; archiving is the owner's (decision 076 A).
+                  atLeast(project.role, "owner") && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(project.id)}
+                      className={ghostButton}
+                    >
+                      Archiver
+                    </button>
+                  )
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {error && <ErrorAlert error={error} />}
     </>
   );

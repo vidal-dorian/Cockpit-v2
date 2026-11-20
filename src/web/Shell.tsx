@@ -361,7 +361,8 @@ function SidebarContent({
             </>
           )}
         </NavLink>
-        <NavLink to="/claude" className={nav} onClick={onNavigate}>
+        {/* end: on /claude/cout only « Coût » is the current page, not « Claude » too. */}
+        <NavLink to="/claude" end className={nav} onClick={onNavigate}>
           Claude
         </NavLink>
         <NavLink to="/claude/cout" className={sub} onClick={onNavigate}>
