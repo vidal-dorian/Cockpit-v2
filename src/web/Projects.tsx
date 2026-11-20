@@ -577,7 +577,7 @@ function ImportDialog({
             <b className="font-semibold text-foreground">
               Cette équipe est entièrement modifiable.
             </b>{" "}
-            Ce n'est qu'un point de départ : dans l'onglet Agents du projet, tu
+            Ce n'est qu'un point de départ : dans l'onglet Claude du projet, tu
             pourras ajouter, retirer ou réordonner ses agents, changer leur
             modèle et leurs consignes, ou passer à un autre niveau.
           </span>

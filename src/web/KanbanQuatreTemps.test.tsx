@@ -189,7 +189,7 @@ describe("slice 9.3: the header and the tabs of a project", () => {
       "Tickets",
       "Conception",
       "Santé",
-      "Agents",
+      "Claude",
       "CI / CD",
       "Historique",
       "Réglages",

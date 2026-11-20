@@ -92,7 +92,7 @@ describe("Project history, the tab (decision 053 I)", () => {
       "Tickets",
       "Conception",
       "Santé",
-      "Agents",
+      "Claude",
       "CI / CD",
       "Historique",
       "Réglages",

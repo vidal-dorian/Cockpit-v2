@@ -102,7 +102,7 @@ const TABS: { tab: ProjectTab; to: string; label: string }[] = [
   { tab: "tickets", to: "/tickets", label: "Tickets" },
   { tab: "conception", to: "/conception", label: "Conception" },
   { tab: "sante", to: "/sante", label: "Santé" },
-  { tab: "agents", to: "/agents", label: "Agents" },
+  { tab: "agents", to: "/agents", label: "Claude" },
   { tab: "ci", to: "/ci", label: "CI / CD" },
   { tab: "historique", to: "/historique", label: "Historique" },
   { tab: "reglages", to: "/reglages", label: "Réglages" },
@@ -127,7 +127,7 @@ const TAB_REST: Record<ProjectTab, string> = {
   reglages: "",
 };
 
-/** The page of a project in six tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
+/** The page of a project in eight tabs (decision 028 G); the health is read whatever the tab, for « Projet introuvable » and the mark of the Santé tab. */
 export function ProjectPage({
   tab,
   view,

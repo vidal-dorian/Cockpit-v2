@@ -69,7 +69,7 @@ describe("decision 045 H and 043 I: the tab Conception", () => {
       expect.stringMatching(/^Tickets/),
       expect.stringMatching(/^Conception/),
       expect.stringMatching(/^Santé/),
-      expect.stringMatching(/^Agents/),
+      expect.stringMatching(/^Claude/),
       expect.stringMatching(/^CI \/ CD/),
       expect.stringMatching(/^Historique/),
       expect.stringMatching(/^Réglages/),
