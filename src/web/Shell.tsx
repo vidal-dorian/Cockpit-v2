@@ -506,18 +506,22 @@ const MENU_ONLY = /^\/(claude|equipes|journal|reglages)(\/|$)/;
 const NO_KEYBOARD_INPUTS =
   /^(checkbox|radio|button|submit|reset|range|color|file|image|hidden)$/;
 
+const PHONE_IDEA_TAB = "phone-idea-tab";
+
 function opensKeyboard(el: EventTarget | null) {
   if (!(el instanceof HTMLElement)) return false;
-  // The idea panel keeps the bar usable (decision 084 B4).
-  if (el.closest("[data-keeps-phone-nav]")) return false;
   if (el instanceof HTMLTextAreaElement) return true;
   if (el instanceof HTMLInputElement) return !NO_KEYBOARD_INPUTS.test(el.type);
   return el.isContentEditable || el.getAttribute("contenteditable") === "true";
 }
 
 /** True while a text field has focus. iOS keeps a fixed bottom bar offset by the keyboard height once the keyboard is gone; not rendering the bar meanwhile makes the browser lay it out again at the real bottom (decision 084 B). */
-function useTextFieldFocus() {
+function useTextFieldFocus(panelOpen: boolean) {
   const [typing, setTyping] = useState(false);
+  // A field removed with the panel may fire no focusout (jsdom does not): look at the focus again once it closes.
+  useEffect(() => {
+    if (!panelOpen) setTyping(opensKeyboard(document.activeElement));
+  }, [panelOpen]);
   useEffect(() => {
     const onIn = (e: FocusEvent) => setTyping(opensKeyboard(e.target));
     // activeElement is unreliable during focusout: the next target is relatedTarget.
@@ -552,7 +556,7 @@ function PhoneNav({
   const idle = !open && !menuOpen;
   const menuPage = MENU_ONLY.test(pathname);
   const closeMenu = () => setMenuOpen(false);
-  const typing = useTextFieldFocus();
+  const typing = useTextFieldFocus(open);
   return (
     <>
       {!typing && (
@@ -575,6 +579,7 @@ function PhoneNav({
           {onIdea && (
             <button
               type="button"
+              id={PHONE_IDEA_TAB}
               aria-expanded={open}
               onClick={(event) => onIdea(event.currentTarget)}
               className={tab({ isActive: open })}
@@ -727,12 +732,20 @@ export function IdeaBar({
     if (open) wasOpen.current = true;
     else if (wasOpen.current) {
       wasOpen.current = false;
-      // The opener is not displayed once the window grew past md.
-      (opener.current?.checkVisibility?.() === false
-        ? input.current
-        : (opener.current ?? input.current)
-      )?.focus();
+      const el = opener.current;
       opener.current = null;
+      // The bar was unmounted while the title had focus, so its Idée tab is a new element once the bar is back.
+      if (el && !el.isConnected) {
+        requestAnimationFrame(() =>
+          document.getElementById(PHONE_IDEA_TAB)?.focus(),
+        );
+        return;
+      }
+      // The opener is not displayed once the window grew past md.
+      (el?.checkVisibility?.() === false
+        ? input.current
+        : (el ?? input.current)
+      )?.focus();
     }
   }, [open]);
 

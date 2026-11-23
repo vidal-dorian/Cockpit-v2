@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -292,6 +293,8 @@ describe("decision 084 B4: the Menu tab in white", () => {
 
     fireEvent.click((await phoneNav()).getByRole("button", { name: /Idée/ }));
     await screen.findByRole("dialog", { name: "Noter une idée" });
+    // The title has focus: the bar is hidden until focus leaves it (084 B4 amended).
+    act(() => (document.activeElement as HTMLElement).blur());
     const menu = await menuTab();
     expect(menu.className).toContain("text-muted-foreground");
     expect(menu.className).not.toContain("text-foreground");
@@ -317,6 +320,7 @@ describe("decision 084 B4: the Menu tab in white", () => {
       target: { value: "mon brouillon" },
     });
 
+    act(() => (document.activeElement as HTMLElement).blur());
     await openMenu();
     expect(screen.queryByRole("dialog", { name: "Noter une idée" })).toBeNull();
 
