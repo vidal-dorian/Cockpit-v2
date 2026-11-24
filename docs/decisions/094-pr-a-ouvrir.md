@@ -17,6 +17,7 @@
 | B — Quand la pull request n'a pas pu être ouverte | La branche est poussée, puis `finish_run` avec `outcome` `pr_to_open`. Le run prend le statut `pr_to_open`, libellé « PR à ouvrir » ; la story reste `in_progress` ; les étapes encore ouvertes sont fermées comme pour un échec |
 | C — Notification | « PR à ouvrir », de type `question` (Claude attend un geste de l'utilisateur, le même interrupteur), avec le `i_want` de la story et le lien du run. Jamais « Échec d'un run » |
 | D — Rattacher la pull request | Quand GitHub annonce une pull request ouverte (`pull_request`, action `opened`) dont la branche est celle d'une story dont le dernier run est `pr_to_open`, Cockpit fait ce que fait `link_pull_request` : la story prend le numéro et passe `in_review`, le run passe `succeeded`, la notification « PR prête à relire » part |
+| F — La nuit et la file de lancement | Pas un échec non plus : le récap du matin compte le run à part, libellé « PR à ouvrir » (une valeur de plus du résultat d'une story de la nuit), et la file de lancement ne se met pas en pause pour lui |
 | E — La pull request n'est jamais ouverte | « Fermer à la main » (033) ferme aussi un run `pr_to_open` ; la story revient à `ready` |
 
 ## Limites

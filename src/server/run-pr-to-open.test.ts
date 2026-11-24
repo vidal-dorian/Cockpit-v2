@@ -44,18 +44,32 @@ const toOpen = async () => {
   return s;
 };
 
-const opened = (s: Ctx, number: number, ref: string, action = "opened") =>
+const REPO = "user1000/app";
+const opened = (
+  s: Ctx,
+  number: number,
+  ref: string,
+  headRepo: { full_name: string } | null = { full_name: REPO },
+) =>
   seedDelivery(s.db, {
     event: "pull_request",
-    action,
+    action: "opened",
     repoId: 1,
     payload: {
-      action,
+      action: "opened",
       number,
-      repository: { id: 1 },
-      pull_request: { number, head: { ref } },
+      repository: { id: 1, full_name: REPO },
+      pull_request: { number, head: { ref, repo: headRepo } },
     },
   });
+
+const unchanged = async (s: Ctx) => {
+  expect(await storyRow(s.db, s.id)).toEqual({
+    status: "in_progress",
+    pr_number: null,
+  });
+  expect((await runRow(s.db, s.runId))?.status).toBe("pr_to_open");
+};
 
 describe("criterion C: finish_run with outcome pr_to_open", () => {
   it("given a running run with an open step, when finish_run is called with pr_to_open, then the run is pr_to_open, the story stays in_progress, the step is closed failed, a question notification « PR à ouvrir » is queued and no run_failed", async () => {
@@ -92,11 +106,22 @@ describe("criterion C: finish_run with outcome pr_to_open", () => {
 describe("criterion D: the opened pull request is linked", () => {
   it("given a story whose latest run is pr_to_open, when a pull_request opened delivery for its branch arrives, then the story has the PR and is in_review, the run succeeded and « PR prête à relire » is queued", async () => {
     const s = await toOpen();
+    s.fetchMock.addPull(REPO, 31, BRANCH);
+    s.fetchMock.setCheckRuns(REPO, "sha-31", [
+      { name: "build", status: "completed", conclusion: "success" },
+    ]);
     const id = await opened(s, 31, BRANCH);
 
     await pass(s.db);
 
     expect((await deliveryRow(s.db, id)).processed_at).not.toBeNull();
+    // The story is then followed like any PR: its CI state is read at once.
+    expect(
+      await all(
+        s.db,
+        sql`select pr_ci_state from user_stories where id = ${s.id}`,
+      ),
+    ).toEqual([{ pr_ci_state: "success" }]);
     expect(await storyRow(s.db, s.id)).toEqual({
       status: "in_review",
       pr_number: 31,
@@ -113,11 +138,25 @@ describe("criterion D: the opened pull request is linked", () => {
 
     await pass(s.db);
 
-    expect(await storyRow(s.db, s.id)).toEqual({
-      status: "in_progress",
-      pr_number: null,
-    });
-    expect((await runRow(s.db, s.runId))?.status).toBe("pr_to_open");
+    await unchanged(s);
+  });
+
+  it("given a pr_to_open run, when a PR opened from a fork with the same branch name arrives, then nothing changes", async () => {
+    const s = await toOpen();
+    await opened(s, 31, BRANCH, { full_name: "forker/app" });
+
+    await pass(s.db);
+
+    await unchanged(s);
+  });
+
+  it("given a pr_to_open run, when a PR opened from a deleted fork (head.repo null) arrives, then nothing changes", async () => {
+    const s = await toOpen();
+    await opened(s, 31, BRANCH, null);
+
+    await pass(s.db);
+
+    await unchanged(s);
   });
 
   it("given a story whose latest run is not pr_to_open, when a PR opened on its branch arrives, then nothing changes", async () => {
