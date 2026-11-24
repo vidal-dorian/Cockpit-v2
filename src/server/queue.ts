@@ -371,6 +371,8 @@ export async function queueAfterRun(
         and(eq(cloudLaunches.runId, runId), eq(cloudLaunches.fromQueue, true)),
       );
     if (!ended) return;
+    // A run left at pr_to_open is no failure: the queue goes on at its next pass.
+    if (ended.status === "pr_to_open") return;
     if (ended.status === "succeeded")
       await launchNext(db, deps, ended.userId, at);
     else await pauseQueue(db, ended.userId, "run_failed", at);

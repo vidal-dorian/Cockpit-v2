@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import {
   all,
   BRANCH,
-  type Ctx,
   finish,
   link,
   running,
@@ -21,7 +20,8 @@ import type { App } from "./test-mcp.ts";
 //   carry run_id, story_id, project_id, user_id, actor human, origin ui;
 // - the tools answer stop_requested (report_step, get_answer) from runs.stop_requested_at.
 
-export type { Ctx };
+/** What `running` gives: the context of a story with its running run. */
+export type Ctx = Awaited<ReturnType<typeof running>>;
 export { all, BRANCH, finish, link, running, startRun, storyRow, tool };
 
 export const PR = 12;

@@ -475,6 +475,8 @@ export const RUN_STATUSES = [
   "closed_manually",
   // The run asked a question at night and stopped to wait for the answer (decision 044 E).
   "paused",
+  // The work is done and pushed, only the pull request is missing (decision 094).
+  "pr_to_open",
 ] as const;
 const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
 
@@ -510,7 +512,7 @@ export const runs = pgTable(
     index("runs_story_idx").on(t.storyId),
     check(
       "runs_status_check",
-      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually', 'paused')`,
+      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually', 'paused', 'pr_to_open')`,
     ),
   ],
 );
@@ -657,13 +659,21 @@ export const nightItems = pgTable(
     // The extra prompt of the night's one CI retry, waiting for the slot (decision 044 F'); null when none is waiting.
     ciRetryComment: text("ci_retry_comment"),
     outcome: text("outcome", {
-      enum: ["pr", "paused", "ci_failed", "failed", "skipped", "not_started"],
+      enum: [
+        "pr",
+        "paused",
+        "pr_to_open",
+        "ci_failed",
+        "failed",
+        "skipped",
+        "not_started",
+      ],
     }),
   },
   (t) => [
     check(
       "night_items_outcome_check",
-      sql`${t.outcome} in ('pr', 'paused', 'ci_failed', 'failed', 'skipped', 'not_started')`,
+      sql`${t.outcome} in ('pr', 'paused', 'pr_to_open', 'ci_failed', 'failed', 'skipped', 'not_started')`,
     ),
   ],
 );

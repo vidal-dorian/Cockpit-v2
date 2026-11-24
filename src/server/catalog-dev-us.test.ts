@@ -88,6 +88,32 @@ describe("slice 9.5 (decision 069 F): the steps and the context", () => {
   });
 });
 
+describe("decision 094: a pull request that cannot be opened is no failure", () => {
+  const text = readFileSync(SKILL, "utf8");
+  const finish = text.slice(
+    text.indexOf("## Finish"),
+    text.indexOf("## Never"),
+  );
+
+  it("given the skill dev-us, when it opens the pull request, then it names create_pull_request and list_issues as fallbacks and never claims the user's permission", () => {
+    expect(finish).toContain("create_pull_request");
+    expect(finish).toContain("list_issues");
+    expect(text).not.toMatch(/explicit(ly)? request/i);
+    expect(text).not.toMatch(/permission/i);
+  });
+
+  it("given the skill dev-us, when the pull request could not be opened, then it pushes the branch and finishes the run pr_to_open, not failed", () => {
+    expect(finish).toMatch(/pr_to_open/);
+    const fallback = finish.slice(finish.indexOf("pr_to_open") - 400);
+    expect(fallback).toMatch(/push/i);
+    expect(fallback).toMatch(
+      /finish_run[^.]*pr_to_open|pr_to_open[^.]*finish_run/,
+    );
+    expect(text).toMatch(/could not be opened|cannot be opened|refuses/i);
+    expect(finish).not.toMatch(/finish_run[^.]*`failed`[^.]*pull request/i);
+  });
+});
+
 describe("slice E6 (decision 079 B): groups and limits in /dev-us", () => {
   const text = readFileSync(SKILL, "utf8");
   const develop = text.slice(

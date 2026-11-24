@@ -37,6 +37,13 @@ const GROUPS = [
     bar: "bg-you",
   },
   {
+    name: "PR à ouvrir",
+    count: (n: number) => `${n} à ouvrir`,
+    outcomes: ["pr_to_open"],
+    tone: "you",
+    bar: "bg-you",
+  },
+  {
     name: "En échec",
     count: (n: number) => `${n} en échec`,
     outcomes: ["failed", "ci_failed"],

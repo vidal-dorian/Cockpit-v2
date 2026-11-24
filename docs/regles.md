@@ -22,6 +22,8 @@
 - **Les secrets de la GitHub App sont chiffrés en base**, avec une clé hors de la base et de ses sauvegardes ([012](decisions/012-configuration-automatique.md)).
 - **Aucune donnée personnelle en clair dans l'historique** ([004](decisions/004-outils-mcp.md), [008](decisions/008-service-en-ligne.md)).
 - **Aucun jeton GitHub d'utilisateur n'est gardé** : la session est un cookie dont seule l'empreinte est en base ([009](decisions/009-connexion-github.md)).
+- **Un run dont seule la PR manque n'est pas un échec** : `/dev-us` pousse puis `finish_run` `pr_to_open` (statut « PR à ouvrir », story `in_progress`, notification de type `question`, jamais « Échec d'un run ») ; la nuit et la file de lancement ne le comptent ni en échec ni en livré ([094](decisions/094-pr-a-ouvrir.md)).
+- **Une PR ouverte sur la branche d'un run `pr_to_open` est rattachée par le webhook** `pull_request` `opened`, du même dépôt seulement ; « Fermer le run » ferme un run `pr_to_open` sans mettre la file en pause ([094](decisions/094-pr-a-ouvrir.md)).
 - **Les erreurs se voient** : à l'écran avec « Réessayer » ; le serveur refuse de partir sans `DATABASE_URL` ([003](decisions/003-interface.md), [008](decisions/008-service-en-ligne.md), [012](decisions/012-configuration-automatique.md)).
 - **La télémétrie est facultative** : rien ne part sans `POSTHOG_KEY` ([083](decisions/083-telemetrie-posthog.md)).
 

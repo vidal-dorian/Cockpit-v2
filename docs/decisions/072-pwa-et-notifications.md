@@ -5,6 +5,7 @@
 - **Décidé par** : Dorian, avec Claude ([064](064-tranches-restantes.md) 15.2 A, B et C)
 - **Dépend de** : [012 — Configuration automatique](012-configuration-automatique.md) (les secrets chiffrés), [036 — Questions de Claude](036-questions-de-claude.md), [044 — La nuit de Claude](044-la-nuit-de-claude.md) (M', le récap), [059 — Relance automatique](059-relance-automatique.md), [060 — Coût et budget](060-cout-et-budget.md), [071 — Les trois gestes au téléphone](071-trois-gestes-au-telephone.md)
 - **Modifiée par 073** : l'onglet Préférences reçoit aussi les cartes « Thème » et « Raccourcis clavier » — voir la [073](073-ergonomie.md)
+- **Modifiée par** : [094 — PR à ouvrir](094-pr-a-ouvrir.md) : une notification « PR à ouvrir » de type `question` (094 C)
 - **Tranche** : 15.2 du [découpage](../decoupage.md)
 - **Écrans** : [S47](../ecrans/S47_Reglages_Preferences.png) (la carte « Notifications sur le téléphone »), [N3](../ecrans/N3_Nuit_Telephone.png), [S56](../ecrans/S56_Erreurs.png) (« Cockpit ne répond plus »)
 

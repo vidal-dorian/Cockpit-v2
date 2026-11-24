@@ -296,7 +296,9 @@ export async function nightAfterRun(
             ? "pr"
             : ended.status === "paused"
               ? "paused"
-              : "failed",
+              : ended.status === "pr_to_open"
+                ? "pr_to_open"
+                : "failed",
       })
       .where(eq(nightItems.id, ended.itemId));
     await advance(db, deps, ended.night, at);

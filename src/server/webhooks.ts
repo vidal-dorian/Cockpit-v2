@@ -20,6 +20,7 @@ import { renderStory } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
 import type { LiveFire } from "./routines.ts";
+import { linkOpenedPullRequest } from "./runs.ts";
 import { memberStory, storyParts } from "./stories.ts";
 
 // GitHub's own limit on a delivery; the 256 KiB of the other /api/* routes does not apply here (decision 024 A).
@@ -40,7 +41,11 @@ const idIn = (value: unknown) => idOf.safeParse(value).data?.id ?? null;
 async function projectOfRepo(db: Db | Tx, repoId: number | null) {
   if (repoId === null) return undefined;
   const [project] = await db
-    .select({ id: projects.id, userId: projectMembers.userId })
+    .select({
+      id: projects.id,
+      fullName: projects.fullName,
+      userId: projectMembers.userId,
+    })
     .from(projects)
     .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
     // The owner: the entries of a delivery are his, whoever else is a member (decision 076).
@@ -144,6 +149,17 @@ const pullNumbers = z.object({
     .optional(),
 });
 
+const openedHead = z.object({
+  pull_request: z.object({
+    number: z.number(),
+    // null: the fork was deleted.
+    head: z.object({
+      ref: z.string(),
+      repo: z.object({ full_name: z.string() }).nullable(),
+    }),
+  }),
+});
+
 /** A delivery that concerns pull requests (decision 038 C): it only says which ones to read again; the story of each is followed as GitHub shows its PR now. A payload without a PR number, or a PR no live story has, is nothing to do. */
 async function handlePullRequest(
   db: Db,
@@ -160,6 +176,22 @@ async function handlePullRequest(
     : [];
   const project = await projectOfRepo(db, delivery.repoId);
   if (!project) return;
+  const head = openedHead.safeParse(delivery.payload);
+  const { pull_request: opened } = head.data ?? {};
+  // The run is linked first; the loop below then follows the PR now on the story.
+  if (
+    delivery.event === "pull_request" &&
+    delivery.action === "opened" &&
+    opened
+  )
+    await linkOpenedPullRequest(
+      db,
+      readGitHub,
+      project,
+      opened.head.ref,
+      opened.head.repo?.full_name,
+      opened.number,
+    );
   for (const number of numbers) {
     const [story] = await db
       .select({ id: userStories.id })
