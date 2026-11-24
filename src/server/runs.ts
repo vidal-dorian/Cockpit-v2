@@ -294,47 +294,108 @@ export async function linkPullRequest(
     return refusal("pr_wrong_branch");
   await act(db, entry, async (tx) => {
     await lockRunning(tx, project.id, args.run_id);
-    const changed = await tx
-      .update(userStories)
-      .set({
-        prNumber: args.pr_number,
-        status: "in_review",
-        // Another PR: what was read of the previous one is stale.
-        ...(story.prNumber !== args.pr_number && {
-          prCiState: null,
-          prReviewState: null,
-          prAppFiles: null,
-          prAppFilesCount: null,
-        }),
-        updatedAt: sql`now()`,
-      })
-      .where(
-        and(
-          eq(userStories.id, story.id),
-          eq(userStories.status, "in_progress"),
-        ),
-      )
-      .returning({ id: userStories.id });
-    if (changed.length === 0) throw new Refused("wrong_status");
-    await notify(tx, project.id, {
-      type: "pr_ready",
-      title: "PR prête à relire",
-      body: story.iWant,
-      url: "/",
-    });
+    await attachPullRequest(tx, project.id, story, args.pr_number);
   });
   await syncIssue(db, readGitHub, userId, story.id);
   await announce(db, found, args.run_id);
   return { pr_number: args.pr_number, story_status: "in_review" as const };
 }
 
-/** Ends a locked running run (decisions 033 D and 037 B, C): open steps close failed, and a story still in_progress goes back to in_review when it has a PR, else to ready. True when the story moved. */
-export async function endRun(
+/** The story takes the PR and goes in_review, and the members are told (decision 035 C); shared with the webhook of decision 094 D. */
+async function attachPullRequest(
+  tx: Tx,
+  projectId: number,
+  story: { id: number; prNumber: number | null; iWant: string },
+  prNumber: number,
+) {
+  const changed = await tx
+    .update(userStories)
+    .set({
+      prNumber,
+      status: "in_review",
+      // Another PR: what was read of the previous one is stale.
+      ...(story.prNumber !== prNumber && {
+        prCiState: null,
+        prReviewState: null,
+        prAppFiles: null,
+        prAppFilesCount: null,
+      }),
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(eq(userStories.id, story.id), eq(userStories.status, "in_progress")),
+    )
+    .returning({ id: userStories.id });
+  if (changed.length === 0) throw new Refused("wrong_status");
+  await notify(tx, projectId, {
+    type: "pr_ready",
+    title: "PR prête à relire",
+    body: story.iWant,
+    url: "/",
+  });
+}
+
+/** Decision 094 D: a PR opened on the branch of a story whose latest run is `pr_to_open` is linked as `link_pull_request` would, and the run succeeds. Nothing happens for any other branch or run (false). */
+export async function linkOpenedPullRequest(
+  db: Db,
+  readGitHub: ReadGitHub,
+  project: { id: number; userId: number },
+  branch: string,
+  prNumber: number,
+) {
+  const [row] = await db
+    .select({ storyId: userStories.id, runId: runs.id })
+    .from(userStories)
+    .innerJoin(tickets, eq(tickets.id, userStories.ticketId))
+    .innerJoin(runs, eq(runs.storyId, userStories.id))
+    .where(
+      and(
+        eq(tickets.projectId, project.id),
+        eq(userStories.branch, branch),
+        eq(userStories.status, "in_progress"),
+        eq(runs.status, "pr_to_open"),
+        // The latest run of the story.
+        sql`${runs.id} = (select max(id) from runs where story_id = ${userStories.id})`,
+      ),
+    );
+  const found = row && (await memberStory(db, project.userId, row.storyId));
+  if (!row || !found) return false;
+  const entry: Entry = {
+    userId: project.userId,
+    actor: "github",
+    origin: "webhook",
+    action: "link_pull_request",
+    args: { runId: row.runId, prNumber },
+    projectId: project.id,
+    ticketId: found.ticket.id,
+    storyId: found.story.id,
+    runId: row.runId,
+  };
+  try {
+    await act(db, entry, async (tx) => {
+      await lockRunning(tx, project.id, row.runId, ["pr_to_open"]);
+      await attachPullRequest(tx, project.id, found.story, prNumber);
+      await tx
+        .update(runs)
+        .set({ status: "succeeded", finishedAt: sql`now()` })
+        .where(eq(runs.id, row.runId));
+    });
+  } catch (error) {
+    // The run or the story moved meanwhile (a manual close): nothing to link.
+    if (!(error instanceof Refused)) throw error;
+    return false;
+  }
+  await syncIssue(db, readGitHub, project.userId, found.story.id);
+  await announce(db, found, row.runId);
+  return true;
+}
+
+/** Closes the open steps as failed and gives the run its end status, the story left as it is. */
+const closeRun = async (
   tx: Tx,
   runId: number,
-  storyId: number,
   run: Pick<typeof runs.$inferInsert, "status" | "summary">,
-) {
+) => {
   await tx
     .update(runSteps)
     .set({ status: "failed", finishedAt: sql`now()` })
@@ -343,6 +404,16 @@ export async function endRun(
     .update(runs)
     .set({ ...run, finishedAt: sql`now()` })
     .where(eq(runs.id, runId));
+};
+
+/** Ends a locked running run (decisions 033 D and 037 B, C): open steps close failed, and a story still in_progress goes back to in_review when it has a PR, else to ready. True when the story moved. */
+export async function endRun(
+  tx: Tx,
+  runId: number,
+  storyId: number,
+  run: Pick<typeof runs.$inferInsert, "status" | "summary">,
+) {
+  await closeRun(tx, runId, run);
   const changed = await tx
     .update(userStories)
     .set({
@@ -379,7 +450,7 @@ export async function finishRun(
   entry: Entry,
   args: {
     run_id: number;
-    outcome: "succeeded" | "failed" | "paused";
+    outcome: "succeeded" | "failed" | "paused" | "pr_to_open";
     summary: string;
   },
 ) {
@@ -397,6 +468,17 @@ export async function finishRun(
       args.outcome === "failed" && run.stopRequestedAt
         ? "stopped"
         : args.outcome;
+    if (status === "pr_to_open") {
+      // Decision 094: the work is done and waits for a PR; the story stays in_progress, and the question is the user's to answer.
+      await closeRun(tx, args.run_id, { status, summary: args.summary });
+      await notify(tx, found.project.id, {
+        type: "question",
+        title: "PR à ouvrir",
+        body: found.story.iWant,
+        url: `/runs/${args.run_id}`,
+      });
+      return { moved: false, status };
+    }
     const moved = await endRun(tx, args.run_id, found.story.id, {
       status,
       summary: args.summary,
@@ -481,7 +563,13 @@ export function runRoutes(
           db,
           entry,
           async (tx) => {
-            const locked = await lockRunning(tx, found.project.id, id);
+            const locked = await lockRunning(
+              tx,
+              found.project.id,
+              id,
+              // A run waiting for its PR can be closed by hand (decision 094 E), not stopped.
+              action === "close_run" ? ["running", "pr_to_open"] : undefined,
+            );
             if (action === "request_stop") {
               if (locked.stopRequestedAt)
                 throw new Refused("stop_already_requested");

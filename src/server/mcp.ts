@@ -1023,10 +1023,10 @@ const tools = {
   ),
 
   finish_run: tool(
-    "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure, paused when a night run (--night) asked a question with ask_user and pushed what is done: the user answers later and the story is relaunched. Steps still open are closed as failed; a story still in_progress becomes ready again (in_review when a pull request is linked); after a stop request, failed is recorded as stopped. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
+    "Finish the run: succeeded once the pull request is open and linked with link_pull_request, failed when you stop on a failure, paused when a night run (--night) asked a question with ask_user and pushed what is done: the user answers later and the story is relaunched, pr_to_open when the work is done and pushed but the pull request could not be opened (the user opens it from the branch on GitHub and Cockpit links it; the story stays in_progress). Steps still open are closed as failed; a story still in_progress becomes ready again (in_review when a pull request is linked); after a stop request, failed is recorded as stopped. Send a summary of what was done or why it stopped (1 to 10,000 characters). Refused when the run is already finished, or when succeeded is sent with no pull request linked.",
     z.object({
       run_id: id.describe("The run_id of start_run"),
-      outcome: z.enum(["succeeded", "failed", "paused"]),
+      outcome: z.enum(["succeeded", "failed", "paused", "pr_to_open"]),
       summary: z.string().min(1).max(10_000).refine(noNul),
     }),
     async (call, args) => {

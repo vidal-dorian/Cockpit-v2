@@ -18,6 +18,7 @@ export const RUN_STATUSES: Record<string, string> = {
   failed: "Échoué",
   stopped: "Arrêté",
   closed_manually: "Fermé à la main",
+  pr_to_open: "PR à ouvrir",
   paused: "En pause : attend ta réponse",
 };
 

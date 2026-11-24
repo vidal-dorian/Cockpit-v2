@@ -309,7 +309,7 @@ export function dataRoutes(db: Db, key: Buffer) {
           .where(
             and(
               eq(runs.userId, u),
-              inArray(runs.status, ["running", "paused"]),
+              inArray(runs.status, ["running", "paused", "pr_to_open"]),
             ),
           )
           // A finish_run committing meanwhile is waited for, then filtered out, instead of being overwritten.

@@ -20,6 +20,7 @@ import { renderStory } from "./issues.ts";
 import { followPullRequest } from "./pr-follow.ts";
 import { NOT_CONFIGURED } from "./projects.ts";
 import type { LiveFire } from "./routines.ts";
+import { linkOpenedPullRequest } from "./runs.ts";
 import { memberStory, storyParts } from "./stories.ts";
 
 // GitHub's own limit on a delivery; the 256 KiB of the other /api/* routes does not apply here (decision 024 A).
@@ -144,6 +145,13 @@ const pullNumbers = z.object({
     .optional(),
 });
 
+const openedHead = z.object({
+  pull_request: z.object({
+    number: z.number(),
+    head: z.object({ ref: z.string() }),
+  }),
+});
+
 /** A delivery that concerns pull requests (decision 038 C): it only says which ones to read again; the story of each is followed as GitHub shows its PR now. A payload without a PR number, or a PR no live story has, is nothing to do. */
 async function handlePullRequest(
   db: Db,
@@ -160,6 +168,22 @@ async function handlePullRequest(
     : [];
   const project = await projectOfRepo(db, delivery.repoId);
   if (!project) return;
+  const head = openedHead.safeParse(delivery.payload);
+  const { pull_request: opened } = head.data ?? {};
+  // The story is linked as it is on GitHub now: nothing more to read.
+  if (
+    delivery.event === "pull_request" &&
+    delivery.action === "opened" &&
+    opened &&
+    (await linkOpenedPullRequest(
+      db,
+      readGitHub,
+      project,
+      opened.head.ref,
+      opened.number,
+    ))
+  )
+    return;
   for (const number of numbers) {
     const [story] = await db
       .select({ id: userStories.id })

@@ -475,6 +475,8 @@ export const RUN_STATUSES = [
   "closed_manually",
   // The run asked a question at night and stopped to wait for the answer (decision 044 E).
   "paused",
+  // The work is done and pushed, only the pull request is missing (decision 094).
+  "pr_to_open",
 ] as const;
 const STEP_STATUSES = ["running", "succeeded", "failed"] as const;
 
@@ -510,7 +512,7 @@ export const runs = pgTable(
     index("runs_story_idx").on(t.storyId),
     check(
       "runs_status_check",
-      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually', 'paused')`,
+      sql`${t.status} in ('running', 'succeeded', 'failed', 'stopped', 'closed_manually', 'paused', 'pr_to_open')`,
     ),
   ],
 );
