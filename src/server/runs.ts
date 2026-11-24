@@ -8,6 +8,7 @@ import {
   acceptanceCriteria,
   cloudLaunches,
   history,
+  nightItems,
   projects,
   questions,
   runSteps,
@@ -382,6 +383,16 @@ export async function linkOpenedPullRequest(
         .update(runs)
         .set({ status: "succeeded", finishedAt: sql`now()` })
         .where(eq(runs.id, row.runId));
+      // The night item of the run counts as delivered, as nightAfterRun does for a succeeded run (no deps here to let the night go on: its next pass does).
+      await tx
+        .update(nightItems)
+        .set({ outcome: "pr" })
+        .where(
+          eq(
+            nightItems.id,
+            sql`(select night_item_id from cloud_launches where run_id = ${row.runId})`,
+          ),
+        );
     });
   } catch (error) {
     // The run or the story moved meanwhile (a manual close): nothing to link.
@@ -562,7 +573,7 @@ export function runRoutes(
         runId: id,
       };
       try {
-        const { moved, stopRequestedAt, status } = await act(
+        const { moved, stopRequestedAt, status, wasRunning } = await act(
           db,
           entry,
           async (tx) => {
@@ -585,6 +596,7 @@ export function runRoutes(
                 moved: false,
                 stopRequestedAt: row?.at ?? null,
                 status: locked.status,
+                wasRunning: false,
               };
             }
             const moved = await endRun(tx, id, found.story.id, {
@@ -594,12 +606,14 @@ export function runRoutes(
               moved,
               stopRequestedAt: locked.stopRequestedAt,
               status: "closed_manually" as const,
+              wasRunning: locked.status === "running",
             };
           },
         );
         if (moved) await syncIssue(db, readGitHub, user.userId, found.story.id);
         await announce(db, found, id);
-        if (action === "close_run")
+        // A pr_to_open run already went through the after-run hooks when it ended.
+        if (action === "close_run" && wasRunning)
           await queueAfterRun(db, deps, id, new Date(now()));
         return c.json({ run: { id, status, stopRequestedAt } });
       } catch (error) {
