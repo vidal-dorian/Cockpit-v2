@@ -30,13 +30,15 @@ const AGENT = ".claude/agents/cartographer.md";
 const REPO = "user1000/app";
 
 describe("decision 043 M: the files of the catalogue", () => {
-  it("given the catalogue, when the agent cartographer is read, then it has a front matter with name: cartographer, a description, tools and model: opus", () => {
+  it("given the catalogue, when the agent cartographer is read, then it has a front matter with name: cartographer, a description, no tools allowlist but Edit and Write denied, and model: opus", () => {
     const front = frontMatter(read("catalog/agents/cartographer.md"));
 
     expect(front, "a YAML front matter at the top").not.toBe("");
     expect(front).toMatch(/^name:\s*cartographer\s*$/m);
     expect(front).toMatch(/^description:\s*\S/m);
-    expect(front).toMatch(/^tools:\s*\S/m);
+    // Cockpit may be the `cockpit` server or a claude.ai connector named otherwise: no allowlist, only the writing tools denied.
+    expect(front).not.toMatch(/^tools:/m);
+    expect(front).toMatch(/^disallowedTools:.*\bEdit\b.*\bWrite\b/m);
     expect(front).toMatch(/^model:\s*opus\s*$/m);
   });
 
@@ -73,6 +75,29 @@ describe("decision 043 M: the files of the catalogue", () => {
     expect(text).not.toMatch(
       /cockpit-v2|docs\/decisions|docs\/decoupage|decisions? 0\d\d/i,
     );
+  });
+});
+
+describe("the analysis runs with a claude.ai connector and untracked files", () => {
+  it("given the skill and the analysis agents, when they are read, then the skill accepts Cockpit's tools under a connector's name and only tracked changes stop the analysis", () => {
+    const skill = read("catalog/skills/analyser/SKILL.md");
+
+    expect(skill).toMatch(/claude\.ai connector/);
+    expect(skill).not.toMatch(/the `cockpit` MCP server is not connected/);
+    for (const name of [
+      "cartographer",
+      "rules-analyst",
+      "bug-hunter",
+      "security-reviewer",
+      "architect",
+      "upgrade-advisor",
+    ]) {
+      const text = read(`catalog/agents/${name}.md`);
+      expect(text, name).toContain(
+        "git status --porcelain --untracked-files=no",
+      );
+    }
+    expect(skill).toContain("git status --porcelain --untracked-files=no");
   });
 });
 

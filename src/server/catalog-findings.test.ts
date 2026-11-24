@@ -43,15 +43,16 @@ const SKILL = ".claude/skills/analyser/SKILL.md";
 
 describe("decision 051 K: the agents of the findings", () => {
   it.each(AGENTS)(
-    "given the catalogue, when the agent $name is read, then it has a front matter with that name, a description, tools naming submit_findings and list_findings, and model: $model",
+    "given the catalogue, when the agent $name is read, then it has a front matter with that name, a description, no tools allowlist but Edit and Write denied, and model: $model",
     ({ name, model }) => {
       const front = frontMatter(read(`catalog/agents/${name}.md`));
 
       expect(front, "a YAML front matter at the top").not.toBe("");
       expect(front).toMatch(new RegExp(`^name:\\s*${name}\\s*$`, "m"));
       expect(front).toMatch(/^description:\s*\S/m);
-      expect(front).toMatch(/^tools:\s*.*mcp__cockpit__submit_findings/m);
-      expect(front).toMatch(/^tools:\s*.*mcp__cockpit__list_findings/m);
+      // Cockpit may be the `cockpit` server or a claude.ai connector named otherwise: no allowlist, only the writing tools denied.
+      expect(front).not.toMatch(/^tools:/m);
+      expect(front).toMatch(/^disallowedTools:.*\bEdit\b.*\bWrite\b/m);
       expect(front).toMatch(new RegExp(`^model:\\s*${model}\\s*$`, "m"));
     },
   );

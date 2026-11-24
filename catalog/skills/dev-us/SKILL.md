@@ -7,7 +7,7 @@ description: Develop one user story of Cockpit from start to pull request. Use w
 
 The message is `/dev-us <story_id> [--branch <name>] [--team <name>] [--launch <id>] [--night]`, then an optional extra prompt that you follow too. You build the story on its own branch, with the agents of the repository, and open a pull request. You never merge it.
 
-The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, the `cockpit` MCP server is not connected: tell the user and stop.
+The Cockpit tools are named `mcp__cockpit__<tool>`. When Cockpit is a claude.ai connector, Claude Code names them after the connector instead (for example `mcp__claude_ai_Cockpit__<tool>`): use those the same way. Only if no connected server has Cockpit's tools (`get_user_story`, `start_run`…), tell the user that Cockpit is not connected, and stop.
 
 ## Before you start
 

@@ -35,14 +35,15 @@ const AGENT = "catalog/agents/upgrade-advisor.md";
 const PATH = ".claude/agents/upgrade-advisor.md";
 
 describe("decision 052 K: the agent upgrade-advisor", () => {
-  it("given the catalogue, when the agent is read, then it has a front matter with name, a description, the two tools of the findings and model: sonnet", () => {
+  it("given the catalogue, when the agent is read, then it has a front matter with name, a description, no tools allowlist but Edit and Write denied, and model: sonnet", () => {
     const front = frontMatter(read(AGENT));
 
     expect(front, "a YAML front matter at the top").not.toBe("");
     expect(front).toMatch(/^name:\s*upgrade-advisor\s*$/m);
     expect(front).toMatch(/^description:\s*\S/m);
-    expect(front).toMatch(/^tools:\s*.*mcp__cockpit__submit_findings/m);
-    expect(front).toMatch(/^tools:\s*.*mcp__cockpit__list_findings/m);
+    // Cockpit may be the `cockpit` server or a claude.ai connector named otherwise: no allowlist, only the writing tools denied.
+    expect(front).not.toMatch(/^tools:/m);
+    expect(front).toMatch(/^disallowedTools:.*\bEdit\b.*\bWrite\b/m);
     expect(front).toMatch(/^model:\s*sonnet\s*$/m);
   });
 
