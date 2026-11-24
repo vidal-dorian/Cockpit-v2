@@ -9,6 +9,7 @@ Un seul nom par notion dans l'interface (décision 093). Le brief (§4 Vocabulai
 | Les règles métier d'une US de reprise (onglet Conception) | **Règles** | écran de reprise | Les liens disent « l'onglet Règles » |
 | La trace globale, tous projets | **Journal** | Historique | Page `/journal`, filtrable |
 | La trace d'un seul projet | **Historique** | Journal | Onglet du projet. Sa première puce « Journal » est la vue du Journal filtrée sur ce projet (062). Deux écrans, deux noms |
+| Un run dont le code est fait et la branche poussée, mais dont la pull request n'a pas pu être ouverte | **PR à ouvrir** | échec, « Échec d'un run » | Statut du run (`pr_to_open`), résultat d'une US de la nuit, groupe de la page du matin et notification de type question. La story reste « en cours » ; la PR ouverte ensuite sur la branche est rattachée d'elle-même (094) |
 | Une tâche planifiée sur claude.ai, que Cockpit crée dans le compte de l'utilisateur | **Tâche cloud** | | Réglages › « Tâches cloud » (054 A). Ex. : Écrire les US, le Lanceur Cockpit. Les runs sur ce PC passent par Claude Desktop, pas par une tâche cloud |
 | La tâche cloud unique qui lance tout ce que Cockpit exécute dans le cloud (runs, routines, file, nuit) | **Lanceur** | | Le « Lanceur Cockpit » (054 A), créé une fois sur claude.ai. C'est une tâche cloud parmi d'autres, pas un synonyme |
 | Un travail que Claude refait régulièrement, défini dans Cockpit | **Routine** | | Une routine est lancée par le Lanceur |
