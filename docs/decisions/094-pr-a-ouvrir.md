@@ -4,7 +4,7 @@
 - **Date** : 2026-11-24
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [033 — Run minimal](033-run-minimal.md) ; [044 — La nuit de Claude](044-la-nuit-de-claude.md) ; [072 — PWA et notifications](072-pwa-et-notifications.md) ; [037 — Arrêter, relancer, fermer](037-arreter-relancer-fermer.md) ; [058 — La file d'attente](058-file-d-attente.md)
-- **Modifie** : la 033 (D, `finish_run` gagne `pr_to_open`), la 037 (la fermeture à la main), la 044 (le résultat d'une US de la nuit), la 058 (la pause d'office) et la 072 (une notification de plus)
+- **Modifie** : la 033 (D, `finish_run` gagne `pr_to_open`), la 037 (la fermeture à la main), la 044 (le résultat d'une US de la nuit), la 058 (la pause d'office), la 072 (une notification de plus) et la 078 (la suppression de compte clôt aussi ce run)
 
 ## Le problème
 

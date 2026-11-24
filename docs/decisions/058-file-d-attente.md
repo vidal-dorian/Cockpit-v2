@@ -4,7 +4,7 @@
 - **Date** : 2026-11-08
 - **Décidé par** : Dorian, avec Claude
 - **Dépend de** : [054 — Lancer dans le cloud](054-lancer-dans-le-cloud.md) (le lanceur, `launchCloud`), [056 — Les routines](056-routines.md) (la passe de chaque minute), [033](033-run-minimal.md) et [037](037-arreter-relancer-fermer.md) (fin et fermeture d'un run), [040 — L'accueil](040-accueil.md)
-- **Modifiée par** : [094 — PR à ouvrir](094-pr-a-ouvrir.md) : un run `pr_to_open` ne met pas la file en pause (F)
+- **Modifiée par** : [094 — PR à ouvrir](094-pr-a-ouvrir.md) : un run `pr_to_open` ne met pas la file en pause (094 F)
 - **Tranche** : 14.3 du [découpage](../decoupage.md)
 - **Écrans** : [S28](../ecrans/S28_Claude_Runs.png)
 

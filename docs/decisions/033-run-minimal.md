@@ -6,7 +6,7 @@
 - **Dépend de** : [002 — Modèle de données](002-modele-donnees.md) (runs), [004 — Outils MCP](004-outils-mcp.md) (Développer), [001 — Stack](001-stack.md) (SSE minimal), [016 — Le serveur MCP](016-serveur-mcp.md), [029 — Équipe d'agents](029-equipe-d-agents.md) (B : nom d'agent)
 - **Modifie** : la [004](004-outils-mcp.md), le temps des tranches 7.1 et 7.2 seulement (D : `finish_run` accepte `succeeded` sans PR, faute de pouvoir en lier une) et sur la réponse de `start_run` (B : l'US réduite)
 - **Modifiée par** : [069](069-finitions.md) : `start_run` reçoit `steps`, les étapes prévues du run (choix A)
-- **Modifiée par** : [094 — PR à ouvrir](094-pr-a-ouvrir.md) : `finish_run` accepte `pr_to_open`, un run dont seule la PR manque
+- **Modifiée par** : [094 — PR à ouvrir](094-pr-a-ouvrir.md) : `finish_run` accepte `pr_to_open` (094 B), un run dont seule la PR manque
 - **Modifiée par** : [035 — Critères et PR](035-criteres-et-pr.md) (fin de l'écart D)
 - **Tranche** : 7.1 du [découpage](../decoupage.md)
 
