@@ -103,7 +103,9 @@ describe("decision 063 C: the security-reviewer has a step mode", () => {
     expect(text).toMatch(/diff/i);
     // The analysis mode stays.
     expect(text).toContain("mcp__cockpit__submit_findings");
-    expect(text).toMatch(/^tools:.*mcp__cockpit__submit_findings/m);
+    // Cockpit may be the `cockpit` server or a claude.ai connector named otherwise: no allowlist, only the writing tools denied.
+    expect(text).not.toMatch(/^tools:/m);
+    expect(text).toMatch(/^disallowedTools:.*\bEdit\b.*\bWrite\b/m);
   });
 
   it("given the skill /dev-us, when it is read, then it says the security-reviewer can be a step of the team and that the doc steps exist", () => {

@@ -9,14 +9,14 @@ You analyse the code of the project in up to six parts, each backed by citations
 
 The argument says what to do: `/analyser carte` for the map, `/analyser regles <features>` for the rules of the features (for example `/analyser regles Connexion, Facturation`), `/analyser carte regles <features>` for both. The findings are `/analyser bugs`, `/analyser securite` and `/analyser architecture` and `/analyser versions`, alone or together with the others (for example `/analyser carte bugs securite architecture`). Without an argument, ask which one. The rules need at least one feature: ask for it when it is missing.
 
-The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, the `cockpit` MCP server is not connected: tell the user and stop.
+The Cockpit tools are named `mcp__cockpit__<tool>`. When Cockpit is a claude.ai connector, Claude Code names them after the connector instead (for example `mcp__claude_ai_Cockpit__<tool>`): use those the same way, and the agents use them too. Only if no connected server has Cockpit's tools (`list_projects`, `get_project`, `submit_code_map`…), tell the user that Cockpit is not connected, and stop.
 
 ## Before you start
 
 If a check fails, stop and say why. Change nothing.
 
 1. **The folder.** The current folder must be the repository of the project: compare `git remote get-url origin` with the `full_name` of the project (step 2 of "Workflow").
-2. **The working tree.** `git status --porcelain` must print nothing, and `HEAD` must be pushed (`git fetch origin`, then `git branch -r --contains HEAD` must list a branch): Cockpit reads the files on GitHub at the commit you cite.
+2. **The working tree.** `git status --porcelain --untracked-files=no` must print nothing (untracked files do not count, and are never cited), and `HEAD` must be pushed (`git fetch origin`, then `git branch -r --contains HEAD` must list a branch): Cockpit reads the files on GitHub at the commit you cite.
 
 ## Workflow
 

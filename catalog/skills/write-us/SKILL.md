@@ -7,7 +7,7 @@ description: Turn the raw ideas (tickets) noted in Cockpit into small, testable 
 
 A ticket is a raw idea. Your job is to split it into user stories that the user will validate in Cockpit. You write them; you never validate them.
 
-The Cockpit tools are named `mcp__cockpit__<tool>`. If they are not available, the `cockpit` MCP server is not connected: tell the user and stop.
+The Cockpit tools are named `mcp__cockpit__<tool>`. When Cockpit is a claude.ai connector, Claude Code names them after the connector instead (for example `mcp__claude_ai_Cockpit__<tool>`): use those the same way. Only if no connected server has Cockpit's tools (`list_tickets_needing_us`, `create_user_stories`…), tell the user that Cockpit is not connected, and stop.
 
 ## Workflow
 

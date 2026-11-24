@@ -31,13 +31,15 @@ const AGENT = ".claude/agents/rules-analyst.md";
 const REPO = "user1000/app";
 
 describe("decision 047 M: the files of the catalogue", () => {
-  it("given the catalogue, when the agent rules-analyst is read, then it has a front matter with name: rules-analyst, a description, tools naming create_takeover_stories and model: opus", () => {
+  it("given the catalogue, when the agent rules-analyst is read, then it has a front matter with name: rules-analyst, a description, no tools allowlist but Edit and Write denied, and model: opus", () => {
     const front = frontMatter(read("catalog/agents/rules-analyst.md"));
 
     expect(front, "a YAML front matter at the top").not.toBe("");
     expect(front).toMatch(/^name:\s*rules-analyst\s*$/m);
     expect(front).toMatch(/^description:\s*\S/m);
-    expect(front).toMatch(/^tools:\s*.*mcp__cockpit__create_takeover_stories/m);
+    // Cockpit may be the `cockpit` server or a claude.ai connector named otherwise: no allowlist, only the writing tools denied.
+    expect(front).not.toMatch(/^tools:/m);
+    expect(front).toMatch(/^disallowedTools:.*\bEdit\b.*\bWrite\b/m);
     expect(front).toMatch(/^model:\s*opus\s*$/m);
   });
 
