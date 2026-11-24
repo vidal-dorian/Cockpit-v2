@@ -22,6 +22,12 @@ export const RUN_STATUSES: Record<string, string> = {
   paused: "En pause : attend ta réponse",
 };
 
+/** A run status inside a sentence: lowercase, except a label that starts with an acronym (« PR à ouvrir »). */
+export const statusLabel = (status: string) => {
+  const label = RUN_STATUSES[status] ?? status;
+  return /^[A-Z]{2}/.test(label) ? label : label.toLowerCase();
+};
+
 /** The result labels of an acceptance criterion (decision 035 F). */
 export const CRITERION_RESULTS: Record<string, string> = {
   passed: "Réussi",

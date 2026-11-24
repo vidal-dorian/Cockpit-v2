@@ -7,7 +7,7 @@ import { RunControls } from "./RunControls.tsx";
 import { RunQuestions } from "./RunQuestions.tsx";
 import { RunAction, RunVerdict } from "./RunVerdict.tsx";
 import { Breadcrumb, repoName, StateSentence } from "./Shell.tsx";
-import { CRITERION_RESULTS, RUN_STATUSES } from "./tickets.ts";
+import { CRITERION_RESULTS, RUN_STATUSES, statusLabel } from "./tickets.ts";
 import {
   alertBox,
   badge,
@@ -286,9 +286,7 @@ export function RunPage() {
               title={`Run ${found.run.id} · ${
                 waiting
                   ? "Claude attend ta réponse"
-                  : (
-                      RUN_STATUSES[found.run.status] ?? found.run.status
-                    ).toLowerCase()
+                  : statusLabel(found.run.status)
               }.`}
               rest={
                 <Link
@@ -302,6 +300,7 @@ export function RunPage() {
                 <RunControls
                   runId={id}
                   running={found.run.status === "running"}
+                  prToOpen={found.run.status === "pr_to_open"}
                   archived={found.project.archived}
                   stopRequested={found.run.stopRequestedAt !== null}
                   relaunchStoryId={

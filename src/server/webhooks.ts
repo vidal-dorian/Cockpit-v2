@@ -41,7 +41,11 @@ const idIn = (value: unknown) => idOf.safeParse(value).data?.id ?? null;
 async function projectOfRepo(db: Db | Tx, repoId: number | null) {
   if (repoId === null) return undefined;
   const [project] = await db
-    .select({ id: projects.id, userId: projectMembers.userId })
+    .select({
+      id: projects.id,
+      fullName: projects.fullName,
+      userId: projectMembers.userId,
+    })
     .from(projects)
     .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
     // The owner: the entries of a delivery are his, whoever else is a member (decision 076).
@@ -148,7 +152,11 @@ const pullNumbers = z.object({
 const openedHead = z.object({
   pull_request: z.object({
     number: z.number(),
-    head: z.object({ ref: z.string() }),
+    // null: the fork was deleted.
+    head: z.object({
+      ref: z.string(),
+      repo: z.object({ full_name: z.string() }).nullable(),
+    }),
   }),
 });
 
@@ -170,20 +178,20 @@ async function handlePullRequest(
   if (!project) return;
   const head = openedHead.safeParse(delivery.payload);
   const { pull_request: opened } = head.data ?? {};
-  // The story is linked as it is on GitHub now: nothing more to read.
+  // The run is linked first; the loop below then follows the PR now on the story.
   if (
     delivery.event === "pull_request" &&
     delivery.action === "opened" &&
-    opened &&
-    (await linkOpenedPullRequest(
+    opened
+  )
+    await linkOpenedPullRequest(
       db,
       readGitHub,
       project,
       opened.head.ref,
+      opened.head.repo?.full_name,
       opened.number,
-    ))
-  )
-    return;
+    );
   for (const number of numbers) {
     const [story] = await db
       .select({ id: userStories.id })

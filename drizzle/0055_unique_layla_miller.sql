@@ -1,0 +1,2 @@
+ALTER TABLE "night_items" DROP CONSTRAINT "night_items_outcome_check";--> statement-breakpoint
+ALTER TABLE "night_items" ADD CONSTRAINT "night_items_outcome_check" CHECK ("night_items"."outcome" in ('pr', 'paused', 'pr_to_open', 'ci_failed', 'failed', 'skipped', 'not_started'));

@@ -72,6 +72,7 @@ export function RunControls({
   archived,
   stopRequested,
   relaunchStoryId,
+  prToOpen = false,
 }: {
   runId: string;
   running: boolean;
@@ -79,6 +80,8 @@ export function RunControls({
   stopRequested: boolean;
   /** The story of a finished run that can be launched again, or null. */
   relaunchStoryId: number | null;
+  /** A run left at pr_to_open: it can only be closed (the server refuses a stop). */
+  prToOpen?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
@@ -104,7 +107,7 @@ export function RunControls({
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["run", runId] }),
   });
-  if (!running)
+  if (!running && !prToOpen)
     return relaunchStoryId === null || archived ? null : (
       <Link to={`/us/${relaunchStoryId}?developper`} className={button}>
         Relancer
@@ -113,7 +116,7 @@ export function RunControls({
   return (
     <div className="flex max-w-full shrink-0 md:max-w-[320px] flex-col items-end gap-2 text-right text-[13px]">
       <div className="flex flex-wrap justify-end gap-2">
-        {!stopRequested && (
+        {!stopRequested && !prToOpen && (
           <button
             type="button"
             disabled={archived || send.isPending}

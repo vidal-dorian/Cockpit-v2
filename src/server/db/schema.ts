@@ -659,13 +659,21 @@ export const nightItems = pgTable(
     // The extra prompt of the night's one CI retry, waiting for the slot (decision 044 F'); null when none is waiting.
     ciRetryComment: text("ci_retry_comment"),
     outcome: text("outcome", {
-      enum: ["pr", "paused", "ci_failed", "failed", "skipped", "not_started"],
+      enum: [
+        "pr",
+        "paused",
+        "pr_to_open",
+        "ci_failed",
+        "failed",
+        "skipped",
+        "not_started",
+      ],
     }),
   },
   (t) => [
     check(
       "night_items_outcome_check",
-      sql`${t.outcome} in ('pr', 'paused', 'ci_failed', 'failed', 'skipped', 'not_started')`,
+      sql`${t.outcome} in ('pr', 'paused', 'pr_to_open', 'ci_failed', 'failed', 'skipped', 'not_started')`,
     ),
   ],
 );

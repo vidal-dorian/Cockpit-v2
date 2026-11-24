@@ -92,7 +92,7 @@ With `--night`, nobody is there to answer: never wait for an answer. When a choi
 5. Call `mcp__cockpit__link_pull_request` with the `run_id` and the number of the pull request you just opened (or the story's `pr_number`).
 6. Call `mcp__cockpit__finish_run` with `outcome` `succeeded` and a `summary` of the work.
 7. If the pull request could not be opened at step 4, the work is not a failure: with the branch pushed, call `mcp__cockpit__finish_run` with `outcome` `pr_to_open` and a `summary` of the work (skip steps 5 and 6), and tell the user to open the pull request from the branch on GitHub (Cockpit links it once it is open).
-8. Tell the user the link of the pull request, and what you are unsure about.
+8. Tell the user the link of the pull request, and what you are unsure about. On the `pr_to_open` path there is no link: say the pull request is to be opened from the branch.
 
 ## Never
 

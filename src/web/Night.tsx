@@ -27,6 +27,7 @@ const REFUSED = "Cette action a été refusée : recharge la page.";
 export const OUTCOMES: Record<string, string> = {
   pr: "PR ouverte",
   paused: "En pause : attend ta réponse",
+  pr_to_open: "PR à ouvrir",
   ci_failed: "CI en échec",
   failed: "Échouée",
   skipped: "Sautée : plus prête",

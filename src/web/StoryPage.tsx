@@ -12,7 +12,7 @@ import { fetchStory, StoryDecisions, StoryHistory } from "./StoryDecisions.tsx";
 import { StoryDiverged } from "./StoryDiverged.tsx";
 import { StoryGitHub } from "./StoryGitHub.tsx";
 import { StoryIssue } from "./StoryIssue.tsx";
-import { RUN_STATUSES, STORY_STATUSES } from "./tickets.ts";
+import { STORY_STATUSES, statusLabel } from "./tickets.ts";
 import {
   alertBox,
   button,
@@ -260,8 +260,7 @@ export function StoryPage() {
                         to={`/runs/${run.id}`}
                         className={`font-semibold ${focusRing}`}
                       >
-                        Run {run.id} ·{" "}
-                        {(RUN_STATUSES[run.status] ?? run.status).toLowerCase()}
+                        Run {run.id} · {statusLabel(run.status)}
                       </Link>
                       <span className="text-[12.5px] text-muted-foreground">
                         {runSpan(run)}

@@ -335,14 +335,17 @@ async function attachPullRequest(
   });
 }
 
-/** Decision 094 D: a PR opened on the branch of a story whose latest run is `pr_to_open` is linked as `link_pull_request` would, and the run succeeds. Nothing happens for any other branch or run (false). */
+/** Decision 094 D: a PR opened on the branch of a story whose latest run is `pr_to_open` is linked as `link_pull_request` would, and the run succeeds. Nothing happens for any other branch, fork or run (false). */
 export async function linkOpenedPullRequest(
   db: Db,
   readGitHub: ReadGitHub,
-  project: { id: number; userId: number },
+  project: { id: number; userId: number; fullName: string },
   branch: string,
+  headRepo: string | undefined,
   prNumber: number,
 ) {
+  // A fork (or a deleted one) is no PR of the project: link_pull_request refuses it too.
+  if (headRepo !== project.fullName) return false;
   const [row] = await db
     .select({ storyId: userStories.id, runId: runs.id })
     .from(userStories)
